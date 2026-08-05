@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+
+# IDE (covers a stray .idea at the repo root just as well as one under android/)
+.idea/
+*.iml
+
+# Local scratch/build checkpoints not meant to be tracked history
+BUILD_CHECKPOINT.md

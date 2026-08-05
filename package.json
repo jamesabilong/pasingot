@@ -1,0 +1,23 @@
+{
+  "name": "workout-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal workout planner: PWA + Capacitor Android wrapper + Wear OS companion.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./pwa/vendor/tailwind-input.css -o ./pwa/vendor/tailwind.css --minify",
+    "serve:pwa": "serve -l 8090 ./pwa",
+    "cap:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/local-notifications": "^8.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,15 @@
+// Plain kotlin("jvm") module — no Android/Compose deps — so both :app (phone)
+// and :wear (watch) can depend on it without pulling in unrelated toolchains,
+// and so the payload/log/session shapes can never drift between the two.
+apply plugin: 'org.jetbrains.kotlin.jvm'
+apply plugin: 'kotlinx-serialization'
+
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationJsonVersion"
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}

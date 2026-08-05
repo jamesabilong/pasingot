@@ -1,0 +1,14 @@
+{
+  "appId": "app.personal.workouttracker",
+  "appName": "Workout Tracker",
+  "webDir": "pwa",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_workout",
+      "iconColor": "#4f46e5"
+    }
+  }
+}

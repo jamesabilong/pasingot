@@ -1,0 +1,64 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'kotlinx-serialization'
+
+android {
+    namespace = "app.personal.workouttracker.wear"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "app.personal.workouttracker.wear"
+        minSdkVersion rootProject.ext.minSdkVersion // 33 — Galaxy Watch 7 ships Wear OS 5 (API 34)
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        // Matches Kotlin 1.9.24 (see root build.gradle's kotlinVersion).
+        kotlinCompilerExtensionVersion = '1.5.14'
+    }
+}
+
+dependencies {
+    implementation project(':shared')
+
+    implementation platform("androidx.compose:compose-bom:$composeBomVersion")
+    implementation "androidx.activity:activity-compose:$activityComposeVersion"
+    implementation "androidx.wear.compose:compose-material:$wearComposeVersion"
+    implementation "androidx.wear.compose:compose-foundation:$wearComposeVersion"
+    implementation "androidx.wear.compose:compose-navigation:$wearComposeVersion"
+    implementation "androidx.navigation:navigation-compose:2.8.4"
+    implementation "androidx.wear:wear-tooling-preview:$wearToolingPreviewVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+
+    implementation "com.google.android.gms:play-services-wearable:$playServicesWearableVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:$kotlinxCoroutinesPlayServicesVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinxCoroutinesVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationJsonVersion"
+
+    implementation "androidx.datastore:datastore-preferences:$datastorePreferencesVersion"
+    implementation "androidx.work:work-runtime-ktx:$workManagerVersion"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
+
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+}

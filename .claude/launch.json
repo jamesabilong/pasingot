@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pwa-server",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "-l", "8090", "/Users/fdc-james-mt-web/Documents/Random/pasingot/pwa"],
+      "port": 8090
+    }
+  ]
+}

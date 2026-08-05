@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.type.watch" />
+
+    <!-- INTERNET/WAKE_LOCK for the Data Layer client + WorkManager background
+         download job (Prompt 5). No RECEIVE_BOOT_COMPLETED needed here — the
+         scheduled download worker re-enqueues itself, it doesn't need to
+         survive a reboot with a manifest receiver. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+
+        <!-- Standalone: Prompt 4 req — the active session screen reads a
+             locally downloaded workout entry and does not need a live phone
+             connection to run. -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+
+        <!-- Single-activity implementation (Prompt 4 req 5): the list screen
+             (Prompt 5) and the active session screen (Prompt 4) are both
+             Compose Navigation destinations hosted by this one Activity. -->
+        <activity
+            android:name=".WearMainActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Prompt 6: receives the phone's reply to /request-workout as a
+             DataClient item on /workout-set. Manifest-registered so a reply
+             arriving from the scheduled-download path is handled even if the
+             watch app isn't in the foreground. -->
+        <service
+            android:name=".data.WorkoutSetListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:path="/workout-set" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>

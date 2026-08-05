@@ -1,0 +1,34 @@
+ext {
+    // Personal-use build targets Android 13+ only (Galaxy S25 ships on 15).
+    // See Prompt 3 req 1 in the v5 build doc.
+    minSdkVersion = 33
+    // Bumped from 36 to match the platform actually installed via Android
+    // Studio's SDK Manager on this machine (android-36 wasn't present,
+    // android-37 was) — see android/README.md for how to check/install.
+    compileSdkVersion = 37
+    targetSdkVersion = 37
+    androidxActivityVersion = '1.11.0'
+    androidxAppCompatVersion = '1.7.1'
+    androidxCoordinatorLayoutVersion = '1.3.0'
+    androidxCoreVersion = '1.17.0'
+    androidxFragmentVersion = '1.8.9'
+    coreSplashScreenVersion = '1.2.0'
+    androidxWebkitVersion = '1.14.0'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.3.0'
+    androidxEspressoCoreVersion = '3.7.0'
+    cordovaAndroidVersion = '14.0.1'
+
+    // Shared across :app and :wear so the Data Layer (play-services-wearable)
+    // and serialization versions never drift between phone and watch code.
+    playServicesWearableVersion = '19.0.0'
+    kotlinxCoroutinesVersion = '1.8.1'
+    kotlinxCoroutinesPlayServicesVersion = '1.8.1'
+    kotlinxSerializationJsonVersion = '1.6.3'
+    datastorePreferencesVersion = '1.1.1'
+    workManagerVersion = '2.9.1'
+    wearComposeVersion = '1.4.0'
+    wearToolingPreviewVersion = '1.0.0'
+    activityComposeVersion = '1.9.3'
+    composeBomVersion = '2024.10.01'
+}
