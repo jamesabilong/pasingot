@@ -8,8 +8,12 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationJsonVersion"
 }
 
-compileKotlin {
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
+// The plain kotlin("jvm") plugin doesn't auto-align its Java/Kotlin compile
+// targets the way the Android Kotlin plugin does for :app/:wear — compileJava
+// silently defaults to whatever JDK is running Gradle (now 21, since the
+// daemon JVM toolchain migration), while compileKotlin stays wherever it's
+// pinned separately, causing an "Inconsistent JVM Target Compatibility"
+// error. A JVM toolchain pins both consistently in one place.
+kotlin {
+    jvmToolchain(17)
 }

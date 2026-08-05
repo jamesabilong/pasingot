@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlinx-serialization'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace = "app.personal.workouttracker.wear"
@@ -18,22 +19,30 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        // Bumped from 1.8 to 17: the Compose compiler plugin pushed
+        // compileDebugKotlin's default jvmTarget to 21 (matching the Gradle
+        // daemon's own JDK) in this Kotlin/AGP version, and Java/Kotlin
+        // targets must match exactly, or compileDebugKotlin fails outright.
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     buildFeatures {
         compose true
     }
-    composeOptions {
-        // Matches Kotlin 1.9.24 (see root build.gradle's kotlinVersion).
-        kotlinCompilerExtensionVersion = '1.5.14'
-    }
+}
+
+// compileOptions above doesn't reliably pin compileDebugKotlin's target in
+// this Kotlin/AGP version (it kept defaulting to 21, the Gradle daemon's own
+// JDK, regardless) — a JVM toolchain pins both Java and Kotlin consistently
+// in one place instead, same fix as :shared.
+kotlin {
+    jvmToolchain(17)
 }
 
 dependencies {

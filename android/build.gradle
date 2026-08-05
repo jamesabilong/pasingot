@@ -5,7 +5,7 @@ buildscript {
         // Pinned once here so :app and :wear can't drift on Kotlin/Data Layer
         // versions — see the plan's note on this being a common source of
         // runtime Wearable Data Layer failures.
-        kotlinVersion = '1.9.24'
+        kotlinVersion = '2.2.10'
     }
 
     repositories {
@@ -13,8 +13,9 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'com.android.tools.build:gradle:9.3.1'
         classpath 'com.google.gms:google-services:4.4.4'
+        classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.2.10'
         // Kotlin support for :app (native data-layer code) and :wear (Compose).
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion"

@@ -38,13 +38,19 @@ enum class EntryDisplayStatus(val label: String) {
     STALE("Needs re-download"),
 }
 
-fun DownloadedWorkoutEntry.displayStatus(): EntryDisplayStatus = when {
-    schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
-    sessionState == null -> EntryDisplayStatus.NOT_STARTED
-    sessionState.status == SessionStatus.ACTIVE -> EntryDisplayStatus.IN_PROGRESS
-    sessionState.status == SessionStatus.PAUSED -> EntryDisplayStatus.PAUSED
-    sessionState.status == SessionStatus.COMPLETED -> EntryDisplayStatus.COMPLETED
-    else -> EntryDisplayStatus.NOT_STARTED
+fun DownloadedWorkoutEntry.displayStatus(): EntryDisplayStatus {
+    // sessionState is declared in :shared — a different module — so Kotlin
+    // won't smart-cast it across the module boundary even after a null
+    // check. Binding it to a local val sidesteps that entirely.
+    val session = sessionState
+    return when {
+        schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
+        session == null -> EntryDisplayStatus.NOT_STARTED
+        session.status == SessionStatus.ACTIVE -> EntryDisplayStatus.IN_PROGRESS
+        session.status == SessionStatus.PAUSED -> EntryDisplayStatus.PAUSED
+        session.status == SessionStatus.COMPLETED -> EntryDisplayStatus.COMPLETED
+        else -> EntryDisplayStatus.NOT_STARTED
+    }
 }
 
 /** Result of attempting to add a newly-downloaded workout set (Prompt 5 req 3). */
