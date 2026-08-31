@@ -67,9 +67,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **`POST_NOTIFICATIONS` runtime request** — [`MainActivity.kt`](app/src/main/java/app/personal/workouttracker/MainActivity.kt)
   requests it on first launch only (SDK ≥ 33), guarded by a `SharedPreferences`
   flag so it's never re-prompted.
-- **Offline support carries over** — the service worker registered by
-  `app.js` (Prompt 1 req 7) runs inside the WebView exactly as it does in a
-  browser tab; no native changes needed for offline caching.
+- **Offline support carries over** — the service worker registered by the
+  React PWA entry point (`pwa/src/main.tsx`, Prompt 1 req 7) runs inside the
+  WebView exactly as it does in a browser tab; no native changes needed for
+  offline caching.
 
 ## Module layout
 

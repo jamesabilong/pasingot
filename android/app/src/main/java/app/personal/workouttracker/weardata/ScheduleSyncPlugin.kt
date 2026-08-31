@@ -10,7 +10,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 /**
  * JS -> native bridge for Prompt 6's "schedule bridge" decision: the PWA
  * calls `ScheduleSync.syncSchedule({ rows })` every time it parses a CSV
- * (see pwa/app.js), handing the full multi-day schedule to native code so
+ * (see pwa/src/lib/native-bridge.ts), handing the full multi-day schedule to native code so
  * WorkoutRequestListenerService has something to read without reaching into
  * IndexedDB (which a background Kotlin service can't do anyway).
  *

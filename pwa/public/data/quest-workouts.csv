@@ -1,0 +1,46 @@
+schema_version,quest_id,level,day_number,day_label,sequence,progression_group,exercise_source_id,sets,reps,rest
+1,balanced-foundations-4w,beginner,1,Foundation A,1,cardio,1104,1,15 min,0
+1,balanced-foundations-4w,beginner,1,Foundation A,2,squat,1312,2,8-10,75
+1,balanced-foundations-4w,beginner,1,Foundation A,3,push,713,2,8-10,75
+1,balanced-foundations-4w,beginner,1,Foundation A,4,pull,636,2,8-10,60
+1,balanced-foundations-4w,beginner,1,Foundation A,5,core,1572,2,6/side,45
+1,balanced-foundations-4w,beginner,2,Foundation B,1,cardio,1104,1,15 min,0
+1,balanced-foundations-4w,beginner,2,Foundation B,2,hinge,265,2,8-10,75
+1,balanced-foundations-4w,beginner,2,Foundation B,3,push,713,2,8-10,75
+1,balanced-foundations-4w,beginner,2,Foundation B,4,pull,636,2,8-10,60
+1,balanced-foundations-4w,beginner,2,Foundation B,5,core,1572,2,6/side,45
+1,balanced-foundations-4w,beginner,3,Foundation C,1,cardio,1104,1,15 min,0
+1,balanced-foundations-4w,beginner,3,Foundation C,2,squat,1312,2,8-10,75
+1,balanced-foundations-4w,beginner,3,Foundation C,3,hinge,265,2,8-10,75
+1,balanced-foundations-4w,beginner,3,Foundation C,4,pull,636,2,8-10,60
+1,balanced-foundations-4w,beginner,3,Foundation C,5,core,1572,2,6/side,45
+1,balanced-foundations-4w,intermediate,1,Foundation A,1,cardio,319,1,20 min,0
+1,balanced-foundations-4w,intermediate,1,Foundation A,2,squat,984,3,8-12,75
+1,balanced-foundations-4w,intermediate,1,Foundation A,3,push,1551,3,8-12,75
+1,balanced-foundations-4w,intermediate,1,Foundation A,4,pull,81,3,8-12,75
+1,balanced-foundations-4w,intermediate,1,Foundation A,5,core,458,3,30 sec,45
+1,balanced-foundations-4w,intermediate,2,Foundation B,1,cardio,319,1,20 min,0
+1,balanced-foundations-4w,intermediate,2,Foundation B,2,hinge,507,3,8-12,90
+1,balanced-foundations-4w,intermediate,2,Foundation B,3,push,1551,3,8-12,75
+1,balanced-foundations-4w,intermediate,2,Foundation B,4,pull,81,3,8-12,75
+1,balanced-foundations-4w,intermediate,2,Foundation B,5,core,458,3,30 sec,45
+1,balanced-foundations-4w,intermediate,3,Foundation C,1,cardio,319,1,20 min,0
+1,balanced-foundations-4w,intermediate,3,Foundation C,2,squat,984,3,8-12,75
+1,balanced-foundations-4w,intermediate,3,Foundation C,3,hinge,507,3,8-12,90
+1,balanced-foundations-4w,intermediate,3,Foundation C,4,pull,81,3,8-12,75
+1,balanced-foundations-4w,intermediate,3,Foundation C,5,core,458,3,30 sec,45
+1,balanced-foundations-4w,advanced,1,Foundation A,1,cardio,319,1,30 min,0
+1,balanced-foundations-4w,advanced,1,Foundation A,2,squat,1706,4,6-10,90
+1,balanced-foundations-4w,advanced,1,Foundation A,3,push,1112,4,8-12,75
+1,balanced-foundations-4w,advanced,1,Foundation A,4,pull,475,4,5-8,90
+1,balanced-foundations-4w,advanced,1,Foundation A,5,core,283,3,8-12,60
+1,balanced-foundations-4w,advanced,2,Foundation B,1,cardio,319,1,30 min,0
+1,balanced-foundations-4w,advanced,2,Foundation B,2,hinge,184,4,5-8,120
+1,balanced-foundations-4w,advanced,2,Foundation B,3,push,1112,4,8-12,75
+1,balanced-foundations-4w,advanced,2,Foundation B,4,pull,475,4,5-8,90
+1,balanced-foundations-4w,advanced,2,Foundation B,5,core,283,3,8-12,60
+1,balanced-foundations-4w,advanced,3,Foundation C,1,cardio,319,1,30 min,0
+1,balanced-foundations-4w,advanced,3,Foundation C,2,squat,1706,4,6-10,90
+1,balanced-foundations-4w,advanced,3,Foundation C,3,hinge,184,4,5-8,120
+1,balanced-foundations-4w,advanced,3,Foundation C,4,pull,475,4,5-8,90
+1,balanced-foundations-4w,advanced,3,Foundation C,5,core,283,3,8-12,60

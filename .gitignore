@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+pwa/dist/
+output/playwright/
 
 # OS
 .DS_Store
@@ -7,6 +9,7 @@ node_modules/
 # IDE (covers a stray .idea at the repo root just as well as one under android/)
 .idea/
 *.iml
+.playwright-cli/
 
 # Local scratch/build checkpoints not meant to be tracked history
 BUILD_CHECKPOINT.md

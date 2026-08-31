@@ -1,7 +1,7 @@
 {
   "appId": "app.personal.workouttracker",
   "appName": "Workout Tracker",
-  "webDir": "pwa",
+  "webDir": "pwa/dist",
   "android": {
     "allowMixedContent": false
   },

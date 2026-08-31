@@ -4,20 +4,31 @@
   "private": true,
   "description": "Personal workout planner: PWA + Capacitor Android wrapper + Wear OS companion.",
   "scripts": {
-    "build:css": "tailwindcss -i ./pwa/vendor/tailwind-input.css -o ./pwa/vendor/tailwind.css --minify",
-    "serve:pwa": "serve -l 8090 ./pwa",
-    "cap:sync": "cap sync android"
+    "data:exercises": "node ./scripts/scrape-exercise-catalog.mjs",
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "serve:pwa": "vite --host 0.0.0.0",
+    "preview": "vite preview --host 0.0.0.0",
+    "cap:sync": "npm run build && cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/filesystem": "^8.1.2",
-    "@capacitor/local-notifications": "^8.2.1"
+    "@capacitor/local-notifications": "^8.2.1",
+    "papaparse": "^5.7.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.0",
-    "@tailwindcss/cli": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
   }
 }
