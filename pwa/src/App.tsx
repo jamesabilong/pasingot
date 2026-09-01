@@ -221,6 +221,9 @@ export default function App() {
     let disposed = false;
     async function initialize() {
       await Promise.all([refreshWorkouts(), refreshLogs()]);
+      // Refresh the native cache after an app upgrade as well as after an
+      // explicit schedule edit, so existing quest rows gain new bridge fields.
+      await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
       let freshCatalog: ExerciseCatalogItem[] = [];
       try {
         const response = await fetch('/data/exercises.csv');
@@ -331,6 +334,19 @@ export default function App() {
     return workouts.filter((row) => row.questId === questState.questId && row.questDayIndex === questState.nextDayIndex);
   }, [questState, workouts]);
 
+  useEffect(() => {
+    // Watch logs arrive through the native bridge while the app resumes.
+    // Reconcile one representative row per quest day after those logs enter
+    // IndexedDB; phone-button logs use this same path through the logs state.
+    const candidates = new Map<string, WorkoutRow>();
+    workouts.forEach((row) => {
+      if (!row.questId || row.questDayIndex == null || row.id == null) return;
+      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id && log.date.startsWith(todayDateKey()));
+      if (hasLinkedLog) candidates.set(`${row.questId}:${row.questDayIndex}`, row);
+    });
+    candidates.forEach((row) => { void maybeCompleteQuestDay(row, logs); });
+  }, [logs, questTemplates, workouts]);
+
   const inHistoryRange = useCallback((value: string) => {
     if (historyRange === 'all') return true;
     const date = new Date(value);
@@ -379,7 +395,6 @@ export default function App() {
     await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, status, workoutRowId: row.id } satisfies WorkoutLog);
     const latestLogs = await getAll<WorkoutLog>(STORES.logs);
     setLogs(latestLogs);
-    await maybeCompleteQuestDay(row, latestLogs);
   }
 
   async function importCsv(file: File) {

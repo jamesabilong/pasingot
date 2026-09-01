@@ -7,6 +7,7 @@ interface PendingWatchLog {
   timestamp: string;
   exercise: string;
   status: WorkoutLog['status'];
+  workoutRowId?: number | null;
 }
 
 declare global {
@@ -44,7 +45,7 @@ export async function drainPendingWatchLogs(): Promise<number> {
         date: log.timestamp,
         exercise: log.exercise,
         status: log.status,
-        workoutRowId: null,
+        workoutRowId: log.workoutRowId ?? null,
       } satisfies WorkoutLog);
     }
     if (logs.length) await bridge.ackLogs({ ids: logs.map((log) => log.id) });

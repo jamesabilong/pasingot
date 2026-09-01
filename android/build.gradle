@@ -13,7 +13,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:9.3.1'
+        classpath 'com.android.tools.build:gradle:9.3.2'
         classpath 'com.google.gms:google-services:4.4.4'
         classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.2.10'
         // Kotlin support for :app (native data-layer code) and :wear (Compose).

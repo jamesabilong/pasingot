@@ -1,6 +1,7 @@
 package app.personal.workouttracker.wear.data
 
 import app.personal.workouttracker.shared.LogStatus
+import app.personal.workouttracker.shared.WorkoutExercise
 
 /**
  * Thin seam between the session screen (Prompt 4) and log delivery
@@ -11,5 +12,5 @@ import app.personal.workouttracker.shared.LogStatus
  */
 fun interface LogSender {
     /** [status] should be [LogStatus.DONE] or [LogStatus.SKIPPED]. */
-    suspend fun send(exercise: String, status: String)
+    suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?)
 }

@@ -3,7 +3,6 @@ package app.personal.workouttracker.wear.session
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,8 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material.Button
-import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
@@ -28,19 +26,19 @@ import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
 
 /**
- * Prompt 4: the active-session screen for a workout already in progress.
- * Round-screen-optimized via ScalingLazyColumn; exactly four in-session
- * actions (Next Exercise, Complete Set, Skip, Pause) — no Reset here.
+ * Focused active-exercise screen for a downloaded workout. One exercise is
+ * shown at a time with its prescription and four direct actions.
  */
 @Composable
-fun SessionScreen(viewModel: SessionViewModel) {
+fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
 
     // Exiting without an explicit unfinished state behaves like Pause, so
     // progress is never lost by accident — covers both the system back
     // gesture and the app being backgrounded/closed outright.
     BackHandler(enabled = true) {
-        viewModel.saveOnExitIfActive()
+        viewModel.onCancel()
+        onCancel()
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -68,7 +66,23 @@ fun SessionScreen(viewModel: SessionViewModel) {
     ) {
         item {
             Text(
-                text = "Set ${session.currentSet} of ${exercise.sets}",
+                text = "ONGOING",
+                style = MaterialTheme.typography.caption2,
+                color = MaterialTheme.colors.primary,
+            )
+        }
+        state.entry?.exercises?.firstNotNullOfOrNull { it.questDayLabel }?.let { questDayLabel ->
+            item {
+                Text(
+                    text = questDayLabel,
+                    style = MaterialTheme.typography.caption1,
+                    color = MaterialTheme.colors.primary,
+                )
+            }
+        }
+        item {
+            Text(
+                text = "Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
                 style = MaterialTheme.typography.caption1,
             )
         }
@@ -80,35 +94,39 @@ fun SessionScreen(viewModel: SessionViewModel) {
             )
         }
         item {
-            // reps kept as text — may be a range like "8-12", never parsed as Int.
-            Text(text = "${exercise.reps} reps", style = MaterialTheme.typography.body1)
+            Text(
+                text = "${exercise.sets} sets · ${exercise.reps} reps · ${exercise.rest}s rest",
+                style = MaterialTheme.typography.body1,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
         item {
-            Row(
+            Chip(
+                onClick = viewModel::onDone,
+                label = { Text("Done") },
+                colors = ChipDefaults.primaryChipColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            ) {
-                Button(onClick = viewModel::onCompleteSet, colors = ButtonDefaults.primaryButtonColors()) {
-                    Text("✓", style = MaterialTheme.typography.button)
-                }
-                Button(onClick = viewModel::onSkip, colors = ButtonDefaults.secondaryButtonColors()) {
-                    Text("Skip", style = MaterialTheme.typography.button)
-                }
-            }
+            )
         }
         item {
             CompactChip(
-                onClick = viewModel::onNextExercise,
-                label = { Text("Next Exercise") },
+                onClick = viewModel::onUpgrade,
+                label = { Text("Upgrade (+1 set)") },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
         item {
-            // Reachable without extra taps, but visually de-emphasized —
-            // Complete Set/Skip are the primary actions per Prompt 4 req 4.
             CompactChip(
-                onClick = viewModel::onPause,
-                label = { Text("Pause") },
+                onClick = viewModel::onDowngrade,
+                label = { Text("Downgrade (-1 set)") },
+                colors = ChipDefaults.secondaryChipColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            CompactChip(
+                onClick = { viewModel.onCancel(); onCancel() },
+                label = { Text("Cancel") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
             )

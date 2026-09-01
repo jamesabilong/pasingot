@@ -8,7 +8,9 @@ android {
     compileSdk = rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "app.personal.workouttracker.wear"
+        // Wearable Data Layer only routes app data between APKs whose
+        // application id and signing certificate match on both devices.
+        applicationId "app.personal.workouttracker"
         minSdkVersion rootProject.ext.minSdkVersion // 33 — Galaxy Watch 7 ships Wear OS 5 (API 34)
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

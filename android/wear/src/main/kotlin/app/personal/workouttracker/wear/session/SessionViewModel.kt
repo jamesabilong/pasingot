@@ -53,32 +53,19 @@ class SessionViewModel(
         }
     }
 
-    /** Complete Set: logs the current set done, advances the set counter (or
-     *  the exercise, once all sets for it are done) — Prompt 4 req 2. */
-    fun onCompleteSet() = mutate { entry, session ->
+    /** Completes the whole active exercise and advances to the next one. */
+    fun onDone() = mutate { entry, session ->
         val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate session
-        viewModelScope.launch { logSender.send(exercise.exercise, LogStatus.DONE) }
-        advanceSet(entry, session)
-    }
-
-    /** Skip: marks the *current exercise* as skipped and advances to the next
-     *  one — Prompt 4 req 2. Distinct from Next Exercise, which advances
-     *  without logging anything. */
-    fun onSkip() = mutate { entry, session ->
-        val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate session
-        viewModelScope.launch { logSender.send(exercise.exercise, LogStatus.SKIPPED) }
+        viewModelScope.launch { logSender.send(exercise, LogStatus.DONE, exercise.workoutRowId) }
         advanceExercise(entry, session)
     }
 
-    /** Next Exercise: advances to the next exercise with no log entry of its
-     *  own — for moving on once you've logged what you're going to log via
-     *  Complete Set, without it counting as a Skip. */
-    fun onNextExercise() = mutate { entry, session -> advanceExercise(entry, session) }
+    /** Cancels the active view without completing or skipping the exercise. */
+    fun onCancel() = persistPaused()
 
-    /** Pause: saves progress and lets the user leave. Also the exact path
-     *  taken automatically on back/close (Prompt 4 req 2) — one code path
-     *  for both, so progress is never lost by accident. */
-    fun onPause() = persistPaused()
+    fun onUpgrade() = adjustSets(1)
+
+    fun onDowngrade() = adjustSets(-1)
 
     /** Called from the screen's exit hooks (back press / lifecycle ON_STOP).
      *  A no-op if the session isn't currently "active" (e.g. already paused
@@ -90,18 +77,23 @@ class SessionViewModel(
 
     private fun persistPaused() = mutate { _, session -> session.copy(status = SessionStatus.PAUSED) }
 
-    private fun advanceSet(entry: DownloadedWorkoutEntry, session: SessionState): SessionState {
-        val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return session
-        val nextSet = session.currentSet + 1
-        return if (nextSet > exercise.sets) {
-            advanceExerciseIndex(entry, session)
-        } else {
-            session.copy(currentSet = nextSet)
-        }
-    }
-
     private fun advanceExercise(entry: DownloadedWorkoutEntry, session: SessionState): SessionState =
         advanceExerciseIndex(entry, session)
+
+    private fun adjustSets(delta: Int) {
+        val state = _uiState.value
+        val entry = state.entry ?: return
+        val session = state.session ?: return
+        val index = session.exerciseIndex
+        val exercise = entry.exercises.getOrNull(index) ?: return
+        val newSets = (exercise.sets + delta).coerceIn(1, 99)
+        if (newSets == exercise.sets) return
+
+        val updatedExercise = exercise.copy(sets = newSets)
+        val updatedExercises = entry.exercises.toMutableList().apply { this[index] = updatedExercise }
+        _uiState.value = state.copy(entry = entry.copy(exercises = updatedExercises))
+        viewModelScope.launch { repository.updateExercise(entryId, index, updatedExercise) }
+    }
 
     private fun advanceExerciseIndex(entry: DownloadedWorkoutEntry, session: SessionState): SessionState {
         val nextIndex = session.exerciseIndex + 1

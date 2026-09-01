@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import app.personal.workouttracker.shared.DataLayerPaths
 import app.personal.workouttracker.shared.LogEntry
+import app.personal.workouttracker.shared.WorkoutExercise
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
@@ -21,8 +22,13 @@ class LogSyncManager(private val context: Context) : LogSender {
     private val queue = LogQueueRepository(context)
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun send(exercise: String, status: String) {
-        val entry = LogEntry(exercise = exercise, status = status, timestamp = Instant.now().toString())
+    override suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?) {
+        val entry = LogEntry(
+            exercise = exercise.exercise,
+            status = status,
+            timestamp = Instant.now().toString(),
+            workoutRowId = workoutRowId,
+        )
         if (!trySend(entry)) {
             queue.enqueue(entry)
         }

@@ -9,6 +9,7 @@ import app.personal.workouttracker.shared.DownloadInsertPlan
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.WorkoutSetPayload
+import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.displayStatus
 import app.personal.workouttracker.shared.planWorkoutDownloadInsert
 import kotlinx.coroutines.flow.Flow
@@ -104,6 +105,21 @@ class WorkoutRepository(private val context: Context) {
             val current = prefs[key]?.let { decodeState(it) } ?: return@edit
             val updated = current.entries.map { if (it.id == entryId) it.copy(sessionState = newState) else it }
             prefs[key] = json.encodeToString(current.copy(entries = updated))
+        }
+    }
+
+    /** Saves a watch-side prescription adjustment made from the active
+     * exercise screen. The scheduled-row identity and quest metadata remain
+     * attached because [newExercise] is copied from the downloaded row. */
+    suspend fun updateExercise(entryId: String, exerciseIndex: Int, newExercise: WorkoutExercise) {
+        context.workoutDataStore.edit { prefs ->
+            val current = prefs[key]?.let { decodeState(it) } ?: return@edit
+            val updatedEntries = current.entries.map { entry ->
+                if (entry.id != entryId || exerciseIndex !in entry.exercises.indices) return@map entry
+                val exercises = entry.exercises.toMutableList().apply { this[exerciseIndex] = newExercise }
+                entry.copy(exercises = exercises)
+            }
+            prefs[key] = json.encodeToString(current.copy(entries = updatedEntries))
         }
     }
 

@@ -81,7 +81,10 @@ class WearMainActivity : ComponentActivity() {
                         val viewModel: SessionViewModel = viewModel(
                             factory = SessionViewModel.Factory(entryId, repository, logSyncManager)
                         )
-                        SessionScreen(viewModel = viewModel)
+                        SessionScreen(
+                            viewModel = viewModel,
+                            onCancel = { navController.popBackStack() },
+                        )
                     }
                 }
             }

@@ -37,7 +37,19 @@ class WorkoutRequestListenerService : WearableListenerService() {
         val todaysExercises: List<WorkoutExercise> = cached?.rows
             ?.filter { it.day.equals(today, ignoreCase = true) }
             ?.sortedBy { it.time }
-            ?.map { WorkoutExercise(exercise = it.exercise, reps = it.reps, sets = it.sets, rest = it.rest) }
+            ?.map {
+                WorkoutExercise(
+                    exercise = it.exercise,
+                    reps = it.reps,
+                    sets = it.sets,
+                    rest = it.rest,
+                    workoutRowId = it.workoutRowId,
+                    questId = it.questId,
+                    questDayIndex = it.questDayIndex,
+                    questDayLabel = it.questDayLabel,
+                    questLevel = it.questLevel,
+                )
+            }
             ?: emptyList()
 
         val payload = WorkoutSetPayload(date = todayDateKey(), exercises = todaysExercises)

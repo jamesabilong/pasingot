@@ -30,6 +30,7 @@ class WorkoutLogBridgePlugin : Plugin() {
                 put("exercise", record.entry.exercise)
                 put("status", record.entry.status)
                 put("timestamp", record.entry.timestamp)
+                put("workoutRowId", record.entry.workoutRowId)
             }
             logsArray.put(obj)
         }

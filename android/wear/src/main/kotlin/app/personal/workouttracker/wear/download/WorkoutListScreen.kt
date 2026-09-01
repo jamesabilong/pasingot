@@ -158,6 +158,7 @@ private fun WorkoutRow(
     val hasProgress = status == EntryDisplayStatus.IN_PROGRESS ||
         status == EntryDisplayStatus.PAUSED ||
         status == EntryDisplayStatus.COMPLETED
+    val questDayLabel = entry.exercises.firstNotNullOfOrNull { it.questDayLabel }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Chip(
@@ -166,8 +167,10 @@ private fun WorkoutRow(
                 // only Delete (via the ⋮ menu) is offered (Prompt 5 req 5).
                 if (status != EntryDisplayStatus.STALE) onStartOrResume()
             },
-            label = { Text(formatDateLabel(entry.date)) },
-            secondaryLabel = { Text(status.label) },
+            label = { Text(questDayLabel ?: formatDateLabel(entry.date)) },
+            secondaryLabel = {
+                Text(if (questDayLabel == null) status.label else "${formatDateLabel(entry.date)} · ${status.label}")
+            },
             colors = ChipDefaults.secondaryChipColors(),
             modifier = Modifier.fillMaxWidth(),
         )

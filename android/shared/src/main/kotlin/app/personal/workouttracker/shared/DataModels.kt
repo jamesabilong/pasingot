@@ -60,6 +60,11 @@ data class WorkoutExercise(
     val reps: String,
     val sets: Int,
     val rest: Int, // seconds
+    val workoutRowId: Long? = null,
+    val questId: String? = null,
+    val questDayIndex: Int? = null,
+    val questDayLabel: String? = null,
+    val questLevel: String? = null,
 )
 
 /**
@@ -183,6 +188,9 @@ data class LogEntry(
     val exercise: String,
     val status: String, // LogStatus.DONE | SKIPPED
     val timestamp: String, // ISO-8601, e.g. "2026-08-03T07:32:00Z"
+    /** Present when this log completes/skips a whole scheduled row. The
+     * phone uses it to update Today status and quest-day progress. */
+    val workoutRowId: Long? = null,
 )
 
 /**
@@ -201,6 +209,11 @@ data class ScheduleRow(
     val sets: Int,
     val reps: String,
     val rest: Int,
+    val workoutRowId: Long? = null,
+    val questId: String? = null,
+    val questDayIndex: Int? = null,
+    val questDayLabel: String? = null,
+    val questLevel: String? = null,
 )
 
 /** Phone-native cache of the full schedule, staged by ScheduleSyncPlugin and
