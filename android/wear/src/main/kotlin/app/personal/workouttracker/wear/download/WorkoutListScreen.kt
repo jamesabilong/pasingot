@@ -27,8 +27,8 @@ import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
-import app.personal.workouttracker.wear.data.EntryDisplayStatus
-import app.personal.workouttracker.wear.data.displayStatus
+import app.personal.workouttracker.shared.EntryDisplayStatus
+import app.personal.workouttracker.shared.displayStatus
 import java.text.SimpleDateFormat
 import java.util.Locale
 

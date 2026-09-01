@@ -11,13 +11,14 @@ updated at each checkpoint so the plan is visible from every device.
 - Stage 2: complete and committed as `2bc87c6 PST01: Migrate to react`.
 - Stage 3: complete and pushed as `f832f04 PST01: Redesign exercise library`.
 - Stage 4: complete and pushed as `d1796e4 PST01: Quest addition`.
-- Stage 5: complete in source and ready for review; the History source landed
-  with `d1796e4`, and the local service worker cache refresh is uncommitted.
-- Stage 6: complete in source and ready for review; phone and Wear emulator
-  install checks passed after native-shell layout fixes.
-- Active checkpoint: Stage 6 ready for review.
-- Local commit state: Stage 5 and Stage 6 follow-up changes are implemented
-  locally but not committed.
+- Stage 5: complete and included in the Stage 6 packaging commit.
+- Stage 6: complete and pushed as
+  `df0f94d PST01: Capacitor Packaging and Device Check`.
+- Stage 7: complete in source and ready for review; data-layer storage policy
+  is now covered by shared JVM tests.
+- Active checkpoint: Stage 7 ready for review.
+- Local commit state: Stage 7 follow-up changes are implemented locally but not
+  committed.
 - Commit rule: review and commit one stage at a time.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
@@ -212,7 +213,7 @@ Committed as `d1796e4 PST01: Quest addition`.
 
 ## Stage 5 - Workout and Quest History
 
-**Status:** ready for review.
+**Status:** complete and pushed on `origin/PST01`.
 
 Goal: replace the small summary-only History panel with a proper history page
 containing overview metrics, recent workout entries grouped by date, and quest
@@ -328,6 +329,64 @@ Device acceptance completed:
 10. Confirmed the Wear empty state is readable on the round emulator.
 11. Checked Wear logcat output and confirmed no fatal app crash.
 
-Checkpoint 6: stop for real-device review before committing.
+Checkpoint 6: complete.
 
-Suggested commit: `fix(android): polish native shell device checks`.
+Committed as `df0f94d PST01: Capacitor Packaging and Device Check`.
+
+## Stage 7 - Phone/Watch Data-Layer Contract Hardening
+
+**Status:** ready for review.
+
+Goal: harden the phone/watch sync boundary before real-device pairing tests.
+The live Data Layer path needs both the phone and watch online; because the
+current device rule is physical-device-first and otherwise only one emulator at
+a time, this stage focuses on static review, shared policy tests, and compile
+checks.
+
+Files changed in this stage:
+
+- `android/shared/build.gradle`
+- `android/shared/src/main/kotlin/app/personal/workouttracker/shared/DataModels.kt`
+- `android/shared/src/test/kotlin/app/personal/workouttracker/shared/DataModelsTest.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/data/LogQueueRepository.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/data/LogSyncManager.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/data/NotificationHelper.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/data/WorkoutRepository.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/data/WorkoutSetListenerService.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/download/WorkoutListScreen.kt`
+
+Changes completed:
+
+- Moved downloaded-workout display status and cap/duplicate/schema insert
+  policy into the shared JVM contract module.
+- Added shared tests for stale schema handling, duplicate-date protection,
+  completed-entry eviction, cap blocking, and successful insert behavior.
+- Fixed stale `WorkoutSetPayload` handling so the watch rejects unsupported
+  schema versions instead of silently caching them as current data.
+- Added a stale-workout notification path for scheduled/manual downloads that
+  receive an unsupported payload.
+- Fixed the offline watch log queue retry path to remove exactly the sent
+  prefix count, avoiding accidental removal of duplicate-looking log entries.
+
+Validation completed:
+
+```sh
+cd android
+./gradlew :shared:test
+./gradlew :app:assembleDebug :wear:assembleDebug
+cd ..
+npx tsc --noEmit
+npm run build
+```
+
+Device note:
+
+- `adb devices -l` showed no connected physical devices.
+- No emulator was started for this stage because real phone-watch sync requires
+  both endpoints online, and the standing rule is one emulator at a time when no
+  physical devices are connected.
+
+Checkpoint 7: stop for shared contract/code review before real-device sync
+testing.
+
+Suggested commit: `test(android): harden wearable data-layer contracts`.

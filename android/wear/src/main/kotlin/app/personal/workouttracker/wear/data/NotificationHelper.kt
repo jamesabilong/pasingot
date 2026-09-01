@@ -28,10 +28,7 @@ object NotificationHelper {
     fun notifyBlockedDownload(context: Context) {
         ensureChannel(context)
 
-        val hasPermission = ActivityCompat.checkSelfPermission(
-            context, Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasPermission) return // nothing we can do without the runtime grant
+        if (!canNotify(context)) return // nothing we can do without the runtime grant
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("Auto-download skipped")
@@ -43,6 +40,26 @@ object NotificationHelper {
 
         NotificationManagerCompat.from(context).notify(BLOCKED_DOWNLOAD_NOTIFICATION_ID, notification)
     }
+
+    fun notifyStaleWorkout(context: Context) {
+        ensureChannel(context)
+        if (!canNotify(context)) return
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle("Workout needs re-download")
+            .setContentText("Open the watch app after updating both apps.")
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(context).notify(STALE_WORKOUT_NOTIFICATION_ID, notification)
+    }
+
+    private fun canNotify(context: Context): Boolean =
+        ActivityCompat.checkSelfPermission(
+            context, Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -56,4 +73,5 @@ object NotificationHelper {
     }
 
     private const val BLOCKED_DOWNLOAD_NOTIFICATION_ID = 1
+    private const val STALE_WORKOUT_NOTIFICATION_ID = 2
 }

@@ -35,11 +35,11 @@ class LogSyncManager(private val context: Context) : LogSender {
         val pending = queue.queuedEntries.first()
         if (pending.isEmpty()) return
 
-        val sent = mutableListOf<LogEntry>()
+        var sentCount = 0
         for (entry in pending) {
-            if (trySend(entry)) sent.add(entry) else break
+            if (trySend(entry)) sentCount += 1 else break
         }
-        if (sent.isNotEmpty()) queue.removeAll(sent)
+        queue.removeSentPrefix(sentCount)
     }
 
     private suspend fun trySend(entry: LogEntry): Boolean = try {

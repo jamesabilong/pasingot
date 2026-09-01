@@ -43,11 +43,11 @@ class LogQueueRepository(private val context: Context) {
         }
     }
 
-    suspend fun removeAll(sent: List<LogEntry>) {
+    suspend fun removeSentPrefix(count: Int) {
+        if (count <= 0) return
         context.logQueueDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: return@edit
-            val sentSet = sent.toSet()
-            prefs[key] = json.encodeToString(current.copy(entries = current.entries.filterNot { it in sentSet }))
+            prefs[key] = json.encodeToString(current.copy(entries = current.entries.drop(count)))
         }
     }
 

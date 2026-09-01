@@ -5,11 +5,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.personal.workouttracker.shared.CURRENT_SCHEMA_VERSION
+import app.personal.workouttracker.shared.DownloadInsertPlan
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
-import app.personal.workouttracker.shared.MAX_STORED_WORKOUTS
 import app.personal.workouttracker.shared.SessionState
-import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutSetPayload
+import app.personal.workouttracker.shared.displayStatus
+import app.personal.workouttracker.shared.planWorkoutDownloadInsert
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -29,30 +30,6 @@ private data class WorkoutStoreState(
     val entries: List<DownloadedWorkoutEntry> = emptyList(),
 )
 
-/** Derived (never stored) UI status for a [DownloadedWorkoutEntry] — Prompt 5 req 4. */
-enum class EntryDisplayStatus(val label: String) {
-    NOT_STARTED("Not Started"),
-    IN_PROGRESS("In Progress"),
-    PAUSED("Paused"),
-    COMPLETED("Completed"),
-    STALE("Needs re-download"),
-}
-
-fun DownloadedWorkoutEntry.displayStatus(): EntryDisplayStatus {
-    // sessionState is declared in :shared — a different module — so Kotlin
-    // won't smart-cast it across the module boundary even after a null
-    // check. Binding it to a local val sidesteps that entirely.
-    val session = sessionState
-    return when {
-        schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
-        session == null -> EntryDisplayStatus.NOT_STARTED
-        session.status == SessionStatus.ACTIVE -> EntryDisplayStatus.IN_PROGRESS
-        session.status == SessionStatus.PAUSED -> EntryDisplayStatus.PAUSED
-        session.status == SessionStatus.COMPLETED -> EntryDisplayStatus.COMPLETED
-        else -> EntryDisplayStatus.NOT_STARTED
-    }
-}
-
 /** Result of attempting to add a newly-downloaded workout set (Prompt 5 req 3). */
 sealed interface AddResult {
     data class Added(val entry: DownloadedWorkoutEntry) : AddResult
@@ -62,6 +39,8 @@ sealed interface AddResult {
     /** Cap reached and every cached entry is active/paused — nothing is safe
      *  to silently evict. Caller must prompt the user to delete/finish one. */
     object Blocked : AddResult
+    /** Payload schema is newer/older than this app knows how to read. */
+    object StalePayload : AddResult
 }
 
 /**
@@ -95,41 +74,25 @@ class WorkoutRepository(private val context: Context) {
         var result: AddResult = AddResult.Blocked
         context.workoutDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: WorkoutStoreState()
-
-            val existing = current.entries.find { it.id == payload.date }
-            if (existing != null) {
-                // Resolved decision: skip always, even if completed — one
-                // entry per date, ever, full stop.
-                result = AddResult.SkippedDuplicateDate(existing)
-                return@edit
-            }
-
-            var entries = current.entries
-            if (entries.size >= MAX_STORED_WORKOUTS) {
-                val evictable = entries
-                    .filter { it.displayStatus() == EntryDisplayStatus.COMPLETED }
-                    .minByOrNull { it.date } // oldest completed first
-                if (evictable != null) {
-                    entries = entries.filterNot { it.id == evictable.id }
-                } else {
+            when (val plan = planWorkoutDownloadInsert(current.entries, payload)) {
+                is DownloadInsertPlan.Added -> {
+                    prefs[key] = json.encodeToString(current.copy(entries = plan.entries))
+                    result = AddResult.Added(plan.entry)
+                }
+                is DownloadInsertPlan.SkippedDuplicateDate -> {
+                    // Resolved decision: skip always, even if completed — one
+                    // entry per date, ever, full stop.
+                    result = AddResult.SkippedDuplicateDate(plan.existing)
+                }
+                DownloadInsertPlan.Blocked -> {
                     // Every cached entry is active/paused — never silently
                     // discard in-progress data.
                     result = AddResult.Blocked
-                    return@edit
+                }
+                DownloadInsertPlan.StalePayload -> {
+                    result = AddResult.StalePayload
                 }
             }
-
-            val newEntry = DownloadedWorkoutEntry(
-                id = payload.date,
-                date = payload.date,
-                label = payload.date, // UI layer may reformat for display
-                exercises = payload.exercises,
-                schemaVersion = CURRENT_SCHEMA_VERSION,
-                sessionState = null,
-            )
-            entries = entries + newEntry
-            prefs[key] = json.encodeToString(current.copy(entries = entries))
-            result = AddResult.Added(newEntry)
         }
         return result
     }

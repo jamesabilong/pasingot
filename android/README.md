@@ -43,6 +43,60 @@ cd android
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Windows setup notes
+
+Use **PowerShell** from the repository root unless noted otherwise.
+
+Required installs:
+
+1. **Android Studio** with Android SDK Platform **37** installed.
+2. **JDK 17**. Android Studio's bundled JDK is fine; if command-line Gradle
+   cannot find Java, set `JAVA_HOME` to Android Studio's bundled JDK.
+3. **Node 22**. The repo has `.nvmrc`; with `nvm-windows`, run:
+
+```powershell
+nvm install 22
+nvm use 22
+node -v
+```
+
+4. **Samsung USB Driver for Windows**, if testing on a physical Galaxy phone.
+5. USB debugging enabled on the phone:
+   `Settings > About phone > Software information > tap Build number 7 times`,
+   then `Developer options > USB debugging`.
+
+First-time checkout/build:
+
+```powershell
+npm ci
+npm run build
+npm run cap:sync
+cd android
+.\gradlew.bat :shared:test
+.\gradlew.bat :app:assembleDebug :wear:assembleDebug
+```
+
+APK outputs:
+
+- Phone APK: `android\app\build\outputs\apk\debug\app-debug.apk`
+- Watch APK: `android\wear\build\outputs\apk\debug\wear-debug.apk`
+
+Device checks from PowerShell:
+
+```powershell
+adb devices -l
+adb install -r .\app\build\outputs\apk\debug\app-debug.apk
+```
+
+For the watch APK, prefer Android Studio's device picker if the paired Galaxy
+Watch appears there. If it does not, enable watch debugging from the Galaxy
+Wearable developer options and connect it through Android Studio's Wear OS
+pairing/debugging flow.
+
+Real phone-watch sync testing needs both the phone and watch online and paired.
+Using a single emulator is fine for basic launch checks, but it cannot prove
+the full Wearable Data Layer flow by itself.
+
 ## What's already wired up (Prompt 3)
 
 - **`minSdkVersion 33`** — [`variables.gradle`](variables.gradle).

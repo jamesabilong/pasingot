@@ -48,6 +48,10 @@ class WorkoutSetListenerService : WearableListenerService() {
                             Log.w(TAG, "Download blocked — cap reached, nothing evictable")
                             NotificationHelper.notifyBlockedDownload(applicationContext)
                         }
+                        AddResult.StalePayload -> {
+                            Log.w(TAG, "Stale workout payload for ${payload.date}")
+                            NotificationHelper.notifyStaleWorkout(applicationContext)
+                        }
                     }
                 }
             }

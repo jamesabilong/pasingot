@@ -103,6 +103,76 @@ data class DownloadedWorkoutEntry(
     val sessionState: SessionState? = null, // null => "Not Started"
 )
 
+/** Derived UI status for a [DownloadedWorkoutEntry] — never stored. */
+enum class EntryDisplayStatus(val label: String) {
+    NOT_STARTED("Not Started"),
+    IN_PROGRESS("In Progress"),
+    PAUSED("Paused"),
+    COMPLETED("Completed"),
+    STALE("Needs re-download"),
+}
+
+fun DownloadedWorkoutEntry.displayStatus(): EntryDisplayStatus {
+    val session = sessionState
+    return when {
+        schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
+        session == null -> EntryDisplayStatus.NOT_STARTED
+        session.schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
+        session.status == SessionStatus.ACTIVE -> EntryDisplayStatus.IN_PROGRESS
+        session.status == SessionStatus.PAUSED -> EntryDisplayStatus.PAUSED
+        session.status == SessionStatus.COMPLETED -> EntryDisplayStatus.COMPLETED
+        else -> EntryDisplayStatus.NOT_STARTED
+    }
+}
+
+sealed interface DownloadInsertPlan {
+    data class Added(
+        val entries: List<DownloadedWorkoutEntry>,
+        val entry: DownloadedWorkoutEntry,
+        val evicted: DownloadedWorkoutEntry?,
+    ) : DownloadInsertPlan
+
+    data class SkippedDuplicateDate(val existing: DownloadedWorkoutEntry) : DownloadInsertPlan
+    data object Blocked : DownloadInsertPlan
+    data object StalePayload : DownloadInsertPlan
+}
+
+fun planWorkoutDownloadInsert(
+    currentEntries: List<DownloadedWorkoutEntry>,
+    payload: WorkoutSetPayload,
+    maxStoredWorkouts: Int = MAX_STORED_WORKOUTS,
+): DownloadInsertPlan {
+    if (payload.schemaVersion != CURRENT_SCHEMA_VERSION) return DownloadInsertPlan.StalePayload
+
+    val existing = currentEntries.find { it.id == payload.date }
+    if (existing != null) return DownloadInsertPlan.SkippedDuplicateDate(existing)
+
+    var entries = currentEntries
+    var evicted: DownloadedWorkoutEntry? = null
+    if (entries.size >= maxStoredWorkouts) {
+        evicted = entries
+            .filter { it.displayStatus() == EntryDisplayStatus.COMPLETED }
+            .minByOrNull { it.date }
+        if (evicted == null) return DownloadInsertPlan.Blocked
+        entries = entries.filterNot { it.id == evicted.id }
+    }
+
+    val entry = DownloadedWorkoutEntry(
+        id = payload.date,
+        date = payload.date,
+        label = payload.date,
+        exercises = payload.exercises,
+        schemaVersion = CURRENT_SCHEMA_VERSION,
+        sessionState = null,
+    )
+
+    return DownloadInsertPlan.Added(
+        entries = entries + entry,
+        entry = entry,
+        evicted = evicted,
+    )
+}
+
 /**
  * Watch -> phone log entry on [DataLayerPaths.LOG] (Prompt 8). Sent on
  * Complete Set / Skip only — Reset (Prompt 5) never produces one of these.

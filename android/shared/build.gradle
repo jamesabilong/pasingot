@@ -6,6 +6,7 @@ apply plugin: 'kotlinx-serialization'
 
 dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationJsonVersion"
+    testImplementation "junit:junit:$junitVersion"
 }
 
 // The plain kotlin("jvm") plugin doesn't auto-align its Java/Kotlin compile
