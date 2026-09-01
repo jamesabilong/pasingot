@@ -3,3 +3,25 @@
 button, input, select {
   font: inherit;
 }
+
+:root {
+  --app-native-safe-area-top: 0px;
+  --app-native-safe-area-bottom: 0px;
+}
+
+:root.capacitor-native {
+  --app-native-safe-area-top: max(24px, env(safe-area-inset-top, 0px));
+  --app-native-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.app-header {
+  padding-top: calc(0.75rem + var(--app-native-safe-area-top));
+}
+
+.app-toast-layer {
+  padding-top: calc(0.75rem + var(--app-native-safe-area-top));
+}
+
+.app-shell {
+  padding-bottom: calc(6rem + var(--app-native-safe-area-bottom));
+}

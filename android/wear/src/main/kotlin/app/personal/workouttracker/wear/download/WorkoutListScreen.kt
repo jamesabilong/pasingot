@@ -2,8 +2,11 @@ package app.personal.workouttracker.wear.download
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,7 +46,47 @@ fun WorkoutListScreen(
     val downloadError by viewModel.downloadError.collectAsState()
     val listState = rememberScalingLazyListState()
 
-    ScalingLazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
+    if (entries.isEmpty() && downloadError == null) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "Workouts",
+                style = MaterialTheme.typography.title3,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            CompactChip(
+                onClick = viewModel::downloadNow,
+                label = { Text("Download Now") },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            CompactChip(
+                onClick = onOpenSettings,
+                label = { Text("Auto-download settings") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "No workouts downloaded — tap to download",
+                style = MaterialTheme.typography.caption1,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(0.9f),
+            )
+        }
+        return
+    }
+
+    ScalingLazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         item {
             Text(
                 text = "Workouts",
@@ -66,7 +109,7 @@ fun WorkoutListScreen(
         }
 
         item {
-            Chip(
+            CompactChip(
                 onClick = viewModel::downloadNow,
                 label = { Text("Download Now") },
                 colors = ChipDefaults.primaryChipColors(),
@@ -87,7 +130,7 @@ fun WorkoutListScreen(
                     text = "No workouts downloaded — tap to download",
                     style = MaterialTheme.typography.caption1,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth(0.82f).padding(top = 4.dp),
                 )
             }
         } else {

@@ -6,6 +6,9 @@
     "allowMixedContent": false
   },
   "plugins": {
+    "SystemBars": {
+      "insetsHandling": "disable"
+    },
     "LocalNotifications": {
       "smallIcon": "ic_stat_workout",
       "iconColor": "#4f46e5"

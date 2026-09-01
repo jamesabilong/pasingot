@@ -9,9 +9,15 @@ updated at each checkpoint so the plan is visible from every device.
 - Node toolchain: Node 22 for Capacitor/Android commands; `.nvmrc` tracks this.
 - Stage 1: complete and committed with the React migration branch history.
 - Stage 2: complete and committed as `2bc87c6 PST01: Migrate to react`.
-- Stage 3: complete and committed as `f832f04 PST01: Redesign exercise library`.
-- Active checkpoint: Stage 4 ready for review.
-- Local commit state: Stage 4 is implemented locally but not committed.
+- Stage 3: complete and pushed as `f832f04 PST01: Redesign exercise library`.
+- Stage 4: complete and pushed as `d1796e4 PST01: Quest addition`.
+- Stage 5: complete in source and ready for review; the History source landed
+  with `d1796e4`, and the local service worker cache refresh is uncommitted.
+- Stage 6: complete in source and ready for review; phone and Wear emulator
+  install checks passed after native-shell layout fixes.
+- Active checkpoint: Stage 6 ready for review.
+- Local commit state: Stage 5 and Stage 6 follow-up changes are implemented
+  locally but not committed.
 - Commit rule: review and commit one stage at a time.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
@@ -143,7 +149,7 @@ git push origin PST01
 
 ## Stage 4 - Daily Quest Experience
 
-**Status:** ready for review.
+**Status:** complete and pushed on `origin/PST01`.
 
 Goal: add a Quests tab that resolves the reviewed movement slots to the
 selected level, presents the current quest day, schedules it into the existing
@@ -200,17 +206,62 @@ Browser acceptance completed:
 8. Reloaded offline and confirmed the PWA still rendered the scheduled quest
    rows.
 
-Checkpoint 4: stop for browser and data review before committing.
+Checkpoint 4: complete.
 
-Suggested commit: `feat(pwa): add daily workout quests`.
+Committed as `d1796e4 PST01: Quest addition`.
 
 ## Stage 5 - Workout and Quest History
 
-**Status:** pending.
+**Status:** ready for review.
 
 Goal: replace the small summary-only History panel with a proper history page
 containing overview metrics, recent workout entries grouped by date, and quest
 progress/completion history. Month/all-time filters remain available.
+
+Files expected in this stage:
+
+- `docs/WORKOUT_APP_PLAN.md`
+- `pwa/public/service-worker.js`
+- `pwa/src/App.tsx`
+- `pwa/src/types.ts`
+
+Changes completed:
+
+- Added month/all-time History filtering.
+- Added overview metrics for workout days, logged items, done entries, and
+  skipped entries.
+- Added completion percentage bar for the selected history range.
+- Added quest progress summary with completed quest-day history.
+- Added recent workout activity grouped by local date.
+- Added per-exercise done/skipped breakdown with simple Tailwind bars.
+- Bumped the service worker cache version so installed PWAs refresh the
+  updated History shell.
+
+Validation completed:
+
+```sh
+npx tsc --noEmit
+npm run build
+npm run cap:sync # run under Node 22
+cd android
+./gradlew :app:assembleDebug
+```
+
+Browser acceptance completed:
+
+1. Started from a clean browser app-data state.
+2. Enrolled in Balanced Foundations at Intermediate.
+3. Scheduled Foundation A into Today's Workout.
+4. Logged all five quest workout rows as done.
+5. Confirmed History shows 1 workout day, 5 logged items, 5 done, and 0
+   skipped.
+6. Confirmed Quest Progress shows Balanced Foundations at 1 of 12 days
+   complete.
+7. Confirmed Recent Activity groups the five logs by local date.
+8. Confirmed Per-exercise Breakdown shows each completed exercise.
+9. Reinstalled the service worker from a clean cache, confirmed app-shell
+   cache contents, reloaded offline, and confirmed History still renders from
+   IndexedDB.
 
 Checkpoint 5: stop for history calculations and mobile-layout review before
 committing.
@@ -219,19 +270,64 @@ Suggested commit: `feat(pwa): add workout and quest history`.
 
 ## Stage 6 - Capacitor Packaging and Device Check
 
-**Status:** pending.
+**Status:** ready for review.
 
 Goal: verify all approved source commits package into Android. This is a test
 checkpoint, not a source commit, unless the device check exposes a source bug.
 
+Files changed in this stage:
+
+- `capacitor.config.json`
+- `pwa/src/App.tsx`
+- `pwa/src/main.tsx`
+- `pwa/src/styles.css`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/download/WorkoutListScreen.kt`
+
+Issues found and fixed:
+
+- Capacitor's Android `SystemBars` default safe-area CSS injection logged
+  `Error injecting safe area CSS` during WebView startup. Disabled the
+  injection through `plugins.SystemBars.insetsHandling = "disable"`.
+- The phone WebView rendered under the Android status bar. Added a
+  Capacitor-shell root class and native-only safe-area padding for the app
+  shell, toast layer, and sticky header.
+- The Wear empty state clipped near the bottom of the round emulator. Added a
+  centered empty-state layout and round-screen padding for the workout manager
+  list.
+
 Checks:
 
 ```sh
+npx tsc --noEmit
 npm run cap:sync
 cd android
 ./gradlew :app:assembleDebug
+./gradlew :wear:assembleDebug
 ```
 
-Expected APK:
+APK outputs:
 
-`android/app/build/outputs/apk/debug/app-debug.apk`
+- `android/app/build/outputs/apk/debug/app-debug.apk`
+- `android/wear/build/outputs/apk/debug/wear-debug.apk`
+
+Device acceptance completed:
+
+1. Started the local `Pixel_8` emulator and confirmed `emulator-5554` booted.
+2. Installed and launched `app.personal.workouttracker`.
+3. Confirmed the phone app foregrounded as `.MainActivity`.
+4. Confirmed the Android 13+ notification permission prompt appears on first
+   launch.
+5. Granted notification permission and confirmed the app renders unobscured
+   below the status bar.
+6. Checked filtered logcat output and confirmed no crash or Capacitor
+   safe-area console error remained.
+7. Started the local `Wear_OS_XL_Round` emulator and confirmed
+   `emulator-5556` booted.
+8. Installed and launched `app.personal.workouttracker.wear`.
+9. Confirmed the Wear app foregrounded as `.WearMainActivity`.
+10. Confirmed the Wear empty state is readable on the round emulator.
+11. Checked Wear logcat output and confirmed no fatal app crash.
+
+Checkpoint 6: stop for real-device review before committing.
+
+Suggested commit: `fix(android): polish native shell device checks`.
