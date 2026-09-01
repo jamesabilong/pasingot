@@ -8,6 +8,7 @@ export type Weekday = (typeof WEEKDAYS)[number];
 export type LogStatus = 'done' | 'skipped';
 export type HistoryRange = 'month' | 'all';
 export type Tab = 'today' | 'library' | 'import' | 'history';
+export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface WorkoutRow {
   id?: number;
@@ -39,7 +40,7 @@ export interface ExerciseCatalogItem {
   secondaryMuscles: string[];
   equipment: string[];
   featured: boolean;
-  minimumLevel: 'beginner' | 'intermediate' | 'advanced';
+  minimumLevel: ExerciseLevel;
   progressionGroup: string;
   progressionLevel: string;
   license: string;
@@ -59,5 +60,6 @@ export interface PlaylistItem {
 export interface PlaylistDraft {
   day: Weekday;
   time: string;
+  level: ExerciseLevel;
   items: PlaylistItem[];
 }
