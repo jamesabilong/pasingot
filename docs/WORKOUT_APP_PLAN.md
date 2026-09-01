@@ -9,7 +9,9 @@ updated at each checkpoint so the plan is visible from every device.
 - Node toolchain: Node 22 for Capacitor/Android commands; `.nvmrc` tracks this.
 - Stage 1: complete and committed with the React migration branch history.
 - Stage 2: complete and committed as `2bc87c6 PST01: Migrate to react`.
-- Active checkpoint: Stage 3 ready for review.
+- Stage 3: complete and committed as `f832f04 PST01: Redesign exercise library`.
+- Active checkpoint: Stage 4 ready for review.
+- Local commit state: Stage 4 is implemented locally but not committed.
 - Commit rule: review and commit one stage at a time.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
@@ -75,7 +77,7 @@ Browser sweep completed:
 
 ## Stage 3 - Interactive Library Redesign
 
-**Status:** ready for review.
+**Status:** complete and pushed on `origin/PST01`.
 
 Goal: improve the mobile-first Library workflow. Add a
 Beginner/Intermediate/Advanced level filter, level-aware default prescriptions,
@@ -128,7 +130,7 @@ Browser acceptance completed:
    blocked.
 8. Reload offline and confirm the Library still works.
 
-Checkpoint 3: stop for review before committing.
+Checkpoint 3: complete.
 
 Suggested commit after approval:
 
@@ -141,12 +143,62 @@ git push origin PST01
 
 ## Stage 4 - Daily Quest Experience
 
-**Status:** pending.
+**Status:** ready for review.
 
 Goal: add a Quests tab that resolves the reviewed movement slots to the
 selected level, presents the current quest day, schedules it into the existing
 workout contract, and records quest/day progress without replacing normal
 workout logs.
+
+Files expected in this stage:
+
+- `docs/WORKOUT_APP_PLAN.md`
+- `pwa/public/service-worker.js`
+- `pwa/src/App.tsx`
+- `pwa/src/lib/db.ts`
+- `pwa/src/lib/quests.ts`
+- `pwa/src/types.ts`
+
+Changes completed:
+
+- Added a Quests tab to the PWA navigation.
+- Added CSV parsers for quest template and quest workout definitions.
+- Added IndexedDB `appState` persistence for one active quest.
+- Added current-day quest resolution by selected level.
+- Added quest scheduling into the existing `workouts` store.
+- Added optional quest metadata on scheduled workout rows.
+- Added automatic quest day completion when all scheduled quest rows receive a
+  done/skipped log for the local day.
+- Added completed-day history in quest state, preserving the level used for
+  completed days while allowing future quest days to switch levels.
+- Added replacement behavior so a newly scheduled quest day can replace prior
+  completed quest rows at the same weekday/time without deleting logs.
+- Bumped the service worker cache version to refresh installed PWAs.
+
+Validation completed:
+
+```sh
+npx tsc --noEmit
+npm run build
+npm run cap:sync # run under Node 22
+cd android
+./gradlew :app:assembleDebug
+```
+
+Browser acceptance completed:
+
+1. Loaded the Quests tab from production preview.
+2. Enrolled in Balanced Foundations at Intermediate.
+3. Confirmed only Week 1 / Day 1, Foundation A, was shown.
+4. Scheduled the quest day into Today.
+5. Logged all quest rows from Today and confirmed progress advanced to
+   Week 1 / Day 2.
+6. Changed the future quest level to Advanced and confirmed the completed
+   Foundation A record stayed Intermediate.
+7. Scheduled Foundation B at the same weekday/time and confirmed completed
+   Foundation A workout rows were replaced while logs remained.
+8. Reloaded offline and confirmed the PWA still rendered the scheduled quest
+   rows.
 
 Checkpoint 4: stop for browser and data review before committing.
 

@@ -7,7 +7,7 @@ export const WEEKDAYS = [
 export type Weekday = (typeof WEEKDAYS)[number];
 export type LogStatus = 'done' | 'skipped';
 export type HistoryRange = 'month' | 'all';
-export type Tab = 'today' | 'library' | 'import' | 'history';
+export type Tab = 'today' | 'quests' | 'library' | 'import' | 'history';
 export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface WorkoutRow {
@@ -19,6 +19,10 @@ export interface WorkoutRow {
   sets: number;
   reps: string;
   rest: number;
+  questId?: string;
+  questDayIndex?: number;
+  questDayLabel?: string;
+  questLevel?: ExerciseLevel;
 }
 
 export interface WorkoutLog {
@@ -62,4 +66,49 @@ export interface PlaylistDraft {
   time: string;
   level: ExerciseLevel;
   items: PlaylistItem[];
+}
+
+export interface QuestTemplate {
+  schemaVersion: number;
+  questId: string;
+  title: string;
+  description: string;
+  durationWeeks: number;
+  daysPerWeek: number;
+  evidenceBasis: string[];
+  safetyNote: string;
+}
+
+export interface QuestWorkoutRow {
+  schemaVersion: number;
+  questId: string;
+  level: ExerciseLevel;
+  dayNumber: number;
+  dayLabel: string;
+  sequence: number;
+  progressionGroup: string;
+  exerciseSourceId: number;
+  sets: number;
+  reps: string;
+  rest: number;
+}
+
+export interface QuestCompletion {
+  dayIndex: number;
+  dayNumber: number;
+  dayLabel: string;
+  level: ExerciseLevel;
+  completedAt: string;
+}
+
+export interface QuestState {
+  key: string;
+  schemaVersion: number;
+  questId: string;
+  level: ExerciseLevel;
+  nextDayIndex: number;
+  scheduledTime: string;
+  startedAt: string;
+  completedDays: QuestCompletion[];
+  status: 'active' | 'completed';
 }

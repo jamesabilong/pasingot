@@ -76,6 +76,10 @@ export function putRecord<T>(storeName: StoreName, record: T): Promise<IDBValidK
   return write(storeName, (store) => store.put(record));
 }
 
+export function deleteRecord(storeName: StoreName, key: IDBValidKey): Promise<void> {
+  return write(storeName, (store) => store.delete(key)).then(() => undefined);
+}
+
 export async function clearAndBulkInsert<T>(storeName: StoreName, records: T[]): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
