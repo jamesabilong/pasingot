@@ -15,10 +15,15 @@ import kotlinx.serialization.Serializable
  *  sets, log entries). Bump this and add a migration path if the shape below
  *  ever changes; readers must treat a mismatch as stale data, not attempt to
  *  parse it — see [SessionState.schemaVersion] / [DownloadedWorkoutEntry.schemaVersion]. */
-const val CURRENT_SCHEMA_VERSION: Int = 1
+const val CURRENT_SCHEMA_VERSION: Int = 5
 
 /** Cap on simultaneously-downloaded workout sets kept on the watch (Prompt 5). */
 const val MAX_STORED_WORKOUTS: Int = 3
+
+private const val SECONDS_PER_REP: Int = 4
+private const val SET_SETUP_SECONDS: Int = 10
+private const val BETWEEN_EXERCISE_TRANSITION_SECONDS: Int = 15
+private const val DEFAULT_REP_COUNT: Int = 10
 
 /** Wearable Data Layer message/data-item paths. Both sides must use these
  *  constants rather than inlined string literals. */
@@ -33,6 +38,9 @@ object DataLayerPaths {
 
     /** Watch -> phone: a single completed/skipped log entry, see [LogEntry]. */
     const val LOG = "/log"
+
+    /** Watch -> phone: workout-level completion/end event, see [WorkoutSessionEvent]. */
+    const val SESSION_EVENT = "/session-event"
 }
 
 /** Session status literals for [SessionState.status]. Kept as plain strings
@@ -40,8 +48,25 @@ object DataLayerPaths {
  *  here so call sites don't scatter raw string literals. */
 object SessionStatus {
     const val ACTIVE = "active"
+    const val RESTING = "resting"
     const val PAUSED = "paused"
     const val COMPLETED = "completed"
+    const val ENDED = "ended"
+}
+
+/** Stored reason for a terminal or paused [SessionState]. */
+object SessionStopReason {
+    const val COMPLETED = "completed"
+    const val PAUSED_BY_USER = "paused_by_user"
+    const val APP_CLOSED = "app_closed"
+    const val ENDED_BY_USER = "ended_by_user"
+    const val UNEXPECTED_INTERRUPTION = "unexpected_interruption"
+}
+
+/** Workout-level event types sent from watch to phone/PWA. */
+object SessionEventType {
+    const val COMPLETED = "completed"
+    const val ENDED = "ended"
 }
 
 /** Log status literals for [LogEntry.status]. */
@@ -89,7 +114,12 @@ data class SessionState(
     val workoutEntryId: String, // matches DownloadedWorkoutEntry.id
     val exerciseIndex: Int,
     val currentSet: Int,
-    val status: String, // SessionStatus.ACTIVE | PAUSED | COMPLETED
+    val status: String, // SessionStatus.ACTIVE | RESTING | PAUSED | COMPLETED | ENDED
+    val restUntilEpochMillis: Long? = null,
+    val pausedRestRemainingSeconds: Int? = null,
+    val accumulatedElapsedMillis: Long = 0,
+    val elapsedStartedAtEpochMillis: Long? = null,
+    val lastStopReason: String? = null,
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
 )
 
@@ -112,8 +142,10 @@ data class DownloadedWorkoutEntry(
 enum class EntryDisplayStatus(val label: String) {
     NOT_STARTED("Not Started"),
     IN_PROGRESS("In Progress"),
+    RESTING("Resting"),
     PAUSED("Paused"),
     COMPLETED("Completed"),
+    ENDED("Ended"),
     STALE("Needs re-download"),
 }
 
@@ -124,11 +156,75 @@ fun DownloadedWorkoutEntry.displayStatus(): EntryDisplayStatus {
         session == null -> EntryDisplayStatus.NOT_STARTED
         session.schemaVersion != CURRENT_SCHEMA_VERSION -> EntryDisplayStatus.STALE
         session.status == SessionStatus.ACTIVE -> EntryDisplayStatus.IN_PROGRESS
+        session.status == SessionStatus.RESTING -> EntryDisplayStatus.RESTING
         session.status == SessionStatus.PAUSED -> EntryDisplayStatus.PAUSED
         session.status == SessionStatus.COMPLETED -> EntryDisplayStatus.COMPLETED
+        session.status == SessionStatus.ENDED -> EntryDisplayStatus.ENDED
         else -> EntryDisplayStatus.NOT_STARTED
     }
 }
+
+fun DownloadedWorkoutEntry.estimatedDurationSeconds(): Int =
+    estimateWorkoutDurationSeconds(exercises, exercises.firstNotNullOfOrNull { it.questLevel })
+
+fun estimateWorkoutDurationSeconds(
+    exercises: List<WorkoutExercise>,
+    level: String? = null,
+): Int {
+    if (exercises.isEmpty()) return 0
+
+    val baseSeconds = exercises.mapIndexed { index, exercise ->
+        val sets = exercise.sets.coerceAtLeast(1)
+        val restSeconds = exercise.rest.coerceAtLeast(0)
+        val restCount = (sets - 1) + if (index < exercises.lastIndex) 1 else 0
+        (estimateSetWorkSeconds(exercise.reps) + SET_SETUP_SECONDS) * sets +
+            restSeconds * restCount +
+            if (index < exercises.lastIndex) BETWEEN_EXERCISE_TRANSITION_SECONDS else 0
+    }.sum()
+
+    val multiplier = when (level?.lowercase()) {
+        "advanced" -> 1.12
+        "intermediate" -> 1.18
+        else -> 1.3
+    }
+    val minimumBufferSeconds = when (level?.lowercase()) {
+        "advanced" -> 60
+        "intermediate" -> 90
+        else -> 150
+    }
+    val bufferedSeconds = (baseSeconds * multiplier).toInt().coerceAtLeast(baseSeconds + minimumBufferSeconds)
+    return roundUpToMinute(bufferedSeconds)
+}
+
+fun formatEstimatedDuration(seconds: Int): String {
+    val minutes = (seconds.coerceAtLeast(0) + 59) / 60
+    return when {
+        minutes <= 0 -> "Est. 0 min"
+        minutes < 60 -> "Est. $minutes min"
+        else -> {
+            val hours = minutes / 60
+            val remainingMinutes = minutes % 60
+            if (remainingMinutes == 0) "Est. ${hours}h" else "Est. ${hours}h ${remainingMinutes}m"
+        }
+    }
+}
+
+private fun estimateSetWorkSeconds(reps: String): Int {
+    val normalized = reps.lowercase()
+    val values = NUMBER_PATTERN.findAll(normalized).mapNotNull { it.value.toDoubleOrNull() }.toList()
+    val maxValue = values.maxOrNull() ?: DEFAULT_REP_COUNT.toDouble()
+    return when {
+        "min" in normalized -> (maxValue * 60).toInt()
+        "sec" in normalized || "second" in normalized -> maxValue.toInt()
+        "side" in normalized || "/leg" in normalized || "each" in normalized -> (maxValue * 2 * SECONDS_PER_REP).toInt()
+        else -> (maxValue * SECONDS_PER_REP).toInt()
+    }.coerceAtLeast(SECONDS_PER_REP)
+}
+
+private fun roundUpToMinute(seconds: Int): Int =
+    ((seconds.coerceAtLeast(0) + 59) / 60) * 60
+
+private val NUMBER_PATTERN = Regex("""\d+(?:\.\d+)?""")
 
 sealed interface DownloadInsertPlan {
     data class Added(
@@ -156,7 +252,7 @@ fun planWorkoutDownloadInsert(
     var evicted: DownloadedWorkoutEntry? = null
     if (entries.size >= maxStoredWorkouts) {
         evicted = entries
-            .filter { it.displayStatus() == EntryDisplayStatus.COMPLETED }
+            .filter { it.displayStatus() == EntryDisplayStatus.COMPLETED || it.displayStatus() == EntryDisplayStatus.ENDED }
             .minByOrNull { it.date }
         if (evicted == null) return DownloadInsertPlan.Blocked
         entries = entries.filterNot { it.id == evicted.id }
@@ -191,6 +287,26 @@ data class LogEntry(
     /** Present when this log completes/skips a whole scheduled row. The
      * phone uses it to update Today status and quest-day progress. */
     val workoutRowId: Long? = null,
+)
+
+/**
+ * Watch -> phone workout-level event on [DataLayerPaths.SESSION_EVENT].
+ * Separate from [LogEntry] so an ended workout does not look like a skipped
+ * exercise row in PWA completion stats.
+ */
+@Serializable
+data class WorkoutSessionEvent(
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    val workoutEntryId: String,
+    val workoutDate: String,
+    val eventType: String, // SessionEventType.COMPLETED | ENDED
+    val stopReason: String,
+    val timestamp: String,
+    val elapsedSeconds: Int,
+    val exerciseIndex: Int,
+    val currentSet: Int,
+    val totalExercises: Int,
+    val currentExercise: String? = null,
 )
 
 /**

@@ -1,9 +1,10 @@
 const DB_NAME = 'workoutAppDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   workouts: 'workouts',
   logs: 'logs',
+  sessionEvents: 'sessionEvents',
   exercises: 'exercises',
   appState: 'appState',
 } as const;
@@ -16,6 +17,7 @@ function openDb(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORES.workouts)) db.createObjectStore(STORES.workouts, { keyPath: 'id', autoIncrement: true });
       if (!db.objectStoreNames.contains(STORES.logs)) db.createObjectStore(STORES.logs, { keyPath: 'id', autoIncrement: true });
+      if (!db.objectStoreNames.contains(STORES.sessionEvents)) db.createObjectStore(STORES.sessionEvents, { keyPath: 'id', autoIncrement: true });
       if (!db.objectStoreNames.contains(STORES.exercises)) db.createObjectStore(STORES.exercises, { keyPath: 'sourceId' });
       if (!db.objectStoreNames.contains(STORES.appState)) db.createObjectStore(STORES.appState, { keyPath: 'key' });
     };

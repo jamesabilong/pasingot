@@ -19,6 +19,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 class WorkoutLogBridgePlugin : Plugin() {
 
     private val store by lazy { PendingLogsStore(context) }
+    private val sessionEventsStore by lazy { PendingSessionEventsStore(context) }
 
     @PluginMethod
     fun getPendingLogs(call: PluginCall) {
@@ -40,6 +41,32 @@ class WorkoutLogBridgePlugin : Plugin() {
     }
 
     @PluginMethod
+    fun getPendingSessionEvents(call: PluginCall) {
+        val eventsArray = JSArray()
+        for (record in sessionEventsStore.loadAll()) {
+            val event = record.event
+            val obj = JSObject().apply {
+                put("id", record.id)
+                put("schemaVersion", event.schemaVersion)
+                put("workoutEntryId", event.workoutEntryId)
+                put("workoutDate", event.workoutDate)
+                put("eventType", event.eventType)
+                put("stopReason", event.stopReason)
+                put("timestamp", event.timestamp)
+                put("elapsedSeconds", event.elapsedSeconds)
+                put("exerciseIndex", event.exerciseIndex)
+                put("currentSet", event.currentSet)
+                put("totalExercises", event.totalExercises)
+                put("currentExercise", event.currentExercise)
+            }
+            eventsArray.put(obj)
+        }
+        val result = JSObject()
+        result.put("events", eventsArray)
+        call.resolve(result)
+    }
+
+    @PluginMethod
     fun ackLogs(call: PluginCall) {
         val idsArray: JSArray = call.getArray("ids") ?: run {
             call.reject("Missing required 'ids' array")
@@ -52,6 +79,22 @@ class WorkoutLogBridgePlugin : Plugin() {
             call.resolve()
         } catch (e: Exception) {
             call.reject("Failed to ack logs: ${e.message}", e)
+        }
+    }
+
+    @PluginMethod
+    fun ackSessionEvents(call: PluginCall) {
+        val idsArray: JSArray = call.getArray("ids") ?: run {
+            call.reject("Missing required 'ids' array")
+            return
+        }
+        try {
+            val ids = mutableListOf<String>()
+            for (i in 0 until idsArray.length()) ids.add(idsArray.getString(i))
+            sessionEventsStore.ack(ids)
+            call.resolve()
+        } catch (e: Exception) {
+            call.reject("Failed to ack session events: ${e.message}", e)
         }
     }
 }

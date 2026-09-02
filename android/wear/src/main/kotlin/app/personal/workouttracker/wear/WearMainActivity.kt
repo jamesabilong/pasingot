@@ -1,8 +1,14 @@
 package app.personal.workouttracker.wear
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -23,7 +29,6 @@ import app.personal.workouttracker.wear.session.SessionScreen
 import app.personal.workouttracker.wear.session.SessionViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import androidx.lifecycle.lifecycleScope
 
 /**
  * Single-activity implementation (Prompt 4 req 5) — the Manage Downloads
@@ -32,8 +37,12 @@ import androidx.lifecycle.lifecycleScope
  */
 class WearMainActivity : ComponentActivity() {
 
+    private val prefsName = "workout_tracker_wear_prefs"
+    private val notificationPermissionAskedKey = "notification_permission_requested"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        maybeRequestNotificationPermission()
 
         val repository = WorkoutRepository(applicationContext)
         val settingsRepository = SettingsRepository(applicationContext)
@@ -89,5 +98,31 @@ class WearMainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+        if (prefs.getBoolean(notificationPermissionAskedKey, false)) return
+
+        val alreadyGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (alreadyGranted) {
+            prefs.edit().putBoolean(notificationPermissionAskedKey, true).apply()
+            return
+        }
+
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            NOTIFICATION_PERMISSION_REQUEST_CODE,
+        )
+        prefs.edit().putBoolean(notificationPermissionAskedKey, true).apply()
+    }
+
+    companion object {
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 2001
     }
 }

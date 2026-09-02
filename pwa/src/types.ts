@@ -6,6 +6,7 @@ export const WEEKDAYS = [
 
 export type Weekday = (typeof WEEKDAYS)[number];
 export type LogStatus = 'done' | 'skipped';
+export type SessionEventType = 'completed' | 'ended';
 export type HistoryRange = 'month' | 'all';
 export type Tab = 'today' | 'quests' | 'library' | 'import' | 'history';
 export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -32,6 +33,21 @@ export interface WorkoutLog {
   exercise: string;
   status: LogStatus;
   workoutRowId: number | null;
+}
+
+export interface WorkoutSessionEvent {
+  id?: number;
+  schemaVersion: number;
+  workoutEntryId: string;
+  workoutDate: string;
+  eventType: SessionEventType;
+  stopReason: string;
+  timestamp: string;
+  elapsedSeconds: number;
+  exerciseIndex: number;
+  currentSet: number;
+  totalExercises: number;
+  currentExercise?: string | null;
 }
 
 export interface ExerciseCatalogItem {

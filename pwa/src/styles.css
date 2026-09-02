@@ -25,3 +25,66 @@ button, input, select {
 .app-shell {
   padding-bottom: calc(6rem + var(--app-native-safe-area-bottom));
 }
+
+.estimate-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.1rem 0.75rem;
+  border: 1px solid rgb(51 65 85);
+  border-left: 4px solid rgb(20 184 166);
+  border-radius: 8px;
+  background: rgb(15 23 42);
+  padding: 0.75rem 0.85rem;
+}
+
+.estimate-summary__label {
+  color: rgb(148 163 184);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.estimate-summary__value {
+  color: rgb(204 251 241);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.4rem;
+}
+
+.estimate-summary__note {
+  grid-column: 1 / -1;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+:root.capacitor-native .estimate-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  border-color: rgb(15 118 110);
+  border-left-width: 1px;
+  border-radius: 999px;
+  background: rgb(4 47 46);
+  padding: 0.55rem 0.75rem;
+}
+
+:root.capacitor-native .estimate-summary__label {
+  color: rgb(153 246 228);
+  font-size: 0.72rem;
+}
+
+:root.capacitor-native .estimate-summary__value {
+  color: rgb(240 253 250);
+  font-size: 0.95rem;
+  line-height: 1.1rem;
+}
+
+:root.capacitor-native .estimate-summary__note {
+  grid-column: auto;
+  color: rgb(94 234 212);
+  font-size: 0.68rem;
+}

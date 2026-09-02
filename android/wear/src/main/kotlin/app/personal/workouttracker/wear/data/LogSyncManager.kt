@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import app.personal.workouttracker.shared.DataLayerPaths
 import app.personal.workouttracker.shared.LogEntry
+import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.shared.WorkoutExercise
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.flow.first
@@ -20,6 +21,7 @@ import java.time.Instant
 class LogSyncManager(private val context: Context) : LogSender {
 
     private val queue = LogQueueRepository(context)
+    private val sessionEventQueue = SessionEventQueueRepository(context)
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?) {
@@ -31,6 +33,12 @@ class LogSyncManager(private val context: Context) : LogSender {
         )
         if (!trySend(entry)) {
             queue.enqueue(entry)
+        }
+    }
+
+    override suspend fun sendSessionEvent(event: WorkoutSessionEvent) {
+        if (!trySendSessionEvent(event)) {
+            sessionEventQueue.enqueue(event)
         }
     }
 
@@ -46,6 +54,13 @@ class LogSyncManager(private val context: Context) : LogSender {
             if (trySend(entry)) sentCount += 1 else break
         }
         queue.removeSentPrefix(sentCount)
+
+        val pendingSessionEvents = sessionEventQueue.queuedEntries.first()
+        var sentSessionEventCount = 0
+        for (event in pendingSessionEvents) {
+            if (trySendSessionEvent(event)) sentSessionEventCount += 1 else break
+        }
+        sessionEventQueue.removeSentPrefix(sentSessionEventCount)
     }
 
     private suspend fun trySend(entry: LogEntry): Boolean = try {
@@ -63,6 +78,25 @@ class LogSyncManager(private val context: Context) : LogSender {
     } catch (e: Exception) {
         Log.w(TAG, "Failed to send log entry for ${entry.exercise}", e)
         false
+    }
+
+    private suspend fun trySendSessionEvent(event: WorkoutSessionEvent): Boolean = try {
+        val bytes = json.encodeToString(event).toByteArray(Charsets.UTF_8)
+        sendBytes(DataLayerPaths.SESSION_EVENT, bytes)
+    } catch (e: Exception) {
+        Log.w(TAG, "Failed to send session event for ${event.workoutEntryId}", e)
+        false
+    }
+
+    private suspend fun sendBytes(path: String, bytes: ByteArray): Boolean {
+        val connectedNodes = Wearable.getNodeClient(context).connectedNodes.await()
+        if (connectedNodes.isEmpty()) return false
+
+        val messageClient = Wearable.getMessageClient(context)
+        for (node in connectedNodes) {
+            messageClient.sendMessage(node.id, path, bytes).await()
+        }
+        return true
     }
 
     companion object {

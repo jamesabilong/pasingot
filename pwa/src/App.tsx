@@ -25,11 +25,13 @@ import {
   type Weekday,
   type WorkoutLog,
   type WorkoutRow,
+  type WorkoutSessionEvent,
 } from './types';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PLAYLIST_DRAFT_KEY = 'playlistDraft';
 const QUEST_STATE_KEY = 'questState';
+const ACTIVE_WORKOUT_SESSION_KEY = 'activeWorkoutSession';
 const MAX_PLAYLIST_ITEMS = 24;
 const POLL_INTERVAL_MS = 30_000;
 const NOTIFICATION_TOLERANCE_MINUTES = 1;
@@ -56,6 +58,14 @@ const DEFAULT_PRESCRIPTIONS: Record<ExerciseLevel, { strength: Omit<PlaylistItem
   },
 };
 
+type EstimableExercise = Pick<PlaylistItem, 'sets' | 'reps' | 'rest'> & { questLevel?: ExerciseLevel };
+type PwaWorkoutSessionStatus = 'active' | 'resting' | 'paused' | 'completed' | 'ended';
+
+const ESTIMATE_SECONDS_PER_REP = 4;
+const ESTIMATE_SET_SETUP_SECONDS = 10;
+const ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS = 15;
+const ESTIMATE_DEFAULT_REP_COUNT = 10;
+
 interface ImportResult {
   imported: number;
   skipped: number;
@@ -72,6 +82,104 @@ interface HistoryDateGroup {
   logs: WorkoutLog[];
   done: number;
   skipped: number;
+}
+
+interface PlanProgress {
+  total: number;
+  completed: number;
+  pending: number;
+  skipped: number;
+  resolvedPercent: number;
+}
+
+interface ActiveWorkoutSession {
+  key: typeof ACTIVE_WORKOUT_SESSION_KEY;
+  schemaVersion: number;
+  planDate: string;
+  rowIds: number[];
+  status: PwaWorkoutSessionStatus;
+  exerciseIndex: number;
+  currentSet: number;
+  restUntilEpochMillis: number | null;
+  pausedRestRemainingSeconds: number | null;
+  accumulatedElapsedMillis: number;
+  elapsedStartedAtEpochMillis: number | null;
+  lastStopReason: string | null;
+}
+
+function calculatePlanProgress(rows: Array<{ id?: number }>, statuses: Map<number, WorkoutLog['status']>): PlanProgress {
+  const progress = rows.reduce((result, row) => {
+    const status = row.id == null ? undefined : statuses.get(row.id);
+    if (status === 'done') return { ...result, completed: result.completed + 1 };
+    if (status === 'skipped') return { ...result, skipped: result.skipped + 1 };
+    return { ...result, pending: result.pending + 1 };
+  }, { total: rows.length, completed: 0, pending: 0, skipped: 0, resolvedPercent: 0 });
+  const resolved = progress.completed + progress.skipped;
+  return { ...progress, resolvedPercent: progress.total ? Math.round((resolved / progress.total) * 100) : 0 };
+}
+
+function elapsedSecondsForSession(session: ActiveWorkoutSession, now = Date.now()): number {
+  const runningMillis = session.elapsedStartedAtEpochMillis != null && (session.status === 'active' || session.status === 'resting')
+    ? Math.max(0, now - session.elapsedStartedAtEpochMillis)
+    : 0;
+  return Math.ceil(Math.max(0, session.accumulatedElapsedMillis + runningMillis) / 1000);
+}
+
+function restSecondsForSession(session: ActiveWorkoutSession, now = Date.now()): number {
+  if (session.status === 'paused' && session.pausedRestRemainingSeconds != null) return session.pausedRestRemainingSeconds;
+  if (session.status !== 'resting' || session.restUntilEpochMillis == null) return 0;
+  return Math.max(0, Math.ceil((session.restUntilEpochMillis - now) / 1000));
+}
+
+function stopElapsedSession(session: ActiveWorkoutSession, reason: string, now = Date.now()): ActiveWorkoutSession {
+  const runningMillis = session.elapsedStartedAtEpochMillis != null && (session.status === 'active' || session.status === 'resting')
+    ? Math.max(0, now - session.elapsedStartedAtEpochMillis)
+    : 0;
+  return {
+    ...session,
+    accumulatedElapsedMillis: Math.max(0, session.accumulatedElapsedMillis + runningMillis),
+    elapsedStartedAtEpochMillis: null,
+    lastStopReason: reason,
+  };
+}
+
+function startElapsedSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
+  return {
+    ...session,
+    elapsedStartedAtEpochMillis: session.elapsedStartedAtEpochMillis ?? now,
+    lastStopReason: null,
+  };
+}
+
+function formatDuration(seconds: number): string {
+  const boundedSeconds = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(boundedSeconds / 3_600);
+  const minutes = Math.floor((boundedSeconds % 3_600) / 60);
+  const remainder = boundedSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  if (minutes > 0) return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
+  return `${remainder}s`;
+}
+
+function formatSessionEventType(event: WorkoutSessionEvent): string {
+  return event.eventType === 'completed' ? 'Completed' : 'Ended';
+}
+
+function formatSessionStopReason(reason: string): string {
+  switch (reason) {
+    case 'completed':
+      return 'Completed';
+    case 'ended_by_user':
+      return 'Ended by user';
+    case 'app_closed':
+      return 'Closed';
+    case 'paused_by_user':
+      return 'Paused';
+    case 'unexpected_interruption':
+      return 'Interrupted';
+    default:
+      return 'Session event';
+  }
 }
 
 function todayName(): Weekday {
@@ -148,6 +256,177 @@ function questTemplateDayNumber(state: QuestState, template: QuestTemplate): num
   return ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
 }
 
+function estimateSetWorkSeconds(reps: string): number {
+  const normalized = reps.toLowerCase();
+  const values = [...normalized.matchAll(/\d+(?:\.\d+)?/g)].map((match) => Number(match[0])).filter(Number.isFinite);
+  const maxValue = Math.max(...(values.length ? values : [ESTIMATE_DEFAULT_REP_COUNT]));
+  if (normalized.includes('min')) return Math.round(maxValue * 60);
+  if (normalized.includes('sec') || normalized.includes('second')) return Math.round(maxValue);
+  if (normalized.includes('side') || normalized.includes('/leg') || normalized.includes('each')) return Math.round(maxValue * 2 * ESTIMATE_SECONDS_PER_REP);
+  return Math.round(maxValue * ESTIMATE_SECONDS_PER_REP);
+}
+
+function roundUpToMinute(seconds: number): number {
+  return Math.ceil(Math.max(0, seconds) / 60) * 60;
+}
+
+function estimateWorkoutDurationSeconds(exercises: EstimableExercise[], level: ExerciseLevel = 'beginner'): number {
+  if (!exercises.length) return 0;
+  const baseSeconds = exercises.reduce((total, exercise, index) => {
+    const parsedSets = Math.trunc(Number(exercise.sets));
+    const parsedRest = Math.trunc(Number(exercise.rest));
+    const sets = Number.isFinite(parsedSets) ? Math.max(1, parsedSets) : 1;
+    const rest = Number.isFinite(parsedRest) ? Math.max(0, parsedRest) : 0;
+    const restCount = (sets - 1) + (index < exercises.length - 1 ? 1 : 0);
+    const workSeconds = (Math.max(ESTIMATE_SECONDS_PER_REP, estimateSetWorkSeconds(exercise.reps)) + ESTIMATE_SET_SETUP_SECONDS) * sets;
+    const transitionSeconds = index < exercises.length - 1 ? ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS : 0;
+    return total + workSeconds + rest * restCount + transitionSeconds;
+  }, 0);
+  const multiplier = level === 'advanced' ? 1.12 : level === 'intermediate' ? 1.18 : 1.3;
+  const minimumBuffer = level === 'advanced' ? 60 : level === 'intermediate' ? 90 : 150;
+  return roundUpToMinute(Math.max(baseSeconds * multiplier, baseSeconds + minimumBuffer));
+}
+
+function formatEstimatedDuration(seconds: number): string {
+  const minutes = Math.ceil(Math.max(0, seconds) / 60);
+  if (minutes <= 0) return 'Est. 0 min';
+  if (minutes < 60) return `Est. ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes === 0 ? `Est. ${hours}h` : `Est. ${hours}h ${remainingMinutes}m`;
+}
+
+function estimateLevelFor(exercises: EstimableExercise[], fallback: ExerciseLevel = 'beginner'): ExerciseLevel {
+  return exercises.find((exercise) => exercise.questLevel)?.questLevel ?? fallback;
+}
+
+function estimateDisplayValue(value: string): string {
+  return value.replace(/^Est\.\s*/, '');
+}
+
+function EstimateSummary({ value }: { value: string }) {
+  return (
+    <div className="estimate-summary">
+      <span className="estimate-summary__label">Estimated Time</span>
+      <strong className="estimate-summary__value">{estimateDisplayValue(value)}</strong>
+      <span className="estimate-summary__note">with buffer</span>
+    </div>
+  );
+}
+
+function PlanProgressSummary({ progress }: { progress: PlanProgress }) {
+  if (progress.total === 0) return null;
+  const completedPercent = (progress.completed / progress.total) * 100;
+  const skippedPercent = (progress.skipped / progress.total) * 100;
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan Progress</span>
+        <span className="text-xs text-slate-500">{progress.resolvedPercent}% handled</span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-slate-800">
+        <div className="h-full bg-emerald-500" style={{ width: `${completedPercent}%` }} />
+        <div className="h-full bg-amber-500" style={{ width: `${skippedPercent}%` }} />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+        <div><p className="text-base font-semibold text-emerald-300">{progress.completed}</p><p className="text-slate-500">Completed</p></div>
+        <div><p className="text-base font-semibold text-slate-300">{progress.pending}</p><p className="text-slate-500">Pending</p></div>
+        <div><p className="text-base font-semibold text-amber-300">{progress.skipped}</p><p className="text-slate-500">Skipped</p></div>
+      </div>
+    </div>
+  );
+}
+
+function WorkoutPlayer({
+  session,
+  rows,
+  elapsedSeconds,
+  restRemainingSeconds,
+  onCompleteSet,
+  onSkip,
+  onPause,
+  onResume,
+  onRestart,
+  onEnd,
+  onStartNow,
+  onAddRestSeconds,
+  onClose,
+}: {
+  session: ActiveWorkoutSession;
+  rows: WorkoutRow[];
+  elapsedSeconds: number;
+  restRemainingSeconds: number;
+  onCompleteSet: () => void;
+  onSkip: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onRestart: () => void;
+  onEnd: () => void;
+  onStartNow: () => void;
+  onAddRestSeconds: (seconds: number) => void;
+  onClose: () => void;
+}) {
+  const row = rows[session.exerciseIndex];
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
+  const [confirmingRestart, setConfirmingRestart] = useState(false);
+  if (!row) return null;
+
+  const setLabel = `Set ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
+  const progressLabel = `Exercise ${session.exerciseIndex + 1} of ${rows.length}`;
+
+  return (
+    <div className="rounded-lg border border-emerald-900 bg-slate-900 p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
+            {session.status === 'resting' ? 'Rest' : session.status === 'paused' ? 'Paused' : session.status === 'ended' ? 'Ended' : session.status === 'completed' ? 'Complete' : 'Workout Player'}
+          </p>
+          <h3 className="mt-1 truncate text-lg font-semibold text-slate-100">{row.exercise}</h3>
+          <p className="text-xs text-slate-500">{progressLabel} · {setLabel}</p>
+        </div>
+        <span className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs text-slate-300">{formatDuration(elapsedSeconds)}</span>
+      </div>
+
+      {session.status === 'resting' && <div className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-center">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Rest remaining</p>
+        <p className="mt-1 text-3xl font-bold text-emerald-300">{formatDuration(restRemainingSeconds)}</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[5, 10, 30].map((seconds) => (
+            <button key={seconds} type="button" onClick={() => onAddRestSeconds(seconds)} className="rounded-md bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">+{seconds}s</button>
+          ))}
+        </div>
+      </div>}
+
+      {session.status === 'paused' && <p className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">
+        {session.pausedRestRemainingSeconds != null ? `Rest paused at ${formatDuration(session.pausedRestRemainingSeconds)}.` : 'Workout paused.'}
+      </p>}
+
+      {confirmingRestart ? <div className="grid gap-2">
+        <button type="button" onClick={() => { onRestart(); setConfirmingRestart(false); }} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Restart workout</button>
+        <button type="button" onClick={() => setConfirmingRestart(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
+      </div> : confirmingEnd ? <div className="grid gap-2">
+        <button type="button" onClick={() => { onEnd(); setConfirmingEnd(false); }} className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500">End workout</button>
+        <button type="button" onClick={() => setConfirmingEnd(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
+      </div> : session.status === 'active' ? <div className="grid gap-2">
+        <button type="button" onClick={onCompleteSet} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Complete set</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
+          <button type="button" onClick={onSkip} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Skip exercise</button>
+        </div>
+      </div> : session.status === 'resting' ? <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onStartNow} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start now</button>
+        <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
+      </div> : session.status === 'paused' ? <div className="grid gap-2">
+        <button type="button" onClick={onResume} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Resume</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setConfirmingRestart(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Restart</button>
+          <button type="button" onClick={() => setConfirmingEnd(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">End</button>
+        </div>
+      </div> : <button type="button" onClick={onClose} className="w-full rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Close player</button>}
+    </div>
+  );
+}
+
 function initialDraft(): PlaylistDraft {
   return { day: todayName(), time: '07:00', level: 'beginner', items: [] };
 }
@@ -182,6 +461,10 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('today');
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
+  const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
+  const [activeWorkoutSession, setActiveWorkoutSession] = useState<ActiveWorkoutSession | null>(null);
+  const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
+  const [workoutRestRemainingSeconds, setWorkoutRestRemainingSeconds] = useState(0);
   const [catalog, setCatalog] = useState<ExerciseCatalogItem[]>([]);
   const [questTemplates, setQuestTemplates] = useState<QuestTemplate[]>([]);
   const [questRows, setQuestRows] = useState<QuestWorkoutRow[]>([]);
@@ -201,6 +484,12 @@ export default function App() {
 
   const refreshWorkouts = useCallback(async () => setWorkouts(await getAll<WorkoutRow>(STORES.workouts)), []);
   const refreshLogs = useCallback(async () => setLogs(await getAll<WorkoutLog>(STORES.logs)), []);
+  const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
+  const saveActiveWorkoutSession = useCallback(async (next: ActiveWorkoutSession | null) => {
+    setActiveWorkoutSession(next);
+    if (next) await putRecord(STORES.appState, next);
+    else await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
+  }, []);
   const addToast = useCallback((message: string) => {
     const id = Date.now() + Math.random();
     setToasts((current) => [...current, { id, message }]);
@@ -220,7 +509,7 @@ export default function App() {
   useEffect(() => {
     let disposed = false;
     async function initialize() {
-      await Promise.all([refreshWorkouts(), refreshLogs()]);
+      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents()]);
       // Refresh the native cache after an app upgrade as well as after an
       // explicit schedule edit, so existing quest rows gain new bridge fields.
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
@@ -258,18 +547,53 @@ export default function App() {
       }
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
+      const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
+      if (!disposed && storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()) {
+        setActiveWorkoutSession(storedWorkoutSession);
+      }
       const drained = await drainPendingWatchLogs();
-      if (drained && !disposed) await refreshLogs();
+      if (drained && !disposed) await Promise.all([refreshLogs(), refreshSessionEvents()]);
     }
     void initialize();
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        void drainPendingWatchLogs().then((drained) => { if (drained) return refreshLogs(); });
+        void drainPendingWatchLogs().then((drained) => {
+          if (drained) return Promise.all([refreshLogs(), refreshSessionEvents()]);
+          return undefined;
+        });
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [refreshLogs, refreshWorkouts]);
+  }, [refreshLogs, refreshSessionEvents, refreshWorkouts]);
+
+  useEffect(() => {
+    if (!activeWorkoutSession) {
+      setWorkoutElapsedSeconds(0);
+      setWorkoutRestRemainingSeconds(0);
+      return undefined;
+    }
+
+    const syncTimers = () => {
+      const now = Date.now();
+      const restSeconds = restSecondsForSession(activeWorkoutSession, now);
+      setWorkoutElapsedSeconds(elapsedSecondsForSession(activeWorkoutSession, now));
+      setWorkoutRestRemainingSeconds(restSeconds);
+      if (activeWorkoutSession.status === 'resting' && restSeconds <= 0) {
+        void saveActiveWorkoutSession(startElapsedSession({
+          ...activeWorkoutSession,
+          status: 'active',
+          restUntilEpochMillis: null,
+          pausedRestRemainingSeconds: null,
+        }, now));
+      }
+    };
+
+    syncTimers();
+    if (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting') return undefined;
+    const timer = window.setInterval(syncTimers, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeWorkoutSession, saveActiveWorkoutSession]);
 
   useEffect(() => {
     const notified = new Set<number>();
@@ -293,6 +617,12 @@ export default function App() {
   const todayWorkouts = useMemo(() => workouts
     .filter((row) => row.day.toLowerCase() === todayName().toLowerCase())
     .sort((left, right) => left.time.localeCompare(right.time)), [workouts]);
+  const todayEstimate = useMemo(() => (
+    formatEstimatedDuration(estimateWorkoutDurationSeconds(todayWorkouts, estimateLevelFor(todayWorkouts)))
+  ), [todayWorkouts]);
+  const draftEstimate = useMemo(() => (
+    formatEstimatedDuration(estimateWorkoutDurationSeconds(draft.items, draft.level))
+  ), [draft.items, draft.level]);
 
   const todayStatuses = useMemo(() => {
     const statuses = new Map<number, WorkoutLog['status']>();
@@ -301,6 +631,13 @@ export default function App() {
     });
     return statuses;
   }, [logs]);
+  const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
+  const activeWorkoutRows = useMemo(() => {
+    if (!activeWorkoutSession) return [];
+    return activeWorkoutSession.rowIds
+      .map((id) => workouts.find((row) => row.id === id))
+      .filter((row): row is WorkoutRow => Boolean(row));
+  }, [activeWorkoutSession, workouts]);
 
   const categories = useMemo(() => [...new Set(catalog.map((item) => item.category))].sort(), [catalog]);
   const levelCounts = useMemo(() => LEVELS.reduce((result, level) => ({
@@ -329,10 +666,21 @@ export default function App() {
       .filter((entry): entry is { row: QuestWorkoutRow; exercise: ExerciseCatalogItem } => Boolean(entry.exercise))
       .sort((left, right) => left.row.sequence - right.row.sequence);
   }, [activeQuestTemplate, catalogBySourceId, currentQuestDayNumber, questRows, questState]);
+  const currentQuestEstimate = useMemo(() => (
+    formatEstimatedDuration(estimateWorkoutDurationSeconds(currentQuestRows.map(({ row }) => row), questState?.level ?? 'beginner'))
+  ), [currentQuestRows, questState?.level]);
   const scheduledCurrentQuestRows = useMemo(() => {
     if (!questState) return [];
     return workouts.filter((row) => row.questId === questState.questId && row.questDayIndex === questState.nextDayIndex);
   }, [questState, workouts]);
+  const currentQuestProgressRows = useMemo(() => (
+    scheduledCurrentQuestRows.length
+      ? scheduledCurrentQuestRows
+      : currentQuestRows.map(({ row }, index) => ({ id: undefined, sequence: row.sequence, fallbackIndex: index }))
+  ), [currentQuestRows, scheduledCurrentQuestRows]);
+  const currentQuestProgress = useMemo(() => (
+    calculatePlanProgress(currentQuestProgressRows, todayStatuses)
+  ), [currentQuestProgressRows, todayStatuses]);
 
   useEffect(() => {
     // Watch logs arrive through the native bridge while the app resumes.
@@ -355,6 +703,10 @@ export default function App() {
   }, [historyRange]);
 
   const historyLogs = useMemo(() => logs.filter((log) => inHistoryRange(log.date)), [inHistoryRange, logs]);
+  const historySessionEvents = useMemo(() => sessionEvents
+    .filter((event) => inHistoryRange(event.timestamp))
+    .slice()
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp)), [inHistoryRange, sessionEvents]);
   const historyWorkoutDays = useMemo(() => new Set(historyLogs.map((log) => localDateKey(log.date))).size, [historyLogs]);
   const historyDoneCount = useMemo(() => historyLogs.filter((item) => item.status === 'done').length, [historyLogs]);
   const historySkippedCount = useMemo(() => historyLogs.filter((item) => item.status === 'skipped').length, [historyLogs]);
@@ -395,6 +747,162 @@ export default function App() {
     await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, status, workoutRowId: row.id } satisfies WorkoutLog);
     const latestLogs = await getAll<WorkoutLog>(STORES.logs);
     setLogs(latestLogs);
+  }
+
+  function newPwaSession(rows: WorkoutRow[], startIndex = 0): ActiveWorkoutSession {
+    return {
+      key: ACTIVE_WORKOUT_SESSION_KEY,
+      schemaVersion: SCHEMA_VERSION,
+      planDate: todayDateKey(),
+      rowIds: rows.map((row) => row.id).filter((id): id is number => id != null),
+      status: 'active',
+      exerciseIndex: startIndex,
+      currentSet: 1,
+      restUntilEpochMillis: null,
+      pausedRestRemainingSeconds: null,
+      accumulatedElapsedMillis: 0,
+      elapsedStartedAtEpochMillis: Date.now(),
+      lastStopReason: null,
+    };
+  }
+
+  function restOrActive(session: ActiveWorkoutSession, restSeconds: number): ActiveWorkoutSession {
+    return restSeconds > 0 ? {
+      ...session,
+      status: 'resting',
+      restUntilEpochMillis: Date.now() + restSeconds * 1000,
+      pausedRestRemainingSeconds: null,
+      lastStopReason: null,
+    } : {
+      ...session,
+      status: 'active',
+      restUntilEpochMillis: null,
+      pausedRestRemainingSeconds: null,
+      lastStopReason: null,
+    };
+  }
+
+  async function recordLocalSessionEvent(session: ActiveWorkoutSession, eventType: WorkoutSessionEvent['eventType'], stopReason: string, rows: WorkoutRow[]) {
+    const row = rows[session.exerciseIndex];
+    await addRecord(STORES.sessionEvents, {
+      schemaVersion: SCHEMA_VERSION,
+      workoutEntryId: `pwa:${session.planDate}`,
+      workoutDate: session.planDate,
+      eventType,
+      stopReason,
+      timestamp: new Date().toISOString(),
+      elapsedSeconds: elapsedSecondsForSession(session),
+      exerciseIndex: session.exerciseIndex,
+      currentSet: session.currentSet,
+      totalExercises: rows.length,
+      currentExercise: row?.exercise ?? null,
+    } satisfies WorkoutSessionEvent);
+    await refreshSessionEvents();
+  }
+
+  async function startTodayWorkoutPlayer() {
+    const playableRows = todayWorkouts.filter((row) => row.id != null);
+    if (!playableRows.length) return addToast('Add a workout to today before starting the player.');
+    const firstPendingIndex = playableRows.findIndex((row) => row.id != null && !todayStatuses.has(row.id));
+    if (firstPendingIndex < 0) return addToast('Today’s plan is already handled.');
+    await saveActiveWorkoutSession(newPwaSession(playableRows, firstPendingIndex));
+  }
+
+  async function completePwaSet() {
+    if (!activeWorkoutSession || activeWorkoutSession.status !== 'active') return;
+    const rows = activeWorkoutRows;
+    const row = rows[activeWorkoutSession.exerciseIndex];
+    if (!row) return;
+
+    if (activeWorkoutSession.currentSet < row.sets) {
+      await saveActiveWorkoutSession(restOrActive({ ...activeWorkoutSession, currentSet: activeWorkoutSession.currentSet + 1 }, row.rest));
+      return;
+    }
+
+    await logExercise(row, 'done');
+    const nextIndex = activeWorkoutSession.exerciseIndex + 1;
+    if (nextIndex >= rows.length) {
+      const completed = stopElapsedSession({ ...activeWorkoutSession, status: 'completed' }, 'completed');
+      await saveActiveWorkoutSession(completed);
+      await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
+      return;
+    }
+    await saveActiveWorkoutSession(restOrActive({ ...activeWorkoutSession, exerciseIndex: nextIndex, currentSet: 1 }, row.rest));
+  }
+
+  async function skipPwaExercise() {
+    if (!activeWorkoutSession || activeWorkoutSession.status !== 'active') return;
+    const rows = activeWorkoutRows;
+    const row = rows[activeWorkoutSession.exerciseIndex];
+    if (!row) return;
+
+    await logExercise(row, 'skipped');
+    const nextIndex = activeWorkoutSession.exerciseIndex + 1;
+    if (nextIndex >= rows.length) {
+      const completed = stopElapsedSession({ ...activeWorkoutSession, status: 'completed' }, 'completed');
+      await saveActiveWorkoutSession(completed);
+      await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
+      return;
+    }
+    await saveActiveWorkoutSession({ ...activeWorkoutSession, exerciseIndex: nextIndex, currentSet: 1 });
+  }
+
+  async function pausePwaWorkout() {
+    if (!activeWorkoutSession || (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting')) return;
+    const pausedRestSeconds = activeWorkoutSession.status === 'resting' ? Math.max(1, restSecondsForSession(activeWorkoutSession)) : null;
+    await saveActiveWorkoutSession({
+      ...stopElapsedSession(activeWorkoutSession, 'paused_by_user'),
+      status: 'paused',
+      restUntilEpochMillis: null,
+      pausedRestRemainingSeconds: pausedRestSeconds,
+    });
+  }
+
+  async function resumePwaWorkout() {
+    if (!activeWorkoutSession || activeWorkoutSession.status !== 'paused') return;
+    const now = Date.now();
+    const resumed = activeWorkoutSession.pausedRestRemainingSeconds != null ? {
+      ...activeWorkoutSession,
+      status: 'resting' as const,
+      restUntilEpochMillis: now + activeWorkoutSession.pausedRestRemainingSeconds * 1000,
+      pausedRestRemainingSeconds: null,
+      elapsedStartedAtEpochMillis: now,
+      lastStopReason: null,
+    } : startElapsedSession({ ...activeWorkoutSession, status: 'active' }, now);
+    await saveActiveWorkoutSession(resumed);
+  }
+
+  async function restartPwaWorkout() {
+    const rows = activeWorkoutRows.length ? activeWorkoutRows : todayWorkouts.filter((row) => row.id != null);
+    if (!rows.length) return;
+    await saveActiveWorkoutSession(newPwaSession(rows));
+  }
+
+  async function endPwaWorkout() {
+    if (!activeWorkoutSession || activeWorkoutSession.status === 'ended' || activeWorkoutSession.status === 'completed') return;
+    const rows = activeWorkoutRows;
+    const ended = stopElapsedSession({ ...activeWorkoutSession, status: 'ended' }, 'ended_by_user');
+    await saveActiveWorkoutSession(ended);
+    await recordLocalSessionEvent(ended, 'ended', 'ended_by_user', rows);
+  }
+
+  async function startPwaRestNow() {
+    if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting') return;
+    await saveActiveWorkoutSession(startElapsedSession({
+      ...activeWorkoutSession,
+      status: 'active',
+      restUntilEpochMillis: null,
+      pausedRestRemainingSeconds: null,
+    }));
+  }
+
+  async function addPwaRestSeconds(seconds: number) {
+    if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting' || seconds <= 0) return;
+    const now = Date.now();
+    await saveActiveWorkoutSession({
+      ...activeWorkoutSession,
+      restUntilEpochMillis: Math.max(activeWorkoutSession.restUntilEpochMillis ?? now, now) + seconds * 1000,
+    });
   }
 
   async function importCsv(file: File) {
@@ -438,7 +946,7 @@ export default function App() {
     const schedule = await getAll<WorkoutRow>(STORES.workouts);
     await pushScheduleToNative(schedule);
     await refreshWorkouts();
-    setPlaylistResult({ error: false, message: additions.length ? `Added ${additions.length} exercise${additions.length === 1 ? '' : 's'} to ${draft.day} at ${draft.time}.` : 'This playlist is already on the schedule at that day and time.' });
+    setPlaylistResult({ error: false, message: additions.length ? `Added ${additions.length} exercise${additions.length === 1 ? '' : 's'} to ${draft.day} at ${draft.time}. ${draftEstimate}.` : 'This playlist is already on the schedule at that day and time.' });
   }
 
   async function startQuest(template: QuestTemplate) {
@@ -510,7 +1018,7 @@ export default function App() {
     const schedule = await getAll<WorkoutRow>(STORES.workouts);
     await pushScheduleToNative(schedule);
     await refreshWorkouts();
-    setQuestResult({ error: false, message: additions.length ? `Scheduled ${dayLabel} for ${todayName()} at ${questState.scheduledTime}.` : `${dayLabel} is already scheduled.` });
+    setQuestResult({ error: false, message: additions.length ? `Scheduled ${dayLabel} for ${todayName()} at ${questState.scheduledTime}. ${currentQuestEstimate}.` : `${dayLabel} is already scheduled.` });
   }
 
   async function maybeCompleteQuestDay(row: WorkoutRow, latestLogs: WorkoutLog[]) {
@@ -568,7 +1076,24 @@ export default function App() {
         </nav>
 
         {tab === 'today' && <section className="space-y-3">
-          <div className="flex items-baseline justify-between"><h2 className="text-base font-semibold text-slate-200">Today's Workout</h2><span className="text-xs text-slate-500">{todayName()}</span></div>
+          <div className="flex items-baseline justify-between"><h2 className="text-base font-semibold text-slate-200">Today's Workout</h2><span className="text-xs text-slate-500">{todayWorkouts.length ? `${todayName()} · ${todayEstimate}` : todayName()}</span></div>
+          {todayWorkouts.length > 0 && <EstimateSummary value={todayEstimate} />}
+          {todayWorkouts.length > 0 && <PlanProgressSummary progress={todayProgress} />}
+          {activeWorkoutSession && activeWorkoutRows.length > 0 ? <WorkoutPlayer
+            session={activeWorkoutSession}
+            rows={activeWorkoutRows}
+            elapsedSeconds={workoutElapsedSeconds}
+            restRemainingSeconds={workoutRestRemainingSeconds}
+            onCompleteSet={() => void completePwaSet()}
+            onSkip={() => void skipPwaExercise()}
+            onPause={() => void pausePwaWorkout()}
+            onResume={() => void resumePwaWorkout()}
+            onRestart={() => void restartPwaWorkout()}
+            onEnd={() => void endPwaWorkout()}
+            onStartNow={() => void startPwaRestNow()}
+            onAddRestSeconds={(seconds) => void addPwaRestSeconds(seconds)}
+            onClose={() => void saveActiveWorkoutSession(null)}
+          /> : todayWorkouts.length > 0 && todayProgress.pending > 0 && <button type="button" onClick={() => void startTodayWorkoutPlayer()} className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start workout player</button>}
           {todayWorkouts.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No exercises scheduled for today. Import a CSV to get started.</p> : <div className="space-y-2">
             {todayWorkouts.map((row) => {
               const status = row.id == null ? undefined : todayStatuses.get(row.id);
@@ -654,8 +1179,10 @@ export default function App() {
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-sm font-semibold text-slate-200">{currentQuestRows[0]?.row.dayLabel ?? 'Current Day'}</h3>
-                  <span className="text-xs text-slate-500">{scheduledCurrentQuestRows.length ? 'Scheduled' : 'Not scheduled'}</span>
+                  <span className="text-xs text-slate-500">{currentQuestRows.length ? `${scheduledCurrentQuestRows.length ? 'Scheduled' : 'Not scheduled'} · ${currentQuestEstimate}` : scheduledCurrentQuestRows.length ? 'Scheduled' : 'Not scheduled'}</span>
                 </div>
+                {currentQuestRows.length > 0 && <EstimateSummary value={currentQuestEstimate} />}
+                {currentQuestRows.length > 0 && <PlanProgressSummary progress={currentQuestProgress} />}
                 {currentQuestRows.length === 0 ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">This quest day could not be resolved from the local catalog.</p> : currentQuestRows.map(({ row, exercise }) => (
                   <div key={`${row.dayNumber}-${row.sequence}`} className="grid grid-cols-[1.5rem_1fr] gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
                     <span className="grid size-6 place-items-center rounded bg-slate-800 text-xs text-slate-400">{row.sequence}</span>
@@ -754,7 +1281,7 @@ export default function App() {
                         {item.featured && <span className="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] uppercase text-emerald-300">Common</span>}
                       </div>
                       <p className="truncate text-xs text-slate-500">{item.category} · {item.primaryMuscles.length ? item.primaryMuscles.join(', ') : item.category}</p>
-                      <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest {prescription.rest}s</p>
+                      <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest after {prescription.rest}s</p>
                       <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-xs text-emerald-400 hover:text-emerald-300">Source</a>
                     </div>
                     <button
@@ -774,8 +1301,9 @@ export default function App() {
           <div className="space-y-3 border-t border-slate-800 pt-5">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-200">Workout Playlist</h2>
-              <span className="text-xs text-slate-500">{draft.items.length}/{MAX_PLAYLIST_ITEMS}</span>
+              <span className="text-xs text-slate-500">{draft.items.length ? `${draft.items.length}/${MAX_PLAYLIST_ITEMS} · ${draftEstimate}` : `${draft.items.length}/${MAX_PLAYLIST_ITEMS}`}</span>
             </div>
+            {draft.items.length > 0 && <EstimateSummary value={draftEstimate} />}
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs text-slate-500">
                 Day
@@ -808,7 +1336,7 @@ export default function App() {
                       <input type="text" maxLength={30} value={item.reps} onChange={(event) => void updateDraftItem(index, { reps: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                     </label>
                     <label className="text-[10px] uppercase text-slate-600">
-                      Rest
+                      Rest after
                       <input type="number" min="0" max="3600" value={item.rest} onChange={(event) => void updateDraftItem(index, { rest: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                     </label>
                   </div>
@@ -824,7 +1352,7 @@ export default function App() {
           <p className="border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-600">Reviewed metadata from <a href="https://wger.de/" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300">wger contributors</a>. License and source attribution are retained per exercise.</p>
         </section>}
 
-        {tab === 'import' && <section className="space-y-4"><h2 className="text-base font-semibold text-slate-200">Import Schedule (CSV)</h2><p className="text-xs leading-relaxed text-slate-500">Columns: <code className="text-indigo-300">day,time,exercise,sets,reps,rest</code>. <code>day</code> must be a full weekday name, <code>time</code> is 24-hour <code>HH:MM</code>, and <code>rest</code> is seconds.</p><label className="block"><span className="sr-only">Choose CSV file</span><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); }} className="block w-full cursor-pointer text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-500" /></label>{importResult && <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm"><p className="text-emerald-400">Imported {importResult.imported} exercise row{importResult.imported === 1 ? '' : 's'}.</p>{importResult.skipped > 0 && <p className="text-amber-400">Skipped {importResult.skipped} malformed row{importResult.skipped === 1 ? '' : 's'}.</p>}</div>}<div><h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Current schedule</h3>{workouts.length === 0 ? <p className="text-sm text-slate-400">No schedule imported yet.</p> : <div className="text-sm text-slate-400">{WEEKDAYS.filter((day) => workouts.some((row) => row.day === day)).map((day) => { const count = workouts.filter((row) => row.day === day).length; return <div key={day} className="flex justify-between py-0.5"><span>{day}</span><span className="text-slate-500">{count} exercise{count === 1 ? '' : 's'}</span></div>; })}</div>}</div></section>}
+        {tab === 'import' && <section className="space-y-4"><h2 className="text-base font-semibold text-slate-200">Import Schedule (CSV)</h2><p className="text-xs leading-relaxed text-slate-500">Columns: <code className="text-indigo-300">day,time,exercise,sets,reps,rest</code>. <code>day</code> must be a full weekday name, <code>time</code> is 24-hour <code>HH:MM</code>, and <code>rest</code> is seconds after each set and before the next exercise.</p><label className="block"><span className="sr-only">Choose CSV file</span><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); }} className="block w-full cursor-pointer text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-500" /></label>{importResult && <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm"><p className="text-emerald-400">Imported {importResult.imported} exercise row{importResult.imported === 1 ? '' : 's'}.</p>{importResult.skipped > 0 && <p className="text-amber-400">Skipped {importResult.skipped} malformed row{importResult.skipped === 1 ? '' : 's'}.</p>}</div>}<div><h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Current schedule</h3>{workouts.length === 0 ? <p className="text-sm text-slate-400">No schedule imported yet.</p> : <div className="text-sm text-slate-400">{WEEKDAYS.filter((day) => workouts.some((row) => row.day === day)).map((day) => { const count = workouts.filter((row) => row.day === day).length; return <div key={day} className="flex justify-between py-0.5"><span>{day}</span><span className="text-slate-500">{count} exercise{count === 1 ? '' : 's'}</span></div>; })}</div>}</div></section>}
 
         {tab === 'history' && <section className="space-y-5">
           <div className="flex items-center justify-between gap-3">
@@ -876,6 +1404,27 @@ export default function App() {
                   </div>
                 ))}
               </div>}
+            </div>}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workout Sessions</h3>
+            {historySessionEvents.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No workout session summaries in this range yet.</p> : <div className="space-y-2">
+              {historySessionEvents.map((event) => (
+                <div key={event.id ?? `${event.timestamp}-${event.workoutEntryId}`} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+                  <div className="flex items-start justify-between gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-200">{formatSessionEventType(event)} workout</p>
+                      <p className="truncate text-xs text-slate-500">{event.currentExercise ?? 'Workout'} · set {event.currentSet} · exercise {event.exerciseIndex + 1} of {event.totalExercises}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-500">{formatHistoryTime(event.timestamp)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-500">{formatSessionStopReason(event.stopReason)}</span>
+                    <span className="font-medium text-emerald-300">{formatDuration(event.elapsedSeconds)}</span>
+                  </div>
+                </div>
+              ))}
             </div>}
           </div>
 

@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.data
 
 import app.personal.workouttracker.shared.LogStatus
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.shared.WorkoutSessionEvent
 
 /**
  * Thin seam between the session screen (Prompt 4) and log delivery
@@ -10,7 +11,10 @@ import app.personal.workouttracker.shared.WorkoutExercise
  * no [LogSender] dependency at all — structurally impossible to log a
  * reset by accident).
  */
-fun interface LogSender {
+interface LogSender {
     /** [status] should be [LogStatus.DONE] or [LogStatus.SKIPPED]. */
     suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?)
+
+    /** Sends a workout-level session event, such as completed or manually ended. */
+    suspend fun sendSessionEvent(event: WorkoutSessionEvent) = Unit
 }

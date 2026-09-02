@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow } from '../types';
+import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { addRecord, STORES } from './db';
 
 interface PendingWatchLog {
@@ -10,6 +10,10 @@ interface PendingWatchLog {
   workoutRowId?: number | null;
 }
 
+type PendingWatchSessionEvent = Omit<WorkoutSessionEvent, 'id'> & {
+  id: string;
+};
+
 declare global {
   interface Window {
     Capacitor?: {
@@ -18,6 +22,8 @@ declare global {
         WorkoutLogBridge?: {
           getPendingLogs: () => Promise<{ logs?: PendingWatchLog[] }>;
           ackLogs: (payload: { ids: string[] }) => Promise<void>;
+          getPendingSessionEvents?: () => Promise<{ events?: PendingWatchSessionEvent[] }>;
+          ackSessionEvents?: (payload: { ids: string[] }) => Promise<void>;
         };
       };
     };
@@ -49,9 +55,27 @@ export async function drainPendingWatchLogs(): Promise<number> {
       } satisfies WorkoutLog);
     }
     if (logs.length) await bridge.ackLogs({ ids: logs.map((log) => log.id) });
-    return logs.length;
+
+    const { events = [] } = bridge.getPendingSessionEvents ? await bridge.getPendingSessionEvents() : {};
+    for (const event of events) {
+      await addRecord(STORES.sessionEvents, {
+        schemaVersion: event.schemaVersion ?? SCHEMA_VERSION,
+        workoutEntryId: event.workoutEntryId,
+        workoutDate: event.workoutDate,
+        eventType: event.eventType,
+        stopReason: event.stopReason,
+        timestamp: event.timestamp,
+        elapsedSeconds: event.elapsedSeconds,
+        exerciseIndex: event.exerciseIndex,
+        currentSet: event.currentSet,
+        totalExercises: event.totalExercises,
+        currentExercise: event.currentExercise ?? null,
+      } satisfies WorkoutSessionEvent);
+    }
+    if (events.length && bridge.ackSessionEvents) await bridge.ackSessionEvents({ ids: events.map((event) => event.id) });
+    return logs.length + events.length;
   } catch (error) {
-    console.error('Failed to drain pending watch logs:', error);
+    console.error('Failed to drain pending watch logs/session events:', error);
     return 0;
   }
 }

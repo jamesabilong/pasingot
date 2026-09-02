@@ -97,6 +97,49 @@ Real phone-watch sync testing needs both the phone and watch online and paired.
 Using a single emulator is fine for basic launch checks, but it cannot prove
 the full Wearable Data Layer flow by itself.
 
+## Wear OS behavior to verify on device
+
+1. Launch the watch app and grant notification permission when prompted.
+2. Tap **Download Now** while the paired phone app has a synced schedule for
+   today.
+3. Confirm the downloaded workout shows an estimated duration before starting.
+4. In the PWA, confirm Today's Workout and the active quest day show **Plan
+   Progress** with completed, pending, and skipped counts.
+5. Start the PWA **workout player** from Today's Workout. Confirm **Complete
+   set** advances sets, starts rest, supports **+5s**/**+10s**/**+30s**, and
+   updates Plan Progress as rows become done/skipped.
+6. Pause the PWA workout player, reload the app, then confirm **Resume**,
+   **Restart**, and **End** recover the same session state.
+7. End or complete a PWA workout player session and confirm PWA History shows a
+   workout session summary without changing exercise done/skipped counts.
+8. Open the downloaded workout. **Complete Set** should start the configured
+   rest countdown between sets, then advance set progress when rest ends.
+9. During that rest countdown, tap **+5s**, **+10s**, and **+30s** and confirm
+   the countdown extends from its current remaining time.
+10. Tap **Pause** during an active set, close and reopen the workout, then
+   confirm the recovery screen offers **Resume** and **End Workout**.
+11. Confirm the recovery screen also shows elapsed time and offers **Restart**.
+12. Use **Restart** and confirm the session returns to exercise 1, set 1 without
+   sending a `done` log.
+13. Tap **Pause** during a rest countdown, resume, and confirm the countdown
+   continues from the paused remaining time.
+14. End a paused workout and confirm it shows **Ended** in the downloads list
+   without sending a `done` log for the unfinished exercise.
+15. Bring the phone app foreground and confirm PWA History shows the ended
+   workout under **Workout Sessions** with elapsed time.
+16. Finish the final set for an exercise. The watch should log the exercise only
+   after that final set, then use the same rest countdown before the next
+   exercise.
+17. Bring the phone app foreground and confirm PWA History shows the completed
+   workout under **Workout Sessions** without changing done/skipped exercise
+   counts.
+18. Tap **Skip** on another exercise and confirm it advances immediately.
+19. Bring the phone app foreground again; pending watch logs should drain into
+   the PWA History through `WorkoutLogBridge`.
+20. Fill the watch with three active/paused/resting downloads, then request another
+   download. The watch should keep existing entries and show the blocked
+   download notification.
+
 ## What's already wired up (Prompt 3)
 
 - **`minSdkVersion 33`** — [`variables.gradle`](variables.gradle).

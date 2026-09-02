@@ -29,6 +29,8 @@ import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.EntryDisplayStatus
 import app.personal.workouttracker.shared.displayStatus
+import app.personal.workouttracker.shared.estimatedDurationSeconds
+import app.personal.workouttracker.shared.formatEstimatedDuration
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -156,9 +158,12 @@ private fun WorkoutRow(
     var showActions by remember { mutableStateOf(false) }
     val status = entry.displayStatus()
     val hasProgress = status == EntryDisplayStatus.IN_PROGRESS ||
+        status == EntryDisplayStatus.RESTING ||
         status == EntryDisplayStatus.PAUSED ||
-        status == EntryDisplayStatus.COMPLETED
+        status == EntryDisplayStatus.COMPLETED ||
+        status == EntryDisplayStatus.ENDED
     val questDayLabel = entry.exercises.firstNotNullOfOrNull { it.questDayLabel }
+    val estimate = formatEstimatedDuration(entry.estimatedDurationSeconds())
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Chip(
@@ -169,7 +174,13 @@ private fun WorkoutRow(
             },
             label = { Text(questDayLabel ?: formatDateLabel(entry.date)) },
             secondaryLabel = {
-                Text(if (questDayLabel == null) status.label else "${formatDateLabel(entry.date)} · ${status.label}")
+                Text(
+                    if (questDayLabel == null) {
+                        "${status.label} · $estimate"
+                    } else {
+                        "${formatDateLabel(entry.date)} · ${status.label} · $estimate"
+                    }
+                )
             },
             colors = ChipDefaults.secondaryChipColors(),
             modifier = Modifier.fillMaxWidth(),

@@ -14,11 +14,16 @@ updated at each checkpoint so the plan is visible from every device.
 - Stage 5: complete and included in the Stage 6 packaging commit.
 - Stage 6: complete and pushed as
   `df0f94d PST01: Capacitor Packaging and Device Check`.
-- Stage 7: complete in source and ready for review; data-layer storage policy
-  is now covered by shared JVM tests.
-- Active checkpoint: Stage 7 ready for review.
-- Local commit state: Stage 7 follow-up changes are implemented locally but not
-  committed.
+- Stage 7: complete and committed as
+  `55c17bb PST01: Watch Data-Layer Contract Hardening`.
+- Latest committed Android checkpoint:
+  `4c583e5 PST01: Android update`.
+- Active checkpoint: Stage 9 session resilience in progress locally.
+- Local commit state: Stage 8 follow-up and Stage 9 slices 1-5 are implemented
+  locally but not committed.
+- Cross-device visibility: this file documents the current local state, but the
+  code and plan changes will only be visible on another device after this work
+  is committed and pushed/synced from this machine.
 - Commit rule: review and commit one stage at a time.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
@@ -335,7 +340,7 @@ Committed as `df0f94d PST01: Capacitor Packaging and Device Check`.
 
 ## Stage 7 - Phone/Watch Data-Layer Contract Hardening
 
-**Status:** ready for review.
+**Status:** complete and committed as `55c17bb PST01: Watch Data-Layer Contract Hardening`.
 
 Goal: harden the phone/watch sync boundary before real-device pairing tests.
 The live Data Layer path needs both the phone and watch online; because the
@@ -390,3 +395,224 @@ Checkpoint 7: stop for shared contract/code review before real-device sync
 testing.
 
 Suggested commit: `test(android): harden wearable data-layer contracts`.
+
+## Stage 8 - Watch Flow Cleanup
+
+**Status:** implemented locally; ready for review.
+
+Goal: close the remaining Wear session gaps found during the follow-up review
+and keep the documentation aligned with the current branch state.
+
+Files changed in this stage:
+
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/WearMainActivity.kt`
+- `android/wear/build.gradle`
+- `android/shared/src/main/kotlin/app/personal/workouttracker/shared/DataModels.kt`
+- `android/shared/src/test/kotlin/app/personal/workouttracker/shared/DataModelsTest.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/download/WorkoutListScreen.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionViewModel.kt`
+- `pwa/src/styles.css`
+- `pwa/src/App.tsx`
+- `android/README.md`
+- `docs/WORKOUT_APP_PLAN.md`
+
+Changes completed:
+
+- Added set-by-set Wear session progress: `Complete Set` now advances
+  `currentSet` and logs `done` only after the final set for the exercise.
+- Added a Wear rest countdown that uses each playlist exercise's `rest` value
+  between sets and before the next exercise, with resting progress persisted by
+  timestamp so resume/background timing stays aligned.
+- Added `+5s`, `+10s`, and `+30s` controls to the active Wear rest countdown so
+  users can extend recovery time without leaving the session.
+- Added estimated workout duration labels to playlist building, quest-day
+  previews, today's schedule, and downloaded watch workouts. Estimates include
+  sets, reps/durations, rest intervals, between-exercise transitions, and a
+  larger beginner/unknown-level buffer.
+- Kept the app and web app on the same estimate calculation while styling the
+  web version as a fuller allocation panel and the native app as a compact
+  touch-friendly estimate pill.
+- Added a `Resting` downloaded-workout status and bumped the native shared
+  schema after extending `SessionState`.
+- Added the missing Wear `Skip` action so the watch can emit the shared
+  `skipped` log status that the phone/PWA bridge already supports.
+- Kept `currentSet` valid when the user downgrades the active exercise's set
+  count.
+- Added a one-time Wear runtime notification permission request so blocked or
+  stale scheduled-download notifications are not silently suppressed.
+- Updated the checkpoint docs to reflect that Stage 7 is committed and this
+  cleanup is the current local review stage.
+
+Validation completed:
+
+```sh
+cd android
+./gradlew :shared:test
+./gradlew :app:assembleDebug :wear:assembleDebug
+cd ..
+npx tsc --noEmit
+npm run build
+```
+
+Device note:
+
+- Real phone-watch sync still needs a paired physical phone and watch, or two
+  concurrently connected endpoints. Static/compile checks can verify wiring,
+  but they cannot prove live Wearable Data Layer delivery by themselves.
+
+## Stage 9 - Session Resilience and Recovery
+
+**Status:** in progress locally.
+
+Implementation visibility:
+
+- Local only: the implementation and this plan update are present in the
+  current working tree on this machine.
+- Not yet committed: Stage 9 should be reviewed with the Stage 8 local
+  follow-up changes before creating the next checkpoint commit.
+- Other devices: pull/sync will not show these updates until a commit is pushed
+  or the working tree is otherwise synced.
+
+Goal: make active workouts reliable when the user intentionally pauses/stops or
+the app/watch is interrupted unexpectedly. The watch, native app shell, and PWA
+should all preserve enough session state for users to continue safely or end
+cleanly without losing progress.
+
+Planned behavior:
+
+- Add an explicit **Pause** action during an active set and rest countdown.
+  First slice: implemented locally on Wear.
+- Add a deliberate **Stop / End Workout** flow with confirmation, so accidental
+  taps do not discard the session. First slice: implemented locally from the
+  paused Wear recovery screen without sending `done` logs for unfinished rows.
+- Persist active session progress on lifecycle interruptions: watch screen
+  close, app background, app swipe-away, low-battery interruption, process kill,
+  and device restart where supported. First slice: active-set close/background
+  persists as paused; rest countdowns still use timestamp-based recovery.
+- On reopen, show a recovery screen with **Resume**, **Restart**, and
+  **End Workout** choices, including the last exercise, set number, rest
+  remaining, and elapsed time when available. First slice: Wear now shows
+  **Resume**, confirmed **Restart**, confirmed **End Workout**, paused rest
+  remaining, and elapsed active workout time.
+- Track why a session stopped: completed, paused by user, ended by user,
+  skipped, app closed, or unexpectedly interrupted. First slice: stored
+  `paused` and `ended` states are available; second slice adds stored
+  stop/recovery reasons for completed, user-paused, app-closed, user-ended, and
+  unexpected-interruption paths.
+- Keep rest countdowns timestamp-based so long background pauses do not freeze
+  time incorrectly; if rest elapsed while closed, resume at the next set/exercise
+  with a clear state.
+- Queue unsent watch logs and session-end records until the phone/PWA bridge is
+  reachable again. Third slice: watch session-end events now use their own
+  offline queue, phone Data Layer listener, phone pending store, and PWA drain
+  path.
+- Mirror the same lifecycle rules in the future PWA/mobile workout-player view,
+  but adapt the design: watch gets glanceable controls, while PWA/mobile gets a
+  richer recovery panel and workout summary.
+
+Progress tracker:
+
+- Completed: Wear explicit pause during active sets and rest countdowns.
+- Completed: Wear paused recovery screen with resume, restart, close, and
+  confirmed end workout.
+- Completed: Wear elapsed active workout time on active, rest, and recovery
+  screens.
+- Completed: Manual ended workouts use `ended` status and do not emit `done`
+  logs for unfinished rows.
+- Completed: Watch session completed/ended events queue offline, sync to phone,
+  and appear in PWA History.
+- Completed: PWA plan progress cards show completed, pending, and skipped
+  counts for Today's Workout and the active quest day.
+- Completed: PWA/mobile live workout-player screen for Today's Workout with
+  complete set, skip exercise, rest countdown, rest extensions, pause, resume,
+  restart, end workout, elapsed time, persisted recovery, and local session
+  summaries.
+- Pending: Device-level validation for app swipe-away, process kill,
+  low-battery interruption, and device restart.
+- Pending: Richer post-workout summary comparing estimated vs actual completion
+  time.
+
+Current validation completed:
+
+```sh
+npx tsc --noEmit
+npm run cap:sync
+cd android
+./gradlew :shared:test :app:assembleDebug :wear:assembleDebug
+cd ..
+git diff --check
+```
+
+Current validation status:
+
+- Passed: TypeScript compile.
+- Passed: PWA production build through `npm run cap:sync`.
+- Passed: Capacitor asset sync into the Android shell.
+- Passed: shared Kotlin tests.
+- Passed: phone debug APK build.
+- Passed: Wear OS debug APK build.
+- Not yet performed: physical phone/watch sync and interruption testing.
+
+First-slice files changed:
+
+- `android/shared/src/main/kotlin/app/personal/workouttracker/shared/DataModels.kt`
+- `android/shared/src/test/kotlin/app/personal/workouttracker/shared/DataModelsTest.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/download/WorkoutListScreen.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionViewModel.kt`
+- `docs/WORKOUT_APP_PLAN.md`
+
+Second-slice behavior:
+
+- Added elapsed active workout time to the Wear active, rest, and paused
+  recovery screens. Elapsed time freezes while paused/ended and resumes when
+  the session resumes.
+- Added confirmed **Restart** from the Wear paused recovery screen. Restart
+  returns to exercise 1, set 1, clears rest/timing progress, and does not send
+  any completion logs.
+- Added persisted timing fields and stop-reason metadata to `SessionState` and
+  bumped the shared schema again so stale watch sessions are re-downloaded
+  instead of silently misread.
+
+Third-slice behavior:
+
+- Added a separate watch-to-phone `/session-event` Data Layer path for
+  workout-level completed/ended events.
+- Added offline retry for watch session events through the existing startup and
+  periodic flush path.
+- Added phone-native pending session-event staging plus PWA bridge acking, so
+  events are removed only after the PWA commits them to IndexedDB.
+- Added a PWA `sessionEvents` store and History **Workout Sessions** section that
+  shows completed/ended watch sessions, elapsed time, stop reason, current
+  exercise, set, and event time without changing exercise done/skipped counts.
+
+Fourth-slice behavior:
+
+- Added PWA **Plan Progress** summaries for Today's Workout and the active quest
+  day, with completed, pending, skipped, and handled percentage indicators.
+- Added this Stage 9 progress tracker so completed and pending resilience items
+  are visible directly in the plan.
+
+Fifth-slice behavior:
+
+- Added a PWA/mobile live workout player to Today's Workout. It persists active
+  session state in IndexedDB app state and supports complete set, skip exercise,
+  rest countdown, `+5s`/`+10s`/`+30s` rest extensions, pause, resume, restart,
+  end workout, elapsed time, and close/reopen recovery.
+- PWA/mobile completion and manual end now create local workout session
+  summaries in the same `sessionEvents` store used by watch sync, without
+  changing exercise done/skipped counts.
+
+Validation to add:
+
+1. Start a workout, pause during a set, close the watch app, reopen, and resume
+   from the same exercise and set.
+2. Start a rest countdown, add extra rest, background the watch app, reopen, and
+   confirm the remaining time is based on real elapsed time.
+3. Force-stop or kill the watch app mid-session, reopen it, and confirm the
+   recovery screen offers resume/restart/end.
+4. End a workout manually and confirm no extra `done` log is sent for unfinished
+   exercises.
+5. Disconnect the phone, finish or end a watch session, reconnect, and confirm
+   queued logs sync into PWA History.
