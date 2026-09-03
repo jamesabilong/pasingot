@@ -1,4 +1,5 @@
 import { EstimateSummary } from './SummaryCards';
+import { CUSTOM_EXERCISE_CATEGORIES, type CustomExerciseDraft } from '../lib/custom-exercises';
 import { WEEKDAYS, type ExerciseCatalogItem, type ExerciseLevel, type PlaylistDraft, type PlaylistItem, type Weekday, type WeightUnit } from '../types';
 
 export function LibraryView({
@@ -15,6 +16,8 @@ export function LibraryView({
   featuredOnly,
   draftEstimate,
   playlistResult,
+  customExerciseDraft,
+  customExerciseResult,
   defaultPrescriptionFor,
   onSearchChange,
   onCategoryChange,
@@ -25,6 +28,10 @@ export function LibraryView({
   onReorderDraftItem,
   onSavePlaylistToSchedule,
   onClearPlaylistResult,
+  onCustomExerciseDraftChange,
+  onSaveCustomExercise,
+  onEditCustomExercise,
+  onDeleteCustomExercise,
 }: {
   catalog: ExerciseCatalogItem[];
   filteredCatalog: ExerciseCatalogItem[];
@@ -39,6 +46,8 @@ export function LibraryView({
   featuredOnly: boolean;
   draftEstimate: string;
   playlistResult: { message: string; error: boolean } | null;
+  customExerciseDraft: CustomExerciseDraft;
+  customExerciseResult: { message: string; error: boolean } | null;
   defaultPrescriptionFor: (exercise: ExerciseCatalogItem, level: ExerciseLevel) => Omit<PlaylistItem, 'sourceId' | 'name'>;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
@@ -49,6 +58,10 @@ export function LibraryView({
   onReorderDraftItem: (index: number, direction: -1 | 1) => void;
   onSavePlaylistToSchedule: () => void;
   onClearPlaylistResult: () => void;
+  onCustomExerciseDraftChange: (draft: CustomExerciseDraft) => void;
+  onSaveCustomExercise: () => void;
+  onEditCustomExercise: (sourceId: number) => void;
+  onDeleteCustomExercise: (sourceId: number) => void;
 }) {
   return (
     <section className="space-y-5">
@@ -118,10 +131,19 @@ export function LibraryView({
                     <p className="min-w-0 truncate text-sm font-medium">{item.displayName}</p>
                     <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] uppercase text-slate-400">{levelLabels[item.minimumLevel]}</span>
                     {item.featured && <span className="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] uppercase text-emerald-300">Common</span>}
+                    {item.custom && <span className="rounded border border-indigo-700 px-1.5 py-0.5 text-[10px] uppercase text-indigo-300">Custom</span>}
                   </div>
+                  {item.imageUrl && <img src={item.imageUrl} alt="" className="mt-2 aspect-video w-full max-w-44 rounded-md border border-slate-800 object-cover" loading="lazy" />}
                   <p className="truncate text-xs text-slate-500">{item.category} · {item.primaryMuscles.length ? item.primaryMuscles.join(', ') : item.category}</p>
                   <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest after {prescription.rest}s</p>
-                  <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-xs text-emerald-400 hover:text-emerald-300">Source</a>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-emerald-400 hover:text-emerald-300">Source</a>}
+                    {item.videoUrl && <a href={item.videoUrl} target="_blank" rel="noreferrer" className="inline-flex text-indigo-300 hover:text-indigo-200">Video</a>}
+                    {item.custom && <>
+                      <button type="button" onClick={() => onEditCustomExercise(item.sourceId)} className="text-slate-400 hover:text-slate-200">Edit</button>
+                      <button type="button" onClick={() => onDeleteCustomExercise(item.sourceId)} className="text-rose-300 hover:text-rose-200">Delete</button>
+                    </>}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -135,6 +157,53 @@ export function LibraryView({
             );
           })}
         </div>}
+      </div>
+
+      <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-base font-semibold text-slate-200">{customExerciseDraft.sourceId == null ? 'Create Custom Exercise' : 'Edit Custom Exercise'}</h2>
+          {customExerciseDraft.sourceId != null && <button type="button" onClick={() => onCustomExerciseDraftChange({ ...customExerciseDraft, sourceId: undefined, name: '', imageUrl: '', videoUrl: '' })} className="text-xs text-slate-400 hover:text-slate-200">New</button>}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[1fr_9rem_8rem]">
+          <label className="text-xs text-slate-500">
+            Name
+            <input type="text" maxLength={80} value={customExerciseDraft.name} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, name: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none" />
+          </label>
+          <label className="text-xs text-slate-500">
+            Category
+            <select value={customExerciseDraft.category} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, category: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+              {CUSTOM_EXERCISE_CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Level
+            <select value={customExerciseDraft.minimumLevel} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, minimumLevel: event.target.value as ExerciseLevel })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
+              {levels.map((level) => <option key={level} value={level}>{levelLabels[level]}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-xs text-slate-500">
+            Primary muscles
+            <input type="text" value={customExerciseDraft.primaryMuscles} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, primaryMuscles: event.target.value })} placeholder="Chest, triceps" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none" />
+          </label>
+          <label className="text-xs text-slate-500">
+            Equipment
+            <input type="text" value={customExerciseDraft.equipment} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, equipment: event.target.value })} placeholder="Dumbbell, bench" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none" />
+          </label>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-xs text-slate-500">
+            Image URL
+            <input type="url" value={customExerciseDraft.imageUrl} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, imageUrl: event.target.value })} placeholder="https://..." className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none" />
+          </label>
+          <label className="text-xs text-slate-500">
+            Video URL
+            <input type="url" value={customExerciseDraft.videoUrl} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, videoUrl: event.target.value })} placeholder="https://..." className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none" />
+          </label>
+        </div>
+        <button type="button" onClick={onSaveCustomExercise} className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">{customExerciseDraft.sourceId == null ? 'Create exercise' : 'Update exercise'}</button>
+        {customExerciseResult && <p className={`rounded-md border p-3 text-sm ${customExerciseResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{customExerciseResult.message}</p>}
       </div>
 
       <div className="space-y-3 border-t border-slate-800 pt-5">

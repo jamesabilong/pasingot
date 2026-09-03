@@ -20,10 +20,10 @@ updated at each checkpoint so the plan is visible from every device.
   `4c583e5 PST01: Android update`.
 - Latest committed React checkpoint:
   `650ac65 PST01: React cleanup`.
-- Active checkpoint: Stage 15 data portability is implemented locally and
-  ready for review.
-- Local commit state: Stage 15 full backup/export restore is local and
-  uncommitted after `650ac65`.
+- Active checkpoint: Stage 16 exercise library expansion is implemented
+  locally as a first custom-exercise/media slice and ready for review.
+- Local commit state: Stage 15 full backup/export restore and Stage 16 custom
+  exercise creation/media links are local and uncommitted after `650ac65`.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
@@ -1027,32 +1027,40 @@ Manual acceptance:
 
 ## Stage 16 - Exercise Library Expansion
 
-**Status:** proposed.
+**Status:** implemented locally as a first slice; ready for review.
 
 Goal: make the library more personal and more useful for form reference.
 
-Planned behavior:
+Implemented behavior:
 
-- Add custom exercise creation and editing.
-- Add exercise media fields for image/GIF/video references where the source
-  data supports them.
-- Add safer attribution and license handling for any third-party media.
-- Keep custom exercises available to playlist building, quests where allowed,
-  History stats, and future strength analytics.
+- Adds custom exercise creation, editing, and deletion.
+- Adds optional image and video URL fields for custom exercises.
+- Stores custom exercises separately from the built-in wger catalog so catalog
+  refreshes do not overwrite user-created movements.
+- Merges custom exercises into the Library filters and playlist builder.
+- Carries custom exercises in full JSON backups and restores.
+- Retains built-in source attribution and labels custom exercises as
+  user-provided.
 
-Suggested files:
+Deferred from this first slice:
+
+- Built-in catalog media scraping and license review for third-party images.
+- Quest-template authoring against custom exercises.
+- Preventing deletion of a custom exercise already used by saved schedule rows
+  or historic logs; those records currently keep their exercise name.
+
+Key files:
 
 - `pwa/src/types.ts`
-- `pwa/src/lib/catalog.ts`
-- `scripts/scrape-exercise-catalog.mjs`
+- `pwa/src/lib/db.ts`
+- `pwa/src/lib/custom-exercises.ts`
+- `pwa/src/lib/backup.ts`
 - `pwa/src/App.tsx`
-- `pwa/src/styles.css`
+- `pwa/src/components/LibraryView.tsx`
 
 Validation:
 
 ```sh
-node --check scripts/scrape-exercise-catalog.mjs
-npm run data:exercises
 npx tsc --noEmit
 npm run build
 ```
@@ -1061,7 +1069,9 @@ Manual acceptance:
 
 1. Create a custom exercise and add it to a playlist.
 2. Complete the workout and confirm the custom exercise appears in History.
-3. Confirm built-in catalog attribution remains visible.
+3. Add image/video URLs and confirm Library shows the custom media affordances.
+4. Export/import a full backup and confirm custom exercises are restored.
+5. Confirm built-in catalog attribution remains visible.
 
 ## Stage 17 - Health Connect Integration
 

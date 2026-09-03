@@ -1,5 +1,5 @@
 import { getAll, clearAndBulkInsert, STORES } from './db';
-import { SCHEMA_VERSION, type BodyMetricEntry, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
+import { SCHEMA_VERSION, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 
 export const BACKUP_FORMAT = 'pasingot.workout-tracker.backup';
 export const BACKUP_VERSION = 1;
@@ -15,6 +15,7 @@ export interface WorkoutBackup {
     sessionEvents: WorkoutSessionEvent[];
     setLogs: WorkoutSetLog[];
     bodyMetrics: BodyMetricEntry[];
+    customExercises: CustomExercise[];
     appState: Array<PlaylistDraft | QuestState | Record<string, unknown>>;
   };
 }
@@ -25,6 +26,7 @@ export interface BackupSummary {
   sessionEvents: number;
   setLogs: number;
   bodyMetrics: number;
+  customExercises: number;
   appState: number;
 }
 
@@ -39,6 +41,7 @@ export function summarizeBackup(backup: WorkoutBackup): BackupSummary {
     sessionEvents: backup.stores.sessionEvents.length,
     setLogs: backup.stores.setLogs.length,
     bodyMetrics: backup.stores.bodyMetrics.length,
+    customExercises: backup.stores.customExercises.length,
     appState: backup.stores.appState.length,
   };
 }
@@ -55,6 +58,7 @@ export async function buildWorkoutBackup(): Promise<WorkoutBackup> {
       sessionEvents: await getAll<WorkoutSessionEvent>(STORES.sessionEvents),
       setLogs: await getAll<WorkoutSetLog>(STORES.setLogs),
       bodyMetrics: await getAll<BodyMetricEntry>(STORES.bodyMetrics),
+      customExercises: await getAll<CustomExercise>(STORES.customExercises),
       appState: await getAll<PlaylistDraft | QuestState | Record<string, unknown>>(STORES.appState),
     },
   };
@@ -87,6 +91,7 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
       sessionEvents: stores.sessionEvents as WorkoutSessionEvent[],
       setLogs: stores.setLogs as WorkoutSetLog[],
       bodyMetrics: stores.bodyMetrics as BodyMetricEntry[],
+      customExercises: Array.isArray(stores.customExercises) ? stores.customExercises as CustomExercise[] : [],
       appState: stores.appState as Array<PlaylistDraft | QuestState | Record<string, unknown>>,
     },
   };
@@ -98,6 +103,7 @@ export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<Backu
   await clearAndBulkInsert(STORES.sessionEvents, backup.stores.sessionEvents);
   await clearAndBulkInsert(STORES.setLogs, backup.stores.setLogs);
   await clearAndBulkInsert(STORES.bodyMetrics, backup.stores.bodyMetrics);
+  await clearAndBulkInsert(STORES.customExercises, backup.stores.customExercises);
   await clearAndBulkInsert(STORES.appState, backup.stores.appState);
   return summarizeBackup(backup);
 }

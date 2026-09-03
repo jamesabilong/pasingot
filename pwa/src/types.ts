@@ -94,6 +94,15 @@ export interface ExerciseCatalogItem {
   licenseUrl: string;
   author: string;
   sourceUrl: string;
+  custom?: boolean;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+}
+
+export interface CustomExercise extends ExerciseCatalogItem {
+  custom: true;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PlaylistItem {

@@ -18,6 +18,13 @@ import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
 import { backupFileName, buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from './lib/backup';
 import { parseCatalogCsv } from './lib/catalog';
+import {
+  customExerciseFromDraft,
+  draftFromCustomExercise,
+  initialCustomExerciseDraft,
+  mergeCatalogWithCustomExercises,
+  type CustomExerciseDraft,
+} from './lib/custom-exercises';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import { drainPendingWatchLogs, pushScheduleToNative } from './lib/native-bridge';
@@ -60,6 +67,7 @@ import {
 } from './lib/workout-session';
 import {
   SCHEMA_VERSION,
+  type CustomExercise,
   type ExerciseLevel,
   type ExerciseCatalogItem,
   type HistoryRange,
@@ -101,6 +109,7 @@ export default function App() {
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
   const [workoutRestRemainingSeconds, setWorkoutRestRemainingSeconds] = useState(0);
   const [catalog, setCatalog] = useState<ExerciseCatalogItem[]>([]);
+  const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
   const [questTemplates, setQuestTemplates] = useState<QuestTemplate[]>([]);
   const [questRows, setQuestRows] = useState<QuestWorkoutRow[]>([]);
   const [questState, setQuestState] = useState<QuestState | null>(null);
@@ -110,6 +119,8 @@ export default function App() {
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [backupResult, setBackupResult] = useState<BackupTransferResult | null>(null);
+  const [customExerciseDraft, setCustomExerciseDraft] = useState<CustomExerciseDraft>(initialCustomExerciseDraft);
+  const [customExerciseResult, setCustomExerciseResult] = useState<{ message: string; error: boolean } | null>(null);
   const [playlistResult, setPlaylistResult] = useState<{ message: string; error: boolean } | null>(null);
   const [questResult, setQuestResult] = useState<{ message: string; error: boolean } | null>(null);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
@@ -138,6 +149,7 @@ export default function App() {
   const refreshLogs = useCallback(async () => setLogs(await getAll<WorkoutLog>(STORES.logs)), []);
   const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
   const refreshSetLogs = useCallback(async () => setSetLogEntries(await getAll<WorkoutSetLog>(STORES.setLogs)), []);
+  const refreshCustomExercises = useCallback(async () => setCustomExercises(await getAll<CustomExercise>(STORES.customExercises)), []);
   const saveActiveWorkoutSession = useCallback(async (next: ActiveWorkoutSession | null) => {
     setActiveWorkoutSession(next);
     if (next) await putRecord(STORES.appState, next);
@@ -156,7 +168,7 @@ export default function App() {
   useEffect(() => {
     let disposed = false;
     async function initialize() {
-      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics()]);
+      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics(), refreshCustomExercises()]);
       // Refresh the native cache after an app upgrade as well as after an
       // explicit schedule edit, so existing quest rows gain new bridge fields.
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
@@ -169,12 +181,14 @@ export default function App() {
       } catch (error) {
         console.warn('Could not refresh the local exercise catalog:', error);
       }
-      const storedCatalog = (freshCatalog.length ? freshCatalog : await getAll<ExerciseCatalogItem>(STORES.exercises))
+      const storedBaseCatalog = (freshCatalog.length ? freshCatalog : await getAll<ExerciseCatalogItem>(STORES.exercises))
         .sort((left, right) => left.displayName.localeCompare(right.displayName));
+      const storedCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
       if (disposed) return;
-      setCatalog(storedCatalog);
+      setCustomExercises(storedCustomExercises);
+      setCatalog(mergeCatalogWithCustomExercises(storedBaseCatalog, storedCustomExercises));
       const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
-      if (!disposed && storedDraft?.schemaVersion === SCHEMA_VERSION) setDraft(normalizeDraft(storedDraft, storedCatalog));
+      if (!disposed && storedDraft?.schemaVersion === SCHEMA_VERSION) setDraft(normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(storedBaseCatalog, storedCustomExercises)));
       try {
         const [templateResponse, workoutResponse] = await Promise.all([
           fetch('/data/quest-templates.csv'),
@@ -216,7 +230,7 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
 
   useScheduleNotifications(workouts, addToast);
 
@@ -551,6 +565,7 @@ export default function App() {
       refreshSessionEvents(),
       refreshSetLogs(),
       refreshBodyMetrics(),
+      refreshCustomExercises(),
     ]);
   }
 
@@ -582,17 +597,19 @@ export default function App() {
       const summary = await restoreWorkoutBackup(backup);
       await pushScheduleToNative(backup.stores.workouts);
       await refreshUserData();
+      setCustomExercises(backup.stores.customExercises);
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       setQuestState(storedQuestState?.schemaVersion === SCHEMA_VERSION ? storedQuestState : null);
       const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
-      setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, catalog) : initialDraft());
+      setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
       loadWorkoutCueSettings(storedCueSettings);
       const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       setActiveWorkoutSession(storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()
         ? normalizeActiveWorkoutSession(storedWorkoutSession)
         : null);
-      setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body metrics.` });
+      setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
+      setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body metrics, ${summary.customExercises} custom exercises.` });
     } catch (error) {
       setBackupResult({ error: true, message: error instanceof Error ? error.message : 'Could not restore backup.' });
     }
@@ -603,6 +620,46 @@ export default function App() {
     const exercise = catalog.find((item) => item.sourceId === sourceId);
     if (!exercise || draft.items.some((item) => item.sourceId === sourceId)) return;
     await saveDraft({ ...draft, items: [...draft.items, { sourceId, name: exercise.name, ...defaultPrescriptionFor(exercise, draft.level) }] });
+  }
+
+  async function saveCustomExercise() {
+    const existing = customExerciseDraft.sourceId == null
+      ? undefined
+      : customExercises.find((exercise) => exercise.sourceId === customExerciseDraft.sourceId);
+    const exercise = customExerciseFromDraft(customExerciseDraft, existing);
+    if (!exercise) {
+      setCustomExerciseResult({ error: true, message: 'Enter a custom exercise name.' });
+      return;
+    }
+    await putRecord(STORES.customExercises, exercise);
+    const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
+    const baseCatalog = catalog.filter((item) => !item.custom);
+    setCustomExercises(nextCustomExercises);
+    setCatalog(mergeCatalogWithCustomExercises(baseCatalog, nextCustomExercises));
+    setCustomExerciseDraft(initialCustomExerciseDraft());
+    setCustomExerciseResult({ error: false, message: existing ? 'Custom exercise updated.' : 'Custom exercise created.' });
+  }
+
+  async function editCustomExercise(sourceId: number) {
+    const exercise = customExercises.find((item) => item.sourceId === sourceId);
+    if (!exercise) return;
+    setCustomExerciseDraft(draftFromCustomExercise(exercise));
+    setCustomExerciseResult(null);
+  }
+
+  async function deleteCustomExercise(sourceId: number) {
+    const usedInDraft = draft.items.some((item) => item.sourceId === sourceId);
+    if (usedInDraft) {
+      setCustomExerciseResult({ error: true, message: 'Remove this exercise from the draft playlist before deleting it.' });
+      return;
+    }
+    await deleteRecord(STORES.customExercises, sourceId);
+    const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
+    const baseCatalog = catalog.filter((item) => !item.custom);
+    setCustomExercises(nextCustomExercises);
+    setCatalog(mergeCatalogWithCustomExercises(baseCatalog, nextCustomExercises));
+    setCustomExerciseDraft((current) => current.sourceId === sourceId ? initialCustomExerciseDraft() : current);
+    setCustomExerciseResult({ error: false, message: 'Custom exercise deleted.' });
   }
 
   async function updateDraftItem(index: number, updates: Partial<PlaylistItem>) {
@@ -827,6 +884,8 @@ export default function App() {
         featuredOnly={featuredOnly}
         draftEstimate={draftEstimate}
         playlistResult={playlistResult}
+        customExerciseDraft={customExerciseDraft}
+        customExerciseResult={customExerciseResult}
         defaultPrescriptionFor={defaultPrescriptionFor}
         onSearchChange={setSearch}
         onCategoryChange={setCategory}
@@ -837,6 +896,10 @@ export default function App() {
         onReorderDraftItem={(index, direction) => void reorderDraftItem(index, direction)}
         onSavePlaylistToSchedule={() => void savePlaylistToSchedule()}
         onClearPlaylistResult={() => setPlaylistResult(null)}
+        onCustomExerciseDraftChange={setCustomExerciseDraft}
+        onSaveCustomExercise={() => void saveCustomExercise()}
+        onEditCustomExercise={(sourceId) => void editCustomExercise(sourceId)}
+        onDeleteCustomExercise={(sourceId) => void deleteCustomExercise(sourceId)}
       />}
 
       {tab === 'import' && <ImportView
