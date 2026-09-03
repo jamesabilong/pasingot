@@ -44,6 +44,7 @@ export interface WorkoutSessionEvent {
   stopReason: string;
   timestamp: string;
   elapsedSeconds: number;
+  estimatedDurationSeconds?: number | null;
   exerciseIndex: number;
   currentSet: number;
   totalExercises: number;

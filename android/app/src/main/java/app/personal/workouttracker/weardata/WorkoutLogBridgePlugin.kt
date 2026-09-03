@@ -54,6 +54,7 @@ class WorkoutLogBridgePlugin : Plugin() {
                 put("stopReason", event.stopReason)
                 put("timestamp", event.timestamp)
                 put("elapsedSeconds", event.elapsedSeconds)
+                put("estimatedDurationSeconds", event.estimatedDurationSeconds)
                 put("exerciseIndex", event.exerciseIndex)
                 put("currentSet", event.currentSet)
                 put("totalExercises", event.totalExercises)

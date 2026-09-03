@@ -528,10 +528,11 @@ Progress tracker:
   complete set, skip exercise, rest countdown, rest extensions, pause, resume,
   restart, end workout, elapsed time, persisted recovery, and local session
   summaries.
+- Completed: PWA and watch session summaries now preserve estimated duration
+  for new workout-level session events and History compares actual time against
+  estimate when available.
 - Pending: Device-level validation for app swipe-away, process kill,
   low-battery interruption, and device restart.
-- Pending: Richer post-workout summary comparing estimated vs actual completion
-  time.
 
 Current validation completed:
 
@@ -616,3 +617,319 @@ Validation to add:
    exercises.
 5. Disconnect the phone, finish or end a watch session, reconnect, and confirm
    queued logs sync into PWA History.
+
+## Stage 10 - History Stats Foundation
+
+**Status:** implemented locally; ready for review.
+
+Goal: make History more useful without changing the workout data model yet.
+This stage should use data the app already stores: workout log dates, done/
+skipped status, session events, and catalog muscle/category metadata.
+
+Planned behavior:
+
+Changes completed:
+
+- Added a compact activity calendar showing days with completed or skipped
+  workout logs.
+- Added current streak and longest streak metrics based on completed workout
+  days.
+- Added weekly and monthly trend bars for completed items, skipped items, and
+  workout session summaries.
+- Added muscle/category balance summaries by joining logged exercise names to
+  catalog primary-muscle metadata.
+- Added this week vs last week and this month vs last month comparison cards.
+
+Suggested files:
+
+- `pwa/src/App.tsx`
+- `pwa/src/styles.css`
+- `pwa/src/types.ts` only if reusable stat types are helpful.
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+git diff --check
+```
+
+Manual acceptance:
+
+1. Log workouts on several different dates, including skipped exercises.
+2. Confirm the calendar/heatmap marks only days with activity.
+3. Confirm streaks count training days, not individual exercises.
+4. Confirm muscle/category totals match the catalog metadata for logged
+   exercise names.
+
+## Stage 11 - Body Metrics Log
+
+**Status:** proposed.
+
+Goal: add personal body tracking as a separate local log, independent of
+workout schedule rows. Keep this small and useful first: body weight now,
+measurements later if desired.
+
+Planned behavior:
+
+- Add a local body-weight log with date, value, and unit.
+- Add a simple History/Stats chart or list for weight trend over time.
+- Add edit/delete controls for incorrect entries.
+- Preserve the offline-first IndexedDB model; no cloud account required.
+
+Suggested files:
+
+- `pwa/src/types.ts`
+- `pwa/src/lib/db.ts`
+- `pwa/src/App.tsx`
+- `pwa/src/styles.css`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+```
+
+Manual acceptance:
+
+1. Add body-weight entries for multiple dates.
+2. Reload the app and confirm entries persist.
+3. Edit and delete entries and confirm History updates.
+
+## Stage 12 - Weighted Set Logging Data Model
+
+**Status:** proposed.
+
+Goal: introduce weight/load tracking carefully because many strength features
+depend on it. This should be a schema-safe stage with backward compatibility
+for existing bodyweight-only rows and logs.
+
+Planned behavior:
+
+- Add optional load fields for scheduled workout rows and completed set logs.
+- Support kg/lb unit preference without forcing existing users to enter weight.
+- Update CSV import/export expectations for optional load fields.
+- Update PWA/mobile live workout completion so each completed set can store
+  reps and weight when supplied.
+- Keep bodyweight exercises ergonomic: empty weight should remain valid.
+
+Suggested files:
+
+- `pwa/src/types.ts`
+- `pwa/src/lib/db.ts`
+- `pwa/src/App.tsx`
+- `pwa/src/lib/native-bridge.ts`
+- `android/shared/src/main/kotlin/app/personal/workouttracker/shared/DataModels.kt`
+- Wear session files only if watch-side load entry is included in this stage.
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+cd android
+./gradlew :shared:test :app:assembleDebug :wear:assembleDebug
+```
+
+Manual acceptance:
+
+1. Existing schedules and history load without migration errors.
+2. Bodyweight-only workouts can still be completed without entering weight.
+3. Weighted exercises can record load per set.
+4. Reload/reopen recovery preserves entered set data.
+
+## Stage 13 - Strength Analytics
+
+**Status:** proposed; depends on Stage 12.
+
+Goal: turn weighted set data into useful training feedback.
+
+Planned behavior:
+
+- Add personal-record detection for max weight, max reps at weight, and best
+  estimated 1RM where applicable.
+- Add per-exercise strength trend charts for load, estimated 1RM, and training
+  volume.
+- Add optional RPE/RIR logging if wanted after weight tracking is reviewed.
+- Add a simple plate calculator for barbell movements if wanted.
+
+Suggested files:
+
+- `pwa/src/App.tsx`
+- `pwa/src/styles.css`
+- `pwa/src/types.ts`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+```
+
+Manual acceptance:
+
+1. Complete repeated weighted sets and confirm PRs are detected only when a
+   true new best occurs.
+2. Confirm charts separate exercises correctly.
+3. Confirm estimated 1RM is hidden or marked unavailable for non-weighted logs.
+
+## Stage 14 - Workout Player Cues
+
+**Status:** proposed.
+
+Goal: improve in-session feedback with phone-side alerts and optional voice
+cues, matching the polish users expect from workout apps without requiring a
+backend.
+
+Planned behavior:
+
+- Add phone vibration and/or sound when rest ends.
+- Add user setting to enable/disable haptics and sound.
+- Add optional spoken cues for rest ending, next exercise, and workout
+  completion.
+- Keep Wear OS haptics aligned with the phone session flow.
+
+Suggested files:
+
+- `pwa/src/App.tsx`
+- `pwa/src/styles.css`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionViewModel.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+cd android
+./gradlew :app:assembleDebug :wear:assembleDebug
+```
+
+Manual acceptance:
+
+1. Start a rest timer on phone/PWA and confirm the alert fires when rest ends.
+2. Disable cues and confirm no haptic/sound fires.
+3. Confirm cues do not repeat after reload or recovery.
+
+## Stage 15 - Data Portability
+
+**Status:** proposed.
+
+Goal: give the user a way to protect and move their data while preserving the
+offline-first, no-account design.
+
+Planned behavior:
+
+- Add full local export for schedule, logs, session events, quests, draft
+  playlist, and body metrics if Stage 11 is complete.
+- Add full import/restore with validation and duplicate handling.
+- Consider encrypted backup files before considering cloud sync.
+- Keep existing CSV schedule import intact.
+
+Suggested files:
+
+- `pwa/src/App.tsx`
+- `pwa/src/lib/db.ts`
+- `pwa/src/types.ts`
+- `pwa/src/styles.css`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+```
+
+Manual acceptance:
+
+1. Export a populated app database.
+2. Clear local app data.
+3. Import the backup and confirm schedule, history, quests, sessions, and body
+   metrics are restored.
+
+## Stage 16 - Exercise Library Expansion
+
+**Status:** proposed.
+
+Goal: make the library more personal and more useful for form reference.
+
+Planned behavior:
+
+- Add custom exercise creation and editing.
+- Add exercise media fields for image/GIF/video references where the source
+  data supports them.
+- Add safer attribution and license handling for any third-party media.
+- Keep custom exercises available to playlist building, quests where allowed,
+  History stats, and future strength analytics.
+
+Suggested files:
+
+- `pwa/src/types.ts`
+- `pwa/src/lib/catalog.ts`
+- `scripts/scrape-exercise-catalog.mjs`
+- `pwa/src/App.tsx`
+- `pwa/src/styles.css`
+
+Validation:
+
+```sh
+node --check scripts/scrape-exercise-catalog.mjs
+npm run data:exercises
+npx tsc --noEmit
+npm run build
+```
+
+Manual acceptance:
+
+1. Create a custom exercise and add it to a playlist.
+2. Complete the workout and confirm the custom exercise appears in History.
+3. Confirm built-in catalog attribution remains visible.
+
+## Stage 17 - Health Connect Integration
+
+**Status:** proposed; optional after local logging is stable.
+
+Goal: integrate with Android's health ecosystem without introducing app
+accounts or a custom backend.
+
+Planned behavior:
+
+- Write completed workouts to Health Connect where permissions allow.
+- Write body weight after Stage 11 if enabled by the user.
+- Consider heart-rate summaries from Wear OS only after session and permission
+  handling are proven reliable.
+- Add clear local settings for sync enablement and permission state.
+
+Suggested files:
+
+- Android app module files for Health Connect permissions and writes.
+- `pwa/src/lib/native-bridge.ts`
+- `pwa/src/App.tsx`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+cd android
+./gradlew :app:assembleDebug
+```
+
+Manual acceptance:
+
+1. Grant Health Connect permissions.
+2. Complete a workout and confirm it appears in Health Connect.
+3. Disable sync and confirm no additional writes occur.
+
+## Deferred / Not Recommended By Default
+
+These features are common in other apps but should stay out of the near-term
+roadmap unless the app direction changes:
+
+- Social feed, leaderboards, and community routine marketplace: require
+  accounts, moderation, and backend infrastructure.
+- GPS run/ride tracking: better suited to a cardio-distance app.
+- Nutrition tracking: large separate product surface.
+- AI/adaptive programming: potentially useful later, but it conflicts with the
+  current curated quest model unless introduced very carefully.

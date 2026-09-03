@@ -66,6 +66,7 @@ export async function drainPendingWatchLogs(): Promise<number> {
         stopReason: event.stopReason,
         timestamp: event.timestamp,
         elapsedSeconds: event.elapsedSeconds,
+        estimatedDurationSeconds: event.estimatedDurationSeconds ?? null,
         exerciseIndex: event.exerciseIndex,
         currentSet: event.currentSet,
         totalExercises: event.totalExercises,

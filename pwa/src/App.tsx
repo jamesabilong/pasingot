@@ -92,6 +92,31 @@ interface PlanProgress {
   resolvedPercent: number;
 }
 
+interface ActivityDay {
+  key: string;
+  label: string;
+  done: number;
+  skipped: number;
+}
+
+interface PeriodStats {
+  label: string;
+  days: number;
+  done: number;
+  skipped: number;
+  sessions: number;
+}
+
+interface TrendBucket extends PeriodStats {
+  key: string;
+}
+
+interface BalanceStat {
+  label: string;
+  done: number;
+  skipped: number;
+}
+
 interface ActiveWorkoutSession {
   key: typeof ACTIVE_WORKOUT_SESSION_KEY;
   schemaVersion: number;
@@ -182,13 +207,21 @@ function formatSessionStopReason(reason: string): string {
   }
 }
 
+function formatActualVsEstimated(event: WorkoutSessionEvent): string | null {
+  if (event.estimatedDurationSeconds == null || event.estimatedDurationSeconds <= 0) return null;
+  const deltaSeconds = event.elapsedSeconds - event.estimatedDurationSeconds;
+  if (Math.abs(deltaSeconds) < 30) return 'On estimate';
+  return deltaSeconds > 0
+    ? `${formatDuration(deltaSeconds)} over estimate`
+    : `${formatDuration(Math.abs(deltaSeconds))} under estimate`;
+}
+
 function todayName(): Weekday {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Weekday;
 }
 
 function todayDateKey(): string {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return dateKeyFromDate(new Date());
 }
 
 function currentHHMM(): string {
@@ -199,7 +232,36 @@ function currentHHMM(): string {
 function localDateKey(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return dateKeyFromDate(date);
+}
+
+function dateKeyFromDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function dateFromKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfWeek(date: Date): Date {
+  return addDays(date, -date.getDay());
+}
+
+function sameOrBefore(left: Date, right: Date): boolean {
+  return dateKeyFromDate(left) <= dateKeyFromDate(right);
+}
+
+function datesBetween(start: Date, end: Date): Date[] {
+  const result: Date[] = [];
+  for (let current = new Date(start); sameOrBefore(current, end); current = addDays(current, 1)) result.push(new Date(current));
+  return result;
 }
 
 function formatHistoryDate(value: string): string {
@@ -212,6 +274,128 @@ function formatHistoryTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatShortDateKey(key: string): string {
+  const date = dateFromKey(key);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatWeekBucketLabel(startKey: string): string {
+  return formatShortDateKey(startKey);
+}
+
+function calculateStreaks(logs: WorkoutLog[]): { current: number; longest: number } {
+  const completedKeys = [...new Set(logs.filter((log) => log.status === 'done').map((log) => localDateKey(log.date)))].sort();
+  if (!completedKeys.length) return { current: 0, longest: 0 };
+
+  let longest = 1;
+  let run = 1;
+  for (let index = 1; index < completedKeys.length; index += 1) {
+    const previous = dateFromKey(completedKeys[index - 1]);
+    const current = dateFromKey(completedKeys[index]);
+    run = dateKeyFromDate(addDays(previous, 1)) === dateKeyFromDate(current) ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+
+  const completedSet = new Set(completedKeys);
+  let cursor = dateFromKey(todayDateKey());
+  if (!completedSet.has(dateKeyFromDate(cursor))) cursor = addDays(cursor, -1);
+  let current = 0;
+  while (completedSet.has(dateKeyFromDate(cursor))) {
+    current += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return { current, longest };
+}
+
+function countLogsForPeriod(label: string, logs: WorkoutLog[], events: WorkoutSessionEvent[], start: Date, end: Date): PeriodStats {
+  const startKey = dateKeyFromDate(start);
+  const endKey = dateKeyFromDate(end);
+  const periodLogs = logs.filter((log) => {
+    const key = localDateKey(log.date);
+    return key >= startKey && key <= endKey;
+  });
+  const periodEvents = events.filter((event) => {
+    const key = localDateKey(event.timestamp);
+    return key >= startKey && key <= endKey;
+  });
+  return {
+    label,
+    days: new Set(periodLogs.filter((log) => log.status === 'done').map((log) => localDateKey(log.date))).size,
+    done: periodLogs.filter((log) => log.status === 'done').length,
+    skipped: periodLogs.filter((log) => log.status === 'skipped').length,
+    sessions: periodEvents.length,
+  };
+}
+
+function deltaLabel(current: number, previous: number): string {
+  const delta = current - previous;
+  if (delta === 0) return 'same';
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function buildActivityDays(logs: WorkoutLog[], range: HistoryRange): ActivityDay[] {
+  const today = dateFromKey(todayDateKey());
+  const start = range === 'month' ? new Date(today.getFullYear(), today.getMonth(), 1) : addDays(today, -34);
+  const byDay = new Map<string, { done: number; skipped: number }>();
+  logs.forEach((log) => {
+    const key = localDateKey(log.date);
+    const current = byDay.get(key) ?? { done: 0, skipped: 0 };
+    current[log.status] += 1;
+    byDay.set(key, current);
+  });
+  return datesBetween(start, today).map((date) => {
+    const key = dateKeyFromDate(date);
+    const current = byDay.get(key) ?? { done: 0, skipped: 0 };
+    return { key, label: date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }), ...current };
+  });
+}
+
+function buildWeeklyTrend(logs: WorkoutLog[], events: WorkoutSessionEvent[]): TrendBucket[] {
+  const thisWeek = startOfWeek(dateFromKey(todayDateKey()));
+  return Array.from({ length: 6 }, (_, offset) => {
+    const start = addDays(thisWeek, (offset - 5) * 7);
+    const end = addDays(start, 6);
+    return { key: dateKeyFromDate(start), ...countLogsForPeriod(formatWeekBucketLabel(dateKeyFromDate(start)), logs, events, start, end) };
+  });
+}
+
+function buildMonthlyTrend(logs: WorkoutLog[], events: WorkoutSessionEvent[]): TrendBucket[] {
+  const today = dateFromKey(todayDateKey());
+  return Array.from({ length: 6 }, (_, offset) => {
+    const start = new Date(today.getFullYear(), today.getMonth() - 5 + offset, 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    const label = start.toLocaleDateString('en-US', { month: 'short' });
+    return { key: dateKeyFromDate(start), ...countLogsForPeriod(label, logs, events, start, end) };
+  });
+}
+
+function catalogMatcher(catalog: ExerciseCatalogItem[]): Map<string, ExerciseCatalogItem> {
+  const result = new Map<string, ExerciseCatalogItem>();
+  catalog.forEach((item) => {
+    result.set(item.name.toLowerCase(), item);
+    result.set(item.displayName.toLowerCase(), item);
+  });
+  return result;
+}
+
+function buildBalanceStats(logs: WorkoutLog[], catalog: ExerciseCatalogItem[]): BalanceStat[] {
+  const catalogByName = catalogMatcher(catalog);
+  const result = new Map<string, { done: number; skipped: number }>();
+  logs.forEach((log) => {
+    const exercise = catalogByName.get(log.exercise.toLowerCase());
+    const labels = exercise?.primaryMuscles.length ? exercise.primaryMuscles : [exercise?.category ?? 'Unmapped'];
+    labels.forEach((label) => {
+      const current = result.get(label) ?? { done: 0, skipped: 0 };
+      current[log.status] += 1;
+      result.set(label, current);
+    });
+  });
+  return [...result.entries()]
+    .map(([label, stats]) => ({ label, ...stats }))
+    .sort((left, right) => (right.done + right.skipped) - (left.done + left.skipped))
+    .slice(0, 6);
 }
 
 function withinTolerance(scheduled: string, current: string): boolean {
@@ -711,6 +895,32 @@ export default function App() {
   const historyDoneCount = useMemo(() => historyLogs.filter((item) => item.status === 'done').length, [historyLogs]);
   const historySkippedCount = useMemo(() => historyLogs.filter((item) => item.status === 'skipped').length, [historyLogs]);
   const historyCompletionPercent = historyLogs.length ? Math.round((historyDoneCount / historyLogs.length) * 100) : 0;
+  const historyStreaks = useMemo(() => calculateStreaks(logs), [logs]);
+  const historyActivityDays = useMemo(() => buildActivityDays(logs, historyRange), [historyRange, logs]);
+  const historyWeeklyTrend = useMemo(() => buildWeeklyTrend(logs, sessionEvents), [logs, sessionEvents]);
+  const historyMonthlyTrend = useMemo(() => buildMonthlyTrend(logs, sessionEvents), [logs, sessionEvents]);
+  const historyMaxTrendTotal = useMemo(() => Math.max(1, ...historyWeeklyTrend.map((bucket) => bucket.done + bucket.skipped + bucket.sessions)), [historyWeeklyTrend]);
+  const historyMaxMonthlyTrendTotal = useMemo(() => Math.max(1, ...historyMonthlyTrend.map((bucket) => bucket.done + bucket.skipped + bucket.sessions)), [historyMonthlyTrend]);
+  const historyBalanceStats = useMemo(() => buildBalanceStats(historyLogs, catalog), [catalog, historyLogs]);
+  const historyMaxBalanceTotal = useMemo(() => Math.max(1, ...historyBalanceStats.map((item) => item.done + item.skipped)), [historyBalanceStats]);
+  const periodComparisons = useMemo(() => {
+    const today = dateFromKey(todayDateKey());
+    const thisWeekStart = startOfWeek(today);
+    const lastWeekStart = addDays(thisWeekStart, -7);
+    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd = addDays(thisMonthStart, -1);
+    return [
+      {
+        current: countLogsForPeriod('This week', logs, sessionEvents, thisWeekStart, today),
+        previous: countLogsForPeriod('Last week', logs, sessionEvents, lastWeekStart, addDays(thisWeekStart, -1)),
+      },
+      {
+        current: countLogsForPeriod('This month', logs, sessionEvents, thisMonthStart, today),
+        previous: countLogsForPeriod('Last month', logs, sessionEvents, lastMonthStart, lastMonthEnd),
+      },
+    ];
+  }, [logs, sessionEvents]);
   const historyDateGroups = useMemo(() => {
     const groups = new Map<string, HistoryDateGroup>();
     historyLogs.forEach((log) => {
@@ -784,6 +994,7 @@ export default function App() {
 
   async function recordLocalSessionEvent(session: ActiveWorkoutSession, eventType: WorkoutSessionEvent['eventType'], stopReason: string, rows: WorkoutRow[]) {
     const row = rows[session.exerciseIndex];
+    const estimatedDurationSeconds = estimateWorkoutDurationSeconds(rows, estimateLevelFor(rows));
     await addRecord(STORES.sessionEvents, {
       schemaVersion: SCHEMA_VERSION,
       workoutEntryId: `pwa:${session.planDate}`,
@@ -792,6 +1003,7 @@ export default function App() {
       stopReason,
       timestamp: new Date().toISOString(),
       elapsedSeconds: elapsedSecondsForSession(session),
+      estimatedDurationSeconds,
       exerciseIndex: session.exerciseIndex,
       currentSet: session.currentSet,
       totalExercises: rows.length,
@@ -1368,6 +1580,8 @@ export default function App() {
             <Metric label="Logged items" value={historyLogs.length} />
             <Metric label="Done" value={historyDoneCount} color="text-emerald-400" />
             <Metric label="Skipped" value={historySkippedCount} color="text-amber-400" />
+            <Metric label="Current streak" value={historyStreaks.current} color="text-teal-300" />
+            <Metric label="Longest streak" value={historyStreaks.longest} color="text-indigo-300" />
           </div>
 
           <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -1379,6 +1593,16 @@ export default function App() {
               <div className="h-full bg-emerald-500" style={{ width: `${historyCompletionPercent}%` }} />
             </div>
           </div>
+
+          <ActivityCalendar days={historyActivityDays} range={historyRange} />
+
+          <PeriodComparison comparisons={periodComparisons} />
+
+          <TrendBars title="Weekly Trend" detail="6 weeks" buckets={historyWeeklyTrend} maxTotal={historyMaxTrendTotal} />
+
+          <TrendBars title="Monthly Trend" detail="6 months" buckets={historyMonthlyTrend} maxTotal={historyMaxMonthlyTrendTotal} />
+
+          <BalanceBreakdown stats={historyBalanceStats} maxTotal={historyMaxBalanceTotal} />
 
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
@@ -1423,6 +1647,20 @@ export default function App() {
                     <span className="text-slate-500">{formatSessionStopReason(event.stopReason)}</span>
                     <span className="font-medium text-emerald-300">{formatDuration(event.elapsedSeconds)}</span>
                   </div>
+                  {event.estimatedDurationSeconds != null && <div className="mt-2 grid grid-cols-3 gap-2 rounded-md border border-slate-800 bg-slate-950 p-2 text-center text-xs">
+                    <div>
+                      <p className="font-semibold text-slate-200">{formatDuration(event.elapsedSeconds)}</p>
+                      <p className="text-slate-600">Actual</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-200">{formatDuration(event.estimatedDurationSeconds)}</p>
+                      <p className="text-slate-600">Estimate</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-emerald-300">{formatActualVsEstimated(event)}</p>
+                      <p className="text-slate-600">Pace</p>
+                    </div>
+                  </div>}
                 </div>
               ))}
             </div>}
@@ -1473,4 +1711,98 @@ export default function App() {
 
 function Metric({ label, value, color = '' }: { label: string; value: number; color?: string }) {
   return <div className="rounded-lg border border-slate-800 bg-slate-900 py-3"><p className={`text-xl font-bold ${color}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>;
+}
+
+function ActivityCalendar({ days, range }: { days: ActivityDay[]; range: HistoryRange }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-200">Activity Calendar</h3>
+        <span className="text-xs text-slate-500">{range === 'month' ? 'This month' : 'Last 35 days'}</span>
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day) => {
+          const total = day.done + day.skipped;
+          const shade = day.done > 0 ? (day.done >= 3 ? 'bg-emerald-400' : day.done >= 2 ? 'bg-emerald-600' : 'bg-emerald-800') : day.skipped > 0 ? 'bg-amber-700' : 'bg-slate-800';
+          return (
+            <div key={day.key} title={`${day.label}: ${day.done} done, ${day.skipped} skipped`} className={`aspect-square rounded ${shade} ${total > 0 ? 'ring-1 ring-slate-700' : ''}`} />
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-600">
+        <span>{days[0] ? formatShortDateKey(days[0].key) : ''}</span>
+        <span>{days.at(-1) ? formatShortDateKey(days.at(-1)!.key) : ''}</span>
+      </div>
+    </div>
+  );
+}
+
+function PeriodComparison({ comparisons }: { comparisons: Array<{ current: PeriodStats; previous: PeriodStats }> }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Period Comparison</h3>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {comparisons.map(({ current, previous }) => (
+          <div key={current.label} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-200">{current.label}</p>
+              <span className="text-xs text-slate-500">vs {previous.label.toLowerCase()}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div><p className="font-semibold text-emerald-300">{current.done}</p><p className="text-slate-600">Done {deltaLabel(current.done, previous.done)}</p></div>
+              <div><p className="font-semibold text-slate-300">{current.days}</p><p className="text-slate-600">Days {deltaLabel(current.days, previous.days)}</p></div>
+              <div><p className="font-semibold text-indigo-300">{current.sessions}</p><p className="text-slate-600">Sessions {deltaLabel(current.sessions, previous.sessions)}</p></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TrendBars({ title, detail, buckets, maxTotal }: { title: string; detail: string; buckets: TrendBucket[]; maxTotal: number }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+        <span className="text-xs text-slate-500">{detail}</span>
+      </div>
+      <div className="grid grid-cols-6 items-end gap-2">
+        {buckets.map((bucket) => {
+          const total = bucket.done + bucket.skipped + bucket.sessions;
+          return (
+            <div key={bucket.key} className="grid gap-1 text-center">
+              <div className="flex h-24 items-end rounded-md bg-slate-950 p-1">
+                <div className="w-full rounded bg-emerald-500" style={{ height: `${Math.max(6, (total / maxTotal) * 100)}%` }} />
+              </div>
+              <p className="truncate text-[10px] text-slate-600">{bucket.label}</p>
+              <p className="text-xs font-semibold text-slate-300">{total}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BalanceBreakdown({ stats, maxTotal }: { stats: BalanceStat[]; maxTotal: number }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Muscle Balance</h3>
+      {stats.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No muscle/category balance available yet.</p> : stats.map((item) => {
+        const total = item.done + item.skipped;
+        return (
+          <div key={item.label} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+            <div className="mb-1.5 flex justify-between gap-2 text-sm">
+              <span className="truncate font-medium">{item.label}</span>
+              <span className="shrink-0 text-slate-500">{item.done} done · {item.skipped} skipped</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-full bg-teal-400" style={{ width: `${Math.max(4, (total / maxTotal) * 100)}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

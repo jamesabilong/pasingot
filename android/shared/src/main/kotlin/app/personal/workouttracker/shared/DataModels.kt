@@ -303,6 +303,7 @@ data class WorkoutSessionEvent(
     val stopReason: String,
     val timestamp: String,
     val elapsedSeconds: Int,
+    val estimatedDurationSeconds: Int? = null,
     val exerciseIndex: Int,
     val currentSet: Int,
     val totalExercises: Int,

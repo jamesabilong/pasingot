@@ -10,6 +10,7 @@ import app.personal.workouttracker.shared.SessionEventType
 import app.personal.workouttracker.shared.SessionStopReason
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutSessionEvent
+import app.personal.workouttracker.shared.estimatedDurationSeconds
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.WorkoutRepository
 import kotlinx.coroutines.Job
@@ -316,6 +317,7 @@ class SessionViewModel(
             stopReason = stopReason,
             timestamp = Instant.now().toString(),
             elapsedSeconds = elapsedSeconds(session),
+            estimatedDurationSeconds = entry.estimatedDurationSeconds(),
             exerciseIndex = session.exerciseIndex,
             currentSet = session.currentSet,
             totalExercises = entry.exercises.size,
