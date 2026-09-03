@@ -18,15 +18,14 @@ updated at each checkpoint so the plan is visible from every device.
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
-- Active checkpoint: Stage 14 workout player cues implemented locally and
-  ready for review; Stage 18 UI overhaul has been added to the roadmap.
-- Local commit state: Stage 8 follow-up, Stage 9 slices 1-5, Stage 10 history
-  stats, Stage 11 body metrics, Stage 11A React cleanup, Stage 12 weighted
-  set logging, Stage 13 strength analytics, and Stage 14 workout player cues
-  are implemented locally but not committed.
-- Cross-device visibility: this file documents the current local state, but the
-  code and plan changes will only be visible on another device after this work
-  is committed and pushed/synced from this machine.
+- Latest committed React checkpoint:
+  `b66d19c PST01: Stage 13, 14 and react clean up`.
+- Active checkpoint: Stage 14B React state and logic overhaul is implemented
+  locally as a first cleanup slice and ready for review before Stage 15.
+- Local commit state: Stage 14B architecture docs and first cleanup slice are
+  local and uncommitted after `b66d19c`.
+- Cross-device visibility: committed checkpoints are visible from another
+  device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
@@ -866,7 +865,8 @@ Manual acceptance:
 
 ## Stage 14 - Workout Player Cues
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and pushed on `origin/PST01` as part of
+`b66d19c PST01: Stage 13, 14 and react clean up`.
 
 Goal: improve in-session feedback with phone-side alerts and optional voice
 cues, matching the polish users expect from workout apps without requiring a
@@ -902,6 +902,90 @@ Manual acceptance:
 1. Start a rest timer on phone/PWA and confirm the alert fires when rest ends.
 2. Disable cues and confirm no haptic/sound fires.
 3. Confirm cues do not repeat after reload or recovery.
+
+## Stage 14B - React State and Logic Overhaul
+
+**Status:** first cleanup slice implemented locally; ready for review before
+Stage 15.
+
+Goal: reduce `App.tsx` from a large app controller into a thin composition
+root by moving feature-specific state, effects, persistence, and action
+handlers into focused hooks and service modules. `App.tsx` may still contain
+tab routing and top-level composition, but it should not own every workflow's
+business logic.
+
+React guidance check:
+
+- The official Vite React TypeScript starter keeps a small demo state in
+  `App.tsx`, but that template is intentionally minimal and not a production
+  architecture model for a multi-screen offline app.
+- React's current docs recommend custom Hooks when logic needs to be reused or
+  when a component should focus on intent instead of implementation details.
+- React components may contain local UI state and event handlers, but complex
+  side effects, persistence flows, data loading, and domain operations should
+  be extracted when they make a component hard to reason about.
+
+Planned behavior:
+
+- Create `pwa/src/hooks/` for feature hooks:
+  `useWorkoutData`, `useWorkoutSession`, `useWorkoutCueSettings`,
+  `useQuestWorkflow`, `usePlaylistDraft`, `useBodyMetrics`,
+  `useNotifications`, and `useWatchSync` as the code shape requires.
+- Create or extend `pwa/src/lib/` service modules for pure/non-React domain
+  logic: workout session transitions, schedule import/save, cue playback,
+  notification timing, and quest completion reconciliation.
+- Fix the Stage 14 cue-setting race by making cue setting updates functional
+  or reducer-driven before extracting that logic.
+- Keep screen components responsible for display and local form affordances
+  only; they should receive focused props from hooks instead of broad app-wide
+  state.
+- Keep `App.tsx` as the composition root: choose the active tab, call feature
+  hooks, connect hook outputs to screen components, and render `AppShell`.
+- Add a lightweight architecture checklist so future stages do not reintroduce
+  large feature workflows directly into `App.tsx`.
+
+Implemented in the first cleanup slice:
+
+- Extracted workout planning helpers, validation, default prescriptions, level
+  labels, and duration estimates into `pwa/src/lib/workout-planning.ts`.
+- Extracted PWA workout session types and transition helpers into
+  `pwa/src/lib/workout-session.ts`.
+- Extracted cue playback and cue settings normalization into
+  `pwa/src/lib/workout-cues.ts`.
+- Added focused hooks for body metrics, workout cue settings, toasts, and
+  schedule notification polling.
+- Fixed the Stage 14 cue-setting race with a ref-backed settings hook so rapid
+  toggles compose against the latest setting snapshot.
+- Simplified Wear OS session haptic handling with a remembered cue-action
+  helper and shared cancel-session helper.
+
+Suggested files:
+
+- `pwa/src/App.tsx`
+- `pwa/src/hooks/`
+- `pwa/src/lib/workout-session.ts`
+- `pwa/src/lib/workout-cues.ts`
+- `pwa/src/lib/notifications.ts`
+- `pwa/src/lib/watch-sync.ts`
+- `docs/REACT_WEB_APP_INSTRUCTIONS.md`
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+git diff --check
+```
+
+Manual acceptance:
+
+1. `App.tsx` is materially smaller and has no feature-specific persistence
+   algorithms or timer/state-machine code inline.
+2. Today workout start, set completion, rest auto-advance, pause/resume,
+   stale-session recovery, and cue toggles behave the same as Stage 14.
+3. Quest scheduling/completion, playlist save/import, body metrics, History,
+   and watch log drain still work.
+4. Hooks have focused names and do not become generic catch-all wrappers.
 
 ## Stage 15 - Data Portability
 

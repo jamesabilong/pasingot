@@ -4,8 +4,9 @@ Use these guidelines for future PWA work in `pwa/src`.
 
 ## Component Boundaries
 
-- Keep `App.tsx` focused on app-level orchestration: loading data, owning
-  top-level state, persistence calls, native bridge calls, and tab routing.
+- Keep `App.tsx` focused on app composition: choosing the active tab, calling
+  feature hooks, passing focused props/callbacks to screens, and rendering
+  `AppShell`.
 - Put feature screens in `pwa/src/components/`, for example `TodayView.tsx`,
   `QuestsView.tsx`, `LibraryView.tsx`, `ImportView.tsx`, and
   `HistoryView.tsx`.
@@ -20,6 +21,25 @@ Use these guidelines for future PWA work in `pwa/src`.
   If a tab needs more than a small wrapper, extract it.
 - Prefer passing explicit props into feature components over reaching through
   globals or duplicating persistence logic.
+
+## Logic Boundaries
+
+- Prefer feature hooks in `pwa/src/hooks/` when a workflow owns React state,
+  effects, timers, IndexedDB refreshes, native bridge coordination, or several
+  related action handlers.
+- Prefer pure modules in `pwa/src/lib/` for domain calculations,
+  normalization, parsing, validation, state transitions, and browser/native
+  side-effect adapters that do not need React state.
+- Do not let `App.tsx` own feature-specific state machines such as workout
+  session progression, rest timer recovery, cue settings, quest reconciliation,
+  import/save workflows, or watch sync. `App.tsx` should wire those workflows
+  together through hooks.
+- Local display-only state may remain inside components when it only affects
+  that component, such as confirmation toggles, temporary expanded rows, and
+  form field drafts.
+- Hooks should be named after concrete product workflows, for example
+  `useWorkoutSession` or `useQuestWorkflow`. Avoid vague hooks like
+  `useAppLogic` or `useLifecycle`.
 
 ## State And Data
 

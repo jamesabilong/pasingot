@@ -40,11 +40,7 @@ import app.personal.workouttracker.shared.WorkoutExercise
 @Composable
 fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    val haptic = LocalHapticFeedback.current
-    fun cueAction(action: () -> Unit) {
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        action()
-    }
+    val cueAction = rememberCueAction()
 
     // Exiting without an explicit unfinished state behaves like Pause, so
     // progress is never lost by accident — covers both the system back
@@ -104,7 +100,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
             onStartNow = { cueAction(viewModel::onStartNow) },
             onPause = { cueAction(viewModel::onPause) },
             onAddRestSeconds = { seconds -> cueAction { viewModel.onAddRestSeconds(seconds) } },
-            onCancel = { cueAction { viewModel.onCancel(); onCancel() } },
+            onCancel = { cueAction { cancelSession(viewModel, onCancel) } },
         )
         return
     }
@@ -205,13 +201,29 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             CompactChip(
-                onClick = { cueAction { viewModel.onCancel(); onCancel() } },
+                onClick = { cueAction { cancelSession(viewModel, onCancel) } },
                 label = { Text("Cancel") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
             )
         }
     }
+}
+
+@Composable
+private fun rememberCueAction(): (() -> Unit) -> Unit {
+    val haptic = LocalHapticFeedback.current
+    return remember(haptic) {
+        { action ->
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            action()
+        }
+    }
+}
+
+private fun cancelSession(viewModel: SessionViewModel, onCancel: () -> Unit) {
+    viewModel.onCancel()
+    onCancel()
 }
 
 @Composable

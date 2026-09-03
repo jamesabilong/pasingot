@@ -11,18 +11,54 @@ import { ImportView, type ImportResult } from './components/ImportView';
 import { LibraryView } from './components/LibraryView';
 import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
-import { type PlanProgress } from './components/SummaryCards';
 import { type WorkoutSetInput } from './components/WorkoutPlayer';
-import { bodyMetricDraftFromEntry, initialBodyMetricDraft, parseBodyMetricDraft, type BodyMetricDraft } from './lib/body-metrics';
+import { useBodyMetrics } from './hooks/useBodyMetrics';
+import { useScheduleNotifications } from './hooks/useScheduleNotifications';
+import { useToasts } from './hooks/useToasts';
+import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
 import { parseCatalogCsv } from './lib/catalog';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import { drainPendingWatchLogs, pushScheduleToNative } from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
+import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
+import {
+  calculatePlanProgress,
+  defaultPrescriptionFor,
+  estimateLevelFor,
+  estimateWorkoutDurationSeconds,
+  formatEstimatedDuration,
+  initialDraft,
+  isWeightUnit,
+  LEVEL_LABELS,
+  LEVELS,
+  levelEligible,
+  MAX_PLAYLIST_ITEMS,
+  normalizeDraft,
+  TIME_RE,
+  todayName,
+  validLoadWeight,
+  validateWorkoutRow,
+} from './lib/workout-planning';
+import {
+  ACTIVE_SESSION_IDLE_TIMEOUT_MS,
+  ACTIVE_WORKOUT_SESSION_KEY,
+  currentSetInput,
+  defaultSetInput,
+  elapsedSecondsForSession,
+  newPwaSession,
+  normalizeActiveWorkoutSession,
+  restCueKey,
+  restOrActive,
+  restSecondsForSession,
+  setInputKey,
+  startElapsedSession,
+  stopElapsedSession,
+  touchSession,
+  type ActiveWorkoutSession,
+} from './lib/workout-session';
 import {
   SCHEMA_VERSION,
-  WEEKDAYS,
-  type BodyMetricEntry,
   type ExerciseLevel,
   type ExerciseCatalogItem,
   type HistoryRange,
@@ -33,240 +69,14 @@ import {
   type QuestTemplate,
   type QuestWorkoutRow,
   type Tab,
-  type WeightUnit,
-  type Weekday,
   type WorkoutLog,
   type WorkoutRow,
   type WorkoutSetLog,
   type WorkoutSessionEvent,
 } from './types';
 
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PLAYLIST_DRAFT_KEY = 'playlistDraft';
 const QUEST_STATE_KEY = 'questState';
-const ACTIVE_WORKOUT_SESSION_KEY = 'activeWorkoutSession';
-const WORKOUT_CUE_SETTINGS_KEY = 'workoutCueSettings';
-const MAX_PLAYLIST_ITEMS = 24;
-const POLL_INTERVAL_MS = 30_000;
-const NOTIFICATION_TOLERANCE_MINUTES = 1;
-const ACTIVE_SESSION_IDLE_TIMEOUT_MS = 45 * 60 * 1000;
-const LEVELS: ExerciseLevel[] = ['beginner', 'intermediate', 'advanced'];
-const LEVEL_RANK: Record<ExerciseLevel, number> = { beginner: 0, intermediate: 1, advanced: 2 };
-const LEVEL_LABELS: Record<ExerciseLevel, string> = {
-  beginner: 'Beginner',
-  intermediate: 'Intermediate',
-  advanced: 'Advanced',
-};
-
-const DEFAULT_PRESCRIPTIONS: Record<ExerciseLevel, { strength: Omit<PlaylistItem, 'sourceId' | 'name'>; cardio: Omit<PlaylistItem, 'sourceId' | 'name'> }> = {
-  beginner: {
-    strength: { sets: 2, reps: '8-10', rest: 75 },
-    cardio: { sets: 1, reps: '10 min', rest: 60 },
-  },
-  intermediate: {
-    strength: { sets: 3, reps: '8-12', rest: 60 },
-    cardio: { sets: 1, reps: '15-20 min', rest: 60 },
-  },
-  advanced: {
-    strength: { sets: 4, reps: '6-10', rest: 90 },
-    cardio: { sets: 1, reps: '20-30 min', rest: 60 },
-  },
-};
-
-type EstimableExercise = Pick<PlaylistItem, 'sets' | 'reps' | 'rest'> & { questLevel?: ExerciseLevel };
-type PwaWorkoutSessionStatus = 'active' | 'resting' | 'paused' | 'completed' | 'ended';
-
-const ESTIMATE_SECONDS_PER_REP = 4;
-const ESTIMATE_SET_SETUP_SECONDS = 10;
-const ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS = 15;
-const ESTIMATE_DEFAULT_REP_COUNT = 10;
-
-interface Toast {
-  id: number;
-  message: string;
-}
-
-interface WorkoutCueSettings {
-  key: typeof WORKOUT_CUE_SETTINGS_KEY;
-  schemaVersion: number;
-  hapticsEnabled: boolean;
-  soundEnabled: boolean;
-  voiceEnabled: boolean;
-}
-
-interface ActiveWorkoutSession {
-  key: typeof ACTIVE_WORKOUT_SESSION_KEY;
-  schemaVersion: number;
-  planDate: string;
-  rowIds: number[];
-  status: PwaWorkoutSessionStatus;
-  exerciseIndex: number;
-  currentSet: number;
-  restUntilEpochMillis: number | null;
-  pausedRestRemainingSeconds: number | null;
-  accumulatedElapsedMillis: number;
-  elapsedStartedAtEpochMillis: number | null;
-  lastStopReason: string | null;
-  setInputs: Record<string, WorkoutSetInput>;
-  lastInteractionAtEpochMillis: number;
-  lastRestCueKey: string | null;
-}
-
-function isWeightUnit(value: unknown): value is WeightUnit {
-  return value === 'kg' || value === 'lb';
-}
-
-function validLoadWeight(value: unknown): number | null {
-  if (value === '' || value == null) return null;
-  const weight = Number(value);
-  if (!Number.isFinite(weight) || weight <= 0 || weight > 2000) return null;
-  return Math.round(weight * 10) / 10;
-}
-
-function setInputKey(row: WorkoutRow, setNumber: number): string {
-  return `${row.id ?? row.exercise}:${setNumber}`;
-}
-
-function defaultSetInput(row: WorkoutRow): WorkoutSetInput {
-  return {
-    actualReps: row.reps,
-    loadWeight: row.loadWeight != null ? String(row.loadWeight) : '',
-    loadUnit: row.loadUnit ?? 'kg',
-  };
-}
-
-function normalizeActiveWorkoutSession(session: ActiveWorkoutSession): ActiveWorkoutSession {
-  return {
-    ...session,
-    setInputs: session.setInputs ?? {},
-    lastInteractionAtEpochMillis: session.lastInteractionAtEpochMillis ?? session.elapsedStartedAtEpochMillis ?? Date.now(),
-    lastRestCueKey: session.lastRestCueKey ?? null,
-  };
-}
-
-function touchSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
-  return { ...session, lastInteractionAtEpochMillis: now };
-}
-
-function initialWorkoutCueSettings(): WorkoutCueSettings {
-  return {
-    key: WORKOUT_CUE_SETTINGS_KEY,
-    schemaVersion: SCHEMA_VERSION,
-    hapticsEnabled: true,
-    soundEnabled: false,
-    voiceEnabled: false,
-  };
-}
-
-function normalizeWorkoutCueSettings(settings?: Partial<WorkoutCueSettings> | null): WorkoutCueSettings {
-  return {
-    ...initialWorkoutCueSettings(),
-    hapticsEnabled: settings?.hapticsEnabled ?? true,
-    soundEnabled: settings?.soundEnabled ?? false,
-    voiceEnabled: settings?.voiceEnabled ?? false,
-  };
-}
-
-function restCueKey(session: ActiveWorkoutSession): string {
-  return `${session.planDate}:${session.exerciseIndex}:${session.currentSet}:${session.restUntilEpochMillis ?? 'none'}`;
-}
-
-function calculatePlanProgress(rows: Array<{ id?: number }>, statuses: Map<number, WorkoutLog['status']>): PlanProgress {
-  const progress = rows.reduce((result, row) => {
-    const status = row.id == null ? undefined : statuses.get(row.id);
-    if (status === 'done') return { ...result, completed: result.completed + 1 };
-    if (status === 'skipped') return { ...result, skipped: result.skipped + 1 };
-    return { ...result, pending: result.pending + 1 };
-  }, { total: rows.length, completed: 0, pending: 0, skipped: 0, resolvedPercent: 0 });
-  const resolved = progress.completed + progress.skipped;
-  return { ...progress, resolvedPercent: progress.total ? Math.round((resolved / progress.total) * 100) : 0 };
-}
-
-function elapsedSecondsForSession(session: ActiveWorkoutSession, now = Date.now()): number {
-  const runningMillis = session.elapsedStartedAtEpochMillis != null && (session.status === 'active' || session.status === 'resting')
-    ? Math.max(0, now - session.elapsedStartedAtEpochMillis)
-    : 0;
-  return Math.ceil(Math.max(0, session.accumulatedElapsedMillis + runningMillis) / 1000);
-}
-
-function restSecondsForSession(session: ActiveWorkoutSession, now = Date.now()): number {
-  if (session.status === 'paused' && session.pausedRestRemainingSeconds != null) return session.pausedRestRemainingSeconds;
-  if (session.status !== 'resting' || session.restUntilEpochMillis == null) return 0;
-  return Math.max(0, Math.ceil((session.restUntilEpochMillis - now) / 1000));
-}
-
-function stopElapsedSession(session: ActiveWorkoutSession, reason: string, now = Date.now()): ActiveWorkoutSession {
-  const runningMillis = session.elapsedStartedAtEpochMillis != null && (session.status === 'active' || session.status === 'resting')
-    ? Math.max(0, now - session.elapsedStartedAtEpochMillis)
-    : 0;
-  return {
-    ...session,
-    accumulatedElapsedMillis: Math.max(0, session.accumulatedElapsedMillis + runningMillis),
-    elapsedStartedAtEpochMillis: null,
-    lastStopReason: reason,
-  };
-}
-
-function startElapsedSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
-  return {
-    ...session,
-    elapsedStartedAtEpochMillis: session.elapsedStartedAtEpochMillis ?? now,
-    lastStopReason: null,
-  };
-}
-
-function todayName(): Weekday {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long' }) as Weekday;
-}
-
-function currentHHMM(): string {
-  const date = new Date();
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function withinTolerance(scheduled: string, current: string): boolean {
-  const [scheduledHour, scheduledMinute] = scheduled.split(':').map(Number);
-  const [currentHour, currentMinute] = current.split(':').map(Number);
-  return Math.abs((scheduledHour * 60 + scheduledMinute) - (currentHour * 60 + currentMinute)) <= NOTIFICATION_TOLERANCE_MINUTES;
-}
-
-function validateWorkoutRow(raw: Record<string, string>): WorkoutRow | null {
-  const dayRaw = String(raw.day ?? '').trim();
-  const day = WEEKDAYS.find((item) => item.toLowerCase() === dayRaw.toLowerCase());
-  const time = String(raw.time ?? '').trim();
-  const exercise = String(raw.exercise ?? '').trim();
-  const reps = String(raw.reps ?? '').trim();
-  const sets = Number.parseInt(String(raw.sets ?? '').trim(), 10);
-  const rest = Number.parseInt(String(raw.rest ?? '').trim(), 10);
-  const rawLoadWeight = raw.load_weight ?? raw.loadWeight ?? raw.weight;
-  const loadWeight = validLoadWeight(rawLoadWeight);
-  const loadUnitRaw = String(raw.load_unit ?? raw.loadUnit ?? raw.unit ?? '').trim().toLowerCase();
-  const loadUnit = loadWeight != null ? (isWeightUnit(loadUnitRaw) ? loadUnitRaw : 'kg') : null;
-  if (
-    !day
-    || !TIME_RE.test(time)
-    || !exercise
-    || !reps
-    || !Number.isInteger(sets)
-    || sets <= 0
-    || !Number.isInteger(rest)
-    || rest < 0
-    || (String(rawLoadWeight ?? '').trim() !== '' && loadWeight == null)
-  ) return null;
-  return { schemaVersion: SCHEMA_VERSION, day, time, exercise, sets, reps, rest, loadWeight, loadUnit };
-}
-
-function isExerciseLevel(value: unknown): value is ExerciseLevel {
-  return typeof value === 'string' && LEVELS.includes(value as ExerciseLevel);
-}
-
-function defaultPrescriptionFor(exercise: ExerciseCatalogItem, level: ExerciseLevel): Omit<PlaylistItem, 'sourceId' | 'name'> {
-  return exercise.category.toLowerCase() === 'cardio' ? DEFAULT_PRESCRIPTIONS[level].cardio : DEFAULT_PRESCRIPTIONS[level].strength;
-}
-
-function levelEligible(exercise: ExerciseCatalogItem, selectedLevel: ExerciseLevel): boolean {
-  return LEVEL_RANK[exercise.minimumLevel] <= LEVEL_RANK[selectedLevel];
-}
 
 function questTotalDays(template: QuestTemplate): number {
   return template.durationWeeks * template.daysPerWeek;
@@ -280,87 +90,12 @@ function questTemplateDayNumber(state: QuestState, template: QuestTemplate): num
   return ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
 }
 
-function estimateSetWorkSeconds(reps: string): number {
-  const normalized = reps.toLowerCase();
-  const values = [...normalized.matchAll(/\d+(?:\.\d+)?/g)].map((match) => Number(match[0])).filter(Number.isFinite);
-  const maxValue = Math.max(...(values.length ? values : [ESTIMATE_DEFAULT_REP_COUNT]));
-  if (normalized.includes('min')) return Math.round(maxValue * 60);
-  if (normalized.includes('sec') || normalized.includes('second')) return Math.round(maxValue);
-  if (normalized.includes('side') || normalized.includes('/leg') || normalized.includes('each')) return Math.round(maxValue * 2 * ESTIMATE_SECONDS_PER_REP);
-  return Math.round(maxValue * ESTIMATE_SECONDS_PER_REP);
-}
-
-function roundUpToMinute(seconds: number): number {
-  return Math.ceil(Math.max(0, seconds) / 60) * 60;
-}
-
-function estimateWorkoutDurationSeconds(exercises: EstimableExercise[], level: ExerciseLevel = 'beginner'): number {
-  if (!exercises.length) return 0;
-  const baseSeconds = exercises.reduce((total, exercise, index) => {
-    const parsedSets = Math.trunc(Number(exercise.sets));
-    const parsedRest = Math.trunc(Number(exercise.rest));
-    const sets = Number.isFinite(parsedSets) ? Math.max(1, parsedSets) : 1;
-    const rest = Number.isFinite(parsedRest) ? Math.max(0, parsedRest) : 0;
-    const restCount = (sets - 1) + (index < exercises.length - 1 ? 1 : 0);
-    const workSeconds = (Math.max(ESTIMATE_SECONDS_PER_REP, estimateSetWorkSeconds(exercise.reps)) + ESTIMATE_SET_SETUP_SECONDS) * sets;
-    const transitionSeconds = index < exercises.length - 1 ? ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS : 0;
-    return total + workSeconds + rest * restCount + transitionSeconds;
-  }, 0);
-  const multiplier = level === 'advanced' ? 1.12 : level === 'intermediate' ? 1.18 : 1.3;
-  const minimumBuffer = level === 'advanced' ? 60 : level === 'intermediate' ? 90 : 150;
-  return roundUpToMinute(Math.max(baseSeconds * multiplier, baseSeconds + minimumBuffer));
-}
-
-function formatEstimatedDuration(seconds: number): string {
-  const minutes = Math.ceil(Math.max(0, seconds) / 60);
-  if (minutes <= 0) return 'Est. 0 min';
-  if (minutes < 60) return `Est. ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0 ? `Est. ${hours}h` : `Est. ${hours}h ${remainingMinutes}m`;
-}
-
-function estimateLevelFor(exercises: EstimableExercise[], fallback: ExerciseLevel = 'beginner'): ExerciseLevel {
-  return exercises.find((exercise) => exercise.questLevel)?.questLevel ?? fallback;
-}
-
-function initialDraft(): PlaylistDraft {
-  return { day: todayName(), time: '07:00', level: 'beginner', items: [] };
-}
-
-function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseCatalogItem[]): PlaylistDraft {
-  const day = WEEKDAYS.includes(input.day as Weekday) ? input.day as Weekday : todayName();
-  const time = TIME_RE.test(String(input.time ?? '')) ? String(input.time) : '07:00';
-  const level = isExerciseLevel(input.level) ? input.level : 'beginner';
-  const items: PlaylistItem[] = (input.items ?? []).map((item): PlaylistItem | null => {
-    const sourceId = Number(item.sourceId);
-    const exercise = catalog.find((candidate) => candidate.sourceId === sourceId);
-    if (!exercise) return null;
-    const sets = Number(item.sets);
-    const rest = Number(item.rest);
-    const reps = String(item.reps ?? '').trim().slice(0, 30);
-    const loadWeight = validLoadWeight(item.loadWeight);
-    const loadUnit = loadWeight != null ? item.loadUnit ?? 'kg' : null;
-    return {
-      sourceId,
-      name: exercise.name,
-      sets: Number.isInteger(sets) && sets > 0 ? sets : 3,
-      reps: reps || '8-12',
-      rest: Number.isInteger(rest) && rest >= 0 ? rest : 60,
-      loadWeight,
-      loadUnit,
-    } satisfies PlaylistItem;
-  }).filter((item): item is PlaylistItem => item !== null).slice(0, MAX_PLAYLIST_ITEMS);
-  return { day, time, level, items };
-}
-
 export default function App() {
   const [tab, setTab] = useState<Tab>('today');
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
   const [setLogEntries, setSetLogEntries] = useState<WorkoutSetLog[]>([]);
-  const [bodyMetrics, setBodyMetrics] = useState<BodyMetricEntry[]>([]);
   const [activeWorkoutSession, setActiveWorkoutSession] = useState<ActiveWorkoutSession | null>(null);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
   const [workoutRestRemainingSeconds, setWorkoutRestRemainingSeconds] = useState(0);
@@ -376,30 +111,36 @@ export default function App() {
   const [playlistResult, setPlaylistResult] = useState<{ message: string; error: boolean } | null>(null);
   const [questResult, setQuestResult] = useState<{ message: string; error: boolean } | null>(null);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
-  const [bodyMetricDraft, setBodyMetricDraft] = useState<BodyMetricDraft>(initialBodyMetricDraft);
-  const [bodyMetricResult, setBodyMetricResult] = useState<{ message: string; error: boolean } | null>(null);
-  const [workoutCueSettings, setWorkoutCueSettings] = useState<WorkoutCueSettings>(initialWorkoutCueSettings);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
     'Notification' in window ? Notification.permission : 'unsupported'
   ));
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const {
+    entries: bodyMetricEntries,
+    draft: bodyMetricDraft,
+    result: bodyMetricResult,
+    setDraft: setBodyMetricDraft,
+    refresh: refreshBodyMetrics,
+    save: saveBodyMetric,
+    edit: editBodyMetric,
+    remove: deleteBodyMetric,
+  } = useBodyMetrics();
+  const { toasts, addToast } = useToasts();
+  const {
+    settings: workoutCueSettings,
+    loadSettings: loadWorkoutCueSettings,
+    saveSettings: saveWorkoutCueSettings,
+    playCue: playWorkoutCue,
+  } = useWorkoutCueSettings();
 
   const refreshWorkouts = useCallback(async () => setWorkouts(await getAll<WorkoutRow>(STORES.workouts)), []);
   const refreshLogs = useCallback(async () => setLogs(await getAll<WorkoutLog>(STORES.logs)), []);
   const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
   const refreshSetLogs = useCallback(async () => setSetLogEntries(await getAll<WorkoutSetLog>(STORES.setLogs)), []);
-  const refreshBodyMetrics = useCallback(async () => setBodyMetrics(await getAll<BodyMetricEntry>(STORES.bodyMetrics)), []);
   const saveActiveWorkoutSession = useCallback(async (next: ActiveWorkoutSession | null) => {
     setActiveWorkoutSession(next);
     if (next) await putRecord(STORES.appState, next);
     else await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
   }, []);
-  const addToast = useCallback((message: string) => {
-    const id = Date.now() + Math.random();
-    setToasts((current) => [...current, { id, message }]);
-    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4500);
-  }, []);
-
   const saveDraft = useCallback(async (next: PlaylistDraft) => {
     setDraft(next);
     await putRecord(STORES.appState, { key: PLAYLIST_DRAFT_KEY, schemaVersion: SCHEMA_VERSION, ...next });
@@ -409,39 +150,6 @@ export default function App() {
     setQuestState(next);
     await putRecord(STORES.appState, next);
   }, []);
-
-  const saveWorkoutCueSettings = useCallback(async (updates: Partial<Omit<WorkoutCueSettings, 'key' | 'schemaVersion'>>) => {
-    const next = normalizeWorkoutCueSettings({ ...workoutCueSettings, ...updates });
-    setWorkoutCueSettings(next);
-    await putRecord(STORES.appState, next);
-  }, [workoutCueSettings]);
-
-  const playWorkoutCue = useCallback((row?: WorkoutRow) => {
-    if (workoutCueSettings.hapticsEnabled && 'vibrate' in navigator) navigator.vibrate([90, 45, 90]);
-    if (workoutCueSettings.soundEnabled) {
-      const AudioContextClass = window.AudioContext ?? (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextClass) {
-        const context = new AudioContextClass();
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, context.currentTime);
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-        gain.gain.setValueAtTime(0.0001, context.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.35);
-        oscillator.start();
-        oscillator.stop(context.currentTime + 0.38);
-        window.setTimeout(() => void context.close(), 500);
-      }
-    }
-    if (workoutCueSettings.voiceEnabled && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(row ? `Rest complete. Next set: ${row.exercise}.` : 'Rest complete.');
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [workoutCueSettings]);
 
   useEffect(() => {
     let disposed = false;
@@ -485,7 +193,7 @@ export default function App() {
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
-      if (!disposed) setWorkoutCueSettings(normalizeWorkoutCueSettings(storedCueSettings));
+      if (!disposed) loadWorkoutCueSettings(storedCueSettings);
       const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       if (!disposed && storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()) {
         setActiveWorkoutSession(normalizeActiveWorkoutSession(storedWorkoutSession));
@@ -506,26 +214,9 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [refreshBodyMetrics, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
 
-  useEffect(() => {
-    const notified = new Set<number>();
-    let notifiedDate = todayDateKey();
-    const checkScheduleAgainstNow = () => {
-      if (todayDateKey() !== notifiedDate) { notifiedDate = todayDateKey(); notified.clear(); }
-      const day = todayName().toLowerCase();
-      workouts.filter((row) => row.day.toLowerCase() === day).forEach((row) => {
-        if (row.id == null || notified.has(row.id) || !withinTolerance(row.time, currentHHMM())) return;
-        notified.add(row.id);
-        const title = `Workout Time – ${row.exercise}`;
-        if ('Notification' in window && Notification.permission === 'granted') new Notification(title);
-        else addToast(title);
-      });
-    };
-    checkScheduleAgainstNow();
-    const timer = window.setInterval(checkScheduleAgainstNow, POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [addToast, workouts]);
+  useScheduleNotifications(workouts, addToast);
 
   const todayWorkouts = useMemo(() => workouts
     .filter((row) => row.day.toLowerCase() === todayName().toLowerCase())
@@ -678,48 +369,6 @@ export default function App() {
     setLogs(latestLogs);
   }
 
-  async function saveBodyMetric() {
-    const entry = parseBodyMetricDraft(bodyMetricDraft);
-    if (!entry) return setBodyMetricResult({ error: true, message: 'Enter a valid date and body weight.' });
-    if (entry.id == null) await addRecord(STORES.bodyMetrics, entry);
-    else await putRecord(STORES.bodyMetrics, entry);
-    await refreshBodyMetrics();
-    setBodyMetricDraft({ ...initialBodyMetricDraft(), unit: entry.unit });
-    setBodyMetricResult({ error: false, message: entry.id == null ? 'Body weight logged.' : 'Body weight updated.' });
-  }
-
-  async function deleteBodyMetric(entry: BodyMetricEntry) {
-    if (entry.id == null) return;
-    await deleteRecord(STORES.bodyMetrics, entry.id);
-    await refreshBodyMetrics();
-    if (bodyMetricDraft.id === entry.id) setBodyMetricDraft(initialBodyMetricDraft());
-    setBodyMetricResult({ error: false, message: 'Body weight entry deleted.' });
-  }
-
-  function newPwaSession(rows: WorkoutRow[], startIndex = 0): ActiveWorkoutSession {
-    return {
-      key: ACTIVE_WORKOUT_SESSION_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      planDate: todayDateKey(),
-      rowIds: rows.map((row) => row.id).filter((id): id is number => id != null),
-      status: 'active',
-      exerciseIndex: startIndex,
-      currentSet: 1,
-      restUntilEpochMillis: null,
-      pausedRestRemainingSeconds: null,
-      accumulatedElapsedMillis: 0,
-      elapsedStartedAtEpochMillis: Date.now(),
-      lastStopReason: null,
-      setInputs: {},
-      lastInteractionAtEpochMillis: Date.now(),
-      lastRestCueKey: null,
-    };
-  }
-
-  function currentSetInput(session: ActiveWorkoutSession, row: WorkoutRow): WorkoutSetInput {
-    return session.setInputs[setInputKey(row, session.currentSet)] ?? defaultSetInput(row);
-  }
-
   async function updatePwaSetInput(updates: Partial<WorkoutSetInput>) {
     if (!activeWorkoutSession) return;
     const row = activeWorkoutRows[activeWorkoutSession.exerciseIndex];
@@ -750,22 +399,6 @@ export default function App() {
       loadUnit,
     } satisfies WorkoutSetLog);
     await refreshSetLogs();
-  }
-
-  function restOrActive(session: ActiveWorkoutSession, restSeconds: number): ActiveWorkoutSession {
-    return restSeconds > 0 ? {
-      ...session,
-      status: 'resting',
-      restUntilEpochMillis: Date.now() + restSeconds * 1000,
-      pausedRestRemainingSeconds: null,
-      lastStopReason: null,
-    } : {
-      ...session,
-      status: 'active',
-      restUntilEpochMillis: null,
-      pausedRestRemainingSeconds: null,
-      lastStopReason: null,
-    };
   }
 
   async function recordLocalSessionEvent(session: ActiveWorkoutSession, eventType: WorkoutSessionEvent['eventType'], stopReason: string, rows: WorkoutRow[]) {
@@ -1091,7 +724,7 @@ export default function App() {
         cueSettings={workoutCueSettings}
         onStartPlayer={() => void startTodayWorkoutPlayer()}
         onSetInputChange={(updates) => void updatePwaSetInput(updates)}
-        onCueSettingsChange={(updates) => void saveWorkoutCueSettings(updates)}
+        onCueSettingsChange={saveWorkoutCueSettings}
         onCompleteSet={() => void completePwaSet()}
         onSkipExercise={() => void skipPwaExercise()}
         onPause={() => void pausePwaWorkout()}
@@ -1161,7 +794,7 @@ export default function App() {
         logs={logs}
         sessionEvents={sessionEvents}
         setLogs={setLogEntries}
-        bodyMetrics={bodyMetrics}
+        bodyMetrics={bodyMetricEntries}
         catalog={catalog}
         questState={questState}
         activeQuestTemplate={activeQuestTemplate}
@@ -1171,10 +804,7 @@ export default function App() {
         onRangeChange={setHistoryRange}
         onBodyMetricDraftChange={setBodyMetricDraft}
         onBodyMetricSave={() => void saveBodyMetric()}
-        onBodyMetricEdit={(entry) => {
-          setBodyMetricDraft(bodyMetricDraftFromEntry(entry));
-          setBodyMetricResult(null);
-        }}
+        onBodyMetricEdit={editBodyMetric}
         onBodyMetricDelete={(entry) => void deleteBodyMetric(entry)}
       />}
     </AppShell>
