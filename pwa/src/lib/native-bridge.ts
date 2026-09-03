@@ -1,5 +1,5 @@
 import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
-import { addRecord, STORES } from './db';
+import { addRecord, getRecord, putRecord, STORES } from './db';
 
 interface PendingWatchLog {
   id: string;
@@ -53,6 +53,55 @@ interface HealthConnectWorkoutPayload {
 
 export interface HealthConnectWriteResult extends HealthConnectStatus {
   written: boolean;
+}
+
+const HEALTH_CONNECT_PENDING_KEY = 'healthConnectPendingWrites';
+
+interface HealthConnectPendingQueue {
+  key: typeof HEALTH_CONNECT_PENDING_KEY;
+  schemaVersion: number;
+  writes: HealthConnectWorkoutPayload[];
+}
+
+async function queuePendingHealthConnectWrite(payload: HealthConnectWorkoutPayload): Promise<void> {
+  const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
+  const writes = stored?.schemaVersion === SCHEMA_VERSION ? stored.writes : [];
+  if (writes.some((existing) => existing.clientRecordId === payload.clientRecordId)) return;
+  await putRecord(STORES.appState, {
+    key: HEALTH_CONNECT_PENDING_KEY,
+    schemaVersion: SCHEMA_VERSION,
+    writes: [...writes, payload],
+  } satisfies HealthConnectPendingQueue);
+}
+
+// A write that throws (transient bridge failure, app backgrounded mid-call) is queued here and
+// retried by drainPendingHealthConnectWrites, matching the retry pattern drainPendingWatchLogs
+// uses for watch logs — otherwise a completed workout is silently lost.
+export async function drainPendingHealthConnectWrites(): Promise<number> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge) return 0;
+  const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
+  const writes = stored?.schemaVersion === SCHEMA_VERSION ? stored.writes : [];
+  if (!writes.length) return 0;
+
+  const remaining: HealthConnectWorkoutPayload[] = [];
+  let succeeded = 0;
+  for (const payload of writes) {
+    try {
+      const result = await bridge.writeWorkoutSession(payload);
+      if (result.written) succeeded += 1;
+      else remaining.push(payload);
+    } catch (error) {
+      console.error('Failed to retry queued Health Connect write:', error);
+      remaining.push(payload);
+    }
+  }
+  await putRecord(STORES.appState, {
+    key: HEALTH_CONNECT_PENDING_KEY,
+    schemaVersion: SCHEMA_VERSION,
+    writes: remaining,
+  } satisfies HealthConnectPendingQueue);
+  return succeeded;
 }
 
 export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<void> {
@@ -145,17 +194,19 @@ export async function writeSessionEventToHealthConnect(
   const title = exerciseNames.length === 1 ? exerciseNames[0] : `Workout (${exerciseNames.length || event.totalExercises} exercises)`;
   const notes = exerciseNames.length ? exerciseNames.join(', ') : undefined;
 
+  const payload: HealthConnectWorkoutPayload = {
+    clientRecordId: `pasingot:${event.workoutEntryId}:${event.timestamp}`,
+    clientRecordVersion: 1,
+    title,
+    notes,
+    startTime: startTime.toISOString(),
+    endTime: endTime.toISOString(),
+  };
   try {
-    return await bridge.writeWorkoutSession({
-      clientRecordId: `pasingot:${event.workoutEntryId}:${event.timestamp}`,
-      clientRecordVersion: 1,
-      title,
-      notes,
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-    });
+    return await bridge.writeWorkoutSession(payload);
   } catch (error) {
     console.error('Failed to write workout session to Health Connect:', error);
+    await queuePendingHealthConnectWrite(payload);
     return { ...(await getHealthConnectStatus()), written: false };
   }
 }

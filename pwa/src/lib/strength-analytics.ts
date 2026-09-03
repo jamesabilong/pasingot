@@ -65,7 +65,7 @@ function normalizeSetLogs(setLogs: WorkoutSetLog[]): NormalizedStrengthSet[] {
   return setLogs
     .map((log) => {
       const reps = parseRepCount(log.actualReps);
-      if (reps == null || log.loadWeight == null || !log.loadUnit) return null;
+      if (reps == null || reps <= 0 || log.loadWeight == null || !log.loadUnit) return null;
       return {
         exercise: log.exercise,
         date: log.date,
@@ -134,29 +134,55 @@ export function buildStrengthAnalytics(setLogs: WorkoutSetLog[]): StrengthExerci
 }
 
 export function buildStrengthPersonalRecords(setLogs: WorkoutSetLog[]): StrengthPersonalRecord[] {
-  const previousMaxLoad = new Map<string, number>();
-  const previousEstimatedOneRepMax = new Map<string, number>();
-  const previousRepsAtLoad = new Map<string, number>();
   const records: StrengthPersonalRecord[] = [];
-
+  const grouped = new Map<string, NormalizedStrengthSet[]>();
   normalizeSetLogs(setLogs).forEach((log) => {
     const exerciseKey = `${log.exercise.toLowerCase()}|${log.loadUnit}`;
-    const loadKey = `${exerciseKey}|${log.loadWeight}`;
-    const oneRepMax = estimatedOneRepMax(log.loadWeight, log.reps);
+    grouped.set(exerciseKey, [...(grouped.get(exerciseKey) ?? []), log]);
+  });
 
-    if (previousMaxLoad.has(exerciseKey) && log.loadWeight > previousMaxLoad.get(exerciseKey)!) {
-      records.push({ exercise: log.exercise, type: 'maxLoad', label: 'New max load', value: formatWeight(log.loadWeight, log.loadUnit), date: log.date });
-    }
-    if (previousRepsAtLoad.has(loadKey) && log.reps > previousRepsAtLoad.get(loadKey)!) {
-      records.push({ exercise: log.exercise, type: 'maxRepsAtLoad', label: 'New reps at load', value: `${log.reps} reps @ ${formatWeight(log.loadWeight, log.loadUnit)}`, date: log.date });
-    }
-    if (previousEstimatedOneRepMax.has(exerciseKey) && oneRepMax > previousEstimatedOneRepMax.get(exerciseKey)!) {
-      records.push({ exercise: log.exercise, type: 'estimatedOneRepMax', label: 'New estimated 1RM', value: formatWeight(oneRepMax, log.loadUnit), date: log.date });
-    }
+  grouped.forEach((logs) => {
+    const byDay = new Map<string, NormalizedStrengthSet[]>();
+    logs.forEach((log) => byDay.set(log.key, [...(byDay.get(log.key) ?? []), log]));
 
-    previousMaxLoad.set(exerciseKey, Math.max(previousMaxLoad.get(exerciseKey) ?? 0, log.loadWeight));
-    previousRepsAtLoad.set(loadKey, Math.max(previousRepsAtLoad.get(loadKey) ?? 0, log.reps));
-    previousEstimatedOneRepMax.set(exerciseKey, Math.max(previousEstimatedOneRepMax.get(exerciseKey) ?? 0, oneRepMax));
+    // Compare each day's best against the best CONFIRMED from earlier days only, so an
+    // ascending warm-up ramp logged within one session isn't flagged as several new PRs.
+    let bestLoad = 0;
+    let bestOneRepMax = 0;
+    const bestRepsAtLoad = new Map<number, number>();
+
+    [...byDay.keys()].sort().forEach((day) => {
+      const dayLogs = byDay.get(day)!;
+      const dayMaxLoadLog = dayLogs.reduce((best, log) => (log.loadWeight > best.loadWeight ? log : best), dayLogs[0]);
+      const dayOneRepMaxLog = dayLogs.reduce((best, log) => (
+        estimatedOneRepMax(log.loadWeight, log.reps) > estimatedOneRepMax(best.loadWeight, best.reps) ? log : best
+      ), dayLogs[0]);
+      const dayBestRepsByLoad = new Map<number, NormalizedStrengthSet>();
+      dayLogs.forEach((log) => {
+        const existing = dayBestRepsByLoad.get(log.loadWeight);
+        if (!existing || log.reps > existing.reps) dayBestRepsByLoad.set(log.loadWeight, log);
+      });
+
+      if (dayMaxLoadLog.loadWeight > bestLoad) {
+        records.push({ exercise: dayMaxLoadLog.exercise, type: 'maxLoad', label: 'New max load', value: formatWeight(dayMaxLoadLog.loadWeight, dayMaxLoadLog.loadUnit), date: dayMaxLoadLog.date });
+      }
+      const dayOneRepMax = estimatedOneRepMax(dayOneRepMaxLog.loadWeight, dayOneRepMaxLog.reps);
+      if (dayOneRepMax > bestOneRepMax) {
+        records.push({ exercise: dayOneRepMaxLog.exercise, type: 'estimatedOneRepMax', label: 'New estimated 1RM', value: formatWeight(dayOneRepMax, dayOneRepMaxLog.loadUnit), date: dayOneRepMaxLog.date });
+      }
+      dayBestRepsByLoad.forEach((log, loadWeight) => {
+        const priorBestReps = bestRepsAtLoad.get(loadWeight) ?? 0;
+        if (log.reps > priorBestReps) {
+          records.push({ exercise: log.exercise, type: 'maxRepsAtLoad', label: 'New reps at load', value: `${log.reps} reps @ ${formatWeight(log.loadWeight, log.loadUnit)}`, date: log.date });
+        }
+      });
+
+      bestLoad = Math.max(bestLoad, dayMaxLoadLog.loadWeight);
+      bestOneRepMax = Math.max(bestOneRepMax, dayOneRepMax);
+      dayBestRepsByLoad.forEach((log, loadWeight) => {
+        bestRepsAtLoad.set(loadWeight, Math.max(bestRepsAtLoad.get(loadWeight) ?? 0, log.reps));
+      });
+    });
   });
 
   return records.sort((left, right) => right.date.localeCompare(left.date)).slice(0, 8);

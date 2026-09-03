@@ -1,12 +1,9 @@
 import Papa from 'papaparse';
 import { SCHEMA_VERSION, type ExerciseCatalogItem } from '../types';
+import { isExerciseLevel } from './workout-planning';
 
 function splitList(value: unknown): string[] {
   return String(value ?? '').split('|').map((part) => part.trim()).filter(Boolean);
-}
-
-function isLevel(value: string): value is ExerciseCatalogItem['minimumLevel'] {
-  return value === 'beginner' || value === 'intermediate' || value === 'advanced';
 }
 
 export function parseCatalogCsv(csvText: string): ExerciseCatalogItem[] {
@@ -20,7 +17,7 @@ export function parseCatalogCsv(csvText: string): ExerciseCatalogItem[] {
     const category = String(raw.category ?? '').trim();
     const minimumLevel = String(raw.minimum_level ?? '').trim();
     if (Number(raw.schema_version) !== SCHEMA_VERSION || !Number.isInteger(sourceId) || sourceId <= 0) return null;
-    if (!name || !displayName || !category || !isLevel(minimumLevel)) return null;
+    if (!name || !displayName || !category || !isExerciseLevel(minimumLevel)) return null;
     if (raw.featured !== 'true' && raw.featured !== 'false') return null;
     if (!raw.license?.startsWith('CC-BY-SA') || !raw.license_url?.startsWith('https://creativecommons.org/licenses/by-sa/') || !raw.source_url?.startsWith('https://wger.de/')) return null;
     return {

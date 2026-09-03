@@ -81,7 +81,9 @@ export function validateWorkoutRow(raw: Record<string, string>): WorkoutRow | nu
   const rawLoadWeight = raw.load_weight ?? raw.loadWeight ?? raw.weight;
   const loadWeight = validLoadWeight(rawLoadWeight);
   const loadUnitRaw = String(raw.load_unit ?? raw.loadUnit ?? raw.unit ?? '').trim().toLowerCase();
-  const loadUnit = loadWeight != null ? (isWeightUnit(loadUnitRaw) ? loadUnitRaw : 'kg') : null;
+  const loadUnitSpecified = loadUnitRaw !== '';
+  const loadUnitInvalid = loadUnitSpecified && !isWeightUnit(loadUnitRaw);
+  const loadUnit = loadWeight != null ? (loadUnitSpecified && isWeightUnit(loadUnitRaw) ? loadUnitRaw : 'kg') : null;
   if (
     !day
     || !TIME_RE.test(time)
@@ -92,6 +94,7 @@ export function validateWorkoutRow(raw: Record<string, string>): WorkoutRow | nu
     || !Number.isInteger(rest)
     || rest < 0
     || (String(rawLoadWeight ?? '').trim() !== '' && loadWeight == null)
+    || (loadWeight != null && loadUnitInvalid)
   ) return null;
   return { schemaVersion: SCHEMA_VERSION, day, time, exercise, sets, reps, rest, loadWeight, loadUnit };
 }

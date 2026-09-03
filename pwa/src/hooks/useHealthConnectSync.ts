@@ -27,25 +27,34 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
     return next;
   }, []);
 
+  const refreshEnabled = useCallback(async () => {
+    const stored = await getRecord<HealthConnectSettings>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
+    if (stored?.schemaVersion === SCHEMA_VERSION) setEnabled(stored.enabled);
+  }, []);
+
   useEffect(() => {
     let disposed = false;
     async function initialize() {
-      const stored = await getRecord<HealthConnectSettings>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
-      if (!disposed && stored?.schemaVersion === SCHEMA_VERSION) setEnabled(stored.enabled);
+      if (!disposed) await refreshEnabled();
       const next = await getHealthConnectStatus();
       if (!disposed) setStatus(next);
     }
     void initialize();
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void refreshStatus();
+      // Re-reads the persisted setting (not just native status) so a restored
+      // backup that changed this value doesn't leave the toggle stale.
+      if (document.visibilityState === 'visible') {
+        void refreshEnabled();
+        void refreshStatus();
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       disposed = true;
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [refreshStatus]);
+  }, [refreshEnabled, refreshStatus]);
 
   const setSyncEnabled = useCallback(async (nextEnabled: boolean) => {
     setEnabled(nextEnabled);

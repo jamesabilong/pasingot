@@ -47,20 +47,21 @@ export function summarizeBackup(backup: WorkoutBackup): BackupSummary {
 }
 
 export async function buildWorkoutBackup(): Promise<WorkoutBackup> {
+  const [workouts, logs, sessionEvents, setLogs, bodyMetrics, customExercises, appState] = await Promise.all([
+    getAll<WorkoutRow>(STORES.workouts),
+    getAll<WorkoutLog>(STORES.logs),
+    getAll<WorkoutSessionEvent>(STORES.sessionEvents),
+    getAll<WorkoutSetLog>(STORES.setLogs),
+    getAll<BodyMetricEntry>(STORES.bodyMetrics),
+    getAll<CustomExercise>(STORES.customExercises),
+    getAll<PlaylistDraft | QuestState | Record<string, unknown>>(STORES.appState),
+  ]);
   return {
     format: BACKUP_FORMAT,
     backupVersion: BACKUP_VERSION,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    stores: {
-      workouts: await getAll<WorkoutRow>(STORES.workouts),
-      logs: await getAll<WorkoutLog>(STORES.logs),
-      sessionEvents: await getAll<WorkoutSessionEvent>(STORES.sessionEvents),
-      setLogs: await getAll<WorkoutSetLog>(STORES.setLogs),
-      bodyMetrics: await getAll<BodyMetricEntry>(STORES.bodyMetrics),
-      customExercises: await getAll<CustomExercise>(STORES.customExercises),
-      appState: await getAll<PlaylistDraft | QuestState | Record<string, unknown>>(STORES.appState),
-    },
+    stores: { workouts, logs, sessionEvents, setLogs, bodyMetrics, customExercises, appState },
   };
 }
 
@@ -98,12 +99,14 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
 }
 
 export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<BackupSummary> {
-  await clearAndBulkInsert(STORES.workouts, backup.stores.workouts);
-  await clearAndBulkInsert(STORES.logs, backup.stores.logs);
-  await clearAndBulkInsert(STORES.sessionEvents, backup.stores.sessionEvents);
-  await clearAndBulkInsert(STORES.setLogs, backup.stores.setLogs);
-  await clearAndBulkInsert(STORES.bodyMetrics, backup.stores.bodyMetrics);
-  await clearAndBulkInsert(STORES.customExercises, backup.stores.customExercises);
-  await clearAndBulkInsert(STORES.appState, backup.stores.appState);
+  await Promise.all([
+    clearAndBulkInsert(STORES.workouts, backup.stores.workouts),
+    clearAndBulkInsert(STORES.logs, backup.stores.logs),
+    clearAndBulkInsert(STORES.sessionEvents, backup.stores.sessionEvents),
+    clearAndBulkInsert(STORES.setLogs, backup.stores.setLogs),
+    clearAndBulkInsert(STORES.bodyMetrics, backup.stores.bodyMetrics),
+    clearAndBulkInsert(STORES.customExercises, backup.stores.customExercises),
+    clearAndBulkInsert(STORES.appState, backup.stores.appState),
+  ]);
   return summarizeBackup(backup);
 }

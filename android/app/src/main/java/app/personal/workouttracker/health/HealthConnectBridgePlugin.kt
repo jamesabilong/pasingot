@@ -39,9 +39,9 @@ class HealthConnectBridgePlugin : Plugin() {
     fun requestHealthConnectPermissions(call: PluginCall) {
         val status = HealthConnectClient.getSdkStatus(context)
         if (status == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
-            openHealthConnectInstaller()
+            val opened = openHealthConnectInstaller()
             call.resolve(JSObject().apply {
-                put("opened", true)
+                put("opened", opened)
                 put("availability", "provider_update_required")
             })
             return
@@ -161,7 +161,7 @@ class HealthConnectBridgePlugin : Plugin() {
         }
     }
 
-    private fun openHealthConnectInstaller() {
+    private fun openHealthConnectInstaller(): Boolean {
         val providerPackageName = HEALTH_CONNECT_PROVIDER_PACKAGE_NAME
         val uriString = "market://details?id=$providerPackageName&url=healthconnect%3A%2F%2Fonboarding"
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -170,7 +170,12 @@ class HealthConnectBridgePlugin : Plugin() {
             putExtra("overlay", true)
             putExtra("callerId", context.packageName)
         }
-        activity.startActivity(intent)
+        return try {
+            activity.startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
     }
 
     private fun availabilityLabel(status: Int): String = when (status) {

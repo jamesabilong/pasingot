@@ -29,6 +29,7 @@ import {
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import {
+  drainPendingHealthConnectWrites,
   drainPendingWatchLogs,
   pushScheduleToNative,
 } from './lib/native-bridge';
@@ -142,7 +143,14 @@ export default function App() {
     remove: deleteBodyMetric,
   } = useBodyMetrics();
   const { toasts, addToast } = useToasts();
-  const healthConnectSync = useHealthConnectSync(addToast);
+  const {
+    enabled: healthConnectEnabled,
+    status: healthConnectStatus,
+    result: healthConnectResult,
+    setSyncEnabled: setHealthConnectSyncEnabled,
+    requestPermission: requestHealthConnectSyncPermission,
+    writeCompletedSession: writeHealthConnectSession,
+  } = useHealthConnectSync(addToast);
   const {
     settings: workoutCueSettings,
     loadSettings: loadWorkoutCueSettings,
@@ -223,6 +231,8 @@ export default function App() {
       }
       const drained = await drainPendingWatchLogs();
       if (drained && !disposed) await Promise.all([refreshLogs(), refreshSessionEvents()]);
+      const healthConnectDrained = await drainPendingHealthConnectWrites();
+      if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued workout synced to Health Connect.' : `${healthConnectDrained} queued workouts synced to Health Connect.`);
     }
     void initialize();
     const onVisible = () => {
@@ -230,6 +240,9 @@ export default function App() {
         void drainPendingWatchLogs().then((drained) => {
           if (drained) return Promise.all([refreshLogs(), refreshSessionEvents()]);
           return undefined;
+        });
+        void drainPendingHealthConnectWrites().then((healthConnectDrained) => {
+          if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued workout synced to Health Connect.' : `${healthConnectDrained} queued workouts synced to Health Connect.`);
         });
       }
     };
@@ -440,7 +453,7 @@ export default function App() {
       currentExercise: row?.exercise ?? null,
     } satisfies WorkoutSessionEvent;
     await addRecord(STORES.sessionEvents, event);
-    healthConnectSync.writeCompletedSession(event, rows);
+    writeHealthConnectSession(event, rows);
     await refreshSessionEvents();
   }
 

@@ -1,9 +1,6 @@
 import Papa from 'papaparse';
-import { SCHEMA_VERSION, type ExerciseLevel, type QuestTemplate, type QuestWorkoutRow } from '../types';
-
-function isLevel(value: string): value is ExerciseLevel {
-  return value === 'beginner' || value === 'intermediate' || value === 'advanced';
-}
+import { SCHEMA_VERSION, type QuestTemplate, type QuestWorkoutRow } from '../types';
+import { isExerciseLevel } from './workout-planning';
 
 function parsePositiveInt(value: unknown): number {
   const parsed = Number.parseInt(String(value ?? '').trim(), 10);
@@ -60,7 +57,7 @@ export function parseQuestWorkoutsCsv(csvText: string): QuestWorkoutRow[] {
     const sets = parsePositiveInt(raw.sets);
     const reps = String(raw.reps ?? '').trim();
     const rest = parseNonNegativeInt(raw.rest);
-    if (Number(raw.schema_version) !== SCHEMA_VERSION || !questId || !isLevel(level) || !dayLabel || !progressionGroup || !reps) return null;
+    if (Number(raw.schema_version) !== SCHEMA_VERSION || !questId || !isExerciseLevel(level) || !dayLabel || !progressionGroup || !reps) return null;
     if (![dayNumber, sequence, exerciseSourceId, sets, rest].every(Number.isInteger)) return null;
     return {
       schemaVersion: SCHEMA_VERSION,

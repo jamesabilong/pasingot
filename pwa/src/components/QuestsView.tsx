@@ -1,4 +1,4 @@
-import { EstimateSummary, PlanProgressSummary, type PlanProgress } from './SummaryCards';
+import { EstimateSummary, LevelPicker, PlanProgressSummary, type PlanProgress } from './SummaryCards';
 import { type ExerciseCatalogItem, type ExerciseLevel, type QuestCompletion, type QuestState, type QuestTemplate, type QuestWorkoutRow } from '../types';
 
 export type CurrentQuestRow = {
@@ -102,18 +102,7 @@ function QuestEnrollment({
           </div>
           <span className="shrink-0 rounded border border-emerald-700 px-2 py-1 text-xs text-emerald-300">{template.durationWeeks}w</span>
         </div>
-        <div className="grid grid-cols-3 gap-1 rounded-md border border-slate-800 bg-slate-950 p-1 text-xs font-medium">
-          {levels.map((level) => (
-            <button
-              key={level}
-              type="button"
-              onClick={() => onDraftLevelChange(level)}
-              className={`rounded px-2 py-2 ${draftLevel === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800'}`}
-            >
-              {levelLabels[level]}
-            </button>
-          ))}
-        </div>
+        <LevelPicker levels={levels} levelLabels={levelLabels} selected={draftLevel} onSelect={onDraftLevelChange} variant="compact" />
         <button type="button" onClick={() => onStartQuest(template)} className="mt-4 w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start quest</button>
       </div>
       <p className="text-xs leading-relaxed text-slate-500">{template.safetyNote}</p>
@@ -171,18 +160,7 @@ function QuestProgress({
       </div>
 
       {questState.status === 'active' && <>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs font-medium">
-          {levels.map((level) => (
-            <button
-              key={level}
-              type="button"
-              onClick={() => onQuestStateChange({ ...questState, level })}
-              className={`rounded-md px-2 py-2 text-center ${questState.level === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800'}`}
-            >
-              {levelLabels[level]}
-            </button>
-          ))}
-        </div>
+        <LevelPicker levels={levels} levelLabels={levelLabels} selected={questState.level} onSelect={(level) => onQuestStateChange({ ...questState, level })} />
 
         <label className="block text-xs text-slate-500">
           Start time

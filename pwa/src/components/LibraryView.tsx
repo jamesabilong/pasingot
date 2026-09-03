@@ -1,4 +1,4 @@
-import { EstimateSummary } from './SummaryCards';
+import { EstimateSummary, LevelPicker } from './SummaryCards';
 import { CUSTOM_EXERCISE_CATEGORIES, type CustomExerciseDraft } from '../lib/custom-exercises';
 import { WEEKDAYS, type ExerciseCatalogItem, type ExerciseLevel, type PlaylistDraft, type PlaylistItem, type Weekday, type WeightUnit } from '../types';
 
@@ -71,19 +71,13 @@ export function LibraryView({
           <span className="text-xs text-slate-500">{filteredCatalog.length} shown</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs font-medium">
-          {levels.map((level) => (
-            <button
-              key={level}
-              type="button"
-              onClick={() => onDraftChange({ ...draft, level })}
-              className={`rounded-md px-2 py-2 text-center transition ${draft.level === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}
-            >
-              <span className="block truncate">{levelLabels[level]}</span>
-              <span className="block text-[10px] opacity-70">{levelCounts[level] ?? 0}</span>
-            </button>
-          ))}
-        </div>
+        <LevelPicker
+          levels={levels}
+          levelLabels={levelLabels}
+          selected={draft.level}
+          onSelect={(level) => onDraftChange({ ...draft, level })}
+          counts={levelCounts}
+        />
 
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <label className="min-w-0">

@@ -19,11 +19,26 @@ updated at each checkpoint so the plan is visible from every device.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
 - Latest committed React checkpoint:
-  `2d1d558 PST01: Stage 16 implemented`.
-- Active checkpoint: Stage 17 Health Connect integration is in progress as a
-  first completed-workout sync slice.
-- Local commit state: Stage 17 Health Connect bridge, permission UI, and
-  completed workout write path are local and uncommitted after `2d1d558`.
+  `493754d PST01: Stage 16 implementation`. **Note:** despite the commit
+  message, this commit's content is the Stage 17 Health Connect bridge,
+  permission UI, and completed-workout write path (the real Stage 16 —
+  custom exercises/exercise media — landed earlier as `2d1d558 PST01: Stage
+  16 implemented`). Flagging the mislabel here rather than rewriting pushed
+  history.
+- Active checkpoint: Stage 17 Health Connect integration first
+  completed-workout sync slice is implemented and committed (see Stage 17
+  below). Body-weight sync and heart-rate summaries remain unbuilt follow-ups.
+- Local commit state: working tree is clean; everything through Stage 17's
+  first slice is committed and pushed to `origin/PST01`.
+- 2026-09-03 audit: a full code-review pass over everything since `bce661a`
+  (Stages 10-17) found and fixed 10 issues, including a build-breaking
+  wiring bug in the Health Connect History panel (the app did not compile),
+  two strength-analytics correctness bugs (0-rep sets corrupting PRs/1RM, and
+  same-session warm-up ramps being flagged as false PRs), a CSV import bug
+  silently coercing an unrecognized load unit to kg, an uncaught native crash
+  opening the Health Connect installer with no Play Store, and a missing
+  retry queue for failed Health Connect writes. All 10 are fixed; see the
+  Stage 17 note below for the Health Connect specifics.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
@@ -1075,7 +1090,25 @@ Manual acceptance:
 
 ## Stage 17 - Health Connect Integration
 
-**Status:** in progress; first completed-workout sync slice implemented locally.
+**Status:** in progress; first completed-workout sync slice implemented and
+committed (`493754d`, mislabeled "Stage 16 implementation" — see Current
+State above).
+
+**2026-09-03 audit findings on this slice (all fixed):**
+
+- `pwa/src/App.tsx` referenced the `useHealthConnectSync` hook's fields as
+  bare undeclared identifiers instead of destructuring the hook's return
+  value — a hard `tsc`/build failure. Fixed by destructuring.
+- `HealthConnectBridgePlugin.kt`'s Play Store installer intent had no
+  try/catch, unlike the sibling permission-request path — an uncaught
+  `ActivityNotFoundException` on a device with no Play Store. Fixed.
+- Failed/interrupted Health Connect writes had no retry path, unlike the
+  existing watch-log sync queue. Added a persisted pending-write queue in
+  `pwa/src/lib/native-bridge.ts`, drained on the same app-open/visibility
+  triggers `drainPendingWatchLogs` already uses.
+- The hook's persisted `enabled` flag was only read on mount, so a full
+  backup restore (Stage 15) that changed it left the in-memory value stale.
+  Fixed by re-reading it on `visibilitychange` too.
 
 Goal: integrate with Android's health ecosystem without introducing app
 accounts or a custom backend.

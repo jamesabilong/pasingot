@@ -1,3 +1,5 @@
+import { type ExerciseLevel } from '../types';
+
 export interface PlanProgress {
   total: number;
   completed: number;
@@ -16,6 +18,42 @@ export function EstimateSummary({ value }: { value: string }) {
       <span className="estimate-summary__label">Estimated Time</span>
       <strong className="estimate-summary__value">{estimateDisplayValue(value)}</strong>
       <span className="estimate-summary__note">with buffer</span>
+    </div>
+  );
+}
+
+export function LevelPicker({
+  levels,
+  levelLabels,
+  selected,
+  onSelect,
+  counts,
+  variant = 'default',
+}: {
+  levels: ExerciseLevel[];
+  levelLabels: Record<ExerciseLevel, string>;
+  selected: ExerciseLevel;
+  onSelect: (level: ExerciseLevel) => void;
+  counts?: Record<ExerciseLevel, number>;
+  variant?: 'default' | 'compact';
+}) {
+  const wrapperClass = variant === 'compact'
+    ? 'grid grid-cols-3 gap-1 rounded-md border border-slate-800 bg-slate-950 p-1 text-xs font-medium'
+    : 'grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs font-medium';
+  const buttonClass = variant === 'compact' ? 'rounded px-2 py-2' : 'rounded-md px-2 py-2 text-center';
+  return (
+    <div className={wrapperClass}>
+      {levels.map((level) => (
+        <button
+          key={level}
+          type="button"
+          onClick={() => onSelect(level)}
+          className={`${buttonClass} transition ${selected === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}
+        >
+          <span className="block truncate">{levelLabels[level]}</span>
+          {counts && <span className="block text-[10px] opacity-70">{counts[level] ?? 0}</span>}
+        </button>
+      ))}
     </div>
   );
 }
