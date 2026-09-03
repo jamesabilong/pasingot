@@ -18,10 +18,12 @@ updated at each checkpoint so the plan is visible from every device.
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
-- Active checkpoint: Stage 11 body metrics implemented locally and ready for
-  review.
+- Active checkpoint: Stage 14 workout player cues implemented locally and
+  ready for review; Stage 18 UI overhaul has been added to the roadmap.
 - Local commit state: Stage 8 follow-up, Stage 9 slices 1-5, Stage 10 history
-  stats, and Stage 11 body metrics are implemented locally but not committed.
+  stats, Stage 11 body metrics, Stage 11A React cleanup, Stage 12 weighted
+  set logging, Stage 13 strength analytics, and Stage 14 workout player cues
+  are implemented locally but not committed.
 - Cross-device visibility: this file documents the current local state, but the
   code and plan changes will only be visible on another device after this work
   is committed and pushed/synced from this machine.
@@ -532,6 +534,9 @@ Progress tracker:
 - Completed: PWA and watch session summaries now preserve estimated duration
   for new workout-level session events and History compares actual time against
   estimate when available.
+- Completed: PWA/mobile active sessions now track last user interaction,
+  auto-pause after 45 minutes without player activity, and close stale
+  prior-day sessions instead of letting the timer run into the next day.
 - Pending: Device-level validation for app swipe-away, process kill,
   low-battery interruption, and device restart.
 
@@ -605,6 +610,18 @@ Fifth-slice behavior:
 - PWA/mobile completion and manual end now create local workout session
   summaries in the same `sessionEvents` store used by watch sync, without
   changing exercise done/skipped counts.
+
+Sixth-slice behavior:
+
+- Added `lastInteractionAtEpochMillis` to PWA/mobile active workout sessions.
+- Player actions and set-input edits now refresh the interaction timestamp.
+- Active/resting sessions automatically pause after 45 minutes without player
+  activity so abandoned workouts stop accumulating elapsed time.
+- Sessions whose `planDate` no longer matches the local day are closed,
+  recorded as an ended session event with `stale_next_day`, and removed from
+  active app state.
+- History and the player now display clearer reasons for inactivity timeout and
+  day-change cleanup.
 
 Validation to add:
 
@@ -721,8 +738,14 @@ Changes completed:
 - Moved body-metric draft parsing/normalization into
   `pwa/src/lib/body-metrics.ts`.
 - Moved shared duration formatting into `pwa/src/lib/format.ts`.
-- Left `App.tsx` responsible for app-level state, persistence, tab routing, and
-  cross-feature orchestration.
+- Added `docs/REACT_WEB_APP_INSTRUCTIONS.md` as the forward guideline for
+  future React/PWA feature work.
+- Extracted shell/header/navigation/toast display into
+  `pwa/src/components/AppShell.tsx`.
+- Extracted Today, Quests, Library, and Import tab display into
+  `TodayView.tsx`, `QuestsView.tsx`, `LibraryView.tsx`, and `ImportView.tsx`.
+- Left `App.tsx` responsible for app-level state, persistence, tab selection,
+  and cross-feature orchestration only.
 
 Validation:
 
@@ -740,29 +763,44 @@ Manual acceptance:
 
 ## Stage 12 - Weighted Set Logging Data Model
 
-**Status:** proposed.
+**Status:** implemented locally; ready for review.
 
 Goal: introduce weight/load tracking carefully because many strength features
 depend on it. This should be a schema-safe stage with backward compatibility
 for existing bodyweight-only rows and logs.
 
-Planned behavior:
+Changes completed:
 
-- Add optional load fields for scheduled workout rows and completed set logs.
-- Support kg/lb unit preference without forcing existing users to enter weight.
-- Update CSV import/export expectations for optional load fields.
-- Update PWA/mobile live workout completion so each completed set can store
-  reps and weight when supplied.
-- Keep bodyweight exercises ergonomic: empty weight should remain valid.
+- Added optional `loadWeight` / `loadUnit` fields to scheduled workout rows and
+  playlist items.
+- Added `WorkoutSetLog` and an IndexedDB `setLogs` store for completed set
+  reps/load records.
+- Bumped the PWA IndexedDB version to 5 with backward-compatible store
+  creation.
+- Extracted the live workout player into
+  `pwa/src/components/WorkoutPlayer.tsx` so Stage 12 UI stayed out of
+  `App.tsx`.
+- Added controlled per-set reps/load/unit inputs to the PWA workout player.
+- Defaulted set inputs from the scheduled prescription while allowing blank
+  load for bodyweight work.
+- Recorded one set-log row on every completed PWA set, while preserving the
+  existing exercise-level done/skipped log behavior.
+- Added optional CSV import support for `load_weight` / `load_unit` and
+  compatible camelCase/short aliases.
+- Displayed planned load in Today rows and in the active player when present.
+- Passed optional load through the phone-native schedule bridge to Wear OS and
+  displayed it on the Wear active-session prescription line.
 
-Suggested files:
+Files changed:
 
 - `pwa/src/types.ts`
 - `pwa/src/lib/db.ts`
 - `pwa/src/App.tsx`
-- `pwa/src/lib/native-bridge.ts`
+- `pwa/src/components/WorkoutPlayer.tsx`
 - `android/shared/src/main/kotlin/app/personal/workouttracker/shared/DataModels.kt`
-- Wear session files only if watch-side load entry is included in this stage.
+- `android/app/src/main/java/app/personal/workouttracker/weardata/ScheduleSyncPlugin.kt`
+- `android/app/src/main/java/app/personal/workouttracker/weardata/WorkoutRequestListenerService.kt`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
 
 Validation:
 
@@ -773,6 +811,15 @@ cd android
 ./gradlew :shared:test :app:assembleDebug :wear:assembleDebug
 ```
 
+Browser smoke test:
+
+- Opened `http://localhost:8090/`.
+- Added a weighted playlist item with `25 kg`.
+- Saved it to today's schedule and confirmed Today displayed the planned load.
+- Started the extracted PWA workout player and confirmed the current set
+  pre-filled reps/load/unit.
+- Completed one set and confirmed Today displayed a completed-set count.
+
 Manual acceptance:
 
 1. Existing schedules and history load without migration errors.
@@ -782,24 +829,26 @@ Manual acceptance:
 
 ## Stage 13 - Strength Analytics
 
-**Status:** proposed; depends on Stage 12.
+**Status:** implemented locally; ready for review.
 
 Goal: turn weighted set data into useful training feedback.
 
-Planned behavior:
+Changes completed:
 
-- Add personal-record detection for max weight, max reps at weight, and best
-  estimated 1RM where applicable.
-- Add per-exercise strength trend charts for load, estimated 1RM, and training
-  volume.
-- Add optional RPE/RIR logging if wanted after weight tracking is reviewed.
-- Add a simple plate calculator for barbell movements if wanted.
+- Added pure strength analytics helpers in `pwa/src/lib/strength-analytics.ts`.
+- Added personal-record detection for max load, max reps at a recorded load,
+  and best estimated 1RM.
+- Added per-exercise strength cards in History for weighted set logs.
+- Added compact per-exercise trend bars based on daily training volume.
+- Kept estimated 1RM unavailable for bodyweight, duration-only, or unweighted
+  logs by excluding those rows from strength analytics.
+- Deferred RPE/RIR and plate calculator controls for a later opt-in stage.
 
-Suggested files:
+Files changed:
 
 - `pwa/src/App.tsx`
-- `pwa/src/styles.css`
-- `pwa/src/types.ts`
+- `pwa/src/components/HistoryView.tsx`
+- `pwa/src/lib/strength-analytics.ts`
 
 Validation:
 
@@ -817,25 +866,26 @@ Manual acceptance:
 
 ## Stage 14 - Workout Player Cues
 
-**Status:** proposed.
+**Status:** implemented locally; ready for review.
 
 Goal: improve in-session feedback with phone-side alerts and optional voice
 cues, matching the polish users expect from workout apps without requiring a
 backend.
 
-Planned behavior:
+Implemented behavior:
 
-- Add phone vibration and/or sound when rest ends.
-- Add user setting to enable/disable haptics and sound.
-- Add optional spoken cues for rest ending, next exercise, and workout
-  completion.
-- Keep Wear OS haptics aligned with the phone session flow.
+- Adds PWA rest-complete haptic, sound, and voice cues.
+- Adds persisted in-workout settings to enable/disable haptics, sound, and
+  voice cues.
+- Prevents rest-complete cues from replaying after session reload/recovery.
+- Adds lightweight Wear OS haptic feedback to session actions so watch
+  interactions feel aligned with the phone-side session flow.
 
-Suggested files:
+Key files:
 
 - `pwa/src/App.tsx`
-- `pwa/src/styles.css`
-- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionViewModel.kt`
+- `pwa/src/components/TodayView.tsx`
+- `pwa/src/components/WorkoutPlayer.tsx`
 - `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
 
 Validation:
@@ -962,6 +1012,59 @@ Manual acceptance:
 1. Grant Health Connect permissions.
 2. Complete a workout and confirm it appears in Health Connect.
 3. Disable sync and confirm no additional writes occur.
+
+## Stage 18 - Cross-Device UI Overhaul
+
+**Status:** proposed; plan added after Stage 14 audit.
+
+Goal: modernize the workout experience across web, installed PWA/mobile, and
+Wear OS while preserving the component boundary rule that `App.tsx` coordinates
+state and feature screens own their display.
+
+Planned behavior:
+
+- Establish shared design tokens for spacing, color, typography, elevation,
+  focus states, and control sizing in the PWA styles.
+- Rework the web/PWA app shell so navigation, active workout status, sync
+  state, and install/offline affordances are consistent across desktop and
+  mobile viewports.
+- Redesign the Today flow around the current workout, resume/recovery state,
+  rest cues, and next-step actions without burying workout controls in dense
+  panels.
+- Rework History into a dashboard-style view for stats history, strength
+  analytics, body metrics, and recent sessions.
+- Rework Library, Quest, and Import surfaces so playlist building, quest
+  scheduling, and CSV/backup workflows are easier to scan.
+- Add a watch UI pass for glanceable active/rest/paused screens, consistent
+  haptic language, safer end/cancel flows, and better small-screen hierarchy.
+- Keep UI components split by feature and extract shared controls only when
+  repeated patterns prove stable.
+
+Suggested files:
+
+- `docs/REACT_WEB_APP_INSTRUCTIONS.md`
+- `pwa/src/components/`
+- `pwa/src/styles.css`
+- `android/wear/src/main/kotlin/app/personal/workouttracker/wear/session/SessionScreen.kt`
+- Wear list/home screens as needed after audit.
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+cd android
+./gradlew :app:assembleDebug :wear:assembleDebug
+```
+
+Manual acceptance:
+
+1. Smoke test desktop web, narrow mobile PWA, and installed/PWA-like viewport.
+2. Confirm Today, active workout, rest, paused/recovered session, History,
+   Library, Quests, and Import still work.
+3. Verify Wear OS active, rest, paused, completion, and cancel states on an
+   emulator or watch-sized preview.
+4. Confirm no new tab-level display markup is added directly to `App.tsx`.
 
 ## Deferred / Not Recommended By Default
 

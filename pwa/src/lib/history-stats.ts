@@ -259,10 +259,14 @@ export function formatSessionStopReason(reason: string): string {
       return 'Completed';
     case 'ended_by_user':
       return 'Ended by user';
+    case 'stale_next_day':
+      return 'Closed after day changed';
     case 'app_closed':
       return 'Closed';
     case 'paused_by_user':
       return 'Paused';
+    case 'inactive_timeout':
+      return 'Paused after inactivity';
     case 'unexpected_interruption':
       return 'Interrupted';
     default:

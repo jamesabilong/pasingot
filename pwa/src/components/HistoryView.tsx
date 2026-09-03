@@ -8,6 +8,7 @@ import type {
   QuestState,
   QuestTemplate,
   WorkoutLog,
+  WorkoutSetLog,
   WorkoutSessionEvent,
 } from '../types';
 import type { BodyMetricDraft } from '../lib/body-metrics';
@@ -36,11 +37,18 @@ import {
   type PeriodStats,
   type TrendBucket,
 } from '../lib/history-stats';
+import {
+  buildStrengthAnalytics,
+  buildStrengthPersonalRecords,
+  type StrengthExerciseAnalytics,
+  type StrengthPersonalRecord,
+} from '../lib/strength-analytics';
 
 interface HistoryViewProps {
   range: HistoryRange;
   logs: WorkoutLog[];
   sessionEvents: WorkoutSessionEvent[];
+  setLogs: WorkoutSetLog[];
   bodyMetrics: BodyMetricEntry[];
   catalog: ExerciseCatalogItem[];
   questState: QuestState | null;
@@ -59,6 +67,7 @@ export function HistoryView({
   range,
   logs,
   sessionEvents,
+  setLogs,
   bodyMetrics,
   catalog,
   questState,
@@ -77,6 +86,7 @@ export function HistoryView({
     .filter((event) => inHistoryRange(event.timestamp, range))
     .slice()
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp)), [range, sessionEvents]);
+  const historySetLogs = useMemo(() => setLogs.filter((log) => inHistoryRange(log.date, range)), [range, setLogs]);
   const historyBodyMetrics = useMemo(() => bodyMetrics
     .filter((entry) => inHistoryRange(entry.date, range))
     .slice()
@@ -105,6 +115,8 @@ export function HistoryView({
   const periodComparisons = useMemo(() => buildPeriodComparisons(logs, sessionEvents), [logs, sessionEvents]);
   const dateGroups = useMemo(() => buildHistoryDateGroups(historyLogs), [historyLogs]);
   const byExercise = useMemo(() => buildHistoryByExercise(historyLogs), [historyLogs]);
+  const strengthAnalytics = useMemo(() => buildStrengthAnalytics(historySetLogs), [historySetLogs]);
+  const strengthPersonalRecords = useMemo(() => buildStrengthPersonalRecords(setLogs), [setLogs]);
   const questCompletions = useMemo(() => (questState?.completedDays ?? [])
     .filter((day) => inHistoryRange(day.completedAt, range))
     .slice()
@@ -146,6 +158,7 @@ export function HistoryView({
         onDelete={onBodyMetricDelete}
       />
 
+      <StrengthAnalyticsPanel analytics={strengthAnalytics} personalRecords={strengthPersonalRecords} />
       <ActivityCalendar days={activityDays} range={range} />
       <PeriodComparison comparisons={periodComparisons} />
       <TrendBars title="Weekly Trend" detail="6 weeks" buckets={weeklyTrend} maxTotal={maxWeeklyTrendTotal} />
@@ -256,6 +269,74 @@ function BodyMetricsPanel({
           </div>
         ))}
       </div>}
+    </div>
+  );
+}
+
+function StrengthAnalyticsPanel({
+  analytics,
+  personalRecords,
+}: {
+  analytics: StrengthExerciseAnalytics[];
+  personalRecords: StrengthPersonalRecord[];
+}) {
+  const visibleAnalytics = analytics.slice(0, 4);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Strength Analytics</h3>
+        <span className="text-xs text-slate-500">{analytics.length} weighted exercise{analytics.length === 1 ? '' : 's'}</span>
+      </div>
+      {analytics.length === 0 ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No weighted set logs in this range yet.</p> : <>
+        {personalRecords.length > 0 && <div className="rounded-lg border border-emerald-900 bg-emerald-950/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-emerald-200">Recent PRs</p>
+            <span className="text-xs text-emerald-400">{personalRecords.length}</span>
+          </div>
+          <div className="space-y-1">
+            {personalRecords.slice(0, 4).map((record) => (
+              <div key={`${record.exercise}-${record.type}-${record.date}-${record.value}`} className="grid grid-cols-[1fr_auto] gap-2 text-xs">
+                <span className="min-w-0 truncate text-slate-200">{record.exercise} · {record.label}</span>
+                <span className="shrink-0 text-emerald-300">{record.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>}
+        {visibleAnalytics.map((item) => <StrengthExerciseCard key={`${item.exercise}-${item.unit}`} item={item} />)}
+      </>}
+    </div>
+  );
+}
+
+function StrengthExerciseCard({ item }: { item: StrengthExerciseAnalytics }) {
+  const maxTrendValue = Math.max(1, ...item.trend.map((point) => point.volume));
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-200">{item.exercise}</p>
+          <p className="text-xs text-slate-500">{item.setCount} weighted set{item.setCount === 1 ? '' : 's'} · {item.unit}</p>
+        </div>
+        <span className="shrink-0 text-xs text-slate-600">{formatHistoryDate(item.latestDate)}</span>
+      </div>
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
+        {item.records.map((record) => (
+          <div key={record.label} className="rounded-md border border-slate-800 bg-slate-950 p-2">
+            <p className="truncate font-semibold text-slate-200">{record.value}</p>
+            <p className="mt-1 text-[10px] text-slate-600">{record.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-6 items-end gap-1">
+        {item.trend.map((point) => (
+          <div key={point.key} className="grid gap-1 text-center">
+            <div className="flex h-16 items-end rounded bg-slate-950 p-1" title={`${point.label}: ${Math.round(point.volume)} ${point.unit} volume`}>
+              <div className="w-full rounded bg-indigo-400" style={{ height: `${Math.max(8, (point.volume / maxTrendValue) * 100)}%` }} />
+            </div>
+            <p className="truncate text-[10px] text-slate-600">{point.label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

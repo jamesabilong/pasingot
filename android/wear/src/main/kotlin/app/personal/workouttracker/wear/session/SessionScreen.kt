@@ -16,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -29,6 +31,7 @@ import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.shared.WorkoutExercise
 
 /**
  * Focused active-exercise screen for a downloaded workout. One exercise is
@@ -37,6 +40,11 @@ import app.personal.workouttracker.shared.SessionStatus
 @Composable
 fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
+    val haptic = LocalHapticFeedback.current
+    fun cueAction(action: () -> Unit) {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        action()
+    }
 
     // Exiting without an explicit unfinished state behaves like Pause, so
     // progress is never lost by accident — covers both the system back
@@ -82,10 +90,10 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     if (state.isPaused) {
         PausedView(
             state = state,
-            onResume = viewModel::onResume,
-            onRestartWorkout = viewModel::onRestartWorkout,
-            onEndWorkout = viewModel::onEndWorkout,
-            onCancel = onCancel,
+            onResume = { cueAction(viewModel::onResume) },
+            onRestartWorkout = { cueAction(viewModel::onRestartWorkout) },
+            onEndWorkout = { cueAction(viewModel::onEndWorkout) },
+            onCancel = { cueAction(onCancel) },
         )
         return
     }
@@ -93,10 +101,10 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     if (state.isResting) {
         RestingView(
             state = state,
-            onStartNow = viewModel::onStartNow,
-            onPause = viewModel::onPause,
-            onAddRestSeconds = viewModel::onAddRestSeconds,
-            onCancel = { viewModel.onCancel(); onCancel() },
+            onStartNow = { cueAction(viewModel::onStartNow) },
+            onPause = { cueAction(viewModel::onPause) },
+            onAddRestSeconds = { seconds -> cueAction { viewModel.onAddRestSeconds(seconds) } },
+            onCancel = { cueAction { viewModel.onCancel(); onCancel() } },
         )
         return
     }
@@ -144,7 +152,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             Text(
-                text = "${exercise.sets} sets · ${exercise.reps} reps · ${exercise.rest}s rest",
+                text = formatExercisePrescription(exercise),
                 style = MaterialTheme.typography.body1,
                 textAlign = TextAlign.Center,
             )
@@ -158,7 +166,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             Chip(
-                onClick = viewModel::onCompleteSet,
+                onClick = { cueAction(viewModel::onCompleteSet) },
                 label = { Text("Complete Set") },
                 colors = ChipDefaults.primaryChipColors(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -166,7 +174,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             CompactChip(
-                onClick = viewModel::onPause,
+                onClick = { cueAction(viewModel::onPause) },
                 label = { Text("Pause") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
@@ -174,7 +182,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             CompactChip(
-                onClick = viewModel::onSkip,
+                onClick = { cueAction(viewModel::onSkip) },
                 label = { Text("Skip") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
@@ -182,14 +190,14 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             CompactChip(
-                onClick = viewModel::onUpgrade,
+                onClick = { cueAction(viewModel::onUpgrade) },
                 label = { Text("Upgrade (+1 set)") },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
         item {
             CompactChip(
-                onClick = viewModel::onDowngrade,
+                onClick = { cueAction(viewModel::onDowngrade) },
                 label = { Text("Downgrade (-1 set)") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
@@ -197,7 +205,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
         item {
             CompactChip(
-                onClick = { viewModel.onCancel(); onCancel() },
+                onClick = { cueAction { viewModel.onCancel(); onCancel() } },
                 label = { Text("Cancel") },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
@@ -500,6 +508,20 @@ private fun formatElapsedSeconds(seconds: Int): String {
         "%d:%02d".format(minutes, remainder)
     }
 }
+
+private fun formatExercisePrescription(exercise: WorkoutExercise): String {
+    val loadWeight = exercise.loadWeight
+    val loadUnit = exercise.loadUnit
+    val load = if (loadWeight != null && !loadUnit.isNullOrBlank()) {
+        " · ${formatLoadWeight(loadWeight)} $loadUnit"
+    } else {
+        ""
+    }
+    return "${exercise.sets} sets · ${exercise.reps} reps$load · ${exercise.rest}s rest"
+}
+
+private fun formatLoadWeight(weight: Double): String =
+    if (weight % 1.0 == 0.0) weight.toInt().toString() else "%.1f".format(weight)
 
 private fun formatStopReason(reason: String): String = when (reason) {
     "paused_by_user" -> "Paused by user"

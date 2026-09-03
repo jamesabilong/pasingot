@@ -41,6 +41,8 @@ class ScheduleSyncPlugin : Plugin() {
                         sets = obj.getInt("sets"),
                         reps = obj.getString("reps"),
                         rest = obj.getInt("rest"),
+                        loadWeight = if (obj.has("loadWeight") && !obj.isNull("loadWeight")) obj.getDouble("loadWeight") else null,
+                        loadUnit = if (obj.has("loadUnit") && !obj.isNull("loadUnit")) obj.getString("loadUnit") else null,
                         workoutRowId = if (obj.has("id") && !obj.isNull("id")) obj.getLong("id") else null,
                         questId = if (obj.has("questId") && !obj.isNull("questId")) obj.getString("questId") else null,
                         questDayIndex = if (obj.has("questDayIndex") && !obj.isNull("questDayIndex")) obj.getInt("questDayIndex") else null,

@@ -85,6 +85,8 @@ data class WorkoutExercise(
     val reps: String,
     val sets: Int,
     val rest: Int, // seconds
+    val loadWeight: Double? = null,
+    val loadUnit: String? = null,
     val workoutRowId: Long? = null,
     val questId: String? = null,
     val questDayIndex: Int? = null,
@@ -326,6 +328,8 @@ data class ScheduleRow(
     val sets: Int,
     val reps: String,
     val rest: Int,
+    val loadWeight: Double? = null,
+    val loadUnit: String? = null,
     val workoutRowId: Long? = null,
     val questId: String? = null,
     val questDayIndex: Int? = null,

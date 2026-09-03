@@ -5,11 +5,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
+import { AppShell } from './components/AppShell';
 import { HistoryView } from './components/HistoryView';
+import { ImportView, type ImportResult } from './components/ImportView';
+import { LibraryView } from './components/LibraryView';
+import { QuestsView } from './components/QuestsView';
+import { TodayView } from './components/TodayView';
+import { type PlanProgress } from './components/SummaryCards';
+import { type WorkoutSetInput } from './components/WorkoutPlayer';
 import { bodyMetricDraftFromEntry, initialBodyMetricDraft, parseBodyMetricDraft, type BodyMetricDraft } from './lib/body-metrics';
 import { parseCatalogCsv } from './lib/catalog';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
-import { formatDuration } from './lib/format';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import { drainPendingWatchLogs, pushScheduleToNative } from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
@@ -27,9 +33,11 @@ import {
   type QuestTemplate,
   type QuestWorkoutRow,
   type Tab,
+  type WeightUnit,
   type Weekday,
   type WorkoutLog,
   type WorkoutRow,
+  type WorkoutSetLog,
   type WorkoutSessionEvent,
 } from './types';
 
@@ -37,9 +45,11 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PLAYLIST_DRAFT_KEY = 'playlistDraft';
 const QUEST_STATE_KEY = 'questState';
 const ACTIVE_WORKOUT_SESSION_KEY = 'activeWorkoutSession';
+const WORKOUT_CUE_SETTINGS_KEY = 'workoutCueSettings';
 const MAX_PLAYLIST_ITEMS = 24;
 const POLL_INTERVAL_MS = 30_000;
 const NOTIFICATION_TOLERANCE_MINUTES = 1;
+const ACTIVE_SESSION_IDLE_TIMEOUT_MS = 45 * 60 * 1000;
 const LEVELS: ExerciseLevel[] = ['beginner', 'intermediate', 'advanced'];
 const LEVEL_RANK: Record<ExerciseLevel, number> = { beginner: 0, intermediate: 1, advanced: 2 };
 const LEVEL_LABELS: Record<ExerciseLevel, string> = {
@@ -71,22 +81,17 @@ const ESTIMATE_SET_SETUP_SECONDS = 10;
 const ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS = 15;
 const ESTIMATE_DEFAULT_REP_COUNT = 10;
 
-interface ImportResult {
-  imported: number;
-  skipped: number;
-}
-
 interface Toast {
   id: number;
   message: string;
 }
 
-interface PlanProgress {
-  total: number;
-  completed: number;
-  pending: number;
-  skipped: number;
-  resolvedPercent: number;
+interface WorkoutCueSettings {
+  key: typeof WORKOUT_CUE_SETTINGS_KEY;
+  schemaVersion: number;
+  hapticsEnabled: boolean;
+  soundEnabled: boolean;
+  voiceEnabled: boolean;
 }
 
 interface ActiveWorkoutSession {
@@ -102,6 +107,68 @@ interface ActiveWorkoutSession {
   accumulatedElapsedMillis: number;
   elapsedStartedAtEpochMillis: number | null;
   lastStopReason: string | null;
+  setInputs: Record<string, WorkoutSetInput>;
+  lastInteractionAtEpochMillis: number;
+  lastRestCueKey: string | null;
+}
+
+function isWeightUnit(value: unknown): value is WeightUnit {
+  return value === 'kg' || value === 'lb';
+}
+
+function validLoadWeight(value: unknown): number | null {
+  if (value === '' || value == null) return null;
+  const weight = Number(value);
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 2000) return null;
+  return Math.round(weight * 10) / 10;
+}
+
+function setInputKey(row: WorkoutRow, setNumber: number): string {
+  return `${row.id ?? row.exercise}:${setNumber}`;
+}
+
+function defaultSetInput(row: WorkoutRow): WorkoutSetInput {
+  return {
+    actualReps: row.reps,
+    loadWeight: row.loadWeight != null ? String(row.loadWeight) : '',
+    loadUnit: row.loadUnit ?? 'kg',
+  };
+}
+
+function normalizeActiveWorkoutSession(session: ActiveWorkoutSession): ActiveWorkoutSession {
+  return {
+    ...session,
+    setInputs: session.setInputs ?? {},
+    lastInteractionAtEpochMillis: session.lastInteractionAtEpochMillis ?? session.elapsedStartedAtEpochMillis ?? Date.now(),
+    lastRestCueKey: session.lastRestCueKey ?? null,
+  };
+}
+
+function touchSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
+  return { ...session, lastInteractionAtEpochMillis: now };
+}
+
+function initialWorkoutCueSettings(): WorkoutCueSettings {
+  return {
+    key: WORKOUT_CUE_SETTINGS_KEY,
+    schemaVersion: SCHEMA_VERSION,
+    hapticsEnabled: true,
+    soundEnabled: false,
+    voiceEnabled: false,
+  };
+}
+
+function normalizeWorkoutCueSettings(settings?: Partial<WorkoutCueSettings> | null): WorkoutCueSettings {
+  return {
+    ...initialWorkoutCueSettings(),
+    hapticsEnabled: settings?.hapticsEnabled ?? true,
+    soundEnabled: settings?.soundEnabled ?? false,
+    voiceEnabled: settings?.voiceEnabled ?? false,
+  };
+}
+
+function restCueKey(session: ActiveWorkoutSession): string {
+  return `${session.planDate}:${session.exerciseIndex}:${session.currentSet}:${session.restUntilEpochMillis ?? 'none'}`;
 }
 
 function calculatePlanProgress(rows: Array<{ id?: number }>, statuses: Map<number, WorkoutLog['status']>): PlanProgress {
@@ -171,8 +238,22 @@ function validateWorkoutRow(raw: Record<string, string>): WorkoutRow | null {
   const reps = String(raw.reps ?? '').trim();
   const sets = Number.parseInt(String(raw.sets ?? '').trim(), 10);
   const rest = Number.parseInt(String(raw.rest ?? '').trim(), 10);
-  if (!day || !TIME_RE.test(time) || !exercise || !reps || !Number.isInteger(sets) || sets <= 0 || !Number.isInteger(rest) || rest < 0) return null;
-  return { schemaVersion: SCHEMA_VERSION, day, time, exercise, sets, reps, rest };
+  const rawLoadWeight = raw.load_weight ?? raw.loadWeight ?? raw.weight;
+  const loadWeight = validLoadWeight(rawLoadWeight);
+  const loadUnitRaw = String(raw.load_unit ?? raw.loadUnit ?? raw.unit ?? '').trim().toLowerCase();
+  const loadUnit = loadWeight != null ? (isWeightUnit(loadUnitRaw) ? loadUnitRaw : 'kg') : null;
+  if (
+    !day
+    || !TIME_RE.test(time)
+    || !exercise
+    || !reps
+    || !Number.isInteger(sets)
+    || sets <= 0
+    || !Number.isInteger(rest)
+    || rest < 0
+    || (String(rawLoadWeight ?? '').trim() !== '' && loadWeight == null)
+  ) return null;
+  return { schemaVersion: SCHEMA_VERSION, day, time, exercise, sets, reps, rest, loadWeight, loadUnit };
 }
 
 function isExerciseLevel(value: unknown): value is ExerciseLevel {
@@ -243,133 +324,6 @@ function estimateLevelFor(exercises: EstimableExercise[], fallback: ExerciseLeve
   return exercises.find((exercise) => exercise.questLevel)?.questLevel ?? fallback;
 }
 
-function estimateDisplayValue(value: string): string {
-  return value.replace(/^Est\.\s*/, '');
-}
-
-function EstimateSummary({ value }: { value: string }) {
-  return (
-    <div className="estimate-summary">
-      <span className="estimate-summary__label">Estimated Time</span>
-      <strong className="estimate-summary__value">{estimateDisplayValue(value)}</strong>
-      <span className="estimate-summary__note">with buffer</span>
-    </div>
-  );
-}
-
-function PlanProgressSummary({ progress }: { progress: PlanProgress }) {
-  if (progress.total === 0) return null;
-  const completedPercent = (progress.completed / progress.total) * 100;
-  const skippedPercent = (progress.skipped / progress.total) * 100;
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plan Progress</span>
-        <span className="text-xs text-slate-500">{progress.resolvedPercent}% handled</span>
-      </div>
-      <div className="flex h-2 overflow-hidden rounded-full bg-slate-800">
-        <div className="h-full bg-emerald-500" style={{ width: `${completedPercent}%` }} />
-        <div className="h-full bg-amber-500" style={{ width: `${skippedPercent}%` }} />
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-        <div><p className="text-base font-semibold text-emerald-300">{progress.completed}</p><p className="text-slate-500">Completed</p></div>
-        <div><p className="text-base font-semibold text-slate-300">{progress.pending}</p><p className="text-slate-500">Pending</p></div>
-        <div><p className="text-base font-semibold text-amber-300">{progress.skipped}</p><p className="text-slate-500">Skipped</p></div>
-      </div>
-    </div>
-  );
-}
-
-function WorkoutPlayer({
-  session,
-  rows,
-  elapsedSeconds,
-  restRemainingSeconds,
-  onCompleteSet,
-  onSkip,
-  onPause,
-  onResume,
-  onRestart,
-  onEnd,
-  onStartNow,
-  onAddRestSeconds,
-  onClose,
-}: {
-  session: ActiveWorkoutSession;
-  rows: WorkoutRow[];
-  elapsedSeconds: number;
-  restRemainingSeconds: number;
-  onCompleteSet: () => void;
-  onSkip: () => void;
-  onPause: () => void;
-  onResume: () => void;
-  onRestart: () => void;
-  onEnd: () => void;
-  onStartNow: () => void;
-  onAddRestSeconds: (seconds: number) => void;
-  onClose: () => void;
-}) {
-  const row = rows[session.exerciseIndex];
-  const [confirmingEnd, setConfirmingEnd] = useState(false);
-  const [confirmingRestart, setConfirmingRestart] = useState(false);
-  if (!row) return null;
-
-  const setLabel = `Set ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
-  const progressLabel = `Exercise ${session.exerciseIndex + 1} of ${rows.length}`;
-
-  return (
-    <div className="rounded-lg border border-emerald-900 bg-slate-900 p-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
-            {session.status === 'resting' ? 'Rest' : session.status === 'paused' ? 'Paused' : session.status === 'ended' ? 'Ended' : session.status === 'completed' ? 'Complete' : 'Workout Player'}
-          </p>
-          <h3 className="mt-1 truncate text-lg font-semibold text-slate-100">{row.exercise}</h3>
-          <p className="text-xs text-slate-500">{progressLabel} · {setLabel}</p>
-        </div>
-        <span className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs text-slate-300">{formatDuration(elapsedSeconds)}</span>
-      </div>
-
-      {session.status === 'resting' && <div className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-center">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Rest remaining</p>
-        <p className="mt-1 text-3xl font-bold text-emerald-300">{formatDuration(restRemainingSeconds)}</p>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[5, 10, 30].map((seconds) => (
-            <button key={seconds} type="button" onClick={() => onAddRestSeconds(seconds)} className="rounded-md bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">+{seconds}s</button>
-          ))}
-        </div>
-      </div>}
-
-      {session.status === 'paused' && <p className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">
-        {session.pausedRestRemainingSeconds != null ? `Rest paused at ${formatDuration(session.pausedRestRemainingSeconds)}.` : 'Workout paused.'}
-      </p>}
-
-      {confirmingRestart ? <div className="grid gap-2">
-        <button type="button" onClick={() => { onRestart(); setConfirmingRestart(false); }} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Restart workout</button>
-        <button type="button" onClick={() => setConfirmingRestart(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
-      </div> : confirmingEnd ? <div className="grid gap-2">
-        <button type="button" onClick={() => { onEnd(); setConfirmingEnd(false); }} className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500">End workout</button>
-        <button type="button" onClick={() => setConfirmingEnd(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
-      </div> : session.status === 'active' ? <div className="grid gap-2">
-        <button type="button" onClick={onCompleteSet} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Complete set</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
-          <button type="button" onClick={onSkip} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Skip exercise</button>
-        </div>
-      </div> : session.status === 'resting' ? <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={onStartNow} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start now</button>
-        <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
-      </div> : session.status === 'paused' ? <div className="grid gap-2">
-        <button type="button" onClick={onResume} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Resume</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setConfirmingRestart(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Restart</button>
-          <button type="button" onClick={() => setConfirmingEnd(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">End</button>
-        </div>
-      </div> : <button type="button" onClick={onClose} className="w-full rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Close player</button>}
-    </div>
-  );
-}
-
 function initialDraft(): PlaylistDraft {
   return { day: todayName(), time: '07:00', level: 'beginner', items: [] };
 }
@@ -378,26 +332,26 @@ function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseCatalogI
   const day = WEEKDAYS.includes(input.day as Weekday) ? input.day as Weekday : todayName();
   const time = TIME_RE.test(String(input.time ?? '')) ? String(input.time) : '07:00';
   const level = isExerciseLevel(input.level) ? input.level : 'beginner';
-  const items = (input.items ?? []).map((item) => {
+  const items: PlaylistItem[] = (input.items ?? []).map((item): PlaylistItem | null => {
     const sourceId = Number(item.sourceId);
     const exercise = catalog.find((candidate) => candidate.sourceId === sourceId);
     if (!exercise) return null;
     const sets = Number(item.sets);
     const rest = Number(item.rest);
     const reps = String(item.reps ?? '').trim().slice(0, 30);
+    const loadWeight = validLoadWeight(item.loadWeight);
+    const loadUnit = loadWeight != null ? item.loadUnit ?? 'kg' : null;
     return {
       sourceId,
       name: exercise.name,
       sets: Number.isInteger(sets) && sets > 0 ? sets : 3,
       reps: reps || '8-12',
       rest: Number.isInteger(rest) && rest >= 0 ? rest : 60,
+      loadWeight,
+      loadUnit,
     } satisfies PlaylistItem;
   }).filter((item): item is PlaylistItem => item !== null).slice(0, MAX_PLAYLIST_ITEMS);
   return { day, time, level, items };
-}
-
-function panelButtonClass(active: boolean): string {
-  return `min-w-0 rounded-md py-2 ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`;
 }
 
 export default function App() {
@@ -405,6 +359,7 @@ export default function App() {
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
+  const [setLogEntries, setSetLogEntries] = useState<WorkoutSetLog[]>([]);
   const [bodyMetrics, setBodyMetrics] = useState<BodyMetricEntry[]>([]);
   const [activeWorkoutSession, setActiveWorkoutSession] = useState<ActiveWorkoutSession | null>(null);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
@@ -423,6 +378,7 @@ export default function App() {
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
   const [bodyMetricDraft, setBodyMetricDraft] = useState<BodyMetricDraft>(initialBodyMetricDraft);
   const [bodyMetricResult, setBodyMetricResult] = useState<{ message: string; error: boolean } | null>(null);
+  const [workoutCueSettings, setWorkoutCueSettings] = useState<WorkoutCueSettings>(initialWorkoutCueSettings);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
     'Notification' in window ? Notification.permission : 'unsupported'
   ));
@@ -431,6 +387,7 @@ export default function App() {
   const refreshWorkouts = useCallback(async () => setWorkouts(await getAll<WorkoutRow>(STORES.workouts)), []);
   const refreshLogs = useCallback(async () => setLogs(await getAll<WorkoutLog>(STORES.logs)), []);
   const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
+  const refreshSetLogs = useCallback(async () => setSetLogEntries(await getAll<WorkoutSetLog>(STORES.setLogs)), []);
   const refreshBodyMetrics = useCallback(async () => setBodyMetrics(await getAll<BodyMetricEntry>(STORES.bodyMetrics)), []);
   const saveActiveWorkoutSession = useCallback(async (next: ActiveWorkoutSession | null) => {
     setActiveWorkoutSession(next);
@@ -453,10 +410,43 @@ export default function App() {
     await putRecord(STORES.appState, next);
   }, []);
 
+  const saveWorkoutCueSettings = useCallback(async (updates: Partial<Omit<WorkoutCueSettings, 'key' | 'schemaVersion'>>) => {
+    const next = normalizeWorkoutCueSettings({ ...workoutCueSettings, ...updates });
+    setWorkoutCueSettings(next);
+    await putRecord(STORES.appState, next);
+  }, [workoutCueSettings]);
+
+  const playWorkoutCue = useCallback((row?: WorkoutRow) => {
+    if (workoutCueSettings.hapticsEnabled && 'vibrate' in navigator) navigator.vibrate([90, 45, 90]);
+    if (workoutCueSettings.soundEnabled) {
+      const AudioContextClass = window.AudioContext ?? (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextClass) {
+        const context = new AudioContextClass();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, context.currentTime);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.35);
+        oscillator.start();
+        oscillator.stop(context.currentTime + 0.38);
+        window.setTimeout(() => void context.close(), 500);
+      }
+    }
+    if (workoutCueSettings.voiceEnabled && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(row ? `Rest complete. Next set: ${row.exercise}.` : 'Rest complete.');
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [workoutCueSettings]);
+
   useEffect(() => {
     let disposed = false;
     async function initialize() {
-      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshBodyMetrics()]);
+      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics()]);
       // Refresh the native cache after an app upgrade as well as after an
       // explicit schedule edit, so existing quest rows gain new bridge fields.
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
@@ -494,9 +484,13 @@ export default function App() {
       }
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
+      const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
+      if (!disposed) setWorkoutCueSettings(normalizeWorkoutCueSettings(storedCueSettings));
       const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       if (!disposed && storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()) {
-        setActiveWorkoutSession(storedWorkoutSession);
+        setActiveWorkoutSession(normalizeActiveWorkoutSession(storedWorkoutSession));
+      } else if (storedWorkoutSession) {
+        await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       }
       const drained = await drainPendingWatchLogs();
       if (drained && !disposed) await Promise.all([refreshLogs(), refreshSessionEvents()]);
@@ -512,35 +506,7 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [refreshBodyMetrics, refreshLogs, refreshSessionEvents, refreshWorkouts]);
-
-  useEffect(() => {
-    if (!activeWorkoutSession) {
-      setWorkoutElapsedSeconds(0);
-      setWorkoutRestRemainingSeconds(0);
-      return undefined;
-    }
-
-    const syncTimers = () => {
-      const now = Date.now();
-      const restSeconds = restSecondsForSession(activeWorkoutSession, now);
-      setWorkoutElapsedSeconds(elapsedSecondsForSession(activeWorkoutSession, now));
-      setWorkoutRestRemainingSeconds(restSeconds);
-      if (activeWorkoutSession.status === 'resting' && restSeconds <= 0) {
-        void saveActiveWorkoutSession(startElapsedSession({
-          ...activeWorkoutSession,
-          status: 'active',
-          restUntilEpochMillis: null,
-          pausedRestRemainingSeconds: null,
-        }, now));
-      }
-    };
-
-    syncTimers();
-    if (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting') return undefined;
-    const timer = window.setInterval(syncTimers, 1000);
-    return () => window.clearInterval(timer);
-  }, [activeWorkoutSession, saveActiveWorkoutSession]);
+  }, [refreshBodyMetrics, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
 
   useEffect(() => {
     const notified = new Set<number>();
@@ -585,6 +551,69 @@ export default function App() {
       .map((id) => workouts.find((row) => row.id === id))
       .filter((row): row is WorkoutRow => Boolean(row));
   }, [activeWorkoutSession, workouts]);
+
+  useEffect(() => {
+    if (!activeWorkoutSession) {
+      setWorkoutElapsedSeconds(0);
+      setWorkoutRestRemainingSeconds(0);
+      return undefined;
+    }
+
+    const syncTimers = () => {
+      const now = Date.now();
+      if (activeWorkoutSession.planDate !== todayDateKey()) {
+        const ended = stopElapsedSession({ ...activeWorkoutSession, status: 'ended' }, 'stale_next_day', now);
+        void recordLocalSessionEvent(ended, 'ended', 'stale_next_day', activeWorkoutRows)
+          .then(() => saveActiveWorkoutSession(null))
+          .then(() => addToast('Previous workout was closed because the day changed.'));
+        return;
+      }
+      if (
+        (activeWorkoutSession.status === 'active' || activeWorkoutSession.status === 'resting')
+        && now - activeWorkoutSession.lastInteractionAtEpochMillis > ACTIVE_SESSION_IDLE_TIMEOUT_MS
+      ) {
+        const pausedRestSeconds = activeWorkoutSession.status === 'resting' ? Math.max(1, restSecondsForSession(activeWorkoutSession, now)) : null;
+        void saveActiveWorkoutSession({
+          ...stopElapsedSession(activeWorkoutSession, 'inactive_timeout', now),
+          status: 'paused',
+          restUntilEpochMillis: null,
+          pausedRestRemainingSeconds: pausedRestSeconds,
+        }).then(() => addToast('Workout paused after 45 minutes without activity.'));
+        return;
+      }
+      const restSeconds = restSecondsForSession(activeWorkoutSession, now);
+      setWorkoutElapsedSeconds(elapsedSecondsForSession(activeWorkoutSession, now));
+      setWorkoutRestRemainingSeconds(restSeconds);
+      if (activeWorkoutSession.status === 'resting' && restSeconds <= 0) {
+        const cueKey = restCueKey(activeWorkoutSession);
+        if (activeWorkoutSession.lastRestCueKey !== cueKey) playWorkoutCue(activeWorkoutRows[activeWorkoutSession.exerciseIndex]);
+        void saveActiveWorkoutSession(touchSession(startElapsedSession({
+          ...activeWorkoutSession,
+          status: 'active',
+          restUntilEpochMillis: null,
+          pausedRestRemainingSeconds: null,
+          lastRestCueKey: cueKey,
+        }, now), now));
+      }
+    };
+
+    syncTimers();
+    if (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting') return undefined;
+    const timer = window.setInterval(syncTimers, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeWorkoutRows, activeWorkoutSession, addToast, playWorkoutCue, saveActiveWorkoutSession]);
+
+  const activeWorkoutRow = activeWorkoutSession ? activeWorkoutRows[activeWorkoutSession.exerciseIndex] : undefined;
+  const activeSetInput = activeWorkoutSession && activeWorkoutRow ? currentSetInput(activeWorkoutSession, activeWorkoutRow) : defaultSetInput({
+    schemaVersion: SCHEMA_VERSION,
+    day: todayName(),
+    time: '00:00',
+    exercise: '',
+    sets: 1,
+    reps: '',
+    rest: 0,
+  });
+  const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => entry.date.startsWith(todayDateKey())).length, [setLogEntries]);
 
   const categories = useMemo(() => [...new Set(catalog.map((item) => item.category))].sort(), [catalog]);
   const levelCounts = useMemo(() => LEVELS.reduce((result, level) => ({
@@ -681,7 +710,46 @@ export default function App() {
       accumulatedElapsedMillis: 0,
       elapsedStartedAtEpochMillis: Date.now(),
       lastStopReason: null,
+      setInputs: {},
+      lastInteractionAtEpochMillis: Date.now(),
+      lastRestCueKey: null,
     };
+  }
+
+  function currentSetInput(session: ActiveWorkoutSession, row: WorkoutRow): WorkoutSetInput {
+    return session.setInputs[setInputKey(row, session.currentSet)] ?? defaultSetInput(row);
+  }
+
+  async function updatePwaSetInput(updates: Partial<WorkoutSetInput>) {
+    if (!activeWorkoutSession) return;
+    const row = activeWorkoutRows[activeWorkoutSession.exerciseIndex];
+    if (!row) return;
+    const key = setInputKey(row, activeWorkoutSession.currentSet);
+    await saveActiveWorkoutSession({
+      ...touchSession(activeWorkoutSession),
+      setInputs: {
+        ...activeWorkoutSession.setInputs,
+        [key]: { ...currentSetInput(activeWorkoutSession, row), ...updates },
+      },
+    });
+  }
+
+  async function recordWorkoutSet(row: WorkoutRow, setNumber: number, input: WorkoutSetInput) {
+    const actualReps = input.actualReps.trim() || row.reps;
+    const loadWeight = validLoadWeight(input.loadWeight);
+    const loadUnit = loadWeight != null ? input.loadUnit : null;
+    await addRecord(STORES.setLogs, {
+      schemaVersion: SCHEMA_VERSION,
+      date: new Date().toISOString(),
+      workoutRowId: row.id ?? null,
+      exercise: row.exercise,
+      setNumber,
+      plannedReps: row.reps,
+      actualReps,
+      loadWeight,
+      loadUnit,
+    } satisfies WorkoutSetLog);
+    await refreshSetLogs();
   }
 
   function restOrActive(session: ActiveWorkoutSession, restSeconds: number): ActiveWorkoutSession {
@@ -733,21 +801,23 @@ export default function App() {
     const rows = activeWorkoutRows;
     const row = rows[activeWorkoutSession.exerciseIndex];
     if (!row) return;
+    const touchedSession = touchSession(activeWorkoutSession);
+    await recordWorkoutSet(row, touchedSession.currentSet, currentSetInput(touchedSession, row));
 
-    if (activeWorkoutSession.currentSet < row.sets) {
-      await saveActiveWorkoutSession(restOrActive({ ...activeWorkoutSession, currentSet: activeWorkoutSession.currentSet + 1 }, row.rest));
+    if (touchedSession.currentSet < row.sets) {
+      await saveActiveWorkoutSession(restOrActive({ ...touchedSession, currentSet: touchedSession.currentSet + 1 }, row.rest));
       return;
     }
 
     await logExercise(row, 'done');
-    const nextIndex = activeWorkoutSession.exerciseIndex + 1;
+    const nextIndex = touchedSession.exerciseIndex + 1;
     if (nextIndex >= rows.length) {
-      const completed = stopElapsedSession({ ...activeWorkoutSession, status: 'completed' }, 'completed');
+      const completed = stopElapsedSession({ ...touchedSession, status: 'completed' }, 'completed');
       await saveActiveWorkoutSession(completed);
       await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
       return;
     }
-    await saveActiveWorkoutSession(restOrActive({ ...activeWorkoutSession, exerciseIndex: nextIndex, currentSet: 1 }, row.rest));
+    await saveActiveWorkoutSession(restOrActive({ ...touchedSession, exerciseIndex: nextIndex, currentSet: 1 }, row.rest));
   }
 
   async function skipPwaExercise() {
@@ -755,16 +825,17 @@ export default function App() {
     const rows = activeWorkoutRows;
     const row = rows[activeWorkoutSession.exerciseIndex];
     if (!row) return;
+    const touchedSession = touchSession(activeWorkoutSession);
 
     await logExercise(row, 'skipped');
-    const nextIndex = activeWorkoutSession.exerciseIndex + 1;
+    const nextIndex = touchedSession.exerciseIndex + 1;
     if (nextIndex >= rows.length) {
-      const completed = stopElapsedSession({ ...activeWorkoutSession, status: 'completed' }, 'completed');
+      const completed = stopElapsedSession({ ...touchedSession, status: 'completed' }, 'completed');
       await saveActiveWorkoutSession(completed);
       await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
       return;
     }
-    await saveActiveWorkoutSession({ ...activeWorkoutSession, exerciseIndex: nextIndex, currentSet: 1 });
+    await saveActiveWorkoutSession({ ...touchedSession, exerciseIndex: nextIndex, currentSet: 1 });
   }
 
   async function pausePwaWorkout() {
@@ -775,6 +846,7 @@ export default function App() {
       status: 'paused',
       restUntilEpochMillis: null,
       pausedRestRemainingSeconds: pausedRestSeconds,
+      lastInteractionAtEpochMillis: Date.now(),
     });
   }
 
@@ -788,7 +860,8 @@ export default function App() {
       pausedRestRemainingSeconds: null,
       elapsedStartedAtEpochMillis: now,
       lastStopReason: null,
-    } : startElapsedSession({ ...activeWorkoutSession, status: 'active' }, now);
+      lastInteractionAtEpochMillis: now,
+    } : touchSession(startElapsedSession({ ...activeWorkoutSession, status: 'active' }, now), now);
     await saveActiveWorkoutSession(resumed);
   }
 
@@ -801,26 +874,26 @@ export default function App() {
   async function endPwaWorkout() {
     if (!activeWorkoutSession || activeWorkoutSession.status === 'ended' || activeWorkoutSession.status === 'completed') return;
     const rows = activeWorkoutRows;
-    const ended = stopElapsedSession({ ...activeWorkoutSession, status: 'ended' }, 'ended_by_user');
+    const ended = stopElapsedSession({ ...touchSession(activeWorkoutSession), status: 'ended' }, 'ended_by_user');
     await saveActiveWorkoutSession(ended);
     await recordLocalSessionEvent(ended, 'ended', 'ended_by_user', rows);
   }
 
   async function startPwaRestNow() {
     if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting') return;
-    await saveActiveWorkoutSession(startElapsedSession({
+    await saveActiveWorkoutSession(touchSession(startElapsedSession({
       ...activeWorkoutSession,
       status: 'active',
       restUntilEpochMillis: null,
       pausedRestRemainingSeconds: null,
-    }));
+    })));
   }
 
   async function addPwaRestSeconds(seconds: number) {
     if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting' || seconds <= 0) return;
     const now = Date.now();
     await saveActiveWorkoutSession({
-      ...activeWorkoutSession,
+      ...touchSession(activeWorkoutSession, now),
       restUntilEpochMillis: Math.max(activeWorkoutSession.restUntilEpochMillis ?? now, now) + seconds * 1000,
     });
   }
@@ -856,11 +929,27 @@ export default function App() {
   }
 
   async function savePlaylistToSchedule() {
-    const invalid = draft.items.some((item) => !Number.isInteger(item.sets) || item.sets <= 0 || !item.reps.trim() || !Number.isInteger(item.rest) || item.rest < 0);
-    if (!TIME_RE.test(draft.time) || invalid) return setPlaylistResult({ error: true, message: 'Fix invalid day, time, sets, reps, or rest values before saving.' });
+    const invalid = draft.items.some((item) => (
+      !Number.isInteger(item.sets)
+      || item.sets <= 0
+      || !item.reps.trim()
+      || !Number.isInteger(item.rest)
+      || item.rest < 0
+      || (item.loadWeight != null && validLoadWeight(item.loadWeight) == null)
+      || (item.loadWeight != null && !isWeightUnit(item.loadUnit))
+    ));
+    if (!TIME_RE.test(draft.time) || invalid) return setPlaylistResult({ error: true, message: 'Fix invalid day, time, sets, reps, rest, or load values before saving.' });
     const existingKeys = new Set(workouts.map((row) => `${row.day}|${row.time}|${row.exercise.toLowerCase()}`));
     const additions = draft.items.filter((item) => !existingKeys.has(`${draft.day}|${draft.time}|${item.name.toLowerCase()}`)).map((item) => ({
-      schemaVersion: SCHEMA_VERSION, day: draft.day, time: draft.time, exercise: item.name, sets: item.sets, reps: item.reps.trim(), rest: item.rest,
+      schemaVersion: SCHEMA_VERSION,
+      day: draft.day,
+      time: draft.time,
+      exercise: item.name,
+      sets: item.sets,
+      reps: item.reps.trim(),
+      rest: item.rest,
+      loadWeight: item.loadWeight ?? null,
+      loadUnit: item.loadWeight != null ? item.loadUnit ?? 'kg' : null,
     } satisfies WorkoutRow));
     for (const row of additions) await addRecord(STORES.workouts, row);
     const schedule = await getAll<WorkoutRow>(STORES.workouts);
@@ -980,321 +1069,114 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell min-h-screen bg-slate-950 pb-24 text-slate-100">
-      <div className="app-toast-layer pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-col items-center gap-2 p-3">
-        {toasts.map((toast) => <div key={toast.id} className="max-w-sm rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm shadow-lg">{toast.message}</div>)}
-      </div>
-      <header className="app-header sticky top-0 z-40 flex items-center justify-between border-b border-slate-800 bg-slate-950/90 px-4 py-3 backdrop-blur">
-        <h1 className="text-lg font-bold">Workout Tracker</h1>
-        {notificationPermission === 'default' && <button type="button" onClick={() => void requestNotificationPermission()} className="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700">Enable reminders</button>}
-      </header>
-      <main className="mx-auto max-w-md space-y-6 px-4 pt-4">
-        <nav className="grid grid-cols-5 gap-1 rounded-lg bg-slate-900 p-1 text-xs font-medium" aria-label="Workout views">
-          {([['today', 'Today'], ['quests', 'Quests'], ['library', 'Library'], ['import', 'Import'], ['history', 'History']] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setTab(value)} className={panelButtonClass(tab === value)}>{label}</button>
-          ))}
-        </nav>
+    <AppShell
+      tab={tab}
+      toasts={toasts}
+      notificationPermission={notificationPermission}
+      onTabChange={setTab}
+      onRequestNotificationPermission={() => void requestNotificationPermission()}
+    >
+      {tab === 'today' && <TodayView
+        todayName={todayName()}
+        workouts={todayWorkouts}
+        estimate={todayEstimate}
+        progress={todayProgress}
+        statuses={todayStatuses}
+        setLogCount={todaySetLogCount}
+        activeSession={activeWorkoutSession}
+        activeRows={activeWorkoutRows}
+        elapsedSeconds={workoutElapsedSeconds}
+        restRemainingSeconds={workoutRestRemainingSeconds}
+        activeSetInput={activeSetInput}
+        cueSettings={workoutCueSettings}
+        onStartPlayer={() => void startTodayWorkoutPlayer()}
+        onSetInputChange={(updates) => void updatePwaSetInput(updates)}
+        onCueSettingsChange={(updates) => void saveWorkoutCueSettings(updates)}
+        onCompleteSet={() => void completePwaSet()}
+        onSkipExercise={() => void skipPwaExercise()}
+        onPause={() => void pausePwaWorkout()}
+        onResume={() => void resumePwaWorkout()}
+        onRestart={() => void restartPwaWorkout()}
+        onEnd={() => void endPwaWorkout()}
+        onStartNow={() => void startPwaRestNow()}
+        onAddRestSeconds={(seconds) => void addPwaRestSeconds(seconds)}
+        onClosePlayer={() => void saveActiveWorkoutSession(null)}
+        onLogExercise={(row, status) => void logExercise(row, status)}
+      />}
 
-        {tab === 'today' && <section className="space-y-3">
-          <div className="flex items-baseline justify-between"><h2 className="text-base font-semibold text-slate-200">Today's Workout</h2><span className="text-xs text-slate-500">{todayWorkouts.length ? `${todayName()} · ${todayEstimate}` : todayName()}</span></div>
-          {todayWorkouts.length > 0 && <EstimateSummary value={todayEstimate} />}
-          {todayWorkouts.length > 0 && <PlanProgressSummary progress={todayProgress} />}
-          {activeWorkoutSession && activeWorkoutRows.length > 0 ? <WorkoutPlayer
-            session={activeWorkoutSession}
-            rows={activeWorkoutRows}
-            elapsedSeconds={workoutElapsedSeconds}
-            restRemainingSeconds={workoutRestRemainingSeconds}
-            onCompleteSet={() => void completePwaSet()}
-            onSkip={() => void skipPwaExercise()}
-            onPause={() => void pausePwaWorkout()}
-            onResume={() => void resumePwaWorkout()}
-            onRestart={() => void restartPwaWorkout()}
-            onEnd={() => void endPwaWorkout()}
-            onStartNow={() => void startPwaRestNow()}
-            onAddRestSeconds={(seconds) => void addPwaRestSeconds(seconds)}
-            onClose={() => void saveActiveWorkoutSession(null)}
-          /> : todayWorkouts.length > 0 && todayProgress.pending > 0 && <button type="button" onClick={() => void startTodayWorkoutPlayer()} className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start workout player</button>}
-          {todayWorkouts.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No exercises scheduled for today. Import a CSV to get started.</p> : <div className="space-y-2">
-            {todayWorkouts.map((row) => {
-              const status = row.id == null ? undefined : todayStatuses.get(row.id);
-              return <div key={row.id} className={`flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3 ${status === 'done' ? 'opacity-60' : ''}`}>
-                <div className="min-w-0 flex-1"><p className={`truncate font-medium ${status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100'}`}>{row.exercise}</p><p className="text-xs text-slate-500">{row.time} · {row.sets} × {row.reps} · rest {row.rest}s</p></div>
-                <div className="flex shrink-0 gap-1.5"><button type="button" onClick={() => void logExercise(row, 'done')} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${status === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white'}`}>{status === 'done' ? 'Done' : 'Mark as Done'}</button><button type="button" onClick={() => void logExercise(row, 'skipped')} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${status === 'skipped' ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Skip</button></div>
-              </div>;
-            })}
-          </div>}
-        </section>}
+      {tab === 'quests' && <QuestsView
+        questState={questState}
+        activeQuestTemplate={activeQuestTemplate}
+        draftLevel={draft.level}
+        levels={LEVELS}
+        levelLabels={LEVEL_LABELS}
+        currentQuestRows={currentQuestRows}
+        scheduledCurrentQuestRows={scheduledCurrentQuestRows}
+        currentQuestEstimate={currentQuestEstimate}
+        currentQuestProgress={currentQuestProgress}
+        questResult={questResult}
+        totalDays={activeQuestTemplate ? questTotalDays(activeQuestTemplate) : null}
+        weekNumber={questState && activeQuestTemplate ? questWeekNumber(questState, activeQuestTemplate) : null}
+        dayNumber={questState && activeQuestTemplate ? questTemplateDayNumber(questState, activeQuestTemplate) : null}
+        onDraftLevelChange={(level) => void saveDraft({ ...draft, level })}
+        onQuestStateChange={(state) => void saveQuestState(state)}
+        onStartQuest={(template) => void startQuest(template)}
+        onSaveQuestDayToSchedule={() => void saveQuestDayToSchedule()}
+      />}
 
-        {tab === 'quests' && <section className="space-y-5">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-base font-semibold text-slate-200">Daily Quest</h2>
-            {questState && activeQuestTemplate && <span className="text-xs text-slate-500">{questState.completedDays.length}/{questTotalDays(activeQuestTemplate)}</span>}
-          </div>
+      {tab === 'library' && <LibraryView
+        catalog={catalog}
+        filteredCatalog={filteredCatalog}
+        categories={categories}
+        levelCounts={levelCounts}
+        levels={LEVELS}
+        levelLabels={LEVEL_LABELS}
+        maxPlaylistItems={MAX_PLAYLIST_ITEMS}
+        draft={draft}
+        search={search}
+        category={category}
+        featuredOnly={featuredOnly}
+        draftEstimate={draftEstimate}
+        playlistResult={playlistResult}
+        defaultPrescriptionFor={defaultPrescriptionFor}
+        onSearchChange={setSearch}
+        onCategoryChange={setCategory}
+        onFeaturedOnlyChange={setFeaturedOnly}
+        onDraftChange={(next) => void saveDraft(next)}
+        onAddCatalogExercise={(sourceId) => void addCatalogExercise(sourceId)}
+        onUpdateDraftItem={(index, updates) => void updateDraftItem(index, updates)}
+        onReorderDraftItem={(index, direction) => void reorderDraftItem(index, direction)}
+        onSavePlaylistToSchedule={() => void savePlaylistToSchedule()}
+        onClearPlaylistResult={() => setPlaylistResult(null)}
+      />}
 
-          {!activeQuestTemplate ? <p className="py-10 text-center text-sm text-slate-500">No quest definitions are available.</p> : !questState ? <div className="space-y-4">
-            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold">{activeQuestTemplate.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-400">{activeQuestTemplate.description}</p>
-                </div>
-                <span className="shrink-0 rounded border border-emerald-700 px-2 py-1 text-xs text-emerald-300">{activeQuestTemplate.durationWeeks}w</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1 rounded-md border border-slate-800 bg-slate-950 p-1 text-xs font-medium">
-                {LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => void saveDraft({ ...draft, level })}
-                    className={`rounded px-2 py-2 ${draft.level === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800'}`}
-                  >
-                    {LEVEL_LABELS[level]}
-                  </button>
-                ))}
-              </div>
-              <button type="button" onClick={() => void startQuest(activeQuestTemplate)} className="mt-4 w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start quest</button>
-            </div>
-            <p className="text-xs leading-relaxed text-slate-500">{activeQuestTemplate.safetyNote}</p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {activeQuestTemplate.evidenceBasis.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="rounded border border-slate-800 px-2 py-1 text-emerald-400 hover:border-emerald-700">Evidence</a>)}
-            </div>
-          </div> : <div className="space-y-4">
-            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold">{activeQuestTemplate.title}</h3>
-                  <p className="mt-1 text-sm text-slate-400">{questState.status === 'completed' ? 'Quest complete' : `Week ${questWeekNumber(questState, activeQuestTemplate)} · Day ${questTemplateDayNumber(questState, activeQuestTemplate)}`}</p>
-                </div>
-                <span className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs text-slate-300">{LEVEL_LABELS[questState.level]}</span>
-              </div>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full bg-emerald-500" style={{ width: `${Math.round((questState.completedDays.length / questTotalDays(activeQuestTemplate)) * 100)}%` }} />
-              </div>
-            </div>
+      {tab === 'import' && <ImportView
+        result={importResult}
+        workouts={workouts}
+        onImportFile={(file) => void importCsv(file)}
+      />}
 
-            {questState.status === 'active' && <>
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs font-medium">
-                {LEVELS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => void saveQuestState({ ...questState, level })}
-                    className={`rounded-md px-2 py-2 text-center ${questState.level === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800'}`}
-                  >
-                    {LEVEL_LABELS[level]}
-                  </button>
-                ))}
-              </div>
-
-              <label className="block text-xs text-slate-500">
-                Start time
-                <input
-                  type="time"
-                  value={questState.scheduledTime}
-                  onChange={(event) => void saveQuestState({ ...questState, scheduledTime: event.target.value })}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-                />
-              </label>
-
-              <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-sm font-semibold text-slate-200">{currentQuestRows[0]?.row.dayLabel ?? 'Current Day'}</h3>
-                  <span className="text-xs text-slate-500">{currentQuestRows.length ? `${scheduledCurrentQuestRows.length ? 'Scheduled' : 'Not scheduled'} · ${currentQuestEstimate}` : scheduledCurrentQuestRows.length ? 'Scheduled' : 'Not scheduled'}</span>
-                </div>
-                {currentQuestRows.length > 0 && <EstimateSummary value={currentQuestEstimate} />}
-                {currentQuestRows.length > 0 && <PlanProgressSummary progress={currentQuestProgress} />}
-                {currentQuestRows.length === 0 ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">This quest day could not be resolved from the local catalog.</p> : currentQuestRows.map(({ row, exercise }) => (
-                  <div key={`${row.dayNumber}-${row.sequence}`} className="grid grid-cols-[1.5rem_1fr] gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
-                    <span className="grid size-6 place-items-center rounded bg-slate-800 text-xs text-slate-400">{row.sequence}</span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{exercise.displayName}</p>
-                      <p className="text-xs text-slate-500">{row.progressionGroup} · {row.sets} x {row.reps} · rest {row.rest}s</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button type="button" disabled={!currentQuestRows.length} onClick={() => void saveQuestDayToSchedule()} className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Add today's quest to schedule</button>
-              {questResult && <p className={`rounded-md border p-3 text-sm ${questResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{questResult.message}</p>}
-            </>}
-
-            {questState.completedDays.length > 0 && <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed Quest Days</h3>
-              {questState.completedDays.slice().reverse().map((day) => (
-                <div key={day.dayIndex} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm">
-                  <span className="min-w-0 truncate">{day.dayLabel}</span>
-                  <span className="shrink-0 text-xs text-slate-500">{LEVEL_LABELS[day.level]}</span>
-                </div>
-              ))}
-            </div>}
-
-            <p className="border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-500">{activeQuestTemplate.safetyNote}</p>
-          </div>}
-        </section>}
-
-        {tab === 'library' && <section className="space-y-5">
-          <div className="space-y-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-base font-semibold text-slate-200">Exercise Library</h2>
-              <span className="text-xs text-slate-500">{filteredCatalog.length} shown</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1 text-xs font-medium">
-              {LEVELS.map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => void saveDraft({ ...draft, level })}
-                  className={`rounded-md px-2 py-2 text-center transition ${draft.level === level ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'}`}
-                >
-                  <span className="block truncate">{LEVEL_LABELS[level]}</span>
-                  <span className="block text-[10px] opacity-70">{levelCounts[level] ?? 0}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <label className="min-w-0">
-                <span className="sr-only">Search exercises</span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search exercises"
-                  className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none"
-                />
-              </label>
-              <label>
-                <span className="sr-only">Filter by category</span>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  className="h-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-                >
-                  <option value="all">All groups</option>
-                  {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
-            </div>
-
-            <label className="inline-flex items-center gap-2 text-xs text-slate-400">
-              <input
-                type="checkbox"
-                checked={featuredOnly}
-                onChange={(event) => setFeaturedOnly(event.target.checked)}
-                className="size-4 accent-emerald-500"
-              />
-              Common movements only
-            </label>
-
-            {filteredCatalog.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No exercises match these filters.</p> : <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
-              {filteredCatalog.map((item) => {
-                const addedIndex = draft.items.findIndex((entry) => entry.sourceId === item.sourceId);
-                const added = addedIndex >= 0;
-                const prescription = defaultPrescriptionFor(item, draft.level);
-                return (
-                  <div key={item.sourceId} className={`grid grid-cols-[1fr_auto] gap-3 rounded-lg border p-3 transition ${added ? 'border-emerald-700 bg-emerald-950/20' : 'border-slate-800 bg-slate-900 hover:border-slate-700'}`}>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="min-w-0 truncate text-sm font-medium">{item.displayName}</p>
-                        <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] uppercase text-slate-400">{LEVEL_LABELS[item.minimumLevel]}</span>
-                        {item.featured && <span className="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] uppercase text-emerald-300">Common</span>}
-                      </div>
-                      <p className="truncate text-xs text-slate-500">{item.category} · {item.primaryMuscles.length ? item.primaryMuscles.join(', ') : item.category}</p>
-                      <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest after {prescription.rest}s</p>
-                      <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-xs text-emerald-400 hover:text-emerald-300">Source</a>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={added}
-                      onClick={() => void addCatalogExercise(item.sourceId)}
-                      className={`h-9 min-w-12 shrink-0 rounded-md px-3 text-xs font-semibold ${added ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
-                    >
-                      {added ? `#${addedIndex + 1}` : 'Add'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>}
-          </div>
-
-          <div className="space-y-3 border-t border-slate-800 pt-5">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-base font-semibold text-slate-200">Workout Playlist</h2>
-              <span className="text-xs text-slate-500">{draft.items.length ? `${draft.items.length}/${MAX_PLAYLIST_ITEMS} · ${draftEstimate}` : `${draft.items.length}/${MAX_PLAYLIST_ITEMS}`}</span>
-            </div>
-            {draft.items.length > 0 && <EstimateSummary value={draftEstimate} />}
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-slate-500">
-                Day
-                <select value={draft.day} onChange={(event) => void saveDraft({ ...draft, day: event.target.value as Weekday })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none">
-                  {WEEKDAYS.map((day) => <option key={day}>{day}</option>)}
-                </select>
-              </label>
-              <label className="text-xs text-slate-500">
-                Start time
-                <input type="time" value={draft.time} onChange={(event) => void saveDraft({ ...draft, time: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none" />
-              </label>
-            </div>
-            {draft.items.length === 0 ? <p className="rounded-lg border border-dashed border-slate-800 py-8 text-center text-sm text-slate-500">Add exercises from the library to build a workout.</p> : <div className="space-y-2">
-              {draft.items.map((item, index) => (
-                <div key={item.sourceId} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-6 shrink-0 place-items-center rounded bg-emerald-500 text-xs font-bold text-slate-950">{index + 1}</span>
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.name}</p>
-                    <button type="button" disabled={index === 0} title="Move up" onClick={() => void reorderDraftItem(index, -1)} className="size-8 rounded-md text-slate-400 hover:bg-slate-800 disabled:opacity-30">↑</button>
-                    <button type="button" disabled={index === draft.items.length - 1} title="Move down" onClick={() => void reorderDraftItem(index, 1)} className="size-8 rounded-md text-slate-400 hover:bg-slate-800 disabled:opacity-30">↓</button>
-                    <button type="button" title="Remove" onClick={() => void saveDraft({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="size-8 rounded-md text-slate-400 hover:bg-rose-950 hover:text-rose-300">×</button>
-                  </div>
-                  <div className="grid grid-cols-[4.5rem_1fr_5rem] gap-2 pl-8">
-                    <label className="text-[10px] uppercase text-slate-600">
-                      Sets
-                      <input type="number" min="1" max="99" value={item.sets} onChange={(event) => void updateDraftItem(index, { sets: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
-                    </label>
-                    <label className="text-[10px] uppercase text-slate-600">
-                      Reps / duration
-                      <input type="text" maxLength={30} value={item.reps} onChange={(event) => void updateDraftItem(index, { reps: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
-                    </label>
-                    <label className="text-[10px] uppercase text-slate-600">
-                      Rest after
-                      <input type="number" min="0" max="3600" value={item.rest} onChange={(event) => void updateDraftItem(index, { rest: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>}
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <button type="button" disabled={!draft.items.length} onClick={() => void savePlaylistToSchedule()} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Add to weekly schedule</button>
-              <button type="button" disabled={!draft.items.length} onClick={() => { void saveDraft({ ...draft, items: [] }); setPlaylistResult(null); }} className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
-            </div>
-            {playlistResult && <p className={`rounded-md border p-3 text-sm ${playlistResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{playlistResult.message}</p>}
-          </div>
-          <p className="border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-600">Reviewed metadata from <a href="https://wger.de/" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300">wger contributors</a>. License and source attribution are retained per exercise.</p>
-        </section>}
-
-        {tab === 'import' && <section className="space-y-4"><h2 className="text-base font-semibold text-slate-200">Import Schedule (CSV)</h2><p className="text-xs leading-relaxed text-slate-500">Columns: <code className="text-indigo-300">day,time,exercise,sets,reps,rest</code>. <code>day</code> must be a full weekday name, <code>time</code> is 24-hour <code>HH:MM</code>, and <code>rest</code> is seconds after each set and before the next exercise.</p><label className="block"><span className="sr-only">Choose CSV file</span><input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); }} className="block w-full cursor-pointer text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-500" /></label>{importResult && <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm"><p className="text-emerald-400">Imported {importResult.imported} exercise row{importResult.imported === 1 ? '' : 's'}.</p>{importResult.skipped > 0 && <p className="text-amber-400">Skipped {importResult.skipped} malformed row{importResult.skipped === 1 ? '' : 's'}.</p>}</div>}<div><h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Current schedule</h3>{workouts.length === 0 ? <p className="text-sm text-slate-400">No schedule imported yet.</p> : <div className="text-sm text-slate-400">{WEEKDAYS.filter((day) => workouts.some((row) => row.day === day)).map((day) => { const count = workouts.filter((row) => row.day === day).length; return <div key={day} className="flex justify-between py-0.5"><span>{day}</span><span className="text-slate-500">{count} exercise{count === 1 ? '' : 's'}</span></div>; })}</div>}</div></section>}
-
-        {tab === 'history' && <HistoryView
-          range={historyRange}
-          logs={logs}
-          sessionEvents={sessionEvents}
-          bodyMetrics={bodyMetrics}
-          catalog={catalog}
-          questState={questState}
-          activeQuestTemplate={activeQuestTemplate}
-          levelLabels={LEVEL_LABELS}
-          bodyMetricDraft={bodyMetricDraft}
-          bodyMetricResult={bodyMetricResult}
-          onRangeChange={setHistoryRange}
-          onBodyMetricDraftChange={setBodyMetricDraft}
-          onBodyMetricSave={() => void saveBodyMetric()}
-          onBodyMetricEdit={(entry) => {
-            setBodyMetricDraft(bodyMetricDraftFromEntry(entry));
-            setBodyMetricResult(null);
-          }}
-          onBodyMetricDelete={(entry) => void deleteBodyMetric(entry)}
-        />}
-      </main>
-    </div>
+      {tab === 'history' && <HistoryView
+        range={historyRange}
+        logs={logs}
+        sessionEvents={sessionEvents}
+        setLogs={setLogEntries}
+        bodyMetrics={bodyMetrics}
+        catalog={catalog}
+        questState={questState}
+        activeQuestTemplate={activeQuestTemplate}
+        levelLabels={LEVEL_LABELS}
+        bodyMetricDraft={bodyMetricDraft}
+        bodyMetricResult={bodyMetricResult}
+        onRangeChange={setHistoryRange}
+        onBodyMetricDraftChange={setBodyMetricDraft}
+        onBodyMetricSave={() => void saveBodyMetric()}
+        onBodyMetricEdit={(entry) => {
+          setBodyMetricDraft(bodyMetricDraftFromEntry(entry));
+          setBodyMetricResult(null);
+        }}
+        onBodyMetricDelete={(entry) => void deleteBodyMetric(entry)}
+      />}
+    </AppShell>
   );
 }

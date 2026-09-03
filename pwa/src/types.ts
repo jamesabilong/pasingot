@@ -10,7 +10,8 @@ export type SessionEventType = 'completed' | 'ended';
 export type HistoryRange = 'month' | 'all';
 export type Tab = 'today' | 'quests' | 'library' | 'import' | 'history';
 export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
-export type BodyWeightUnit = 'kg' | 'lb';
+export type WeightUnit = 'kg' | 'lb';
+export type BodyWeightUnit = WeightUnit;
 
 export interface WorkoutRow {
   id?: number;
@@ -21,6 +22,8 @@ export interface WorkoutRow {
   sets: number;
   reps: string;
   rest: number;
+  loadWeight?: number | null;
+  loadUnit?: WeightUnit | null;
   questId?: string;
   questDayIndex?: number;
   questDayLabel?: string;
@@ -50,6 +53,19 @@ export interface WorkoutSessionEvent {
   currentSet: number;
   totalExercises: number;
   currentExercise?: string | null;
+}
+
+export interface WorkoutSetLog {
+  id?: number;
+  schemaVersion: number;
+  date: string;
+  workoutRowId: number | null;
+  exercise: string;
+  setNumber: number;
+  plannedReps: string;
+  actualReps: string;
+  loadWeight?: number | null;
+  loadUnit?: WeightUnit | null;
 }
 
 export interface BodyMetricEntry {
@@ -86,6 +102,8 @@ export interface PlaylistItem {
   sets: number;
   reps: string;
   rest: number;
+  loadWeight?: number | null;
+  loadUnit?: WeightUnit | null;
 }
 
 export interface PlaylistDraft {

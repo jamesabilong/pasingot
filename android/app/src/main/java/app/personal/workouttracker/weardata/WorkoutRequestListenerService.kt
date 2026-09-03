@@ -43,6 +43,8 @@ class WorkoutRequestListenerService : WearableListenerService() {
                     reps = it.reps,
                     sets = it.sets,
                     rest = it.rest,
+                    loadWeight = it.loadWeight,
+                    loadUnit = it.loadUnit,
                     workoutRowId = it.workoutRowId,
                     questId = it.questId,
                     questDayIndex = it.questDayIndex,
