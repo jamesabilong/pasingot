@@ -82,9 +82,17 @@
         </service>
     </application>
 
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Stage 17: Health Connect workout session export. Requested through
+         Health Connect's own permission UI before writing ExerciseSessionRecord. -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
 
     <!-- POST_NOTIFICATIONS: declared here explicitly (also pulled in by
          @capacitor/local-notifications' own manifest); requested at RUNTIME

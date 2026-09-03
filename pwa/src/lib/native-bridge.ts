@@ -14,6 +14,13 @@ type PendingWatchSessionEvent = Omit<WorkoutSessionEvent, 'id'> & {
   id: string;
 };
 
+export type HealthConnectAvailability = 'available' | 'provider_update_required' | 'unavailable';
+
+export interface HealthConnectStatus {
+  availability: HealthConnectAvailability;
+  permissionGranted: boolean;
+}
+
 declare global {
   interface Window {
     Capacitor?: {
@@ -25,9 +32,27 @@ declare global {
           getPendingSessionEvents?: () => Promise<{ events?: PendingWatchSessionEvent[] }>;
           ackSessionEvents?: (payload: { ids: string[] }) => Promise<void>;
         };
+        HealthConnectBridge?: {
+          getStatus: () => Promise<HealthConnectStatus>;
+          requestHealthConnectPermissions: () => Promise<{ opened: boolean; availability: HealthConnectAvailability }>;
+          writeWorkoutSession: (payload: HealthConnectWorkoutPayload) => Promise<HealthConnectWriteResult>;
+        };
       };
     };
   }
+}
+
+interface HealthConnectWorkoutPayload {
+  clientRecordId: string;
+  clientRecordVersion: number;
+  title: string;
+  notes?: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface HealthConnectWriteResult extends HealthConnectStatus {
+  written: boolean;
 }
 
 export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<void> {
@@ -78,5 +103,59 @@ export async function drainPendingWatchLogs(): Promise<number> {
   } catch (error) {
     console.error('Failed to drain pending watch logs/session events:', error);
     return 0;
+  }
+}
+
+export async function getHealthConnectStatus(): Promise<HealthConnectStatus> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge) return { availability: 'unavailable', permissionGranted: false };
+  try {
+    return await bridge.getStatus();
+  } catch (error) {
+    console.error('Failed to read Health Connect status:', error);
+    return { availability: 'unavailable', permissionGranted: false };
+  }
+}
+
+export async function requestHealthConnectPermissions(): Promise<HealthConnectStatus> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge) return { availability: 'unavailable', permissionGranted: false };
+  try {
+    await bridge.requestHealthConnectPermissions();
+    return await getHealthConnectStatus();
+  } catch (error) {
+    console.error('Failed to request Health Connect permissions:', error);
+    return await getHealthConnectStatus();
+  }
+}
+
+export async function writeSessionEventToHealthConnect(
+  event: WorkoutSessionEvent,
+  rows: WorkoutRow[],
+): Promise<HealthConnectWriteResult> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge) return { availability: 'unavailable', permissionGranted: false, written: false };
+  if (event.eventType !== 'completed' || event.elapsedSeconds <= 0) {
+    return { ...(await getHealthConnectStatus()), written: false };
+  }
+
+  const endTime = new Date(event.timestamp);
+  const startTime = new Date(endTime.getTime() - event.elapsedSeconds * 1000);
+  const exerciseNames = rows.map((row) => row.exercise).filter(Boolean);
+  const title = exerciseNames.length === 1 ? exerciseNames[0] : `Workout (${exerciseNames.length || event.totalExercises} exercises)`;
+  const notes = exerciseNames.length ? exerciseNames.join(', ') : undefined;
+
+  try {
+    return await bridge.writeWorkoutSession({
+      clientRecordId: `pasingot:${event.workoutEntryId}:${event.timestamp}`,
+      clientRecordVersion: 1,
+      title,
+      notes,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    });
+  } catch (error) {
+    console.error('Failed to write workout session to Health Connect:', error);
+    return { ...(await getHealthConnectStatus()), written: false };
   }
 }

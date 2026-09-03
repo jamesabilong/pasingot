@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import app.personal.workouttracker.health.HealthConnectBridgePlugin
 import app.personal.workouttracker.weardata.ScheduleSyncPlugin
 import app.personal.workouttracker.weardata.WorkoutLogBridgePlugin
 import com.getcapacitor.BridgeActivity
@@ -30,6 +31,7 @@ class MainActivity : BridgeActivity() {
         installSplashScreen()
         registerPlugin(ScheduleSyncPlugin::class.java)
         registerPlugin(WorkoutLogBridgePlugin::class.java)
+        registerPlugin(HealthConnectBridgePlugin::class.java)
         super.onCreate(savedInstanceState)
         maybeRequestNotificationPermission()
     }

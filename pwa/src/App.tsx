@@ -13,6 +13,7 @@ import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { type WorkoutSetInput } from './components/WorkoutPlayer';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
+import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
 import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
@@ -27,7 +28,10 @@ import {
 } from './lib/custom-exercises';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
-import { drainPendingWatchLogs, pushScheduleToNative } from './lib/native-bridge';
+import {
+  drainPendingWatchLogs,
+  pushScheduleToNative,
+} from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
 import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
 import {
@@ -138,6 +142,7 @@ export default function App() {
     remove: deleteBodyMetric,
   } = useBodyMetrics();
   const { toasts, addToast } = useToasts();
+  const healthConnectSync = useHealthConnectSync(addToast);
   const {
     settings: workoutCueSettings,
     loadSettings: loadWorkoutCueSettings,
@@ -420,7 +425,7 @@ export default function App() {
   async function recordLocalSessionEvent(session: ActiveWorkoutSession, eventType: WorkoutSessionEvent['eventType'], stopReason: string, rows: WorkoutRow[]) {
     const row = rows[session.exerciseIndex];
     const estimatedDurationSeconds = estimateWorkoutDurationSeconds(rows, estimateLevelFor(rows));
-    await addRecord(STORES.sessionEvents, {
+    const event = {
       schemaVersion: SCHEMA_VERSION,
       workoutEntryId: `pwa:${session.planDate}`,
       workoutDate: session.planDate,
@@ -433,7 +438,9 @@ export default function App() {
       currentSet: session.currentSet,
       totalExercises: rows.length,
       currentExercise: row?.exercise ?? null,
-    } satisfies WorkoutSessionEvent);
+    } satisfies WorkoutSessionEvent;
+    await addRecord(STORES.sessionEvents, event);
+    healthConnectSync.writeCompletedSession(event, rows);
     await refreshSessionEvents();
   }
 
@@ -923,11 +930,16 @@ export default function App() {
         levelLabels={LEVEL_LABELS}
         bodyMetricDraft={bodyMetricDraft}
         bodyMetricResult={bodyMetricResult}
+        healthConnectEnabled={healthConnectEnabled}
+        healthConnectStatus={healthConnectStatus}
+        healthConnectResult={healthConnectResult}
         onRangeChange={setHistoryRange}
         onBodyMetricDraftChange={setBodyMetricDraft}
         onBodyMetricSave={() => void saveBodyMetric()}
         onBodyMetricEdit={editBodyMetric}
         onBodyMetricDelete={(entry) => void deleteBodyMetric(entry)}
+        onHealthConnectEnabledChange={(enabled) => void setHealthConnectSyncEnabled(enabled)}
+        onHealthConnectPermissionRequest={() => void requestHealthConnectSyncPermission()}
       />}
     </AppShell>
   );

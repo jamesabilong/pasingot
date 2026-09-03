@@ -14,6 +14,7 @@ import type {
 import type { BodyMetricDraft } from '../lib/body-metrics';
 import { initialBodyMetricDraft } from '../lib/body-metrics';
 import { formatDuration } from '../lib/format';
+import type { HealthConnectStatus } from '../lib/native-bridge';
 import {
   buildActivityDays,
   buildBalanceStats,
@@ -56,11 +57,16 @@ interface HistoryViewProps {
   levelLabels: Record<ExerciseLevel, string>;
   bodyMetricDraft: BodyMetricDraft;
   bodyMetricResult: { message: string; error: boolean } | null;
+  healthConnectEnabled: boolean;
+  healthConnectStatus: HealthConnectStatus;
+  healthConnectResult: { message: string; error: boolean } | null;
   onRangeChange: (range: HistoryRange) => void;
   onBodyMetricDraftChange: (draft: BodyMetricDraft) => void;
   onBodyMetricSave: () => void;
   onBodyMetricEdit: (entry: BodyMetricEntry) => void;
   onBodyMetricDelete: (entry: BodyMetricEntry) => void;
+  onHealthConnectEnabledChange: (enabled: boolean) => void;
+  onHealthConnectPermissionRequest: () => void;
 }
 
 export function HistoryView({
@@ -75,11 +81,16 @@ export function HistoryView({
   levelLabels,
   bodyMetricDraft,
   bodyMetricResult,
+  healthConnectEnabled,
+  healthConnectStatus,
+  healthConnectResult,
   onRangeChange,
   onBodyMetricDraftChange,
   onBodyMetricSave,
   onBodyMetricEdit,
   onBodyMetricDelete,
+  onHealthConnectEnabledChange,
+  onHealthConnectPermissionRequest,
 }: HistoryViewProps) {
   const historyLogs = useMemo(() => logs.filter((log) => inHistoryRange(log.date, range)), [logs, range]);
   const historySessionEvents = useMemo(() => sessionEvents
@@ -157,6 +168,13 @@ export function HistoryView({
         onEdit={onBodyMetricEdit}
         onDelete={onBodyMetricDelete}
       />
+      <HealthConnectPanel
+        enabled={healthConnectEnabled}
+        status={healthConnectStatus}
+        result={healthConnectResult}
+        onEnabledChange={onHealthConnectEnabledChange}
+        onPermissionRequest={onHealthConnectPermissionRequest}
+      />
 
       <StrengthAnalyticsPanel analytics={strengthAnalytics} personalRecords={strengthPersonalRecords} />
       <ActivityCalendar days={activityDays} range={range} />
@@ -193,6 +211,58 @@ function CompletionSummary({ percent }: { percent: number }) {
       <div className="h-2 overflow-hidden rounded-full bg-slate-800">
         <div className="h-full bg-emerald-500" style={{ width: `${percent}%` }} />
       </div>
+    </div>
+  );
+}
+
+function HealthConnectPanel({
+  enabled,
+  status,
+  result,
+  onEnabledChange,
+  onPermissionRequest,
+}: {
+  enabled: boolean;
+  status: HealthConnectStatus;
+  result: { message: string; error: boolean } | null;
+  onEnabledChange: (enabled: boolean) => void;
+  onPermissionRequest: () => void;
+}) {
+  const availabilityLabel = status.availability === 'available'
+    ? status.permissionGranted ? 'Ready' : 'Permission needed'
+    : status.availability === 'provider_update_required' ? 'Install/update needed' : 'Unavailable';
+  const availabilityColor = status.availability === 'available' && status.permissionGranted
+    ? 'text-emerald-300'
+    : status.availability === 'unavailable' ? 'text-slate-500' : 'text-amber-300';
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200">Health Connect</h3>
+          <p className={`text-xs ${availabilityColor}`}>{availabilityLabel}</p>
+        </div>
+        <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-slate-300">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => onEnabledChange(event.target.checked)}
+            className="size-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
+          />
+          Sync workouts
+        </label>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+        <p className="text-xs text-slate-500">Completed app workouts write one strength-training session after permission is granted.</p>
+        <button
+          type="button"
+          onClick={onPermissionRequest}
+          disabled={!enabled}
+          className="rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Check permission
+        </button>
+      </div>
+      {result && <p className={`rounded-md border p-3 text-sm ${result.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{result.message}</p>}
     </div>
   );
 }

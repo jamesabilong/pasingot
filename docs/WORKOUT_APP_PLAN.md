@@ -19,11 +19,11 @@ updated at each checkpoint so the plan is visible from every device.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
 - Latest committed React checkpoint:
-  `650ac65 PST01: React cleanup`.
-- Active checkpoint: Stage 16 exercise library expansion is implemented
-  locally as a first custom-exercise/media slice and ready for review.
-- Local commit state: Stage 15 full backup/export restore and Stage 16 custom
-  exercise creation/media links are local and uncommitted after `650ac65`.
+  `2d1d558 PST01: Stage 16 implemented`.
+- Active checkpoint: Stage 17 Health Connect integration is in progress as a
+  first completed-workout sync slice.
+- Local commit state: Stage 17 Health Connect bridge, permission UI, and
+  completed workout write path are local and uncommitted after `2d1d558`.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
@@ -1075,7 +1075,7 @@ Manual acceptance:
 
 ## Stage 17 - Health Connect Integration
 
-**Status:** proposed; optional after local logging is stable.
+**Status:** in progress; first completed-workout sync slice implemented locally.
 
 Goal: integrate with Android's health ecosystem without introducing app
 accounts or a custom backend.
@@ -1083,7 +1083,8 @@ accounts or a custom backend.
 Planned behavior:
 
 - Write completed workouts to Health Connect where permissions allow.
-- Write body weight after Stage 11 if enabled by the user.
+- Keep body weight sync as a later Stage 17 follow-up after workout-session
+  permission and write behavior is proven on device.
 - Consider heart-rate summaries from Wear OS only after session and permission
   handling are proven reliable.
 - Add clear local settings for sync enablement and permission state.
@@ -1093,6 +1094,7 @@ Suggested files:
 - Android app module files for Health Connect permissions and writes.
 - `pwa/src/lib/native-bridge.ts`
 - `pwa/src/App.tsx`
+- `pwa/src/components/HistoryView.tsx`
 
 Validation:
 
@@ -1100,7 +1102,7 @@ Validation:
 npx tsc --noEmit
 npm run build
 cd android
-./gradlew :app:assembleDebug
+./gradlew :app:assembleDebug :wear:assembleDebug
 ```
 
 Manual acceptance:
