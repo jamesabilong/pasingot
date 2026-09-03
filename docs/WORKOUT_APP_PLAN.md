@@ -19,11 +19,11 @@ updated at each checkpoint so the plan is visible from every device.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
 - Latest committed React checkpoint:
-  `b66d19c PST01: Stage 13, 14 and react clean up`.
-- Active checkpoint: Stage 14B React state and logic overhaul is implemented
-  locally as a first cleanup slice and ready for review before Stage 15.
-- Local commit state: Stage 14B architecture docs and first cleanup slice are
-  local and uncommitted after `b66d19c`.
+  `650ac65 PST01: React cleanup`.
+- Active checkpoint: Stage 15 data portability is implemented locally and
+  ready for review.
+- Local commit state: Stage 15 full backup/export restore is local and
+  uncommitted after `650ac65`.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
@@ -905,8 +905,8 @@ Manual acceptance:
 
 ## Stage 14B - React State and Logic Overhaul
 
-**Status:** first cleanup slice implemented locally; ready for review before
-Stage 15.
+**Status:** complete and pushed on `origin/PST01` as
+`650ac65 PST01: React cleanup`.
 
 Goal: reduce `App.tsx` from a large app controller into a thin composition
 root by moving feature-specific state, effects, persistence, and action
@@ -989,25 +989,27 @@ Manual acceptance:
 
 ## Stage 15 - Data Portability
 
-**Status:** proposed.
+**Status:** implemented locally; ready for review.
 
 Goal: give the user a way to protect and move their data while preserving the
 offline-first, no-account design.
 
-Planned behavior:
+Implemented behavior:
 
-- Add full local export for schedule, logs, session events, quests, draft
-  playlist, and body metrics if Stage 11 is complete.
-- Add full import/restore with validation and duplicate handling.
-- Consider encrypted backup files before considering cloud sync.
-- Keep existing CSV schedule import intact.
+- Adds full local JSON backup export for schedule, logs, session events, set
+  logs, body metrics, and app state including quests, draft playlist, cue
+  settings, and active session state.
+- Adds full backup restore with supported-format validation.
+- Restores by replacing local user stores so duplicate IDs are not created
+  during recovery.
+- Pushes restored schedules back to the Android native cache.
+- Keeps existing CSV schedule import intact.
 
-Suggested files:
+Key files:
 
 - `pwa/src/App.tsx`
-- `pwa/src/lib/db.ts`
-- `pwa/src/types.ts`
-- `pwa/src/styles.css`
+- `pwa/src/components/ImportView.tsx`
+- `pwa/src/lib/backup.ts`
 
 Validation:
 
