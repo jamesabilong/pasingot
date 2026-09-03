@@ -10,6 +10,7 @@ export type SessionEventType = 'completed' | 'ended';
 export type HistoryRange = 'month' | 'all';
 export type Tab = 'today' | 'quests' | 'library' | 'import' | 'history';
 export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
+export type BodyWeightUnit = 'kg' | 'lb';
 
 export interface WorkoutRow {
   id?: number;
@@ -49,6 +50,15 @@ export interface WorkoutSessionEvent {
   currentSet: number;
   totalExercises: number;
   currentExercise?: string | null;
+}
+
+export interface BodyMetricEntry {
+  id?: number;
+  schemaVersion: number;
+  date: string;
+  weight: number;
+  unit: BodyWeightUnit;
+  note?: string;
 }
 
 export interface ExerciseCatalogItem {

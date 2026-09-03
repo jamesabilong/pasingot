@@ -18,9 +18,10 @@ updated at each checkpoint so the plan is visible from every device.
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
 - Latest committed Android checkpoint:
   `4c583e5 PST01: Android update`.
-- Active checkpoint: Stage 9 session resilience in progress locally.
-- Local commit state: Stage 8 follow-up and Stage 9 slices 1-5 are implemented
-  locally but not committed.
+- Active checkpoint: Stage 11 body metrics implemented locally and ready for
+  review.
+- Local commit state: Stage 8 follow-up, Stage 9 slices 1-5, Stage 10 history
+  stats, and Stage 11 body metrics are implemented locally but not committed.
 - Cross-device visibility: this file documents the current local state, but the
   code and plan changes will only be visible on another device after this work
   is committed and pushed/synced from this machine.
@@ -626,8 +627,6 @@ Goal: make History more useful without changing the workout data model yet.
 This stage should use data the app already stores: workout log dates, done/
 skipped status, session events, and catalog muscle/category metadata.
 
-Planned behavior:
-
 Changes completed:
 
 - Added a compact activity calendar showing days with completed or skipped
@@ -654,6 +653,12 @@ npm run build
 git diff --check
 ```
 
+Browser smoke test:
+
+- Reloaded the app after extraction and opened History.
+- Confirmed the extracted History screen renders with the Stage 10/11 sections.
+- Added and deleted a temporary body-weight entry through `HistoryView`.
+
 Manual acceptance:
 
 1. Log workouts on several different dates, including skipped exercises.
@@ -664,18 +669,21 @@ Manual acceptance:
 
 ## Stage 11 - Body Metrics Log
 
-**Status:** proposed.
+**Status:** implemented locally; ready for review.
 
 Goal: add personal body tracking as a separate local log, independent of
 workout schedule rows. Keep this small and useful first: body weight now,
 measurements later if desired.
 
-Planned behavior:
+Changes completed:
 
-- Add a local body-weight log with date, value, and unit.
-- Add a simple History/Stats chart or list for weight trend over time.
-- Add edit/delete controls for incorrect entries.
-- Preserve the offline-first IndexedDB model; no cloud account required.
+- Added a local `bodyMetrics` IndexedDB store for body-weight entries.
+- Added body-weight entry type support with date, value, unit, and optional
+  note.
+- Added a History body-weight panel with latest value, change from prior entry,
+  add/update form, and recent entry list.
+- Added edit and delete controls for incorrect entries.
+- Preserved the offline-first IndexedDB model; no cloud account required.
 
 Suggested files:
 
@@ -689,6 +697,39 @@ Validation:
 ```sh
 npx tsc --noEmit
 npm run build
+git diff --check
+```
+
+Browser smoke test:
+
+- Opened `http://localhost:8090/`.
+- Confirmed the History body-weight panel renders.
+- Added a body-weight entry, edited it, then deleted the temporary test entry.
+
+### Stage 11A - React Component Cleanup
+
+**Status:** implemented locally; ready for review.
+
+Goal: keep the Stage 10/11 additions from making `App.tsx` an oversized
+single-component implementation. Extract feature-specific rendering and pure
+calculation logic so the app uses React components more deliberately.
+
+Changes completed:
+
+- Extracted the History screen into `pwa/src/components/HistoryView.tsx`.
+- Moved history/stat derivation helpers into `pwa/src/lib/history-stats.ts`.
+- Moved body-metric draft parsing/normalization into
+  `pwa/src/lib/body-metrics.ts`.
+- Moved shared duration formatting into `pwa/src/lib/format.ts`.
+- Left `App.tsx` responsible for app-level state, persistence, tab routing, and
+  cross-feature orchestration.
+
+Validation:
+
+```sh
+npx tsc --noEmit
+npm run build
+git diff --check
 ```
 
 Manual acceptance:
