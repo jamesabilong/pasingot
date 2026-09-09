@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SCHEMA_VERSION, type WorkoutRow, type WorkoutSessionEvent } from '../types';
+import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { getRecord, putRecord, STORES } from '../lib/db';
 import {
   getHealthConnectStatus,
+  deleteBodyMetricFromHealthConnect,
+  discardPendingBodyMetricSync,
+  HEALTH_CONNECT_SETTINGS_KEY,
   requestHealthConnectPermissions,
+  writeBodyMetricToHealthConnect,
   writeSessionEventToHealthConnect,
   type HealthConnectStatus,
 } from '../lib/native-bridge';
-
-const HEALTH_CONNECT_SETTINGS_KEY = 'healthConnectSettings';
 
 interface HealthConnectSettings {
   key: typeof HEALTH_CONNECT_SETTINGS_KEY;
@@ -71,12 +73,15 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
     setResult(null);
     const next = await requestHealthConnectPermissions();
     setStatus(next);
-    if (next.availability === 'available' && next.permissionGranted) {
-      setResult({ message: 'Health Connect workout sync is ready.', error: false });
+    const workoutReady = next.workoutPermissionGranted ?? next.permissionGranted;
+    const bodyWeightReady = next.bodyWeightPermissionGranted ?? false;
+    if (next.availability === 'available' && workoutReady && bodyWeightReady) {
+      setResult({ message: 'Health Connect workout and body-weight sync is ready.', error: false });
     } else if (next.availability === 'provider_update_required') {
       setResult({ message: 'Health Connect needs to be installed or updated first.', error: true });
     } else if (next.availability === 'available') {
-      setResult({ message: 'Return here after granting Health Connect workout permission.', error: false });
+      const missing = [!workoutReady && 'workout', !bodyWeightReady && 'body-weight'].filter(Boolean).join(' and ');
+      setResult({ message: `Return here after granting ${missing} permission${missing.includes(' and ') ? 's' : ''}.`, error: false });
     } else {
       setResult({ message: 'Health Connect is not available on this device.', error: true });
     }
@@ -85,11 +90,35 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
   const writeCompletedSession = useCallback((event: WorkoutSessionEvent, rows: WorkoutRow[]) => {
     if (!enabled || event.eventType !== 'completed') return;
     void writeSessionEventToHealthConnect(event, rows).then((writeResult) => {
-      setStatus({ availability: writeResult.availability, permissionGranted: writeResult.permissionGranted });
+      void refreshStatus();
       if (writeResult.written) addToast('Workout written to Health Connect.');
       else if (writeResult.availability === 'available' && !writeResult.permissionGranted) addToast('Health Connect permission is needed before workouts can sync.');
     });
-  }, [addToast, enabled]);
+  }, [addToast, enabled, refreshStatus]);
+
+  const writeBodyMetric = useCallback((entry: BodyMetricEntry) => {
+    if (!enabled) {
+      void discardPendingBodyMetricSync(entry);
+      return;
+    }
+    void writeBodyMetricToHealthConnect(entry).then((writeResult) => {
+      void refreshStatus();
+      if (writeResult.written) addToast('Body weight written to Health Connect.');
+      else if (writeResult.availability === 'available' && !writeResult.permissionGranted) addToast('Health Connect permission is needed before body weight can sync.');
+    });
+  }, [addToast, enabled, refreshStatus]);
+
+  const deleteBodyMetric = useCallback((entry: BodyMetricEntry) => {
+    if (!enabled) {
+      void discardPendingBodyMetricSync(entry);
+      return;
+    }
+    void deleteBodyMetricFromHealthConnect(entry).then((deleteResult) => {
+      void refreshStatus();
+      if (deleteResult.deleted) addToast('Body weight removed from Health Connect.');
+      else if (deleteResult.availability === 'available' && !deleteResult.permissionGranted) addToast('Health Connect permission is needed to remove the synced body weight.');
+    });
+  }, [addToast, enabled, refreshStatus]);
 
   return {
     enabled,
@@ -98,5 +127,7 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
     setSyncEnabled,
     requestPermission,
     writeCompletedSession,
+    writeBodyMetric,
+    deleteBodyMetric,
   };
 }

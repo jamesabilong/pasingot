@@ -16,20 +16,20 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed Android checkpoint:
-  `4c583e5 PST01: Android update`.
-- Latest committed React checkpoint:
-  `493754d PST01: Stage 16 implementation`. **Note:** despite the commit
-  message, this commit's content is the Stage 17 Health Connect bridge,
-  permission UI, and completed-workout write path (the real Stage 16 —
-  custom exercises/exercise media — landed earlier as `2d1d558 PST01: Stage
-  16 implemented`). Flagging the mislabel here rather than rewriting pushed
-  history.
-- Active checkpoint: Stage 17 Health Connect integration first
-  completed-workout sync slice is implemented and committed (see Stage 17
-  below). Body-weight sync and heart-rate summaries remain unbuilt follow-ups.
-- Local commit state: working tree is clean; everything through Stage 17's
-  first slice is committed and pushed to `origin/PST01`.
+- Latest committed checkpoint: `be544eb PST01: Fix gaps found`, the audit fixes
+  for Stages 10-17.
+- Stage 17's first implementation commit is
+  `493754d PST01: Stage 16 implementation`. Despite its message, the commit
+  contains the Health Connect bridge, permission UI, and completed-workout
+  write path. The actual Stage 16 custom-exercise slice landed earlier as
+  `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
+- Active local work: Stage 17 body-weight add/update/delete sync and Stage 18's
+  first PWA shell slice. Completed-workout sync is already committed;
+  heart-rate summaries remain an unbuilt follow-up.
+- Local commit state: everything through Stage 17's first slice is committed
+  and pushed to `origin/PST01`. The Stage 17 second slice, Stage 18 shell slice,
+  and documentation refresh are local changes; untracked legacy PWA artifacts
+  are intentionally excluded.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
   wiring bug in the Health Connect History panel (the app did not compile),
@@ -39,6 +39,10 @@ updated at each checkpoint so the plan is visible from every device.
   opening the Health Connect installer with no Play Store, and a missing
   retry queue for failed Health Connect writes. All 10 are fixed; see the
   Stage 17 note below for the Health Connect specifics.
+- 2026-09-09 audit: Stage 17 body-weight sync initially made workout writes
+  depend on both Health Connect permissions. Permission checks are now scoped
+  per record type, partial access is visible in History, and mixed queued
+  operations use accurate status messages.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
@@ -293,7 +297,8 @@ Suggested commit: `feat(pwa): add workout and quest history`.
 
 ## Stage 6 - Capacitor Packaging and Device Check
 
-**Status:** ready for review.
+**Status:** complete and pushed as
+`df0f94d PST01: Capacitor Packaging and Device Check`.
 
 Goal: verify all approved source commits package into Android. This is a test
 checkpoint, not a source commit, unless the device check exposes a source bug.
@@ -415,7 +420,8 @@ Suggested commit: `test(android): harden wearable data-layer contracts`.
 
 ## Stage 8 - Watch Flow Cleanup
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed across the Android/Wear checkpoints
+`4c583e5` and `bce661a`.
 
 Goal: close the remaining Wear session gaps found during the follow-up review
 and keep the documentation aligned with the current branch state.
@@ -480,23 +486,21 @@ Device note:
 
 ## Stage 9 - Session Resilience and Recovery
 
-**Status:** in progress locally.
+**Status:** implementation committed; physical-device interruption validation
+remains pending.
 
 Implementation visibility:
 
-- Local only: the implementation and this plan update are present in the
-  current working tree on this machine.
-- Not yet committed: Stage 9 should be reviewed with the Stage 8 local
-  follow-up changes before creating the next checkpoint commit.
-- Other devices: pull/sync will not show these updates until a commit is pushed
-  or the working tree is otherwise synced.
+- The implemented resilience slices are committed on `PST01`.
+- Device-only validation remains open because process death, restart, low
+  battery, and live phone/watch delivery cannot be proven by static builds.
 
 Goal: make active workouts reliable when the user intentionally pauses/stops or
 the app/watch is interrupted unexpectedly. The watch, native app shell, and PWA
 should all preserve enough session state for users to continue safely or end
 cleanly without losing progress.
 
-Planned behavior:
+Implemented behavior:
 
 - Add an explicit **Pause** action during an active set and rest countdown.
   First slice: implemented locally on Wear.
@@ -652,7 +656,7 @@ Validation to add:
 
 ## Stage 10 - History Stats Foundation
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as part of `2a2152b PST01: Stage 10 implementation`.
 
 Goal: make History more useful without changing the workout data model yet.
 This stage should use data the app already stores: workout log dates, done/
@@ -700,7 +704,7 @@ Manual acceptance:
 
 ## Stage 11 - Body Metrics Log
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as part of the Stage 10-14 checkpoints.
 
 Goal: add personal body tracking as a separate local log, independent of
 workout schedule rows. Keep this small and useful first: body weight now,
@@ -739,7 +743,7 @@ Browser smoke test:
 
 ### Stage 11A - React Component Cleanup
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as part of the React cleanup checkpoints.
 
 Goal: keep the Stage 10/11 additions from making `App.tsx` an oversized
 single-component implementation. Extract feature-specific rendering and pure
@@ -777,7 +781,7 @@ Manual acceptance:
 
 ## Stage 12 - Weighted Set Logging Data Model
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as `9a74fde PST01: Stage 12 implementation`.
 
 Goal: introduce weight/load tracking carefully because many strength features
 depend on it. This should be a schema-safe stage with backward compatibility
@@ -843,7 +847,8 @@ Manual acceptance:
 
 ## Stage 13 - Strength Analytics
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as part of
+`b66d19c PST01: Stage 13, 14 and react clean up`.
 
 Goal: turn weighted set data into useful training feedback.
 
@@ -911,6 +916,13 @@ npm run build
 cd android
 ./gradlew :app:assembleDebug :wear:assembleDebug
 ```
+
+Current second-slice validation completed on 2026-09-09:
+
+- Passed TypeScript compile and PWA production build.
+- Passed phone and Wear OS debug APK builds.
+- Passed `git diff --check`.
+- Pending physical Android device verification against Health Connect.
 
 Manual acceptance:
 
@@ -1004,7 +1016,7 @@ Manual acceptance:
 
 ## Stage 15 - Data Portability
 
-**Status:** implemented locally; ready for review.
+**Status:** complete and committed as `0cf416b PST01: Stage 15 implemented`.
 
 Goal: give the user a way to protect and move their data while preserving the
 offline-first, no-account design.
@@ -1042,7 +1054,8 @@ Manual acceptance:
 
 ## Stage 16 - Exercise Library Expansion
 
-**Status:** implemented locally as a first slice; ready for review.
+**Status:** first slice complete and committed as
+`2d1d558 PST01: Stage 16 implemented`; deferred items remain below.
 
 Goal: make the library more personal and more useful for form reference.
 
@@ -1090,9 +1103,10 @@ Manual acceptance:
 
 ## Stage 17 - Health Connect Integration
 
-**Status:** in progress; first completed-workout sync slice implemented and
-committed (`493754d`, mislabeled "Stage 16 implementation" — see Current
-State above).
+**Status:** in progress. The completed-workout sync slice is committed
+(`493754d`, mislabeled "Stage 16 implementation" — see Current State above).
+The body-weight add/update/delete sync slice is implemented locally and awaits
+device validation. Heart-rate summaries remain deferred.
 
 **2026-09-03 audit findings on this slice (all fixed):**
 
@@ -1113,16 +1127,23 @@ State above).
 Goal: integrate with Android's health ecosystem without introducing app
 accounts or a custom backend.
 
-Planned behavior:
+Implemented behavior:
 
 - Write completed workouts to Health Connect where permissions allow.
-- Keep body weight sync as a later Stage 17 follow-up after workout-session
-  permission and write behavior is proven on device.
-- Consider heart-rate summaries from Wear OS only after session and permission
-  handling are proven reliable.
+- Write body-weight additions and edits to Health Connect, and remove the
+  corresponding app-owned Health Connect record when a local entry is deleted.
+- Use stable client record IDs and the existing persisted retry queue for both
+  workout and body-weight mutations.
 - Add clear local settings for sync enablement and permission state.
 
-Suggested files:
+Deferred behavior:
+
+- Consider heart-rate summaries from Wear OS only after session and permission
+  handling are proven reliable.
+- Complete physical-device verification of permissions, writes, edits, deletes,
+  retry behavior, and the disabled-sync gate.
+
+Key files:
 
 - Android app module files for Health Connect permissions and writes.
 - `pwa/src/lib/native-bridge.ts`
@@ -1140,13 +1161,17 @@ cd android
 
 Manual acceptance:
 
-1. Grant Health Connect permissions.
+1. Grant Health Connect exercise and body-weight permissions.
 2. Complete a workout and confirm it appears in Health Connect.
-3. Disable sync and confirm no additional writes occur.
+3. Add and edit a body-weight entry and confirm Health Connect reflects it.
+4. Delete that body-weight entry and confirm the app-owned Health Connect
+   record is removed.
+5. Disable sync and confirm no additional writes occur.
 
 ## Stage 18 - Cross-Device UI Overhaul
 
-**Status:** proposed; plan added after Stage 14 audit.
+**Status:** in progress; first PWA design-token and app-shell slice implemented
+locally on 2026-09-09.
 
 Goal: modernize the workout experience across web, installed PWA/mobile, and
 Wear OS while preserving the component boundary rule that `App.tsx` coordinates
@@ -1171,6 +1196,21 @@ Planned behavior:
 - Keep UI components split by feature and extract shared controls only when
   repeated patterns prove stable.
 
+First slice implemented:
+
+- Added shared shell tokens for neutral surfaces, accent/warning states,
+  borders, control radii, focus rings, and native safe-area spacing.
+- Replaced the text-only navigation with Lucide icon-and-label tabs, active
+  state, and ready badges for Today and Quests.
+- Added a persistent Start/Continue workout action and an active-session banner
+  when navigating away from Today.
+- Added a thumb-reachable fixed bottom navigation on phones while retaining a
+  compact in-flow navigation bar on wider screens.
+- Added online/offline, Health Connect, reminder, and install affordances to
+  the shell without moving feature workflows into `App.tsx`.
+- Aligned the PWA manifest/browser theme with the Pasingot shell and bumped the
+  cache-first service worker version so installed clients receive the update.
+
 Suggested files:
 
 - `docs/REACT_WEB_APP_INSTRUCTIONS.md`
@@ -1187,6 +1227,16 @@ npm run build
 cd android
 ./gradlew :app:assembleDebug :wear:assembleDebug
 ```
+
+First-slice validation completed:
+
+- Passed `npx tsc --noEmit`, `npm run build`, and `git diff --check`.
+- Passed `npm audit --omit=dev --audit-level=high` with no production
+  dependency vulnerabilities.
+- Browser smoke-tested navigation and screenshots at 1440x900, 390x844, and
+  320x700.
+- Confirmed fixed mobile navigation does not overlap the visible workflow and
+  the shell remains keyboard/accessibility navigable.
 
 Manual acceptance:
 

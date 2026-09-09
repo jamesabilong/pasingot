@@ -90,9 +90,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Stage 17: Health Connect workout session export. Requested through
-         Health Connect's own permission UI before writing ExerciseSessionRecord. -->
+    <!-- Stage 17: Health Connect workout-session and body-weight export. -->
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
 
     <!-- POST_NOTIFICATIONS: declared here explicitly (also pulled in by
          @capacitor/local-notifications' own manifest); requested at RUNTIME

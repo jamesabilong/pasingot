@@ -19,13 +19,20 @@ export function useBodyMetrics() {
     const entry = parseBodyMetricDraft(draft);
     if (!entry) {
       setResult({ error: true, message: 'Enter a valid date and body weight.' });
-      return;
+      return null;
     }
-    if (entry.id == null) await addRecord(STORES.bodyMetrics, entry);
-    else await putRecord(STORES.bodyMetrics, entry);
+    const isNew = entry.id == null;
+    if (isNew) {
+      const key = await addRecord(STORES.bodyMetrics, entry);
+      if (typeof key !== 'number') throw new Error('Body weight entry was saved without a numeric ID.');
+      entry.id = key;
+    } else {
+      await putRecord(STORES.bodyMetrics, entry);
+    }
     await refresh();
     setDraft({ ...initialBodyMetricDraft(), unit: entry.unit });
-    setResult({ error: false, message: entry.id == null ? 'Body weight logged.' : 'Body weight updated.' });
+    setResult({ error: false, message: isNew ? 'Body weight logged.' : 'Body weight updated.' });
+    return entry;
   }, [draft, refresh]);
 
   const edit = useCallback((entry: BodyMetricEntry) => {

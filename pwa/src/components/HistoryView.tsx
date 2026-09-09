@@ -228,10 +228,12 @@ function HealthConnectPanel({
   onEnabledChange: (enabled: boolean) => void;
   onPermissionRequest: () => void;
 }) {
+  const workoutReady = status.workoutPermissionGranted ?? status.permissionGranted;
+  const bodyWeightReady = status.bodyWeightPermissionGranted ?? false;
   const availabilityLabel = status.availability === 'available'
-    ? status.permissionGranted ? 'Ready' : 'Permission needed'
+    ? workoutReady && bodyWeightReady ? 'Ready' : workoutReady || bodyWeightReady ? 'Partially ready' : 'Permission needed'
     : status.availability === 'provider_update_required' ? 'Install/update needed' : 'Unavailable';
-  const availabilityColor = status.availability === 'available' && status.permissionGranted
+  const availabilityColor = status.availability === 'available' && workoutReady && bodyWeightReady
     ? 'text-emerald-300'
     : status.availability === 'unavailable' ? 'text-slate-500' : 'text-amber-300';
   return (
@@ -248,11 +250,11 @@ function HealthConnectPanel({
             onChange={(event) => onEnabledChange(event.target.checked)}
             className="size-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500"
           />
-          Sync workouts
+          Sync health data
         </label>
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-        <p className="text-xs text-slate-500">Completed app workouts write one strength-training session after permission is granted.</p>
+        <p className="text-xs text-slate-500">Workouts: {workoutReady ? 'ready' : 'permission needed'} · Body weight: {bodyWeightReady ? 'ready' : 'permission needed'}</p>
         <button
           type="button"
           onClick={onPermissionRequest}

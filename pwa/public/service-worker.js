@@ -1,5 +1,5 @@
 // Cache-first for versioned app shell assets; network-first for data that can change.
-const CACHE_VERSION = 'v15-pwa-workout-player';
+const CACHE_VERSION = 'v16-stage18-shell';
 const CACHE_NAME = `workout-app-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',

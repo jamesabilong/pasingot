@@ -7,8 +7,10 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.units.kilograms
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -26,7 +28,9 @@ import java.time.ZoneId
 class HealthConnectBridgePlugin : Plugin() {
 
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val permissions = setOf(HealthPermission.getWritePermission(ExerciseSessionRecord::class))
+    private val exercisePermission = HealthPermission.getWritePermission(ExerciseSessionRecord::class)
+    private val bodyWeightPermission = HealthPermission.getWritePermission(WeightRecord::class)
+    private val permissions = setOf(exercisePermission, bodyWeightPermission)
 
     @PluginMethod
     fun getStatus(call: PluginCall) {
@@ -79,28 +83,7 @@ class HealthConnectBridgePlugin : Plugin() {
 
         pluginScope.launch {
             try {
-                val status = HealthConnectClient.getSdkStatus(context)
-                if (status != HealthConnectClient.SDK_AVAILABLE) {
-                    call.resolve(JSObject().apply {
-                        put("written", false)
-                        put("availability", availabilityLabel(status))
-                        put("permissionGranted", false)
-                    })
-                    return@launch
-                }
-
-                val client = HealthConnectClient.getOrCreate(context)
-                val granted = withContext(Dispatchers.IO) {
-                    client.permissionController.getGrantedPermissions().containsAll(permissions)
-                }
-                if (!granted) {
-                    call.resolve(JSObject().apply {
-                        put("written", false)
-                        put("availability", "available")
-                        put("permissionGranted", false)
-                    })
-                    return@launch
-                }
+                val client = availablePermittedClient(call, exercisePermission) ?: return@launch
 
                 val startTime = Instant.parse(startTimeText)
                 val endTime = Instant.parse(endTimeText)
@@ -131,33 +114,130 @@ class HealthConnectBridgePlugin : Plugin() {
                 withContext(Dispatchers.IO) {
                     client.insertRecords(listOf(record))
                 }
-                call.resolve(JSObject().apply {
-                    put("written", true)
-                    put("availability", "available")
-                    put("permissionGranted", true)
-                })
+                call.resolve(healthMutationResult("written", true))
             } catch (e: Exception) {
                 call.reject("Failed to write Health Connect workout: ${e.message}", e)
             }
         }
     }
 
+    @PluginMethod
+    fun writeBodyWeight(call: PluginCall) {
+        val timeText = call.getString("time")
+        val weightKilograms = call.getDouble("kilograms")
+        if (timeText.isNullOrBlank() || weightKilograms == null) {
+            call.reject("Missing required time or kilograms")
+            return
+        }
+        if (!weightKilograms.isFinite() || weightKilograms <= 0.0 || weightKilograms > 700.0) {
+            call.reject("Body weight must be between 0 and 700 kilograms")
+            return
+        }
+
+        pluginScope.launch {
+            try {
+                val client = availablePermittedClient(call, bodyWeightPermission) ?: return@launch
+                val time = Instant.parse(timeText)
+                val clientRecordId = call.getString("clientRecordId") ?: "pasingot:body-weight:$timeText"
+                val record = WeightRecord(
+                    time = time,
+                    zoneOffset = ZoneId.systemDefault().rules.getOffset(time),
+                    weight = weightKilograms.kilograms,
+                    metadata = Metadata.activelyRecorded(
+                        clientRecordId = clientRecordId,
+                        clientRecordVersion = call.getLong("clientRecordVersion") ?: 1L,
+                        device = Device(type = Device.TYPE_PHONE)
+                    )
+                )
+
+                withContext(Dispatchers.IO) {
+                    client.insertRecords(listOf(record))
+                }
+                call.resolve(healthMutationResult("written", true))
+            } catch (e: Exception) {
+                call.reject("Failed to write Health Connect body weight: ${e.message}", e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun deleteBodyWeight(call: PluginCall) {
+        val clientRecordId = call.getString("clientRecordId")
+        if (clientRecordId.isNullOrBlank()) {
+            call.reject("Missing required clientRecordId")
+            return
+        }
+
+        pluginScope.launch {
+            try {
+                val client = availablePermittedClient(call, bodyWeightPermission, resultKey = "deleted") ?: return@launch
+                withContext(Dispatchers.IO) {
+                    client.deleteRecords(
+                        recordType = WeightRecord::class,
+                        recordIdsList = emptyList(),
+                        clientRecordIdsList = listOf(clientRecordId)
+                    )
+                }
+                call.resolve(healthMutationResult("deleted", true))
+            } catch (e: Exception) {
+                call.reject("Failed to delete Health Connect body weight: ${e.message}", e)
+            }
+        }
+    }
+
+    private suspend fun availablePermittedClient(
+        call: PluginCall,
+        requiredPermission: String,
+        resultKey: String = "written"
+    ): HealthConnectClient? {
+        val status = HealthConnectClient.getSdkStatus(context)
+        if (status != HealthConnectClient.SDK_AVAILABLE) {
+            call.resolve(healthMutationResult(resultKey, false, availabilityLabel(status), false))
+            return null
+        }
+
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = withContext(Dispatchers.IO) {
+            client.permissionController.getGrantedPermissions().contains(requiredPermission)
+        }
+        if (!granted) {
+            call.resolve(healthMutationResult(resultKey, false, "available", false))
+            return null
+        }
+        return client
+    }
+
+    private fun healthMutationResult(
+        resultKey: String,
+        completed: Boolean,
+        availability: String = "available",
+        permissionGranted: Boolean = true
+    ) = JSObject().apply {
+        put(resultKey, completed)
+        put("availability", availability)
+        put("permissionGranted", permissionGranted)
+    }
+
     private suspend fun buildStatus(): JSObject {
         val status = HealthConnectClient.getSdkStatus(context)
-        val permissionGranted = if (status == HealthConnectClient.SDK_AVAILABLE) {
+        val grantedPermissions = if (status == HealthConnectClient.SDK_AVAILABLE) {
             try {
                 withContext(Dispatchers.IO) {
-                    HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions().containsAll(permissions)
+                    HealthConnectClient.getOrCreate(context).permissionController.getGrantedPermissions()
                 }
             } catch (_: Exception) {
-                false
+                emptySet()
             }
         } else {
-            false
+            emptySet()
         }
+        val workoutPermissionGranted = grantedPermissions.contains(exercisePermission)
+        val bodyWeightPermissionGranted = grantedPermissions.contains(bodyWeightPermission)
         return JSObject().apply {
             put("availability", availabilityLabel(status))
-            put("permissionGranted", permissionGranted)
+            put("permissionGranted", workoutPermissionGranted && bodyWeightPermissionGranted)
+            put("workoutPermissionGranted", workoutPermissionGranted)
+            put("bodyWeightPermissionGranted", bodyWeightPermissionGranted)
         }
     }
 

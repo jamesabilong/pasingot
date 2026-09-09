@@ -7,6 +7,21 @@ button, input, select {
 :root {
   --app-native-safe-area-top: 0px;
   --app-native-safe-area-bottom: 0px;
+  --app-color-canvas: #0b0e0c;
+  --app-color-surface: #151a17;
+  --app-color-surface-raised: #1b221e;
+  --app-color-border: #303a34;
+  --app-color-text: #f4f7f5;
+  --app-color-muted: #9da8a1;
+  --app-color-accent: #35d07f;
+  --app-color-accent-strong: #20b969;
+  --app-color-warning: #f0b94d;
+  --app-focus-ring: #8ee3b5;
+  --app-radius-control: 6px;
+  --app-radius-panel: 8px;
+  color: var(--app-color-text);
+  background: var(--app-color-canvas);
+  letter-spacing: 0;
 }
 
 :root.capacitor-native {
@@ -15,7 +30,22 @@ button, input, select {
 }
 
 .app-header {
-  padding-top: calc(0.75rem + var(--app-native-safe-area-top));
+  padding-top: var(--app-native-safe-area-top);
+  border-color: color-mix(in srgb, var(--app-color-border) 78%, transparent);
+  background: color-mix(in srgb, var(--app-color-canvas) 92%, transparent);
+}
+
+.app-header__inner,
+.app-main {
+  width: min(100%, 48rem);
+}
+
+.app-header h1 {
+  color: var(--app-color-text);
+}
+
+.app-header p {
+  color: var(--app-color-muted);
 }
 
 .app-toast-layer {
@@ -24,6 +54,213 @@ button, input, select {
 
 .app-shell {
   padding-bottom: calc(6rem + var(--app-native-safe-area-bottom));
+  color: var(--app-color-text);
+  background: var(--app-color-canvas);
+}
+
+.app-brand-mark {
+  border: 1px solid color-mix(in srgb, var(--app-color-accent) 55%, var(--app-color-border));
+  border-radius: var(--app-radius-control);
+  color: #07150e;
+  background: var(--app-color-accent);
+}
+
+.app-toast,
+.app-status,
+.app-icon-button,
+.app-workout-action,
+.app-nav,
+.app-session-banner {
+  border: 1px solid var(--app-color-border);
+  border-radius: var(--app-radius-control);
+  background: var(--app-color-surface-raised);
+}
+
+.app-toast {
+  color: var(--app-color-text);
+}
+
+.app-status {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.65rem;
+  color: var(--app-color-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.app-status--warning {
+  border-color: color-mix(in srgb, var(--app-color-warning) 48%, var(--app-color-border));
+  color: var(--app-color-warning);
+}
+
+.app-icon-button {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  place-items: center;
+  color: var(--app-color-muted);
+}
+
+.app-icon-button:hover {
+  color: var(--app-color-text);
+  background: var(--app-color-surface);
+}
+
+.app-icon-button--warning {
+  border-color: color-mix(in srgb, var(--app-color-warning) 48%, var(--app-color-border));
+  color: var(--app-color-warning);
+}
+
+.app-workout-action {
+  display: inline-flex;
+  min-width: 5.4rem;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-color: var(--app-color-accent-strong);
+  padding: 0 0.8rem;
+  color: #06130c;
+  background: var(--app-color-accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.app-workout-action:hover:not(:disabled) {
+  background: #57de94;
+}
+
+.app-workout-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.app-nav {
+  position: fixed;
+  right: 0.75rem;
+  bottom: calc(0.75rem + var(--app-native-safe-area-bottom));
+  left: 0.75rem;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-height: 4rem;
+  overflow: hidden;
+  padding: 0.25rem;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 38%);
+}
+
+.app-nav__button {
+  display: flex;
+  min-width: 0;
+  min-height: 3.4rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+  color: var(--app-color-muted);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+.app-nav__button:hover,
+.app-nav__button--active {
+  color: var(--app-color-text);
+  background: var(--app-color-surface);
+}
+
+.app-nav__button--active {
+  color: var(--app-color-accent);
+}
+
+.app-nav__badge {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.3rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border: 1px solid var(--app-color-surface-raised);
+  border-radius: 50%;
+  background: var(--app-color-warning);
+}
+
+.app-session-banner {
+  display: flex;
+  width: 100%;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--app-color-text);
+}
+
+.app-session-banner:hover {
+  border-color: var(--app-color-accent-strong);
+}
+
+.app-session-banner__icon {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: 0 0 2.2rem;
+  place-items: center;
+  border-radius: var(--app-radius-control);
+  color: #06130c;
+  background: var(--app-color-accent);
+}
+
+.app-session-banner .text-xs {
+  color: var(--app-color-muted);
+}
+
+.app-content {
+  padding-bottom: 1rem;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (min-width: 640px) {
+  .app-shell {
+    padding-bottom: calc(2rem + var(--app-native-safe-area-bottom));
+  }
+
+  .app-nav {
+    position: static;
+    min-height: 3.4rem;
+    margin-bottom: 1.25rem;
+    box-shadow: none;
+  }
+
+  .app-nav__button {
+    min-height: 2.8rem;
+    flex-direction: row;
+    gap: 0.45rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .app-brand-copy,
+  .app-workout-action span {
+    display: none;
+  }
+
+  .app-workout-action {
+    min-width: 2.25rem;
+    width: 2.25rem;
+    padding: 0;
+  }
 }
 
 .estimate-summary {

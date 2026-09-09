@@ -150,6 +150,8 @@ export default function App() {
     setSyncEnabled: setHealthConnectSyncEnabled,
     requestPermission: requestHealthConnectSyncPermission,
     writeCompletedSession: writeHealthConnectSession,
+    writeBodyMetric: writeHealthConnectBodyMetric,
+    deleteBodyMetric: deleteHealthConnectBodyMetric,
   } = useHealthConnectSync(addToast);
   const {
     settings: workoutCueSettings,
@@ -232,7 +234,7 @@ export default function App() {
       const drained = await drainPendingWatchLogs();
       if (drained && !disposed) await Promise.all([refreshLogs(), refreshSessionEvents()]);
       const healthConnectDrained = await drainPendingHealthConnectWrites();
-      if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued workout synced to Health Connect.' : `${healthConnectDrained} queued workouts synced to Health Connect.`);
+      if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
     }
     void initialize();
     const onVisible = () => {
@@ -242,7 +244,7 @@ export default function App() {
           return undefined;
         });
         void drainPendingHealthConnectWrites().then((healthConnectDrained) => {
-          if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued workout synced to Health Connect.' : `${healthConnectDrained} queued workouts synced to Health Connect.`);
+          if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
         });
       }
     };
@@ -839,7 +841,18 @@ export default function App() {
       tab={tab}
       toasts={toasts}
       notificationPermission={notificationPermission}
+      activeWorkout={activeWorkoutSession && activeWorkoutRow && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status) ? {
+        exercise: activeWorkoutRow.exercise,
+        status: activeWorkoutSession.status as 'active' | 'resting' | 'paused',
+      } : null}
+      todayPendingCount={todayProgress.pending}
+      questReady={currentQuestRows.length > 0 && currentQuestProgress.pending > 0}
+      healthSyncState={!healthConnectEnabled ? 'off' : healthConnectStatus.permissionGranted ? 'ready' : 'needs-permission'}
       onTabChange={setTab}
+      onWorkoutAction={() => {
+        setTab('today');
+        if (!activeWorkoutSession) void startTodayWorkoutPlayer();
+      }}
       onRequestNotificationPermission={() => void requestNotificationPermission()}
     >
       {tab === 'today' && <TodayView
@@ -948,9 +961,11 @@ export default function App() {
         healthConnectResult={healthConnectResult}
         onRangeChange={setHistoryRange}
         onBodyMetricDraftChange={setBodyMetricDraft}
-        onBodyMetricSave={() => void saveBodyMetric()}
+        onBodyMetricSave={() => void saveBodyMetric().then((entry) => {
+          if (entry) writeHealthConnectBodyMetric(entry);
+        })}
         onBodyMetricEdit={editBodyMetric}
-        onBodyMetricDelete={(entry) => void deleteBodyMetric(entry)}
+        onBodyMetricDelete={(entry) => void deleteBodyMetric(entry).then(() => deleteHealthConnectBodyMetric(entry))}
         onHealthConnectEnabledChange={(enabled) => void setHealthConnectSyncEnabled(enabled)}
         onHealthConnectPermissionRequest={() => void requestHealthConnectSyncPermission()}
       />}

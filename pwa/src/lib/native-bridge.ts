@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
+import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { addRecord, getRecord, putRecord, STORES } from './db';
 
 interface PendingWatchLog {
@@ -19,6 +19,8 @@ export type HealthConnectAvailability = 'available' | 'provider_update_required'
 export interface HealthConnectStatus {
   availability: HealthConnectAvailability;
   permissionGranted: boolean;
+  workoutPermissionGranted?: boolean;
+  bodyWeightPermissionGranted?: boolean;
 }
 
 declare global {
@@ -36,6 +38,8 @@ declare global {
           getStatus: () => Promise<HealthConnectStatus>;
           requestHealthConnectPermissions: () => Promise<{ opened: boolean; availability: HealthConnectAvailability }>;
           writeWorkoutSession: (payload: HealthConnectWorkoutPayload) => Promise<HealthConnectWriteResult>;
+          writeBodyWeight?: (payload: HealthConnectBodyWeightPayload) => Promise<HealthConnectWriteResult>;
+          deleteBodyWeight?: (payload: HealthConnectBodyWeightDeletePayload) => Promise<HealthConnectDeleteResult>;
         };
       };
     };
@@ -51,55 +55,112 @@ interface HealthConnectWorkoutPayload {
   endTime: string;
 }
 
+interface HealthConnectBodyWeightPayload {
+  clientRecordId: string;
+  clientRecordVersion: number;
+  time: string;
+  kilograms: number;
+}
+
+interface HealthConnectBodyWeightDeletePayload {
+  clientRecordId: string;
+}
+
 export interface HealthConnectWriteResult extends HealthConnectStatus {
   written: boolean;
 }
 
+export interface HealthConnectDeleteResult extends HealthConnectStatus {
+  deleted: boolean;
+}
+
 const HEALTH_CONNECT_PENDING_KEY = 'healthConnectPendingWrites';
+export const HEALTH_CONNECT_SETTINGS_KEY = 'healthConnectSettings';
 
 interface HealthConnectPendingQueue {
   key: typeof HEALTH_CONNECT_PENDING_KEY;
   schemaVersion: number;
-  writes: HealthConnectWorkoutPayload[];
+  operations?: HealthConnectPendingOperation[];
+  writes?: HealthConnectWorkoutPayload[];
 }
 
-async function queuePendingHealthConnectWrite(payload: HealthConnectWorkoutPayload): Promise<void> {
+type HealthConnectPendingOperation =
+  | { kind: 'workout-write'; payload: HealthConnectWorkoutPayload }
+  | { kind: 'body-weight-write'; payload: HealthConnectBodyWeightPayload }
+  | { kind: 'body-weight-delete'; payload: HealthConnectBodyWeightDeletePayload };
+
+function pendingOperations(stored: HealthConnectPendingQueue | undefined): HealthConnectPendingOperation[] {
+  if (stored?.schemaVersion !== SCHEMA_VERSION) return [];
+  if (stored.operations) return stored.operations;
+  return (stored.writes ?? []).map((payload) => ({ kind: 'workout-write' as const, payload }));
+}
+
+async function queuePendingHealthConnectOperation(operation: HealthConnectPendingOperation): Promise<void> {
   const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
-  const writes = stored?.schemaVersion === SCHEMA_VERSION ? stored.writes : [];
-  if (writes.some((existing) => existing.clientRecordId === payload.clientRecordId)) return;
+  const operations = pendingOperations(stored);
+  const clientRecordId = operation.payload.clientRecordId;
+  const remaining = operations.filter((existing) => {
+    if (existing.payload.clientRecordId !== clientRecordId) return true;
+    if (operation.kind === 'workout-write') return existing.kind !== 'workout-write';
+    return existing.kind === 'workout-write';
+  });
   await putRecord(STORES.appState, {
     key: HEALTH_CONNECT_PENDING_KEY,
     schemaVersion: SCHEMA_VERSION,
-    writes: [...writes, payload],
+    operations: [...remaining, operation],
   } satisfies HealthConnectPendingQueue);
 }
 
-// A write that throws (transient bridge failure, app backgrounded mid-call) is queued here and
-// retried by drainPendingHealthConnectWrites, matching the retry pattern drainPendingWatchLogs
-// uses for watch logs — otherwise a completed workout is silently lost.
+async function clearPendingHealthConnectOperation(operation: HealthConnectPendingOperation): Promise<void> {
+  const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
+  const operations = pendingOperations(stored);
+  const remaining = operations.filter((existing) => {
+    if (existing.payload.clientRecordId !== operation.payload.clientRecordId) return true;
+    if (operation.kind === 'workout-write') return existing.kind !== 'workout-write';
+    return existing.kind === 'workout-write';
+  });
+  if (remaining.length === operations.length) return;
+  await putRecord(STORES.appState, {
+    key: HEALTH_CONNECT_PENDING_KEY,
+    schemaVersion: SCHEMA_VERSION,
+    operations: remaining,
+  } satisfies HealthConnectPendingQueue);
+}
+
+// Unsuccessful mutations are retried on app-open/visibility triggers, matching the watch-log
+// queue. The enabled check ensures turning sync off also pauses queued native mutations.
 export async function drainPendingHealthConnectWrites(): Promise<number> {
   const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
   if (!bridge) return 0;
+  const settings = await getRecord<{ schemaVersion: number; enabled: boolean }>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
+  if (settings?.schemaVersion !== SCHEMA_VERSION || !settings.enabled) return 0;
   const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
-  const writes = stored?.schemaVersion === SCHEMA_VERSION ? stored.writes : [];
-  if (!writes.length) return 0;
+  const operations = pendingOperations(stored);
+  if (!operations.length) return 0;
 
-  const remaining: HealthConnectWorkoutPayload[] = [];
+  const remaining: HealthConnectPendingOperation[] = [];
   let succeeded = 0;
-  for (const payload of writes) {
+  for (const operation of operations) {
     try {
-      const result = await bridge.writeWorkoutSession(payload);
-      if (result.written) succeeded += 1;
-      else remaining.push(payload);
+      let completed = false;
+      if (operation.kind === 'workout-write') {
+        completed = (await bridge.writeWorkoutSession(operation.payload)).written;
+      } else if (operation.kind === 'body-weight-write' && bridge.writeBodyWeight) {
+        completed = (await bridge.writeBodyWeight(operation.payload)).written;
+      } else if (operation.kind === 'body-weight-delete' && bridge.deleteBodyWeight) {
+        completed = (await bridge.deleteBodyWeight(operation.payload)).deleted;
+      }
+      if (completed) succeeded += 1;
+      else remaining.push(operation);
     } catch (error) {
-      console.error('Failed to retry queued Health Connect write:', error);
-      remaining.push(payload);
+      console.error('Failed to retry queued Health Connect operation:', error);
+      remaining.push(operation);
     }
   }
   await putRecord(STORES.appState, {
     key: HEALTH_CONNECT_PENDING_KEY,
     schemaVersion: SCHEMA_VERSION,
-    writes: remaining,
+    operations: remaining,
   } satisfies HealthConnectPendingQueue);
   return succeeded;
 }
@@ -203,10 +264,74 @@ export async function writeSessionEventToHealthConnect(
     endTime: endTime.toISOString(),
   };
   try {
-    return await bridge.writeWorkoutSession(payload);
+    const result = await bridge.writeWorkoutSession(payload);
+    const operation = { kind: 'workout-write' as const, payload };
+    if (result.written) await clearPendingHealthConnectOperation(operation);
+    else await queuePendingHealthConnectOperation(operation);
+    return result;
   } catch (error) {
     console.error('Failed to write workout session to Health Connect:', error);
-    await queuePendingHealthConnectWrite(payload);
+    await queuePendingHealthConnectOperation({ kind: 'workout-write', payload });
     return { ...(await getHealthConnectStatus()), written: false };
   }
+}
+
+function bodyMetricRecordId(entryId: number): string {
+  return `pasingot:body-weight:${entryId}`;
+}
+
+function bodyMetricTime(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day, 12).toISOString();
+}
+
+export async function writeBodyMetricToHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectWriteResult> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge?.writeBodyWeight || entry.id == null) {
+    return { availability: 'unavailable', permissionGranted: false, written: false };
+  }
+  const payload: HealthConnectBodyWeightPayload = {
+    clientRecordId: bodyMetricRecordId(entry.id),
+    clientRecordVersion: Date.now(),
+    time: bodyMetricTime(entry.date),
+    kilograms: entry.unit === 'lb' ? entry.weight * 0.45359237 : entry.weight,
+  };
+  try {
+    const result = await bridge.writeBodyWeight(payload);
+    const operation = { kind: 'body-weight-write' as const, payload };
+    if (result.written) await clearPendingHealthConnectOperation(operation);
+    else await queuePendingHealthConnectOperation(operation);
+    return result;
+  } catch (error) {
+    console.error('Failed to write body weight to Health Connect:', error);
+    await queuePendingHealthConnectOperation({ kind: 'body-weight-write', payload });
+    return { ...(await getHealthConnectStatus()), written: false };
+  }
+}
+
+export async function deleteBodyMetricFromHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectDeleteResult> {
+  const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
+  if (!bridge?.deleteBodyWeight || entry.id == null) {
+    return { availability: 'unavailable', permissionGranted: false, deleted: false };
+  }
+  const payload: HealthConnectBodyWeightDeletePayload = { clientRecordId: bodyMetricRecordId(entry.id) };
+  try {
+    const result = await bridge.deleteBodyWeight(payload);
+    const operation = { kind: 'body-weight-delete' as const, payload };
+    if (result.deleted) await clearPendingHealthConnectOperation(operation);
+    else await queuePendingHealthConnectOperation(operation);
+    return result;
+  } catch (error) {
+    console.error('Failed to delete body weight from Health Connect:', error);
+    await queuePendingHealthConnectOperation({ kind: 'body-weight-delete', payload });
+    return { ...(await getHealthConnectStatus()), deleted: false };
+  }
+}
+
+export async function discardPendingBodyMetricSync(entry: BodyMetricEntry): Promise<void> {
+  if (entry.id == null) return;
+  await clearPendingHealthConnectOperation({
+    kind: 'body-weight-delete',
+    payload: { clientRecordId: bodyMetricRecordId(entry.id) },
+  });
 }
