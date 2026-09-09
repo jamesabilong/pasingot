@@ -90,11 +90,11 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
   const writeCompletedSession = useCallback((event: WorkoutSessionEvent, rows: WorkoutRow[]) => {
     if (!enabled || event.eventType !== 'completed') return;
     void writeSessionEventToHealthConnect(event, rows).then((writeResult) => {
-      void refreshStatus();
+      setStatus(writeResult);
       if (writeResult.written) addToast('Workout written to Health Connect.');
       else if (writeResult.availability === 'available' && !writeResult.permissionGranted) addToast('Health Connect permission is needed before workouts can sync.');
     });
-  }, [addToast, enabled, refreshStatus]);
+  }, [addToast, enabled]);
 
   const writeBodyMetric = useCallback((entry: BodyMetricEntry) => {
     if (!enabled) {
@@ -102,11 +102,11 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
       return;
     }
     void writeBodyMetricToHealthConnect(entry).then((writeResult) => {
-      void refreshStatus();
+      setStatus(writeResult);
       if (writeResult.written) addToast('Body weight written to Health Connect.');
       else if (writeResult.availability === 'available' && !writeResult.permissionGranted) addToast('Health Connect permission is needed before body weight can sync.');
     });
-  }, [addToast, enabled, refreshStatus]);
+  }, [addToast, enabled]);
 
   const deleteBodyMetric = useCallback((entry: BodyMetricEntry) => {
     if (!enabled) {
@@ -114,11 +114,11 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
       return;
     }
     void deleteBodyMetricFromHealthConnect(entry).then((deleteResult) => {
-      void refreshStatus();
+      setStatus(deleteResult);
       if (deleteResult.deleted) addToast('Body weight removed from Health Connect.');
       else if (deleteResult.availability === 'available' && !deleteResult.permissionGranted) addToast('Health Connect permission is needed to remove the synced body weight.');
     });
-  }, [addToast, enabled, refreshStatus]);
+  }, [addToast, enabled]);
 
   return {
     enabled,

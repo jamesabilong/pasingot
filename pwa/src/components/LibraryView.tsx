@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { EstimateSummary, LevelPicker } from './SummaryCards';
 import { CUSTOM_EXERCISE_CATEGORIES, type CustomExerciseDraft } from '../lib/custom-exercises';
 import { WEEKDAYS, type ExerciseCatalogItem, type ExerciseLevel, type PlaylistDraft, type PlaylistItem, type Weekday, type WeightUnit } from '../types';
@@ -64,10 +65,10 @@ export function LibraryView({
   onDeleteCustomExercise: (sourceId: number) => void;
 }) {
   return (
-    <section className="space-y-5">
+    <section className="library-view space-y-5">
       <div className="space-y-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-200">Exercise Library</h2>
+        <div className="section-heading">
+          <div><p className="section-kicker">Build</p><h2 className="text-base font-semibold text-slate-200">Exercise library</h2></div>
           <span className="text-xs text-slate-500">{filteredCatalog.length} shown</span>
         </div>
 
@@ -80,14 +81,15 @@ export function LibraryView({
         />
 
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <label className="min-w-0">
+          <label className="library-search min-w-0">
             <span className="sr-only">Search exercises</span>
+            <Search size={17} aria-hidden="true" />
             <input
               type="search"
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Search exercises"
-              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-md border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none"
             />
           </label>
           <label>
@@ -119,7 +121,7 @@ export function LibraryView({
             const added = addedIndex >= 0;
             const prescription = defaultPrescriptionFor(item, draft.level);
             return (
-              <div key={item.sourceId} className={`grid grid-cols-[1fr_auto] gap-3 rounded-lg border p-3 transition ${added ? 'border-emerald-700 bg-emerald-950/20' : 'border-slate-800 bg-slate-900 hover:border-slate-700'}`}>
+              <div key={item.sourceId} className={`library-item grid grid-cols-[1fr_auto] gap-3 rounded-lg border p-3 transition ${added ? 'border-emerald-700 bg-emerald-950/20' : 'border-slate-800 bg-slate-900 hover:border-slate-700'}`}>
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="min-w-0 truncate text-sm font-medium">{item.displayName}</p>
@@ -134,8 +136,8 @@ export function LibraryView({
                     {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-emerald-400 hover:text-emerald-300">Source</a>}
                     {item.videoUrl && <a href={item.videoUrl} target="_blank" rel="noreferrer" className="inline-flex text-indigo-300 hover:text-indigo-200">Video</a>}
                     {item.custom && <>
-                      <button type="button" onClick={() => onEditCustomExercise(item.sourceId)} className="text-slate-400 hover:text-slate-200">Edit</button>
-                      <button type="button" onClick={() => onDeleteCustomExercise(item.sourceId)} className="text-rose-300 hover:text-rose-200">Delete</button>
+                      <button type="button" onClick={() => onEditCustomExercise(item.sourceId)} className="library-inline-action" title="Edit exercise" aria-label={`Edit ${item.displayName}`}><Pencil size={15} aria-hidden="true" /></button>
+                      <button type="button" onClick={() => onDeleteCustomExercise(item.sourceId)} className="library-inline-action library-inline-action--danger" title="Delete exercise" aria-label={`Delete ${item.displayName}`}><Trash2 size={15} aria-hidden="true" /></button>
                     </>}
                   </div>
                 </div>
@@ -145,7 +147,7 @@ export function LibraryView({
                   onClick={() => onAddCatalogExercise(item.sourceId)}
                   className={`h-9 min-w-12 shrink-0 rounded-md px-3 text-xs font-semibold ${added ? 'bg-emerald-500 text-slate-950' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
                 >
-                  {added ? `#${addedIndex + 1}` : 'Add'}
+                  {added ? <><Check size={16} aria-hidden="true" /> #{addedIndex + 1}</> : <><Plus size={16} aria-hidden="true" /> Add</>}
                 </button>
               </div>
             );
@@ -196,7 +198,7 @@ export function LibraryView({
             <input type="url" value={customExerciseDraft.videoUrl} onChange={(event) => onCustomExerciseDraftChange({ ...customExerciseDraft, videoUrl: event.target.value })} placeholder="https://..." className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none" />
           </label>
         </div>
-        <button type="button" onClick={onSaveCustomExercise} className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500">{customExerciseDraft.sourceId == null ? 'Create exercise' : 'Update exercise'}</button>
+        <button type="button" onClick={onSaveCustomExercise} className="primary-action mt-0"><Save size={18} aria-hidden="true" />{customExerciseDraft.sourceId == null ? 'Create exercise' : 'Update exercise'}</button>
         {customExerciseResult && <p className={`rounded-md border p-3 text-sm ${customExerciseResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{customExerciseResult.message}</p>}
       </div>
 
@@ -224,9 +226,9 @@ export function LibraryView({
               <div className="flex items-center gap-2">
                 <span className="grid size-6 shrink-0 place-items-center rounded bg-emerald-500 text-xs font-bold text-slate-950">{index + 1}</span>
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.name}</p>
-                <button type="button" disabled={index === 0} title="Move up" onClick={() => onReorderDraftItem(index, -1)} className="size-8 rounded-md text-slate-400 hover:bg-slate-800 disabled:opacity-30">↑</button>
-                <button type="button" disabled={index === draft.items.length - 1} title="Move down" onClick={() => onReorderDraftItem(index, 1)} className="size-8 rounded-md text-slate-400 hover:bg-slate-800 disabled:opacity-30">↓</button>
-                <button type="button" title="Remove" onClick={() => onDraftChange({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="size-8 rounded-md text-slate-400 hover:bg-rose-950 hover:text-rose-300">×</button>
+                <button type="button" disabled={index === 0} title="Move up" aria-label={`Move ${item.name} up`} onClick={() => onReorderDraftItem(index, -1)} className="playlist-icon-action"><ArrowUp size={17} aria-hidden="true" /></button>
+                <button type="button" disabled={index === draft.items.length - 1} title="Move down" aria-label={`Move ${item.name} down`} onClick={() => onReorderDraftItem(index, 1)} className="playlist-icon-action"><ArrowDown size={17} aria-hidden="true" /></button>
+                <button type="button" title="Remove" aria-label={`Remove ${item.name}`} onClick={() => onDraftChange({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="playlist-icon-action playlist-icon-action--danger"><X size={17} aria-hidden="true" /></button>
               </div>
               <div className="grid grid-cols-[4.5rem_1fr_5rem] gap-2 pl-8">
                 <label className="text-[10px] uppercase text-slate-600">
@@ -273,7 +275,7 @@ export function LibraryView({
           ))}
         </div>}
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <button type="button" disabled={!draft.items.length} onClick={onSavePlaylistToSchedule} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Add to weekly schedule</button>
+          <button type="button" disabled={!draft.items.length} onClick={onSavePlaylistToSchedule} className="primary-action mt-0"><Save size={17} aria-hidden="true" />Add to weekly schedule</button>
           <button type="button" disabled={!draft.items.length} onClick={() => { onDraftChange({ ...draft, items: [] }); onClearPlaylistResult(); }} className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
         </div>
         {playlistResult && <p className={`rounded-md border p-3 text-sm ${playlistResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{playlistResult.message}</p>}

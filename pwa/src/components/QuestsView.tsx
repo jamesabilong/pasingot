@@ -1,3 +1,4 @@
+import { Award, CalendarPlus, Check, Flag, Play } from 'lucide-react';
 import { EstimateSummary, LevelPicker, PlanProgressSummary, type PlanProgress } from './SummaryCards';
 import { type ExerciseCatalogItem, type ExerciseLevel, type QuestCompletion, type QuestState, type QuestTemplate, type QuestWorkoutRow } from '../types';
 
@@ -44,9 +45,9 @@ export function QuestsView({
   onSaveQuestDayToSchedule: () => void;
 }) {
   return (
-    <section className="space-y-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-200">Daily Quest</h2>
+    <section className="quests-view space-y-5">
+      <div className="section-heading">
+        <div><p className="section-kicker">Program</p><h2 className="text-base font-semibold text-slate-200">Daily quest</h2></div>
         {questState && activeQuestTemplate && totalDays != null && <span className="text-xs text-slate-500">{questState.completedDays.length}/{totalDays}</span>}
       </div>
 
@@ -94,7 +95,7 @@ function QuestEnrollment({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="quest-program-card">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold">{template.title}</h3>
@@ -103,7 +104,7 @@ function QuestEnrollment({
           <span className="shrink-0 rounded border border-emerald-700 px-2 py-1 text-xs text-emerald-300">{template.durationWeeks}w</span>
         </div>
         <LevelPicker levels={levels} levelLabels={levelLabels} selected={draftLevel} onSelect={onDraftLevelChange} variant="compact" />
-        <button type="button" onClick={() => onStartQuest(template)} className="mt-4 w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start quest</button>
+        <button type="button" onClick={() => onStartQuest(template)} className="primary-action"><Play size={18} fill="currentColor" aria-hidden="true" /> Start quest</button>
       </div>
       <p className="text-xs leading-relaxed text-slate-500">{template.safetyNote}</p>
       <div className="flex flex-wrap gap-2 text-xs">
@@ -144,18 +145,21 @@ function QuestProgress({
   onQuestStateChange: (state: QuestState) => void;
   onSaveQuestDayToSchedule: () => void;
 }) {
+  const progressPercent = totalDays ? Math.round((questState.completedDays.length / totalDays) * 100) : 0;
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <div className="flex items-start justify-between gap-3">
+      <div className="quest-program-card quest-program-card--active">
+        <div className="quest-program-card__summary">
           <div className="min-w-0">
+            <p className="section-kicker">Active quest</p>
             <h3 className="text-lg font-semibold">{template.title}</h3>
             <p className="mt-1 text-sm text-slate-400">{questState.status === 'completed' ? 'Quest complete' : `Week ${weekNumber} · Day ${dayNumber}`}</p>
+            <span className="quest-level">{levelLabels[questState.level]}</span>
           </div>
-          <span className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs text-slate-300">{levelLabels[questState.level]}</span>
-        </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800">
-          <div className="h-full bg-emerald-500" style={{ width: `${Math.round((questState.completedDays.length / totalDays) * 100)}%` }} />
+          <div className="quest-progress-ring" aria-label={`${progressPercent}% complete`}>
+            <svg viewBox="0 0 100 100" aria-hidden="true"><circle className="quest-progress-ring__track" cx="50" cy="50" r="42" /><circle className="quest-progress-ring__value" cx="50" cy="50" r="42" style={{ strokeDashoffset: 264 * (1 - progressPercent / 100) }} /></svg>
+            <strong>{progressPercent}%</strong>
+          </div>
         </div>
       </div>
 
@@ -179,18 +183,18 @@ function QuestProgress({
           </div>
           {currentQuestRows.length > 0 && <EstimateSummary value={currentQuestEstimate} />}
           {currentQuestRows.length > 0 && <PlanProgressSummary progress={currentQuestProgress} />}
-          {currentQuestRows.length === 0 ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">This quest day could not be resolved from the local catalog.</p> : currentQuestRows.map(({ row, exercise }) => (
-            <div key={`${row.dayNumber}-${row.sequence}`} className="grid grid-cols-[1.5rem_1fr] gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
-              <span className="grid size-6 place-items-center rounded bg-slate-800 text-xs text-slate-400">{row.sequence}</span>
+          {currentQuestRows.length === 0 ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">This quest day could not be resolved from the local catalog.</p> : <div className="quest-day-path">{currentQuestRows.map(({ row, exercise }, index) => (
+            <div key={`${row.dayNumber}-${row.sequence}`} className="quest-day-step">
+              <span>{index === currentQuestRows.length - 1 ? <Flag size={15} aria-hidden="true" /> : row.sequence}</span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{exercise.displayName}</p>
                 <p className="text-xs text-slate-500">{row.progressionGroup} · {row.sets} x {row.reps} · rest {row.rest}s</p>
               </div>
             </div>
-          ))}
+          ))}</div>}
         </div>
 
-        <button type="button" disabled={!currentQuestRows.length} onClick={onSaveQuestDayToSchedule} className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40">Add today's quest to schedule</button>
+        <button type="button" disabled={!currentQuestRows.length} onClick={onSaveQuestDayToSchedule} className="primary-action mt-0 disabled:cursor-not-allowed disabled:opacity-40"><CalendarPlus size={18} aria-hidden="true" /> Add today's quest</button>
         {questResult && <p className={`rounded-md border p-3 text-sm ${questResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{questResult.message}</p>}
       </>}
 
@@ -210,13 +214,14 @@ function CompletedQuestDays({
 }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Completed Quest Days</h3>
-      {completedDays.slice().reverse().map((day) => (
-        <div key={day.dayIndex} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500"><Award className="mr-2 inline" size={15} aria-hidden="true" />Completed quest days</h3>
+      <div className="quest-completion-list">{completedDays.slice().reverse().map((day) => (
+        <div key={day.dayIndex} className="flex items-center justify-between p-3 text-sm">
+          <Check size={16} className="mr-2 shrink-0 text-emerald-400" aria-hidden="true" />
           <span className="min-w-0 truncate">{day.dayLabel}</span>
           <span className="shrink-0 text-xs text-slate-500">{levelLabels[day.level]}</span>
         </div>
-      ))}
+      ))}</div>
     </div>
   );
 }

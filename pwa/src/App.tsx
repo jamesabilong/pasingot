@@ -180,6 +180,13 @@ export default function App() {
     await putRecord(STORES.appState, next);
   }, []);
 
+  const retryPendingSyncs = useCallback(async () => {
+    const drained = await drainPendingWatchLogs();
+    if (drained) await Promise.all([refreshLogs(), refreshSessionEvents()]);
+    const healthConnectDrained = await drainPendingHealthConnectWrites();
+    if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
+  }, [addToast, refreshLogs, refreshSessionEvents]);
+
   useEffect(() => {
     let disposed = false;
     async function initialize() {
@@ -238,19 +245,11 @@ export default function App() {
     }
     void initialize();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void drainPendingWatchLogs().then((drained) => {
-          if (drained) return Promise.all([refreshLogs(), refreshSessionEvents()]);
-          return undefined;
-        });
-        void drainPendingHealthConnectWrites().then((healthConnectDrained) => {
-          if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
-        });
-      }
+      if (document.visibilityState === 'visible') void retryPendingSyncs();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, retryPendingSyncs]);
 
   useScheduleNotifications(workouts, addToast);
 
@@ -847,16 +846,21 @@ export default function App() {
       } : null}
       todayPendingCount={todayProgress.pending}
       questReady={currentQuestRows.length > 0 && currentQuestProgress.pending > 0}
-      healthSyncState={!healthConnectEnabled ? 'off' : healthConnectStatus.permissionGranted ? 'ready' : 'needs-permission'}
+      healthSyncState={!healthConnectEnabled ? 'off' : (healthConnectStatus.workoutPermissionGranted ?? healthConnectStatus.permissionGranted) ? 'ready' : 'needs-permission'}
       onTabChange={setTab}
+      onOnline={() => void retryPendingSyncs()}
       onWorkoutAction={() => {
         setTab('today');
-        if (!activeWorkoutSession) void startTodayWorkoutPlayer();
+        const isLive = activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status);
+        if (!isLive) void startTodayWorkoutPlayer();
       }}
       onRequestNotificationPermission={() => void requestNotificationPermission()}
     >
       {tab === 'today' && <TodayView
         todayName={todayName()}
+        weeklyWorkouts={workouts}
+        onBuildPlan={() => setTab('library')}
+        onBrowseQuests={() => setTab('quests')}
         workouts={todayWorkouts}
         estimate={todayEstimate}
         progress={todayProgress}

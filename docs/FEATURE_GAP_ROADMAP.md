@@ -136,20 +136,20 @@ checklist for that stage.
 Current baseline UI (`AppShell.tsx`, `styles.css`): Stage 18's first slice now
 provides shared shell tokens, icon-and-label navigation, ready badges, a
 persistent workout action, status/install affordances, and phone bottom
-navigation. Feature screens still largely use the earlier dark slate/Tailwind
-panels and are the remaining focus of this checklist.
+navigation. Local feature-screen redesigns now extend this foundation. The table below
+retains the original targets; full browser and device acceptance is still open.
 
 | Wanted? | Screen | Current UI | Reference pattern | Proposed direction | Priority |
 |---|---|---|---|---|---|
 | ✅ Done | Global nav (`AppShell`) | Responsive Lucide icon-and-label tabs with active state and Today/Quest ready badges | Strong/Hevy/Nike Training Club bottom tab bars | Completed in Stage 18's first shell slice | Medium |
 | ✅ Done | Global nav | Persistent Start/Continue action in the sticky header | Strava's prominent record button; Nike Training Club's Start Workout CTA | Completed in Stage 18's first shell slice | Medium |
 | 🚧 Partial | Installed PWA/mobile shell | Thumb-reachable bottom nav, safe-area spacing, active-session banner, online/Health/install/reminder status | Native fitness apps | Shell behavior is implemented; feature screens still need mobile-specific visual passes | High |
-| | Today | Plan list + small progress bar, player opens inline | Hevy/Strong home screen: a single "today's workout" card with a big primary Start/Continue button, a compact stat strip above it (streak, sessions this week) | Redesign Today as one hero card (exercise count, estimated time, Start/Continue button) sitting above the exercise list, with the streak/weekly-count strip from the Stats section above it | High |
-| | Workout Player — one screen, two states | Active set (text reps/weight fields, "Complete Set") and resting (small "Rest remaining" text + `+5/+10/+30s`) already live in the same `WorkoutPlayer.tsx` component/screen, switching on `session.status` | Strong/Hevy/Nike Training Club: the exercise name, set count, and screen chrome stay fixed in place; only the central focal element morphs — steppers/Complete Set while active, a large circular countdown ring while resting | **Important:** resting is a *state* of the active-exercise screen, not a separate destination — don't turn it into its own tab/screen when redesigning. Keep the exercise header pinned across both states; swap only the center: numeric steppers + "Complete Set" while active, a large ring countdown while resting. Demote skip/pause/end to a small icon row in both states. | High |
+| 🚧 Partial | Today | Local hero, explicit status counts, queue filters, weekly schedule preview, and empty-state actions; player remains inline | Hevy/Strong home screen: a single "today's workout" card with a big primary Start/Continue button, a compact stat strip above it (streak, sessions this week) | Redesign Today as one hero card (exercise count, estimated time, Start/Continue button) sitting above the exercise list, with the streak/weekly-count strip from the Stats section above it | High |
+| 🚧 Partial | Workout Player — one screen, two states | Active set (text reps/weight fields, "Complete Set") and resting (small "Rest remaining" text + `+5/+10/+30s`) already live in the same `WorkoutPlayer.tsx` component/screen, switching on `session.status` | Strong/Hevy/Nike Training Club: the exercise name, set count, and screen chrome stay fixed in place; only the central focal element morphs — steppers/Complete Set while active, a large circular countdown ring while resting | **Important:** resting is a *state* of the active-exercise screen, not a separate destination — don't turn it into its own tab/screen when redesigning. Keep the exercise header pinned across both states; swap only the center: numeric steppers + "Complete Set" while active, a large ring countdown while resting. Demote skip/pause/end to a small icon row in both states. | High |
 | | Quests | Flat "current day" panel per template | JEFIT/Fitbod program browser: horizontal scrollable program cards with a progress ring per program; Duolingo/Habitica-style vertical path map for day-by-day progression, which fits the existing "Quest" naming well | Show enrolled/available quests as cards with a progress ring (days complete / total), and render the day-by-day sequence as a vertical path/map instead of a plain list, leaning into the game-like "quest" framing already in the copy | Medium |
 | | Library | Segmented level filter + flat list rows | Strong/Hevy exercise browser: search bar pinned at top, horizontal scrollable filter chips (muscle group/equipment), a photo/thumbnail per exercise card | Add a search bar above the filters, turn muscle-group/equipment/category into scrollable filter chips alongside the existing level filter, and surface an exercise thumbnail once exercise images are added (see catalog media row above) | Medium |
 | | History | Text overview metrics + thin flat bars | Apple Fitness+ "close your rings"; Strava's calendar heatmap + trend line charts | Turn the done/pending/skipped `PlanProgressSummary` bars into activity rings, and add the calendar heatmap + trend charts already proposed in the Stats & analytics section above as the top of the History screen | Medium |
-| | Wear OS session screen | Compact Compose chips list (Complete Set, Pause, Skip, etc.) | Google/Samsung Wear fitness complications: the countdown number fills most of the round screen, 1-2 buttons max, everything else swiped away | Make the rest-remaining number the dominant element on the round screen (large centered text or a ring around the bezel), and reduce the resting-state action list to Start now / Pause only, moving Restart/End behind the existing Cancel/Paused flow | Low |
+| 🚧 Partial | Wear OS session screen | Compact Compose chips list (Complete Set, Pause, Skip, etc.) | Google/Samsung Wear fitness complications: the countdown number fills most of the round screen, 1-2 buttons max, everything else swiped away | Make the rest-remaining number the dominant element on the round screen (large centered text or a ring around the bezel), and reduce the resting-state action list to Start now / Pause only, moving Restart/End behind the existing Cancel/Paused flow | Low |
 
 ## Out of scope for this app's thesis (listed for completeness, not recommended)
 
@@ -160,10 +160,19 @@ panels and are the remaining focus of this checklist.
 
 ## Next step
 
-Stage 15 and the first Stage 16 slice are complete. Finish Stage 17 with
-physical-device validation of workout/body-weight sync before deciding whether
-to add heart-rate summaries. Stage 18 remains the next proposed product stage;
-split it into smaller slices beginning with PWA design tokens and the app shell,
-then Today, Workout Player, History, and Wear OS. Unstaged feature candidates
-still include plate calculator, RPE/RIR, supersets, warm-up suggestions, body
-measurements, progress photos, and streak-based badges.
+The Stage 18 shell and Stage 17 body-weight sync are committed in `b7f251f`.
+Local Stage 18 changes now extend across Today, Workout Player, Library,
+Quests, History, Import, and the Wear session screen. Today additionally has
+weekly schedule previews grouped by time, pending/done/skipped queue filters,
+and empty-state navigation. These are implemented changes, not a claim that
+all screen-by-screen acceptance criteria above are complete.
+
+1. Validate and review the local Stage 18 feature-screen changes.
+2. Finish physical-device recovery and Health Connect mutation/retry checks.
+3. Validate the Wear session redesign on a round-screen emulator or watch.
+4. Choose the next feature independently: RPE/RIR, plate calculator, supersets,
+   body measurements, or licensed exercise media. These remain candidates.
+
+Use the delivery board in `WORKOUT_APP_PLAN.md` for current, pending, next,
+and future work. Earlier comparison rows describe the original design target;
+the delivery board and stage status distinguish implementation from validation.

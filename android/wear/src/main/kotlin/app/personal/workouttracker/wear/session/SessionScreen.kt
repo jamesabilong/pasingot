@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.session
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +29,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactChip
+import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
@@ -169,35 +171,41 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
             )
         }
         item {
-            CompactChip(
-                onClick = { cueAction(viewModel::onPause) },
-                label = { Text("Pause") },
-                colors = ChipDefaults.secondaryChipColors(),
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                CompactChip(
+                    onClick = { cueAction(viewModel::onPause) },
+                    label = { Text("Pause") },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(1f),
+                )
+                CompactChip(
+                    onClick = { cueAction(viewModel::onSkip) },
+                    label = { Text("Skip") },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         item {
-            CompactChip(
-                onClick = { cueAction(viewModel::onSkip) },
-                label = { Text("Skip") },
-                colors = ChipDefaults.secondaryChipColors(),
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            CompactChip(
-                onClick = { cueAction(viewModel::onUpgrade) },
-                label = { Text("Upgrade (+1 set)") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            CompactChip(
-                onClick = { cueAction(viewModel::onDowngrade) },
-                label = { Text("Downgrade (-1 set)") },
-                colors = ChipDefaults.secondaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                CompactChip(
+                    onClick = { cueAction(viewModel::onUpgrade) },
+                    label = { Text("+ Set") },
+                    modifier = Modifier.weight(1f),
+                )
+                CompactChip(
+                    onClick = { cueAction(viewModel::onDowngrade) },
+                    label = { Text("- Set") },
+                    colors = ChipDefaults.secondaryChipColors(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         item {
             CompactChip(
@@ -236,10 +244,18 @@ private fun RestingView(
 ) {
     val exercise = state.currentExercise ?: return
     val session = state.session ?: return
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = rememberScalingLazyListState(),
-    ) {
+    val plannedRestSeconds = exercise.rest.coerceAtLeast(1)
+    val progress = (state.restRemainingSeconds.toFloat() / plannedRestSeconds).coerceIn(0f, 1f)
+    Box(modifier = Modifier.fillMaxSize()) {
+        CircularProgressIndicator(
+            progress = progress,
+            modifier = Modifier.fillMaxSize().padding(5.dp),
+            strokeWidth = 4.dp,
+        )
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            state = rememberScalingLazyListState(),
+        ) {
         item {
             Text(
                 text = "REST",
@@ -259,7 +275,7 @@ private fun RestingView(
         item {
             Text(
                 text = formatRestSeconds(state.restRemainingSeconds),
-                style = MaterialTheme.typography.title2,
+                style = MaterialTheme.typography.display1,
                 textAlign = TextAlign.Center,
             )
         }
@@ -325,6 +341,7 @@ private fun RestingView(
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
         }
     }
 }

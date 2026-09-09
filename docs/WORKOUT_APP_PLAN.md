@@ -16,20 +16,18 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `be544eb PST01: Fix gaps found`, the audit fixes
-  for Stages 10-17.
+- Latest committed checkpoint: `b7f251f PST01: Update navigation and badges`,
+  including Stage 17 body-weight sync and the Stage 18 shell foundation.
 - Stage 17's first implementation commit is
   `493754d PST01: Stage 16 implementation`. Despite its message, the commit
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active local work: Stage 17 body-weight add/update/delete sync and Stage 18's
-  first PWA shell slice. Completed-workout sync is already committed;
-  heart-rate summaries remain an unbuilt follow-up.
-- Local commit state: everything through Stage 17's first slice is committed
-  and pushed to `origin/PST01`. The Stage 17 second slice, Stage 18 shell slice,
-  and documentation refresh are local changes; untracked legacy PWA artifacts
-  are intentionally excluded.
+- Active local work: Stage 18 feature-screen redesigns, weekly plan browsing,
+  Today queue filters, and Health Connect hook refinements. Existing local
+  edits are preserved; implementation is not equivalent to device validation.
+- Local commit state: Stage 17 body-weight sync and Stage 18 shell foundation
+  are in `b7f251f`. Subsequent feature-screen and watch UI changes remain local.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
   wiring bug in the Health Connect History panel (the app did not compile),
@@ -46,6 +44,40 @@ updated at each checkpoint so the plan is visible from every device.
 - Cross-device visibility: committed checkpoints are visible from another
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
+
+## Delivery board — reviewed 2026-09-09
+
+| Lane | Scope | Exit condition / next action |
+|---|---|---|
+| **Current · local implementation** | Stage 18: Today, player, Library, Quests, History, Import, and Wear session visual changes | Review the existing local diff; validate each changed workflow before committing |
+| **Current · this update** | Today weekly schedule, time-grouped previews, queue filters, explicit statuses, empty-state navigation | Typecheck, production build, desktop/mobile browser smoke test |
+| **Pending · device verification** | Stage 9 recovery; Stage 17 Health Connect permissions, body-weight mutations and retries | Physical phone/watch interruption and sync checks; record evidence before closing |
+| **Next · UI acceptance** | Stage 18 full active/rest/paused/recovery flow and Wear round-screen controls | Browser workflow sweep plus Wear emulator/device check |
+| **Future · scoped candidates** | Optional RPE/RIR, plate calculator, supersets, body measurements, licensed catalog media | Select an individual feature and define data model, backup compatibility, and acceptance checks first |
+| **Deferred** | Heart-rate summaries, cloud accounts, social features, adaptive programs | Revisit only after current device reliability work is verified |
+
+### Stage 18 planning slice
+
+- Today keeps the current workout and player first, with explicit completed,
+  pending, and skipped counts and filterable exercise rows.
+- A seven-day picker previews the recurring weekly schedule, beginning today.
+  Sessions are grouped by start time with prescriptions and duration estimates.
+  Future previews do not log activity or imply that a future workout is done.
+- Empty days offer a playlist action; an empty Today also links to Quests.
+- Completion text distinguishes a fully completed plan from a plan containing
+  skips. Filtered rows retain their original queue positions.
+- Weekly display is read-only. Date-specific scheduling, rescheduling, and
+  deleting individual scheduled sessions remain future work.
+
+### Planning slice validation — 2026-09-09
+
+- Passed `npx tsc --noEmit`, `npm run build`, and `git diff --check`.
+- Browser: empty-state Library/Quests navigation; four-row CSV import;
+  completed-row exclusion from Pending; skip counts and completion copy;
+  Thursday preview; status persistence after reload.
+- Captured layouts at 320, 390, and 1440 pixels with no horizontal overflow.
+  Browser console contained no application errors.
+- No physical Android/Wear validation was performed for this slice.
 
 ## Stage 1 - Reviewed Data, Levels, and Quest Definitions
 
@@ -1105,8 +1137,8 @@ Manual acceptance:
 
 **Status:** in progress. The completed-workout sync slice is committed
 (`493754d`, mislabeled "Stage 16 implementation" — see Current State above).
-The body-weight add/update/delete sync slice is implemented locally and awaits
-device validation. Heart-rate summaries remain deferred.
+The body-weight add/update/delete sync slice is committed in `b7f251f` and
+awaits device validation; subsequent hook refinements remain local. Heart-rate summaries remain deferred.
 
 **2026-09-03 audit findings on this slice (all fixed):**
 
@@ -1170,8 +1202,9 @@ Manual acceptance:
 
 ## Stage 18 - Cross-Device UI Overhaul
 
-**Status:** in progress; first PWA design-token and app-shell slice implemented
-locally on 2026-09-09.
+**Status:** in progress. Shell foundation committed in `b7f251f`; feature-screen
+and Wear session redesigns are present locally. This update adds weekly plan
+browsing and Today queue controls. Full cross-device acceptance remains open.
 
 Goal: modernize the workout experience across web, installed PWA/mobile, and
 Wear OS while preserving the component boundary rule that `App.tsx` coordinates

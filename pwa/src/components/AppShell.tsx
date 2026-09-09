@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
   Bell,
@@ -55,6 +55,7 @@ export function AppShell({
   children,
   onTabChange,
   onWorkoutAction,
+  onOnline,
   onRequestNotificationPermission,
 }: {
   tab: Tab;
@@ -67,14 +68,17 @@ export function AppShell({
   children: ReactNode;
   onTabChange: (tab: Tab) => void;
   onWorkoutAction: () => void;
+  onOnline?: () => void;
   onRequestNotificationPermission: () => void;
 }) {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const canOpenWorkout = activeWorkout != null || todayPendingCount > 0;
+  const onOnlineRef = useRef(onOnline);
+  useEffect(() => { onOnlineRef.current = onOnline; }, [onOnline]);
 
   useEffect(() => {
-    const onOnline = () => setOnline(true);
+    const onOnline = () => { setOnline(true); onOnlineRef.current?.(); };
     const onOffline = () => setOnline(false);
     const onInstallPrompt = (event: Event) => {
       event.preventDefault();

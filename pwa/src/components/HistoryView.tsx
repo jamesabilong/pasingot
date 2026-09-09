@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { CalendarDays, Check, Flame, SkipForward } from 'lucide-react';
 import type {
   BodyMetricEntry,
   BodyWeightUnit,
@@ -137,25 +138,24 @@ export function HistoryView({
     : 0;
 
   return (
-    <section className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-200">History</h2>
-        <div className="flex gap-1 rounded-lg bg-slate-900 p-1 text-xs font-medium">
-          <button type="button" onClick={() => onRangeChange('month')} className={`rounded-md px-3 py-1 ${range === 'month' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}>This Month</button>
-          <button type="button" onClick={() => onRangeChange('all')} className={`rounded-md px-3 py-1 ${range === 'all' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}>All Time</button>
+    <section className="history-view space-y-5">
+      <div className="history-heading">
+        <div><p className="section-kicker">Progress</p><h2>History</h2></div>
+        <div className="segmented-control" aria-label="History range">
+          <button type="button" onClick={() => onRangeChange('month')} className={range === 'month' ? 'is-active' : ''}>This month</button>
+          <button type="button" onClick={() => onRangeChange('all')} className={range === 'all' ? 'is-active' : ''}>All time</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-center">
-        <Metric label="Workout days" value={workoutDays} />
-        <Metric label="Logged items" value={historyLogs.length} />
-        <Metric label="Done" value={doneCount} color="text-emerald-400" />
-        <Metric label="Skipped" value={skippedCount} color="text-amber-400" />
-        <Metric label="Current streak" value={streaks.current} color="text-teal-300" />
-        <Metric label="Longest streak" value={streaks.longest} color="text-indigo-300" />
-      </div>
-
-      <CompletionSummary percent={completionPercent} />
+      <HistoryOverview
+        completionPercent={completionPercent}
+        workoutDays={workoutDays}
+        doneCount={doneCount}
+        skippedCount={skippedCount}
+        loggedCount={historyLogs.length}
+        currentStreak={streaks.current}
+        longestStreak={streaks.longest}
+      />
 
       <BodyMetricsPanel
         draft={bodyMetricDraft}
@@ -197,22 +197,45 @@ export function HistoryView({
   );
 }
 
-function Metric({ label, value, color = '' }: { label: string; value: number; color?: string }) {
-  return <div className="rounded-lg border border-slate-800 bg-slate-900 py-3"><p className={`text-xl font-bold ${color}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>;
-}
-
-function CompletionSummary({ percent }: { percent: number }) {
+function HistoryOverview({ completionPercent, workoutDays, doneCount, skippedCount, loggedCount, currentStreak, longestStreak }: {
+  completionPercent: number;
+  workoutDays: number;
+  doneCount: number;
+  skippedCount: number;
+  loggedCount: number;
+  currentStreak: number;
+  longestStreak: number;
+}) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-200">Completion</h3>
-        <span className="text-xs text-slate-500">{percent}% done</span>
+    <div className="history-overview">
+      <div className="history-rings">
+        <ActivityRing value={completionPercent} suffix="%" label="Completion" tone="green" />
+        <ActivityRing value={workoutDays} label="Active days" tone="amber" />
+        <ActivityRing value={currentStreak} label="Day streak" tone="neutral" />
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-        <div className="h-full bg-emerald-500" style={{ width: `${percent}%` }} />
+      <div className="history-stat-list">
+        <div><Check size={16} aria-hidden="true" /><span>Completed</span><strong>{doneCount}</strong></div>
+        <div><SkipForward size={16} aria-hidden="true" /><span>Skipped</span><strong>{skippedCount}</strong></div>
+        <div><CalendarDays size={16} aria-hidden="true" /><span>Logged items</span><strong>{loggedCount}</strong></div>
+        <div><Flame size={16} aria-hidden="true" /><span>Longest streak</span><strong>{longestStreak}</strong></div>
       </div>
     </div>
   );
+}
+
+function ActivityRing({ value, suffix = '', label, tone }: { value: number; suffix?: string; label: string; tone: 'green' | 'amber' | 'neutral' }) {
+  const displayedProgress = suffix === '%' ? value : Math.min(100, value * 10);
+  const circumference = 251;
+  return <div className={`activity-ring activity-ring--${tone}`}>
+    <div>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle className="activity-ring__track" cx="50" cy="50" r="40" />
+        <circle className="activity-ring__value" cx="50" cy="50" r="40" style={{ strokeDashoffset: circumference * (1 - displayedProgress / 100) }} />
+      </svg>
+      <strong>{value}{suffix}</strong>
+    </div>
+    <span>{label}</span>
+  </div>;
 }
 
 function HealthConnectPanel({

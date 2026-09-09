@@ -1,6 +1,9 @@
+import { useState } from 'react';
+import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
+import { WeeklyPlan } from './WeeklyPlan';
 import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutSetInput, type WorkoutPlayerSession } from './WorkoutPlayer';
-import { EstimateSummary, PlanProgressSummary, type PlanProgress } from './SummaryCards';
-import { type WorkoutLog, type WorkoutRow } from '../types';
+import { type PlanProgress } from './SummaryCards';
+import { type Weekday, type WorkoutLog, type WorkoutRow } from '../types';
 
 function scheduleLoadLabel(row: WorkoutRow): string {
   return row.loadWeight != null && row.loadUnit ? ` · ${row.loadWeight} ${row.loadUnit}` : '';
@@ -8,6 +11,9 @@ function scheduleLoadLabel(row: WorkoutRow): string {
 
 export function TodayView({
   todayName,
+  weeklyWorkouts,
+  onBuildPlan,
+  onBrowseQuests,
   workouts,
   estimate,
   progress,
@@ -33,7 +39,10 @@ export function TodayView({
   onClosePlayer,
   onLogExercise,
 }: {
-  todayName: string;
+  todayName: Weekday;
+  weeklyWorkouts: WorkoutRow[];
+  onBuildPlan: () => void;
+  onBrowseQuests: () => void;
   workouts: WorkoutRow[];
   estimate: string;
   progress: PlanProgress;
@@ -59,16 +68,58 @@ export function TodayView({
   onClosePlayer: () => void;
   onLogExercise: (row: WorkoutRow, status: WorkoutLog['status']) => void;
 }) {
+  const hasWorkout = workouts.length > 0;
+  const [queueFilter, setQueueFilter] = useState<'all' | 'pending' | 'done' | 'skipped'>('all');
+  const visibleWorkouts = workouts.filter((row) => {
+    const status = row.id == null ? undefined : statuses.get(row.id);
+    return queueFilter === 'all' || (queueFilter === 'pending' ? !status : status === queueFilter);
+  });
+
   return (
-    <section className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-base font-semibold text-slate-200">Today's Workout</h2>
-        <span className="text-xs text-slate-500">{workouts.length ? `${todayName} · ${estimate}` : todayName}</span>
+    <section className="today-view space-y-4">
+      <div className="today-hero">
+        <div className="today-hero__heading">
+          <div>
+            <p className="section-kicker">Today</p>
+            <h2>{hasWorkout ? `${todayName} training` : todayName}</h2>
+          </div>
+          {hasWorkout && <span className="status-chip">{progress.resolvedPercent}% handled</span>}
+        </div>
+
+        {hasWorkout ? <>
+          <div className="today-hero__stats" aria-label="Workout summary">
+            <div><Dumbbell aria-hidden="true" /><strong>{workouts.length}</strong><span>Exercises</span></div>
+            <div><Clock3 aria-hidden="true" /><strong>{estimate.replace(/^Est\.\s*/, '')}</strong><span>Estimated</span></div>
+            <div><Check aria-hidden="true" /><strong>{setLogCount}</strong><span>Sets logged</span></div>
+          </div>
+          <div className="plan-meter" aria-label={`${progress.resolvedPercent}% of today's plan handled`}>
+            <span className="plan-meter__done" style={{ width: `${(progress.completed / progress.total) * 100}%` }} />
+            <span className="plan-meter__skipped" style={{ width: `${(progress.skipped / progress.total) * 100}%` }} />
+          </div>
+          <p className="plan-status-line">{progress.completed} completed · {progress.pending} pending · {progress.skipped} skipped</p>
+          {progress.pending === 0 && <p className="plan-finished" role="status">{progress.completed === progress.total ? 'Workout complete. Great work today.' : 'Today’s plan is finished.'}</p>}
+          {!activeSession && progress.pending > 0 && (
+            <button type="button" onClick={onStartPlayer} className="primary-action">
+              <Play size={18} fill="currentColor" aria-hidden="true" /> Start workout
+            </button>
+          )}
+        </> : <div className="today-empty">
+          <Dumbbell aria-hidden="true" />
+          <p>No exercises are scheduled for today.</p>
+          <span>Build a playlist or import a schedule to begin.</span>
+          <div className="empty-plan-actions"><button type="button" className="primary-action" onClick={onBuildPlan}>Build a playlist</button><button type="button" className="secondary-action" onClick={onBrowseQuests}>Browse quests</button></div>
+        </div>}
       </div>
-      {workouts.length > 0 && <EstimateSummary value={estimate} />}
-      {workouts.length > 0 && <PlanProgressSummary progress={progress} />}
-      {setLogCount > 0 && <p className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-400">{setLogCount} completed set{setLogCount === 1 ? '' : 's'} logged today.</p>}
-      {activeSession && activeRows.length > 0 ? <WorkoutPlayer
+
+      {activeSession && activeRows.length === 0 && (
+        <div className="today-empty" role="alert">
+          <Dumbbell aria-hidden="true" />
+          <p>Today's schedule changed, and this in-progress workout's exercises are no longer in it.</p>
+          <button type="button" onClick={onEnd} className="secondary-action">End workout</button>
+        </div>
+      )}
+
+      {activeSession && activeRows.length > 0 && <WorkoutPlayer
         session={activeSession}
         rows={activeRows}
         elapsedSeconds={elapsedSeconds}
@@ -86,22 +137,39 @@ export function TodayView({
         onStartNow={onStartNow}
         onAddRestSeconds={onAddRestSeconds}
         onClose={onClosePlayer}
-      /> : workouts.length > 0 && progress.pending > 0 && <button type="button" onClick={onStartPlayer} className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start workout player</button>}
-      {workouts.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No exercises scheduled for today. Import a CSV to get started.</p> : <div className="space-y-2">
-        {workouts.map((row) => {
-          const status = row.id == null ? undefined : statuses.get(row.id);
-          return <div key={row.id} className={`flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3 ${status === 'done' ? 'opacity-60' : ''}`}>
-            <div className="min-w-0 flex-1">
-              <p className={`truncate font-medium ${status === 'done' ? 'text-slate-500 line-through' : 'text-slate-100'}`}>{row.exercise}</p>
-              <p className="text-xs text-slate-500">{row.time} · {row.sets} × {row.reps}{scheduleLoadLabel(row)} · rest {row.rest}s</p>
-            </div>
-            <div className="flex shrink-0 gap-1.5">
-              <button type="button" onClick={() => onLogExercise(row, 'done')} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${status === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-emerald-600 hover:text-white'}`}>{status === 'done' ? 'Done' : 'Mark as Done'}</button>
-              <button type="button" onClick={() => onLogExercise(row, 'skipped')} className={`rounded-md px-2.5 py-1.5 text-xs font-medium ${status === 'skipped' ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>Skip</button>
-            </div>
-          </div>;
-        })}
+      />}
+
+      {hasWorkout && <div className="plan-section">
+        <div className="section-heading">
+          <div>
+            <p className="section-kicker">Plan</p>
+            <h3>Exercise queue</h3>
+          </div>
+          <span>{progress.pending} remaining</span>
+        </div>
+        <div className="queue-filters" aria-label="Filter exercise queue">
+          {(['all', 'pending', 'done', 'skipped'] as const).map((filter) => <button key={filter} type="button" aria-pressed={queueFilter === filter} onClick={() => setQueueFilter(filter)}>{filter === 'all' ? `All ${progress.total}` : filter === 'done' ? `Done ${progress.completed}` : filter === 'pending' ? `Pending ${progress.pending}` : `Skipped ${progress.skipped}`}</button>)}
+        </div>
+        <div className="exercise-queue">
+          {visibleWorkouts.length === 0 && <p className="week-rest" role="status">No {queueFilter === 'done' ? 'completed' : queueFilter} exercises.</p>}
+          {visibleWorkouts.map((row) => {
+            const status = row.id == null ? undefined : statuses.get(row.id);
+            return <div key={row.id} className={`exercise-row ${status ? `exercise-row--${status}` : ''}`}>
+              <span className="exercise-row__index">{String(workouts.indexOf(row) + 1).padStart(2, '0')}</span>
+              <div className="exercise-row__body">
+                <p>{row.exercise}</p>
+                <span className="exercise-status">{status === 'done' ? 'Completed' : status === 'skipped' ? 'Skipped' : 'Pending'}</span>
+                <span>{row.time} · {row.sets} × {row.reps}{scheduleLoadLabel(row)} · {row.rest}s rest</span>
+              </div>
+              <div className="exercise-row__actions">
+                <button type="button" onClick={() => onLogExercise(row, 'done')} className={status === 'done' ? 'is-active is-done' : ''} title="Mark as done" aria-label={`Mark ${row.exercise} as done`}><Check size={18} aria-hidden="true" /></button>
+                <button type="button" onClick={() => onLogExercise(row, 'skipped')} className={status === 'skipped' ? 'is-active is-skipped' : ''} title="Skip exercise" aria-label={`Skip ${row.exercise}`}><SkipForward size={18} aria-hidden="true" /></button>
+              </div>
+            </div>;
+          })}
+        </div>
       </div>}
+      <WeeklyPlan workouts={weeklyWorkouts} today={todayName} onBuildPlan={onBuildPlan} />
     </section>
   );
 }

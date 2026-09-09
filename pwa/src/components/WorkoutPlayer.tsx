@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
+import { Check, Pause, Play, RefreshCcw, SkipForward, Square, Volume2, Vibrate, X } from 'lucide-react';
 import { formatDuration } from '../lib/format';
 import { type WeightUnit, type WorkoutRow } from '../types';
 
@@ -23,23 +24,9 @@ export type WorkoutCueSettingsView = {
 };
 
 export function WorkoutPlayer({
-  session,
-  rows,
-  elapsedSeconds,
-  restRemainingSeconds,
-  setInput,
-  onSetInputChange,
-  onCompleteSet,
-  onSkip,
-  onPause,
-  onResume,
-  onRestart,
-  onEnd,
-  onStartNow,
-  onAddRestSeconds,
-  cueSettings,
-  onCueSettingsChange,
-  onClose,
+  session, rows, elapsedSeconds, restRemainingSeconds, setInput, onSetInputChange,
+  onCompleteSet, onSkip, onPause, onResume, onRestart, onEnd, onStartNow,
+  onAddRestSeconds, cueSettings, onCueSettingsChange, onClose,
 }: {
   session: WorkoutPlayerSession;
   rows: WorkoutRow[];
@@ -66,127 +53,90 @@ export function WorkoutPlayer({
 
   const setLabel = `Set ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
   const progressLabel = `Exercise ${session.exerciseIndex + 1} of ${rows.length}`;
-  const loadLabel = row.loadWeight != null && row.loadUnit ? ` · planned ${row.loadWeight} ${row.loadUnit}` : '';
-  const inputDisabled = session.status !== 'active';
+  const loadLabel = row.loadWeight != null && row.loadUnit ? `${row.loadWeight} ${row.loadUnit}` : 'Bodyweight';
   const pausedMessage = session.lastStopReason === 'inactive_timeout'
-    ? 'Workout paused after no activity.'
+    ? 'Paused after no activity.'
     : session.pausedRestRemainingSeconds != null ? `Rest paused at ${formatDuration(session.pausedRestRemainingSeconds)}.` : 'Workout paused.';
+  const sessionProgress = ((session.exerciseIndex + Math.min(session.currentSet / Math.max(row.sets, 1), 1)) / rows.length) * 100;
+  const restTotal = Math.max(row.rest, 1);
+  const restProgress = Math.max(0, Math.min(1, restRemainingSeconds / restTotal));
+  const ringOffset = 289 * (1 - restProgress);
+  const stateLabel = session.status === 'resting' ? 'Rest' : session.status === 'paused' ? 'Paused' : session.status === 'ended' ? 'Ended' : session.status === 'completed' ? 'Complete' : 'In progress';
 
   return (
-    <div className="rounded-lg border border-emerald-900 bg-slate-900 p-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
-            {session.status === 'resting' ? 'Rest' : session.status === 'paused' ? 'Paused' : session.status === 'ended' ? 'Ended' : session.status === 'completed' ? 'Complete' : 'Workout Player'}
-          </p>
-          <h3 className="mt-1 truncate text-lg font-semibold text-slate-100">{row.exercise}</h3>
-          <p className="text-xs text-slate-500">{progressLabel} · {setLabel}{loadLabel}</p>
+    <section className="workout-player" aria-label="Workout player">
+      <header className="player-header">
+        <div className="player-header__title">
+          <span className={`player-state player-state--${session.status}`}>{stateLabel}</span>
+          <h3>{row.exercise}</h3>
+          <p>{progressLabel} · {setLabel}</p>
         </div>
-        <span className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs text-slate-300">{formatDuration(elapsedSeconds)}</span>
-      </div>
+        <time>{formatDuration(elapsedSeconds)}</time>
+      </header>
+      <div className="player-progress" aria-hidden="true"><span style={{ width: `${Math.min(sessionProgress, 100)}%` }} /></div>
 
-      {session.status === 'active' && <div className="mb-3 grid grid-cols-[1fr_6.25rem_4.5rem] gap-2 rounded-md border border-slate-800 bg-slate-950 p-3">
-        <label className="min-w-0 text-[10px] uppercase text-slate-600">
-          Reps / duration
-          <input
-            type="text"
-            maxLength={30}
-            value={setInput.actualReps}
-            onChange={(event) => onSetInputChange({ actualReps: event.target.value })}
-            disabled={inputDisabled}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none disabled:opacity-50"
-          />
-        </label>
-        <label className="text-[10px] uppercase text-slate-600">
-          Load
-          <input
-            type="number"
-            min="0"
-            max="2000"
-            step="0.5"
-            inputMode="decimal"
-            placeholder="Optional"
-            value={setInput.loadWeight}
-            onChange={(event) => onSetInputChange({ loadWeight: event.target.value })}
-            disabled={inputDisabled}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-700 focus:border-emerald-500 focus:outline-none disabled:opacity-50"
-          />
-        </label>
-        <label className="text-[10px] uppercase text-slate-600">
-          Unit
-          <select
-            value={setInput.loadUnit}
-            onChange={(event) => onSetInputChange({ loadUnit: event.target.value as WeightUnit })}
-            disabled={inputDisabled}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none disabled:opacity-50"
-          >
-            <option value="kg">kg</option>
-            <option value="lb">lb</option>
-          </select>
-        </label>
-      </div>}
-
-      {session.status === 'resting' && <div className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-center">
-        <p className="text-xs uppercase tracking-wide text-slate-500">Rest remaining</p>
-        <p className="mt-1 text-3xl font-bold text-emerald-300">{formatDuration(restRemainingSeconds)}</p>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[5, 10, 30].map((seconds) => (
-            <button key={seconds} type="button" onClick={() => onAddRestSeconds(seconds)} className="rounded-md bg-slate-800 px-2 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">+{seconds}s</button>
-          ))}
+      {session.status === 'active' && <div className="player-focus player-focus--active">
+        <div className="set-callout">
+          <span>Current set</span>
+          <strong>{Math.min(session.currentSet, row.sets)}<small>/{row.sets}</small></strong>
+          <em>{row.reps} · {loadLabel}</em>
+        </div>
+        <div className="set-inputs">
+          <label><span>Reps / duration</span><input type="text" maxLength={30} value={setInput.actualReps} onChange={(event) => onSetInputChange({ actualReps: event.target.value })} /></label>
+          <label><span>Load</span><input type="number" min="0" max="2000" step="0.5" inputMode="decimal" placeholder="Optional" value={setInput.loadWeight} onChange={(event) => onSetInputChange({ loadWeight: event.target.value })} /></label>
+          <label><span>Unit</span><select value={setInput.loadUnit} onChange={(event) => onSetInputChange({ loadUnit: event.target.value as WeightUnit })}><option value="kg">kg</option><option value="lb">lb</option></select></label>
         </div>
       </div>}
 
-      {session.status === 'paused' && <p className="mb-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-sm text-slate-400">{pausedMessage}</p>}
-
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-md border border-slate-800 bg-slate-950 p-1 text-[11px] font-medium">
-        <CueToggle label="Haptic" enabled={cueSettings.hapticsEnabled} onChange={(enabled) => onCueSettingsChange({ hapticsEnabled: enabled })} />
-        <CueToggle label="Sound" enabled={cueSettings.soundEnabled} onChange={(enabled) => onCueSettingsChange({ soundEnabled: enabled })} />
-        <CueToggle label="Voice" enabled={cueSettings.voiceEnabled} onChange={(enabled) => onCueSettingsChange({ voiceEnabled: enabled })} />
-      </div>
-
-      {confirmingRestart ? <div className="grid gap-2">
-        <button type="button" onClick={() => { onRestart(); setConfirmingRestart(false); }} className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400">Restart workout</button>
-        <button type="button" onClick={() => setConfirmingRestart(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
-      </div> : confirmingEnd ? <div className="grid gap-2">
-        <button type="button" onClick={() => { onEnd(); setConfirmingEnd(false); }} className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500">End workout</button>
-        <button type="button" onClick={() => setConfirmingEnd(false)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Keep paused</button>
-      </div> : session.status === 'active' ? <div className="grid gap-2">
-        <button type="button" onClick={onCompleteSet} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Complete set</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
-          <button type="button" onClick={onSkip} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Skip exercise</button>
+      {session.status === 'resting' && <div className="player-focus player-focus--rest">
+        <div className="rest-ring" role="timer" aria-label={`${formatDuration(restRemainingSeconds)} rest remaining`}>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle className="rest-ring__track" cx="50" cy="50" r="46" />
+            <circle className="rest-ring__value" cx="50" cy="50" r="46" style={{ strokeDashoffset: ringOffset }} />
+          </svg>
+          <div><span>Rest</span><strong>{formatDuration(restRemainingSeconds)}</strong><small>Next: {row.exercise}</small></div>
         </div>
-      </div> : session.status === 'resting' ? <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={onStartNow} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Start now</button>
-        <button type="button" onClick={onPause} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Pause</button>
-      </div> : session.status === 'paused' ? <div className="grid gap-2">
-        <button type="button" onClick={onResume} className="rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Resume</button>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setConfirmingRestart(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Restart</button>
-          <button type="button" onClick={() => setConfirmingEnd(true)} className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">End</button>
+        <div className="rest-extensions" aria-label="Extend rest">
+          {[5, 10, 30].map((seconds) => <button key={seconds} type="button" onClick={() => onAddRestSeconds(seconds)}>+{seconds}s</button>)}
         </div>
-      </div> : <button type="button" onClick={onClose} className="w-full rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Close player</button>}
-    </div>
+      </div>}
+
+      {session.status === 'paused' && <div className="player-focus player-focus--paused">
+        <Pause size={34} aria-hidden="true" />
+        <strong>Workout paused</strong>
+        <p>{pausedMessage}</p>
+      </div>}
+
+      {(session.status === 'active' || session.status === 'resting' || session.status === 'paused') && <div className="cue-controls" aria-label="Workout cues">
+        <CueToggle label="Haptics" icon={Vibrate} enabled={cueSettings.hapticsEnabled} onChange={(enabled) => onCueSettingsChange({ hapticsEnabled: enabled })} />
+        <CueToggle label="Sound" icon={Volume2} enabled={cueSettings.soundEnabled} onChange={(enabled) => onCueSettingsChange({ soundEnabled: enabled })} />
+        <CueToggle label="Voice" icon={Play} enabled={cueSettings.voiceEnabled} onChange={(enabled) => onCueSettingsChange({ voiceEnabled: enabled })} />
+      </div>}
+
+      {confirmingRestart ? <Confirmation message="Restart from the first exercise?" confirmLabel="Restart workout" confirmIcon={RefreshCcw} tone="warning" onConfirm={() => { onRestart(); setConfirmingRestart(false); }} onCancel={() => setConfirmingRestart(false)} />
+        : confirmingEnd ? <Confirmation message="End this workout now?" confirmLabel="End workout" confirmIcon={Square} tone="danger" onConfirm={() => { onEnd(); setConfirmingEnd(false); }} onCancel={() => setConfirmingEnd(false)} />
+          : <PlayerActions status={session.status} onCompleteSet={onCompleteSet} onSkip={onSkip} onPause={onPause} onResume={onResume} onRestart={() => setConfirmingRestart(true)} onEnd={() => setConfirmingEnd(true)} onStartNow={onStartNow} onClose={onClose} />}
+    </section>
   );
 }
 
-function CueToggle({
-  label,
-  enabled,
-  onChange,
-}: {
-  label: string;
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
+function PlayerActions({ status, onCompleteSet, onSkip, onPause, onResume, onRestart, onEnd, onStartNow, onClose }: {
+  status: WorkoutPlayerSession['status']; onCompleteSet: () => void; onSkip: () => void; onPause: () => void; onResume: () => void; onRestart: () => void; onEnd: () => void; onStartNow: () => void; onClose: () => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!enabled)}
-      className={`rounded px-2 py-1.5 ${enabled ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'}`}
-      aria-pressed={enabled}
-    >
-      {label}
-    </button>
-  );
+  if (status === 'active') return <div className="player-actions"><button type="button" onClick={onCompleteSet} className="primary-action"><Check size={19} aria-hidden="true" /> Complete set</button><div className="player-actions__secondary"><IconAction label="Pause" icon={Pause} onClick={onPause} /><IconAction label="Skip exercise" icon={SkipForward} onClick={onSkip} /></div></div>;
+  if (status === 'resting') return <div className="player-actions player-actions--split"><button type="button" onClick={onStartNow} className="primary-action"><Play size={19} fill="currentColor" aria-hidden="true" /> Start now</button><IconAction label="Pause" icon={Pause} onClick={onPause} showLabel /></div>;
+  if (status === 'paused') return <div className="player-actions"><button type="button" onClick={onResume} className="primary-action"><Play size={19} fill="currentColor" aria-hidden="true" /> Resume</button><div className="player-actions__secondary"><IconAction label="Restart" icon={RefreshCcw} onClick={onRestart} /><IconAction label="End workout" icon={Square} onClick={onEnd} /></div></div>;
+  return <button type="button" onClick={onClose} className="secondary-action"><X size={18} aria-hidden="true" /> Close player</button>;
+}
+
+function IconAction({ label, icon: Icon, onClick, showLabel = false }: { label: string; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; onClick: () => void; showLabel?: boolean }) {
+  return <button type="button" className="icon-action" onClick={onClick} title={label} aria-label={label}><Icon size={19} />{showLabel && <span>{label}</span>}</button>;
+}
+
+function Confirmation({ message, confirmLabel, confirmIcon: Icon, tone, onConfirm, onCancel }: { message: string; confirmLabel: string; confirmIcon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; tone: 'warning' | 'danger'; onConfirm: () => void; onCancel: () => void }) {
+  return <div className="player-confirmation"><p>{message}</p><div><button type="button" onClick={onConfirm} className={`confirm-action confirm-action--${tone}`}><Icon size={18} /> {confirmLabel}</button><button type="button" onClick={onCancel} className="secondary-action">Keep paused</button></div></div>;
+}
+
+function CueToggle({ label, icon: Icon, enabled, onChange }: { label: string; icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>; enabled: boolean; onChange: (enabled: boolean) => void }) {
+  return <button type="button" onClick={() => onChange(!enabled)} className={enabled ? 'is-enabled' : ''} aria-label={`${label} ${enabled ? 'on' : 'off'}`} title={label} aria-pressed={enabled}><Icon size={17} /><span>{label}</span></button>;
 }
