@@ -1391,3 +1391,10 @@ a:focus-visible {
 .exercise-row__body .exercise-status { display: block; font-size: .65rem; font-weight: 700; margin: .2rem 0; }
 .exercise-row--done .exercise-status { color: var(--app-color-accent); }
 .exercise-row--skipped .exercise-status { color: #fbbf24; }
+
+.watch-sync-panel { padding: 1rem; border: 1px solid var(--app-color-border); border-radius: var(--app-radius-panel); }
+.watch-sync-panel h3 { display: flex; align-items: center; gap: .5rem; }
+.watch-sync-panel p:not(.section-kicker) { margin: .65rem 0; color: #94a3b8; font-size: .8rem; }
+.watch-sync-panel p[role="alert"] { color: #fda4af; }
+.watch-sync-panel p[role="status"] { color: var(--app-color-accent); }
+.watch-sync-panel .watch-sync-panel__hint { font-size: .7rem; }

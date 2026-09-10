@@ -12,7 +12,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
-import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -27,6 +26,7 @@ import app.personal.workouttracker.wear.download.WorkoutListScreen
 import app.personal.workouttracker.wear.download.WorkoutListViewModel
 import app.personal.workouttracker.wear.session.SessionScreen
 import app.personal.workouttracker.wear.session.SessionViewModel
+import app.personal.workouttracker.wear.ui.PasingotTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -62,7 +62,7 @@ class WearMainActivity : ComponentActivity() {
         LogFlushWorker.schedulePeriodic(applicationContext)
 
         setContent {
-            MaterialTheme {
+            PasingotTheme {
                 val navController = rememberSwipeDismissableNavController()
 
                 SwipeDismissableNavHost(navController = navController, startDestination = "list") {

@@ -27,7 +27,10 @@ declare global {
   interface Window {
     Capacitor?: {
       Plugins?: {
-        ScheduleSync?: { syncSchedule: (payload: { rows: WorkoutRow[] }) => Promise<void> };
+        ScheduleSync?: {
+          syncSchedule: (payload: { rows: WorkoutRow[] }) => Promise<void>;
+          sendTodayToWatch?: () => Promise<{ exerciseCount: number; date: string }>;
+        };
         WorkoutLogBridge?: {
           getPendingLogs: () => Promise<{ logs?: PendingWatchLog[] }>;
           ackLogs: (payload: { ids: string[] }) => Promise<void>;
@@ -173,6 +176,14 @@ export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<void> {
   } catch (error) {
     console.error('Failed to sync schedule to native:', error);
   }
+}
+
+export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCount: number; date: string }> {
+  const bridge = window.Capacitor?.Plugins?.ScheduleSync;
+  if (!bridge?.sendTodayToWatch) throw new Error('Update the Android phone app to use manual watch sync.');
+  // Do not use the automatic cache helper here: manual actions must surface failures.
+  await bridge.syncSchedule({ rows });
+  return bridge.sendTodayToWatch();
 }
 
 export async function drainPendingWatchLogs(): Promise<number> {

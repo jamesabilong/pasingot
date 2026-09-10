@@ -19,21 +19,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
-import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.CircularProgressIndicator
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.wear.ui.WatchAction
+import app.personal.workouttracker.wear.ui.WatchHeading
+import app.personal.workouttracker.wear.ui.WatchNote
+import app.personal.workouttracker.wear.ui.WatchPage
+
+private enum class SessionConfirmation { RESTART, END }
 
 /**
  * Focused active-exercise screen for a downloaded workout. One exercise is
@@ -66,22 +71,22 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val session = state.session
 
     if (session == null) {
-        CompletedView("Workout unavailable")
+        CompletedView("Workout unavailable", onCancel)
         return
     }
 
     if (session.status == SessionStatus.COMPLETED) {
-        CompletedView("Workout complete")
+        CompletedView("Workout complete", onCancel)
         return
     }
 
     if (session.status == SessionStatus.ENDED) {
-        CompletedView("Workout ended")
+        CompletedView("Workout ended", onCancel)
         return
     }
 
     if (exercise == null) {
-        CompletedView("Workout unavailable")
+        CompletedView("Workout unavailable", onCancel)
         return
     }
 
@@ -107,114 +112,51 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         return
     }
 
-    val listState = rememberScalingLazyListState()
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = listState,
-    ) {
+    WatchPage {
         item {
-            Text(
-                text = "ONGOING",
-                style = MaterialTheme.typography.caption2,
-                color = MaterialTheme.colors.primary,
-            )
-        }
-        state.entry?.exercises?.firstNotNullOfOrNull { it.questDayLabel }?.let { questDayLabel ->
-            item {
-                Text(
-                    text = questDayLabel,
-                    style = MaterialTheme.typography.caption1,
-                    color = MaterialTheme.colors.primary,
-                )
-            }
-        }
-        item {
-            Text(
-                text = "Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
-                style = MaterialTheme.typography.caption1,
+            WatchHeading(
+                eyebrow = "SET ${session.currentSet} / ${exercise.sets}",
+                title = exercise.exercise,
+                detail = "Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
             )
         }
         item {
             Text(
-                text = "Set ${session.currentSet.coerceAtMost(exercise.sets)} of ${exercise.sets}",
-                style = MaterialTheme.typography.caption1,
+                text = formatSetTarget(exercise.reps),
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
                 color = MaterialTheme.colors.primary,
             )
         }
         item {
-            Text(
-                text = exercise.exercise,
-                style = MaterialTheme.typography.title3,
-                textAlign = TextAlign.Center,
-            )
+            WatchAction("Complete set", { cueAction(viewModel::onCompleteSet) }, primary = true)
         }
-        item {
-            Text(
-                text = formatExercisePrescription(exercise),
-                style = MaterialTheme.typography.body1,
-                textAlign = TextAlign.Center,
-            )
+        item { WatchAction("Pause", { cueAction(viewModel::onPause) }) }
+        item { WatchNote(formatExercisePrescription(exercise)) }
+        item { WatchNote("Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}") }
+        state.entry?.exercises?.firstNotNullOfOrNull { it.questDayLabel }?.let { label ->
+            item { WatchNote(label) }
         }
-        item {
-            Text(
-                text = "Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Chip(
-                onClick = { cueAction(viewModel::onCompleteSet) },
-                label = { Text("Complete Set") },
-                colors = ChipDefaults.primaryChipColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-        }
+        item { WatchAction("Skip exercise", { cueAction(viewModel::onSkip) }) }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 CompactChip(
-                    onClick = { cueAction(viewModel::onPause) },
-                    label = { Text("Pause") },
-                    colors = ChipDefaults.secondaryChipColors(),
+                    onClick = { cueAction(viewModel::onDowngrade) },
+                    label = { Text("− Set") },
                     modifier = Modifier.weight(1f),
                 )
-                CompactChip(
-                    onClick = { cueAction(viewModel::onSkip) },
-                    label = { Text("Skip") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
                 CompactChip(
                     onClick = { cueAction(viewModel::onUpgrade) },
                     label = { Text("+ Set") },
                     modifier = Modifier.weight(1f),
                 )
-                CompactChip(
-                    onClick = { cueAction(viewModel::onDowngrade) },
-                    label = { Text("- Set") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.weight(1f),
-                )
             }
         }
-        item {
-            CompactChip(
-                onClick = { cueAction { cancelSession(viewModel, onCancel) } },
-                label = { Text("Cancel") },
-                colors = ChipDefaults.secondaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        item { WatchAction("Save & close", { cueAction { cancelSession(viewModel, onCancel) } }) }
     }
 }
 
@@ -249,99 +191,40 @@ private fun RestingView(
     Box(modifier = Modifier.fillMaxSize()) {
         CircularProgressIndicator(
             progress = progress,
-            modifier = Modifier.fillMaxSize().padding(5.dp),
-            strokeWidth = 4.dp,
+            modifier = Modifier.fillMaxSize().padding(4.dp),
+            strokeWidth = 3.dp,
         )
-        ScalingLazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-            state = rememberScalingLazyListState(),
-        ) {
-        item {
-            Text(
-                text = "REST",
-                style = MaterialTheme.typography.caption2,
-                color = MaterialTheme.colors.primary,
-            )
-        }
-        state.entry?.exercises?.firstNotNullOfOrNull { it.questDayLabel }?.let { questDayLabel ->
+        WatchPage {
             item {
-                Text(
-                    text = questDayLabel,
-                    style = MaterialTheme.typography.caption1,
-                    color = MaterialTheme.colors.primary,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    WatchNote("REST · SET ${session.currentSet} / ${exercise.sets}")
+                    Text(
+                        text = formatRestSeconds(state.restRemainingSeconds),
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colors.primary,
+                    )
+                    Text(
+                        text = exercise.exercise,
+                        style = MaterialTheme.typography.caption1,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
-        }
-        item {
-            Text(
-                text = formatRestSeconds(state.restRemainingSeconds),
-                style = MaterialTheme.typography.display1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = "Next: exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = "Set ${session.currentSet.coerceAtMost(exercise.sets)} of ${exercise.sets}",
-                style = MaterialTheme.typography.caption1,
-                color = MaterialTheme.colors.primary,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = exercise.exercise,
-                style = MaterialTheme.typography.title3,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = "Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                RestExtensionChip(seconds = 5, onAddRestSeconds = onAddRestSeconds, modifier = Modifier.weight(1f))
-                RestExtensionChip(seconds = 10, onAddRestSeconds = onAddRestSeconds, modifier = Modifier.weight(1f))
-                RestExtensionChip(seconds = 30, onAddRestSeconds = onAddRestSeconds, modifier = Modifier.weight(1f))
+            item { WatchAction("Start now", onStartNow, primary = true) }
+            item { WatchAction("Pause", onPause) }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    RestExtensionChip(5, onAddRestSeconds, Modifier.weight(1f))
+                    RestExtensionChip(10, onAddRestSeconds, Modifier.weight(1f))
+                    RestExtensionChip(30, onAddRestSeconds, Modifier.weight(1f))
+                }
             }
-        }
-        item {
-            Chip(
-                onClick = onStartNow,
-                label = { Text("Start Now") },
-                colors = ChipDefaults.primaryChipColors(),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-        }
-        item {
-            CompactChip(
-                onClick = onPause,
-                label = { Text("Pause") },
-                colors = ChipDefaults.secondaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            CompactChip(
-                onClick = onCancel,
-                label = { Text("Cancel") },
-                colors = ChipDefaults.secondaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+            item { WatchNote("Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}") }
+            item { WatchAction("Save & close", onCancel) }
         }
     }
 }
@@ -356,139 +239,43 @@ private fun PausedView(
 ) {
     val exercise = state.currentExercise ?: return
     val session = state.session ?: return
-    var confirmingEnd by remember { mutableStateOf(false) }
-    var confirmingRestart by remember { mutableStateOf(false) }
+    var confirmation by remember { mutableStateOf<SessionConfirmation?>(null) }
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = rememberScalingLazyListState(),
-    ) {
+    WatchPage {
         item {
-            Text(
-                text = when {
-                    confirmingEnd -> "END WORKOUT?"
-                    confirmingRestart -> "RESTART?"
-                    else -> "PAUSED"
+            WatchHeading(
+                eyebrow = if (confirmation != null) "CONFIRM" else "PAUSED",
+                title = when (confirmation) {
+                    SessionConfirmation.END -> "End workout?"
+                    SessionConfirmation.RESTART -> "Start over?"
+                    null -> exercise.exercise
                 },
-                style = MaterialTheme.typography.caption2,
-                color = MaterialTheme.colors.primary,
-                textAlign = TextAlign.Center,
+                detail = "Set ${session.currentSet} / ${exercise.sets} · ${formatElapsedSeconds(state.elapsedSeconds)} elapsed",
             )
         }
-        item {
-            Text(
-                text = "Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = "Set ${session.currentSet.coerceAtMost(exercise.sets)} of ${exercise.sets}",
-                style = MaterialTheme.typography.caption1,
-                color = MaterialTheme.colors.primary,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = exercise.exercise,
-                style = MaterialTheme.typography.title3,
-                textAlign = TextAlign.Center,
-            )
-        }
-        item {
-            Text(
-                text = "Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-            )
-        }
-        session.lastStopReason?.let { reason ->
+        if (confirmation != null) {
+            val restarting = confirmation == SessionConfirmation.RESTART
             item {
-                Text(
-                    text = formatStopReason(reason),
-                    style = MaterialTheme.typography.caption1,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-        session.pausedRestRemainingSeconds?.let { restSeconds ->
-            item {
-                Text(
-                    text = "Rest paused at ${formatRestSeconds(restSeconds)}",
-                    style = MaterialTheme.typography.body1,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-        if (confirmingRestart) {
-            item {
-                Chip(
-                    onClick = onRestartWorkout,
-                    label = { Text("Restart") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
+                WatchNote(if (restarting) "Return to the first set." else "Finished exercises stay logged.")
             }
             item {
-                CompactChip(
-                    onClick = { confirmingRestart = false },
-                    label = { Text("Keep Paused") },
-                    modifier = Modifier.fillMaxWidth(),
+                WatchAction(
+                    label = if (restarting) "Restart workout" else "End workout",
+                    onClick = if (restarting) onRestartWorkout else onEndWorkout,
+                    primary = true,
                 )
             }
-        } else if (confirmingEnd) {
-            item {
-                Chip(
-                    onClick = {
-                        onEndWorkout()
-                        onCancel()
-                    },
-                    label = { Text("End Workout") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
-            }
-            item {
-                CompactChip(
-                    onClick = { confirmingEnd = false },
-                    label = { Text("Keep Paused") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            item { WatchAction("Keep paused", { confirmation = null }) }
         } else {
-            item {
-                Chip(
-                    onClick = onResume,
-                    label = { Text("Resume") },
-                    colors = ChipDefaults.primaryChipColors(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                )
+            item { WatchAction("Resume", onResume, primary = true) }
+            session.pausedRestRemainingSeconds?.let { seconds ->
+                item { WatchNote("${formatRestSeconds(seconds)} rest remaining") }
             }
-            item {
-                CompactChip(
-                    onClick = { confirmingRestart = true },
-                    label = { Text("Restart") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                CompactChip(
-                    onClick = { confirmingEnd = true },
-                    label = { Text("End Workout") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item {
-                CompactChip(
-                    onClick = onCancel,
-                    label = { Text("Close") },
-                    colors = ChipDefaults.secondaryChipColors(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            item { WatchAction("Save & close", onCancel) }
+            item { WatchAction("Restart", { confirmation = SessionConfirmation.RESTART }) }
+            item { WatchAction("End workout", { confirmation = SessionConfirmation.END }) }
+            session.lastStopReason?.let { reason ->
+                item { WatchNote(formatStopReason(reason)) }
             }
         }
     }
@@ -509,15 +296,20 @@ private fun RestExtensionChip(
 }
 
 @Composable
-private fun CompletedView(message: String) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(text = message, style = MaterialTheme.typography.title3, textAlign = TextAlign.Center)
+private fun CompletedView(message: String, onClose: () -> Unit) {
+    WatchPage {
+        item { WatchHeading("PASINGOT", message) }
+        item {
+            WatchNote(
+                if (message == "Workout complete") "All sets finished. Nice work." else "Return to your saved workouts."
+            )
+        }
+        item { WatchAction("Back to workouts", onClose, primary = true) }
     }
 }
+
+private fun formatSetTarget(reps: String): String =
+    if (reps.all { it.isDigit() || it in " -–" }) "$reps reps" else reps
 
 private fun formatRestSeconds(seconds: Int): String {
     val boundedSeconds = seconds.coerceAtLeast(0)
@@ -546,7 +338,7 @@ private fun formatExercisePrescription(exercise: WorkoutExercise): String {
     } else {
         ""
     }
-    return "${exercise.sets} sets · ${exercise.reps} reps$load · ${exercise.rest}s rest"
+    return "${exercise.sets} sets$load · ${exercise.rest}s rest"
 }
 
 private fun formatLoadWeight(weight: Double): String =

@@ -176,3 +176,16 @@ all screen-by-screen acceptance criteria above are complete.
 Use the delivery board in `WORKOUT_APP_PLAN.md` for current, pending, next,
 and future work. Earlier comparison rows describe the original design target;
 the delivery board and stage status distinguish implementation from validation.
+
+## 2026-09-10 reconciliation
+
+PWA feature-screen and weekly plan work is committed in `4f5da66`. The active
+implementation is the round-screen watch redesign; see the delivery board in
+`WORKOUT_APP_PLAN.md`. Health Connect and paired sync are principally validation
+gaps. Stage 16 media, custom-exercise quest authoring/reference safeguards,
+and the explicitly listed future candidates remain unimplemented. Do not treat
+all comparison-table suggestions as approved requirements.
+
+The 2026-09-10 watch pass now has round-emulator evidence for active/rest/paused
+layouts, process-restart recovery, end confirmation, and schedule adjustment.
+Physical and paired-device acceptance remains open; no second emulator was run.

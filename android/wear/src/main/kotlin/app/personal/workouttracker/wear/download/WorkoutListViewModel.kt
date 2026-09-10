@@ -7,6 +7,15 @@ import androidx.lifecycle.viewModelScope
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.wear.data.WearSyncClient
 import app.personal.workouttracker.wear.data.WorkoutRepository
+import app.personal.workouttracker.wear.data.DownloadFeedback
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,22 +33,45 @@ class WorkoutListViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )
 
-    private val _downloadError = MutableStateFlow<String?>(null)
-    val downloadError: StateFlow<String?> = _downloadError.asStateFlow()
+    private val _feedback = MutableStateFlow<DownloadFeedback?>(null)
+    val feedback = _feedback.asStateFlow()
+    private val _syncing = MutableStateFlow(false)
+    val syncing = _syncing.asStateFlow()
 
-    /** Requests today's workout from the phone. Adding it to storage happens
-     *  asynchronously when WorkoutSetListenerService receives the reply —
-     *  this call only reports whether the *request* went out. */
-    fun downloadNow() {
+    init {
         viewModelScope.launch {
-            WearSyncClient.requestWorkout(appContext)
-                .onSuccess { _downloadError.value = null }
-                .onFailure { _downloadError.value = it.message ?: "Download failed" }
+            repository.downloadFeedback.filterNotNull().collect { _feedback.value = it }
         }
     }
 
-    fun dismissError() {
-        _downloadError.value = null
+    /** Wait for the listener's storage outcome, not just a sent request. */
+    fun downloadNow() {
+        if (_syncing.value) return
+        _syncing.value = true
+        _feedback.value = DownloadFeedback("Connecting to phone…", error = false)
+        val previous = repository.downloadFeedback.value
+        viewModelScope.launch {
+            try {
+                withTimeout(20_000) {
+                    coroutineScope {
+                        val reply = async(start = CoroutineStart.UNDISPATCHED) {
+                            repository.downloadFeedback.first { it != null && it != previous }
+                        }
+                        WearSyncClient.requestWorkout(appContext).getOrThrow()
+                        _feedback.value = DownloadFeedback("Request sent. Waiting for your phone…", error = false)
+                        _feedback.value = reply.await()
+                    }
+                }
+            } catch (error: TimeoutCancellationException) {
+                _feedback.value = DownloadFeedback("No reply yet. Open Pasingot on your phone, check the connection, then retry.", error = true)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _feedback.value = DownloadFeedback(error.message ?: "Sync failed. Try again.", error = true)
+            } finally {
+                _syncing.value = false
+            }
+        }
     }
 
     /** Prompt 5 secondary action: clears progress only, keeps cached data. */

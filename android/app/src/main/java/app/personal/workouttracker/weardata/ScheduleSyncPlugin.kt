@@ -1,6 +1,13 @@
 package app.personal.workouttracker.weardata
 
 import app.personal.workouttracker.shared.ScheduleRow
+import com.getcapacitor.JSObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import com.getcapacitor.JSArray
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -20,6 +27,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 @CapacitorPlugin(name = "ScheduleSync")
 class ScheduleSyncPlugin : Plugin() {
 
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cache by lazy { ScheduleCache(context) }
 
     @PluginMethod
@@ -57,4 +65,32 @@ class ScheduleSyncPlugin : Plugin() {
             call.reject("Failed to sync schedule: ${e.message}", e)
         }
     }
+    @PluginMethod
+    fun sendTodayToWatch(call: PluginCall) {
+        syncScope.launch {
+            try {
+                val payload = cache.todaysWorkout()
+                if (payload.exercises.isEmpty()) {
+                    call.reject("No exercises scheduled for today. Add a playlist or quest first.")
+                    return@launch
+                }
+                withTimeout(15_000) {
+                    WearSyncClient.sendWorkoutSet(context, payload).getOrThrow()
+                }
+                // DataClient has accepted the payload; receipt is reported on the watch.
+                call.resolve(JSObject().apply {
+                    put("exerciseCount", payload.exercises.size)
+                    put("date", payload.date)
+                })
+            } catch (error: Exception) {
+                call.reject(error.message ?: "Could not send workout. Check your watch connection.", error)
+            }
+        }
+    }
+
+    override fun handleOnDestroy() {
+        syncScope.cancel()
+        super.handleOnDestroy()
+    }
+
 }

@@ -1,6 +1,11 @@
 package app.personal.workouttracker.weardata
 
 import android.content.Context
+import app.personal.workouttracker.shared.WorkoutSetPayload
+import app.personal.workouttracker.shared.buildWorkoutTransfer
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import app.personal.workouttracker.shared.CURRENT_SCHEMA_VERSION
 import app.personal.workouttracker.shared.CachedSchedule
 import app.personal.workouttracker.shared.ScheduleRow
@@ -46,6 +51,12 @@ class ScheduleCache(context: Context) {
             null
         }
     }
+
+    fun todaysWorkout(now: Date = Date()): WorkoutSetPayload = buildWorkoutTransfer(
+        rows = load()?.rows.orEmpty(),
+        date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now),
+        weekday = SimpleDateFormat("EEEE", Locale.US).format(now),
+    )
 
     companion object {
         private const val PREFS_NAME = "schedule_cache"

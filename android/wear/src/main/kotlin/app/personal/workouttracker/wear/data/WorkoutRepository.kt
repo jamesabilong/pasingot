@@ -12,6 +12,8 @@ import app.personal.workouttracker.shared.WorkoutSetPayload
 import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.displayStatus
 import app.personal.workouttracker.shared.planWorkoutDownloadInsert
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -44,6 +46,8 @@ sealed interface AddResult {
     object StalePayload : AddResult
 }
 
+data class DownloadFeedback(val message: String, val error: Boolean, val revision: Long = System.nanoTime())
+
 /**
  * Single source of truth for downloaded workout sets on the watch (Prompt 5)
  * and their per-entry [SessionState] (Prompt 4). Backed by Preferences
@@ -52,6 +56,17 @@ sealed interface AddResult {
  * compile-verified in this sandbox.
  */
 class WorkoutRepository(private val context: Context) {
+
+    // UI and listener service share one app process. Feedback is transient, not workout data.
+    companion object {
+        private val latestFeedback = MutableStateFlow<DownloadFeedback?>(null)
+    }
+
+    val downloadFeedback = latestFeedback.asStateFlow()
+
+    fun reportDownload(message: String, error: Boolean = false) {
+        latestFeedback.value = DownloadFeedback(message, error)
+    }
 
     private val json = Json { ignoreUnknownKeys = true }
     private val key = stringPreferencesKey("workout_store_json")

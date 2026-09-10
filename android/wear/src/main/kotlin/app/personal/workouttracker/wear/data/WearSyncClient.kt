@@ -23,7 +23,7 @@ object WearSyncClient {
             // This is the check the spec's "so the watch can show that
             // instead of hanging" language actually refers to: the watch
             // itself fails fast here rather than sending into the void.
-            throw IllegalStateException("Phone unreachable — no connected node")
+            throw IllegalStateException("Phone not connected. Open the phone app and reconnect your watch.")
         }
         val messageClient = Wearable.getMessageClient(context)
         for (node in connectedNodes) {

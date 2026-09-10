@@ -36,7 +36,7 @@ object WearSyncClient {
                 // :wear, Phase E) — from the phone's side this just means
                 // the reply can't be delivered, so give up cleanly rather
                 // than hang a background listener service.
-                throw IllegalStateException("No connected watch node — workout set not delivered")
+                throw IllegalStateException("Watch not connected. Reconnect your watch and try again.")
             }
 
             val request = PutDataMapRequest.create(DataLayerPaths.WORKOUT_SET).apply {

@@ -36,22 +36,34 @@ class WorkoutSetListenerService : WearableListenerService() {
                     json.decodeFromString(WorkoutSetPayload.serializer(), payloadJson)
                 } catch (e: Exception) {
                     Log.e(TAG, "Malformed workout set payload", e)
+                    WorkoutRepository(applicationContext).reportDownload("Could not read workout. Update both apps and try again.", error = true)
                     continue
                 }
 
                 serviceScope.launch {
                     val repository = WorkoutRepository(applicationContext)
-                    when (val result = repository.addDownload(payload)) {
-                        is AddResult.Added -> Log.i(TAG, "Added workout for ${payload.date}")
-                        is AddResult.SkippedDuplicateDate -> Log.i(TAG, "Skipped duplicate date ${payload.date}")
-                        AddResult.Blocked -> {
-                            Log.w(TAG, "Download blocked — cap reached, nothing evictable")
-                            NotificationHelper.notifyBlockedDownload(applicationContext)
+                    try {
+                        if (payload.exercises.isEmpty()) {
+                            repository.reportDownload("No exercises scheduled for today on your phone.")
+                            return@launch
                         }
-                        AddResult.StalePayload -> {
-                            Log.w(TAG, "Stale workout payload for ${payload.date}")
-                            NotificationHelper.notifyStaleWorkout(applicationContext)
+                        when (repository.addDownload(payload)) {
+                            is AddResult.Added -> repository.reportDownload("Received ${payload.exercises.size} exercises from phone.")
+                            is AddResult.SkippedDuplicateDate -> repository.reportDownload(
+                                "Today is already saved. To fetch changes, delete that download from Options, then sync again."
+                            )
+                            AddResult.Blocked -> {
+                                repository.reportDownload("Watch storage is full. Finish or delete a saved workout first.", error = true)
+                                NotificationHelper.notifyBlockedDownload(applicationContext)
+                            }
+                            AddResult.StalePayload -> {
+                                repository.reportDownload("Update both apps before syncing this workout.", error = true)
+                                NotificationHelper.notifyStaleWorkout(applicationContext)
+                            }
                         }
+                    } catch (error: Exception) {
+                        Log.e(TAG, "Could not save downloaded workout", error)
+                        repository.reportDownload("Could not save workout. Try syncing again.", error = true)
                     }
                 }
             }

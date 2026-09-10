@@ -2,12 +2,7 @@ package app.personal.workouttracker.wear.download
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,9 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactChip
@@ -31,13 +24,16 @@ import app.personal.workouttracker.shared.EntryDisplayStatus
 import app.personal.workouttracker.shared.displayStatus
 import app.personal.workouttracker.shared.estimatedDurationSeconds
 import app.personal.workouttracker.shared.formatEstimatedDuration
+import app.personal.workouttracker.wear.ui.WatchAction
+import app.personal.workouttracker.wear.ui.WatchHeading
+import app.personal.workouttracker.wear.ui.WatchNote
+import app.personal.workouttracker.wear.ui.WatchPage
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-/**
- * Prompt 5: list of downloaded workout sets. Empty state, per-entry
- * Start/Resume, and a "⋮"-style secondary action revealing Reset/Delete.
- */
+private enum class WorkoutConfirmation { RESET, DELETE }
+
+/** Saved workouts with download controls and explicit reset/delete confirmation. */
 @Composable
 fun WorkoutListScreen(
     viewModel: WorkoutListViewModel,
@@ -45,106 +41,47 @@ fun WorkoutListScreen(
     onOpenSettings: () -> Unit,
 ) {
     val entries by viewModel.entries.collectAsState()
-    val downloadError by viewModel.downloadError.collectAsState()
-    val listState = rememberScalingLazyListState()
+    val feedback by viewModel.feedback.collectAsState()
+    val syncing by viewModel.syncing.collectAsState()
 
-    if (entries.isEmpty() && downloadError == null) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = "Workouts",
-                style = MaterialTheme.typography.title3,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            CompactChip(
-                onClick = viewModel::downloadNow,
-                label = { Text("Download Now") },
-                colors = ChipDefaults.primaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            CompactChip(
-                onClick = onOpenSettings,
-                label = { Text("Auto-download settings") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "No workouts downloaded — tap to download",
-                style = MaterialTheme.typography.caption1,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(0.9f),
-            )
-        }
-        return
-    }
-
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = listState,
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    WatchPage {
         item {
-            Text(
-                text = "Workouts",
-                style = MaterialTheme.typography.title3,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
+            WatchHeading(
+                eyebrow = "PASINGOT",
+                title = "Workouts",
+                detail = if (entries.isEmpty()) "Your next session starts here" else "${entries.size} saved on watch",
             )
         }
-
-        if (downloadError != null) {
+        item {
+            WatchAction(
+                label = if (syncing) "Syncing…" else "Sync from phone",
+                onClick = viewModel::downloadNow,
+                primary = true,
+                enabled = !syncing,
+            )
+        }
+        feedback?.let { result ->
             item {
                 Text(
-                    text = downloadError ?: "",
+                    text = result.message,
+                    color = if (result.error) MaterialTheme.colors.error else MaterialTheme.colors.onSurface,
                     style = MaterialTheme.typography.caption2,
-                    color = MaterialTheme.colors.error,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
-
-        item {
-            CompactChip(
-                onClick = viewModel::downloadNow,
-                label = { Text("Download Now") },
-                colors = ChipDefaults.primaryChipColors(),
-                modifier = Modifier.fillMaxWidth(),
+        items(entries, key = { it.id }) { entry ->
+            WorkoutRow(
+                entry = entry,
+                onStartOrResume = { onOpenEntry(entry.id) },
+                onReset = { viewModel.reset(entry.id) },
+                onDelete = { viewModel.delete(entry.id) },
             )
         }
-        item {
-            CompactChip(
-                onClick = onOpenSettings,
-                label = { Text("Auto-download settings") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
         if (entries.isEmpty()) {
-            item {
-                Text(
-                    text = "No workouts downloaded — tap to download",
-                    style = MaterialTheme.typography.caption1,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(0.82f).padding(top = 4.dp),
-                )
-            }
-        } else {
-            items(entries) { entry ->
-                WorkoutRow(
-                    entry = entry,
-                    onStartOrResume = { onOpenEntry(entry.id) },
-                    onReset = { viewModel.reset(entry.id) },
-                    onDelete = { viewModel.delete(entry.id) },
-                )
-            }
+            item { WatchNote("Connect your phone to download a workout.") }
         }
+        item { WatchAction("Schedule", onOpenSettings) }
     }
 }
 
@@ -155,59 +92,61 @@ private fun WorkoutRow(
     onReset: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var showActions by remember { mutableStateOf(false) }
+    var showActions by remember(entry.id) { mutableStateOf(false) }
+    var confirmation by remember(entry.id) { mutableStateOf<WorkoutConfirmation?>(null) }
     val status = entry.displayStatus()
-    val hasProgress = status == EntryDisplayStatus.IN_PROGRESS ||
-        status == EntryDisplayStatus.RESTING ||
-        status == EntryDisplayStatus.PAUSED ||
-        status == EntryDisplayStatus.COMPLETED ||
-        status == EntryDisplayStatus.ENDED
-    val questDayLabel = entry.exercises.firstNotNullOfOrNull { it.questDayLabel }
-    val estimate = formatEstimatedDuration(entry.estimatedDurationSeconds())
+    val canResume = status == EntryDisplayStatus.IN_PROGRESS ||
+        status == EntryDisplayStatus.RESTING || status == EntryDisplayStatus.PAUSED
+    val canReset = canResume || status == EntryDisplayStatus.COMPLETED || status == EntryDisplayStatus.ENDED
+    val title = entry.exercises.firstNotNullOfOrNull { it.questDayLabel } ?: formatDateLabel(entry.date)
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Chip(
-            onClick = {
-                // Stale entries (schema mismatch) can't be started/resumed —
-                // only Delete (via the ⋮ menu) is offered (Prompt 5 req 5).
-                if (status != EntryDisplayStatus.STALE) onStartOrResume()
-            },
-            label = { Text(questDayLabel ?: formatDateLabel(entry.date)) },
-            secondaryLabel = {
-                Text(
-                    if (questDayLabel == null) {
-                        "${status.label} · $estimate"
-                    } else {
-                        "${formatDateLabel(entry.date)} · ${status.label} · $estimate"
-                    }
-                )
-            },
-            colors = ChipDefaults.secondaryChipColors(),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        CompactChip(
-            onClick = { showActions = !showActions },
-            label = { Text("⋮") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (showActions) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (hasProgress) {
-                    CompactChip(
-                        onClick = { onReset(); showActions = false },
-                        label = { Text("Reset") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (confirmation != null) {
+            WatchHeading(
+                eyebrow = "CONFIRM",
+                title = if (confirmation == WorkoutConfirmation.DELETE) "Delete workout?" else "Reset progress?",
+            )
+            WatchNote(
+                if (confirmation == WorkoutConfirmation.DELETE) {
+                    "Remove this download from your watch."
+                } else {
+                    "Start this download from set one."
                 }
-                CompactChip(
-                    onClick = { onDelete(); showActions = false },
-                    label = { Text("Delete") },
-                    colors = ChipDefaults.chipColors(backgroundColor = MaterialTheme.colors.error),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            )
+            WatchAction(
+                label = "Confirm",
+                onClick = {
+                    if (confirmation == WorkoutConfirmation.DELETE) onDelete() else onReset()
+                    confirmation = null
+                    showActions = false
+                },
+            )
+            WatchAction("Keep workout", { confirmation = null })
+        } else {
+            Chip(
+                onClick = onStartOrResume,
+                enabled = status != EntryDisplayStatus.STALE,
+                label = { Text(title) },
+                secondaryLabel = {
+                    Text("${if (canResume) "Resume" else status.label} · ${entry.exercises.size} exercises")
+                },
+                colors = ChipDefaults.primaryChipColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            WatchNote(formatEstimatedDuration(entry.estimatedDurationSeconds()))
+            CompactChip(
+                onClick = { showActions = !showActions },
+                label = { Text(if (showActions) "Hide options" else "Options") },
+            )
+            if (showActions) {
+                if (canReset) {
+                    WatchAction("Reset progress", { confirmation = WorkoutConfirmation.RESET })
+                }
+                WatchAction("Delete download", { confirmation = WorkoutConfirmation.DELETE })
             }
         }
     }

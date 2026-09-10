@@ -2,16 +2,11 @@ package app.personal.workouttracker.weardata
 
 import android.util.Log
 import app.personal.workouttracker.shared.DataLayerPaths
-import app.personal.workouttracker.shared.WorkoutExercise
-import app.personal.workouttracker.shared.WorkoutSetPayload
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Prompt 6, req 2-3: listens on [DataLayerPaths.REQUEST_WORKOUT] for a
@@ -30,31 +25,7 @@ class WorkoutRequestListenerService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
         if (event.path != DataLayerPaths.REQUEST_WORKOUT) return
 
-        val cache = ScheduleCache(applicationContext)
-        val cached = cache.load()
-        val today = todayWeekdayName()
-
-        val todaysExercises: List<WorkoutExercise> = cached?.rows
-            ?.filter { it.day.equals(today, ignoreCase = true) }
-            ?.sortedBy { it.time }
-            ?.map {
-                WorkoutExercise(
-                    exercise = it.exercise,
-                    reps = it.reps,
-                    sets = it.sets,
-                    rest = it.rest,
-                    loadWeight = it.loadWeight,
-                    loadUnit = it.loadUnit,
-                    workoutRowId = it.workoutRowId,
-                    questId = it.questId,
-                    questDayIndex = it.questDayIndex,
-                    questDayLabel = it.questDayLabel,
-                    questLevel = it.questLevel,
-                )
-            }
-            ?: emptyList()
-
-        val payload = WorkoutSetPayload(date = todayDateKey(), exercises = todaysExercises)
+        val payload = ScheduleCache(applicationContext).todaysWorkout()
 
         // onMessageReceived runs on a binder thread with no guaranteed
         // lifetime beyond this call; launch on a service-scoped coroutine
@@ -63,15 +34,9 @@ class WorkoutRequestListenerService : WearableListenerService() {
         // WORKOUT_SET data item itself.
         serviceScope.launch {
             val result = WearSyncClient.sendWorkoutSet(applicationContext, payload)
-            result.onFailure { Log.e(TAG, "Failed to deliver workout set for $today", it) }
+            result.onFailure { Log.e(TAG, "Failed to deliver workout set for ${payload.date}", it) }
         }
     }
-
-    private fun todayWeekdayName(): String =
-        SimpleDateFormat("EEEE", Locale.US).format(Date())
-
-    private fun todayDateKey(): String =
-        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
     companion object {
         private const val TAG = "WorkoutRequestListener"

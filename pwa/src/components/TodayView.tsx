@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
+import { WatchSyncPanel } from './WatchSyncPanel';
 import { WeeklyPlan } from './WeeklyPlan';
 import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutSetInput, type WorkoutPlayerSession } from './WorkoutPlayer';
 import { type PlanProgress } from './SummaryCards';
@@ -110,6 +111,8 @@ export function TodayView({
           <div className="empty-plan-actions"><button type="button" className="primary-action" onClick={onBuildPlan}>Build a playlist</button><button type="button" className="secondary-action" onClick={onBrowseQuests}>Browse quests</button></div>
         </div>}
       </div>
+
+      <WatchSyncPanel hasWorkout={hasWorkout} />
 
       {activeSession && activeRows.length === 0 && (
         <div className="today-empty" role="alert">

@@ -1,9 +1,36 @@
 # Android (Capacitor Wrapper) — Build & Run
 
-This wraps the PWA in `/pwa` as a native Android app. This sandbox has Node
-but no Java/Gradle/Android SDK on `PATH`, so the steps below are meant to be
-run from a machine with Android Studio (already installed on this Mac, just
-not CLI-drivable here).
+This wraps the built React PWA (`pwa/dist`) in a native Android app and ships
+a separate Wear OS companion. Use Node 22, Android SDK, and the project's
+Gradle-configured Java toolchain for native builds.
+
+## Manual phone → watch sync
+
+1. Install the current phone **and** Wear APKs. Pair/connect the watch to this
+   phone using its companion app. Both builds need the same application ID
+   and signing certificate for the Wearable Data Layer.
+2. In the Android phone app, add a playlist, quest, or CSV schedule with
+   exercises for **today**. A playlist draft alone is not a saved schedule.
+3. On the phone, open **Today → Send today to watch**; or on the watch, open
+   **Workouts → Sync from phone**. The watch action is above saved workouts.
+4. The phone confirms that exercises were queued, not that the watch stored
+   them. Check the watch for its received/already-saved/error message.
+5. If today's workout is already downloaded, it is preserved, including its
+   progress. To fetch an edited schedule, use that workout's **Options →
+   Delete download → Confirm**, then sync again. This deletes that local
+   download and its session progress; do not do it to an in-progress workout
+   unless you intend to restart it.
+
+This transfers today's scheduled exercises, not the full exercise library,
+body measurements, or phone history. Watch completion logs return to the phone
+through the existing automatic queue when connected and the phone app opens.
+Health Connect is separate. Desktop/mobile browser PWAs do not provide the
+native Wear bridge; use the installed Android APK on the paired phone.
+
+Without a connection, the watch reports an unreachable phone; a sent request
+that receives no result times out after 20 seconds and can be retried. Empty
+schedules, incompatible payloads, storage limits, and duplicate dates are shown
+in the watch app even when notification permission is off.
 
 ## One-time setup (already done in this repo, listed for reference)
 
@@ -17,7 +44,7 @@ npx cap add android      # generates ./android — already committed
 
 ## After any change to `/pwa`
 
-Capacitor's `webDir` (`pwa/`) is copied into the native project's assets —
+Capacitor's `webDir` (`pwa/dist`) is copied into the native project's assets —
 re-run this after editing anything in `/pwa`:
 
 ```bash

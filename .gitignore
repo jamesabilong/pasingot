@@ -2,6 +2,7 @@
 node_modules/
 pwa/dist/
 output/playwright/
+output/emulator-validation/
 
 # OS
 .DS_Store

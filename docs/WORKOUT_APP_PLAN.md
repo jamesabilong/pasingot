@@ -16,18 +16,17 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `b7f251f PST01: Update navigation and badges`,
-  including Stage 17 body-weight sync and the Stage 18 shell foundation.
+- Latest committed checkpoint: `4f5da66 PST01: Code cleanup`, including the
+  PWA feature-screen redesigns and weekly planning slice.
 - Stage 17's first implementation commit is
   `493754d PST01: Stage 16 implementation`. Despite its message, the commit
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active local work: Stage 18 feature-screen redesigns, weekly plan browsing,
-  Today queue filters, and Health Connect hook refinements. Existing local
-  edits are preserved; implementation is not equivalent to device validation.
-- Local commit state: Stage 17 body-weight sync and Stage 18 shell foundation
-  are in `b7f251f`. Subsequent feature-screen and watch UI changes remain local.
+- Active local work: round-screen Wear OS redesign (shared theme, session,
+  workout list, and schedule settings), with round-emulator acceptance recorded below.
+- Weekly planning and the earlier feature-screen improvements are committed
+  in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
   wiring bug in the Health Connect History panel (the app did not compile),
@@ -45,16 +44,81 @@ updated at each checkpoint so the plan is visible from every device.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-09
+## Delivery board — reviewed 2026-09-10
 
-| Lane | Scope | Exit condition / next action |
+| Lane | Scope | Next action |
 |---|---|---|
-| **Current · local implementation** | Stage 18: Today, player, Library, Quests, History, Import, and Wear session visual changes | Review the existing local diff; validate each changed workflow before committing |
-| **Current · this update** | Today weekly schedule, time-grouped previews, queue filters, explicit statuses, empty-state navigation | Typecheck, production build, desktop/mobile browser smoke test |
-| **Pending · device verification** | Stage 9 recovery; Stage 17 Health Connect permissions, body-weight mutations and retries | Physical phone/watch interruption and sync checks; record evidence before closing |
-| **Next · UI acceptance** | Stage 18 full active/rest/paused/recovery flow and Wear round-screen controls | Browser workflow sweep plus Wear emulator/device check |
-| **Future · scoped candidates** | Optional RPE/RIR, plate calculator, supersets, body measurements, licensed catalog media | Select an individual feature and define data model, backup compatibility, and acceptance checks first |
-| **Deferred** | Heart-rate summaries, cloud accounts, social features, adaptive programs | Revisit only after current device reliability work is verified |
+| **Implemented** | Stages 1–15; Stage 16 custom exercises; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; these do not need reimplementation |
+| **Current** | Stage 18 watch theme, session hierarchy, rest timer, saved-workout list, schedule settings | Emulator smoke test and final APK build passed; review before commit |
+| **Pending validation** | Health Connect grant/revoke, body-weight add/edit/delete and retries; paired phone/watch Data Layer; interruption and reboot cases | Real-device/paired checks with evidence; single-emulator checks cannot close these |
+| **Pending implementation** | Built-in licensed exercise media; custom-exercise quest authoring and reference safeguards | Define and implement one Stage 16 follow-up at a time |
+| **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
+| **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
+
+### Emulator evidence from 2026-09-09
+
+- Phone and Wear debug builds succeeded; existing shared tests were up to date.
+- Pixel 8: test CSV import, weekly preview, rest extension, pause/resume,
+  reload recovery, and force-stop/relaunch recovery passed. Paused exercise 1,
+  set 2 and the completed set log survived. No native crash was recorded.
+- An APK upgraded from an old service-worker build initially showed the legacy
+  UI; reloading activated the new bundle. First-launch cache migration remains
+  an upgrade caveat to investigate.
+- Phone shutdown was verified before starting Wear. Watch installation and
+  offline fixture setup succeeded; the previous session did not finish watch
+  interaction acceptance.
+
+### Watch redesign — 2026-09-10
+
+- Shared green/black theme and consistent round-screen margins.
+- Exercise/set context grouped together; Complete set, Start now and Resume
+  appear before secondary actions. Rest has a large timer and perimeter ring.
+- Saved workouts appear before download/settings controls; Options has a
+  readable label and reset/delete confirmation.
+- Schedule controls name hours/minutes explicitly. Saved status is plain text.
+- Completion and ended states offer an explicit return to workouts.
+- Session persistence and Data Layer contracts are unchanged.
+
+### Watch acceptance — 2026-09-10
+
+- Final `:wear:assembleDebug` and `git diff --check` passed after the wording
+  and import cleanup.
+- Built the Wear debug APK with one Gradle worker, then installed it on
+  `Wear_OS_XL_Round` (480 × 480). Only the watch emulator ran in this session;
+  shutdown was verified before the final build.
+- Visually inspected saved workouts, active set, rest timer, pause, end
+  confirmation, ended state, and schedule controls.
+- A local two-exercise fixture advanced from set 1 to rest for set 2. Pause
+  preserved 58 seconds of remaining rest, including after force-stop/relaunch.
+- End confirmation completed and the explicit Back to workouts action returned
+  to the list with the entry marked Ended.
+- Hour adjustment changed 06:30 to 07:30; decrement restored 06:30.
+- Native crash buffer was empty. Screenshots are in
+  the local-only, Git-ignored `output/emulator-validation/` directory.
+  Screenshots, UI XML dumps, logs, and generated fixtures are validation
+  artifacts, not required build inputs; the textual evidence is retained here.
+- The final wording refinement says finished exercises remain logged, matching
+  the watch's exercise-level logging contract.
+- Still pending: physical watch sizing/font-scale coverage, tactile/audio cues,
+  paired Data Layer transfer, Health Connect writes/retries, and the full
+  completion/skip/restart/download-error acceptance matrix.
+
+### Manual Wear sync — 2026-09-10
+
+- Added **Send today to watch** to the Android Today screen, including progress,
+  errors, and explicit queued-versus-received language. Manual sync first copies
+  the latest saved schedule to native storage and surfaces failures.
+- Moved **Sync from phone** above the watch's saved workouts. Duplicate taps
+  are disabled while waiting, with a 20-second response timeout.
+- Watch listener results are visible in-app: received, already saved, empty
+  schedule, incompatible payload, storage full, and save errors. An empty
+  response no longer creates a useless blank download.
+- Both phone-initiated and watch-requested transfers use the same tested
+  schedule projection, preserving exercise IDs, quest metadata, load and order.
+- Existing downloaded progress is never replaced by this action. See
+  `android/README.md` for how to deliberately replace a saved download.
+- Manual sync is for today's scheduled exercises. It does not transfer the
+  full library/body metrics, and the browser-only PWA has no native Wear bridge.
 
 ### Stage 18 planning slice
 
@@ -1138,7 +1202,7 @@ Manual acceptance:
 **Status:** in progress. The completed-workout sync slice is committed
 (`493754d`, mislabeled "Stage 16 implementation" — see Current State above).
 The body-weight add/update/delete sync slice is committed in `b7f251f` and
-awaits device validation; subsequent hook refinements remain local. Heart-rate summaries remain deferred.
+awaits device validation; subsequent hook refinements are included in `4f5da66`. Heart-rate summaries remain deferred.
 
 **2026-09-03 audit findings on this slice (all fixed):**
 
@@ -1202,9 +1266,10 @@ Manual acceptance:
 
 ## Stage 18 - Cross-Device UI Overhaul
 
-**Status:** in progress. Shell foundation committed in `b7f251f`; feature-screen
-and Wear session redesigns are present locally. This update adds weekly plan
-browsing and Today queue controls. Full cross-device acceptance remains open.
+**Status:** in progress. PWA feature-screen and weekly plan changes are
+committed in `4f5da66`. The refined watch design is local with round-emulator
+smoke-test evidence above. Full physical/paired cross-device acceptance remains
+open.
 
 Goal: modernize the workout experience across web, installed PWA/mobile, and
 Wear OS while preserving the component boundary rule that `App.tsx` coordinates
