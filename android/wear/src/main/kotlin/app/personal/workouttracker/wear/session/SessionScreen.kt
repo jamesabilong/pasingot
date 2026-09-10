@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,12 +25,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.shared.exerciseDisplayName
 import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.wear.ui.WatchAction
 import app.personal.workouttracker.wear.ui.WatchHeading
@@ -46,7 +47,7 @@ private enum class SessionConfirmation { RESTART, END }
  */
 @Composable
 fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val cueAction = rememberCueAction()
 
     // Exiting without an explicit unfinished state behaves like Pause, so
@@ -57,12 +58,22 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         onCancel()
     }
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) viewModel.saveOnExitIfActive()
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> viewModel.onScreenVisibilityChanged(true)
+                Lifecycle.Event.ON_PAUSE -> viewModel.onScreenVisibilityChanged(false)
+                Lifecycle.Event.ON_STOP -> viewModel.saveOnExitIfActive()
+                else -> Unit
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        viewModel.onScreenVisibilityChanged(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        onDispose {
+            viewModel.onScreenVisibilityChanged(false)
+            viewModel.saveOnExitIfActive()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     if (state.loading) return // brief DataStore read; nothing meaningful to render yet
@@ -116,7 +127,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         item {
             WatchHeading(
                 eyebrow = "SET ${session.currentSet} / ${exercise.sets}",
-                title = exercise.exercise,
+                title = exerciseDisplayName(exercise.exercise),
                 detail = "Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}",
             )
         }
@@ -205,7 +216,7 @@ private fun RestingView(
                         color = MaterialTheme.colors.primary,
                     )
                     Text(
-                        text = exercise.exercise,
+                        text = exerciseDisplayName(exercise.exercise),
                         style = MaterialTheme.typography.caption1,
                         textAlign = TextAlign.Center,
                     )
@@ -248,7 +259,7 @@ private fun PausedView(
                 title = when (confirmation) {
                     SessionConfirmation.END -> "End workout?"
                     SessionConfirmation.RESTART -> "Start over?"
-                    null -> exercise.exercise
+                    null -> exerciseDisplayName(exercise.exercise)
                 },
                 detail = "Set ${session.currentSet} / ${exercise.sets} · ${formatElapsedSeconds(state.elapsedSeconds)} elapsed",
             )

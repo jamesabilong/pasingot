@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.data
 import app.personal.workouttracker.shared.LogStatus
 import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.WorkoutSessionEvent
+import app.personal.workouttracker.shared.WatchSessionSnapshot
 
 /**
  * Thin seam between the session screen (Prompt 4) and log delivery
@@ -17,4 +18,7 @@ interface LogSender {
 
     /** Sends a workout-level session event, such as completed or manually ended. */
     suspend fun sendSessionEvent(event: WorkoutSessionEvent) = Unit
+
+    /** Publishes live progress only when the session changes, never on timer ticks. */
+    suspend fun sendSessionSnapshot(snapshot: WatchSessionSnapshot) = Unit
 }

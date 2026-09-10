@@ -9,6 +9,13 @@ import org.junit.Test
 class DataModelsTest {
 
     @Test
+    fun legacyCustomExerciseNamesHideGeneratedIdsWithoutChangingOrdinaryNames() {
+        assertEquals("Tempo hold 30", exerciseDisplayName("custom:1789050000000:tempo-hold-30"))
+        assertEquals("Tempo Hold 30", exerciseDisplayName("Tempo Hold 30"))
+        assertEquals("Custom exercise", exerciseDisplayName("custom:123:---"))
+    }
+
+    @Test
     fun displayStatusTreatsEntrySchemaMismatchAsStale() {
         val entry = downloadedEntry(date = "2026-08-01", schemaVersion = CURRENT_SCHEMA_VERSION + 1)
 

@@ -32,6 +32,40 @@ that receives no result times out after 20 seconds and can be retried. Empty
 schedules, incompatible payloads, storage limits, and duplicate dates are shown
 in the watch app even when notification permission is off.
 
+## Watch → phone session updates
+
+Install both updated APKs. Starting a downloaded workout on the watch now
+publishes its status to **Today → Watch sync** on the paired Android phone.
+Set/rest changes, pause/resume, completion, and ending also update this card.
+It shows the last watch update with a timestamp; controls remain on the watch.
+This uses the standard Wear OS Data Layer, not a Samsung-only API. Both apps
+must have matching package IDs and signing certificates.
+
+When the phone app is already open, native events refresh its status/history.
+When closed, the native listener stores incoming data for the next app open.
+Offline live updates are coalesced to the latest state by Play services;
+exercise/session history stays queued for retries or the next watch app launch.
+An ended workout with no completed exercises is also retried. Replayed imports
+are deduplicated before the phone acknowledges them.
+
+On the watch, hidden session screens stop their one-second redraw loop. Rest
+deadlines survive and resolve when the screen returns. The previous perpetual
+15-minute upload poll is removed; failed uploads use bounded work with backoff.
+Background cue timing and actual battery savings still require physical testing.
+
+Paired-device acceptance still to run:
+
+1. Keep Today open on the phone, start a watch workout, then complete a set,
+   pause, and resume. Confirm each state arrives without reopening the phone app.
+2. Close the phone app, end a watch workout, then reopen the phone and inspect
+   History. Repeat by ending before completing any exercise.
+3. Disconnect the pair, complete/skip/end on the watch, then reconnect. Verify
+   the latest state and eventual history arrive once, including after app restarts.
+4. Compare equal-duration idle and workout battery runs on the physical watch,
+   including wrist-down/rest and app-exit cases. Capture battery level and
+   `adb -s WATCH_SERIAL shell dumpsys batterystats app.personal.workouttracker`
+   before/after each run; an emulator cannot establish physical battery savings.
+
 ## One-time setup (already done in this repo, listed for reference)
 
 ```bash

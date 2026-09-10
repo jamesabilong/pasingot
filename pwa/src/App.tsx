@@ -24,6 +24,7 @@ import {
   draftFromCustomExercise,
   initialCustomExerciseDraft,
   mergeCatalogWithCustomExercises,
+  repairLegacyCustomExerciseNames,
   type CustomExerciseDraft,
 } from './lib/custom-exercises';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
@@ -31,7 +32,10 @@ import { localDateKey, todayDateKey } from './lib/history-stats';
 import {
   drainPendingHealthConnectWrites,
   drainPendingWatchLogs,
+  getLatestWatchSession,
   pushScheduleToNative,
+  subscribeToWatchChanges,
+  type WatchSessionSnapshot,
 } from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
 import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
@@ -109,6 +113,7 @@ export default function App() {
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
+  const [watchSession, setWatchSession] = useState<WatchSessionSnapshot | null>(null);
   const [setLogEntries, setSetLogEntries] = useState<WorkoutSetLog[]>([]);
   const [activeWorkoutSession, setActiveWorkoutSession] = useState<ActiveWorkoutSession | null>(null);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
@@ -180,16 +185,39 @@ export default function App() {
     await putRecord(STORES.appState, next);
   }, []);
 
-  const retryPendingSyncs = useCallback(async () => {
+  const refreshWatchData = useCallback(async () => {
     const drained = await drainPendingWatchLogs();
     if (drained) await Promise.all([refreshLogs(), refreshSessionEvents()]);
+    try {
+      const latest = await getLatestWatchSession();
+      setWatchSession((current) => current && latest && Date.parse(current.timestamp) > Date.parse(latest.timestamp) ? current : latest);
+    } catch (error) {
+      console.error('Failed to read watch session:', error);
+    }
+  }, [refreshLogs, refreshSessionEvents]);
+
+  const retryPendingSyncs = useCallback(async () => {
+    await refreshWatchData();
     const healthConnectDrained = await drainPendingHealthConnectWrites();
     if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
-  }, [addToast, refreshLogs, refreshSessionEvents]);
+  }, [addToast, refreshWatchData]);
+
+  useEffect(() => {
+    let disposed = false;
+    let removeListener = () => {};
+    void subscribeToWatchChanges(() => {
+      if (!disposed) void refreshWatchData();
+    }).then((remove) => {
+      if (disposed) remove();
+      else { removeListener = remove; void refreshWatchData(); }
+    }).catch((error) => console.error('Could not listen for watch updates:', error));
+    return () => { disposed = true; removeListener(); };
+  }, [refreshWatchData]);
 
   useEffect(() => {
     let disposed = false;
     async function initialize() {
+      await repairLegacyCustomExerciseNames();
       await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics(), refreshCustomExercises()]);
       // Refresh the native cache after an app upgrade as well as after an
       // explicit schedule edit, so existing quest rows gain new bridge fields.
@@ -238,8 +266,7 @@ export default function App() {
       } else if (storedWorkoutSession) {
         await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       }
-      const drained = await drainPendingWatchLogs();
-      if (drained && !disposed) await Promise.all([refreshLogs(), refreshSessionEvents()]);
+      if (!disposed) await refreshWatchData();
       const healthConnectDrained = await drainPendingHealthConnectWrites();
       if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
     }
@@ -249,7 +276,7 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, retryPendingSyncs]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, retryPendingSyncs]);
 
   useScheduleNotifications(workouts, addToast);
 
@@ -616,7 +643,7 @@ export default function App() {
         return;
       }
       const summary = await restoreWorkoutBackup(backup);
-      await pushScheduleToNative(backup.stores.workouts);
+      await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
       await refreshUserData();
       setCustomExercises(backup.stores.customExercises);
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
@@ -640,7 +667,7 @@ export default function App() {
     if (draft.items.length >= MAX_PLAYLIST_ITEMS) return addToast(`A playlist can contain up to ${MAX_PLAYLIST_ITEMS} exercises.`);
     const exercise = catalog.find((item) => item.sourceId === sourceId);
     if (!exercise || draft.items.some((item) => item.sourceId === sourceId)) return;
-    await saveDraft({ ...draft, items: [...draft.items, { sourceId, name: exercise.name, ...defaultPrescriptionFor(exercise, draft.level) }] });
+    await saveDraft({ ...draft, items: [...draft.items, { sourceId, name: exercise.custom ? exercise.displayName : exercise.name, ...defaultPrescriptionFor(exercise, draft.level) }] });
   }
 
   async function saveCustomExercise() {
@@ -657,6 +684,9 @@ export default function App() {
     const baseCatalog = catalog.filter((item) => !item.custom);
     setCustomExercises(nextCustomExercises);
     setCatalog(mergeCatalogWithCustomExercises(baseCatalog, nextCustomExercises));
+    if (draft.items.some((item) => item.sourceId === exercise.sourceId)) {
+      await saveDraft({ ...draft, items: draft.items.map((item) => item.sourceId === exercise.sourceId ? { ...item, name: exercise.displayName } : item) });
+    }
     setCustomExerciseDraft(initialCustomExerciseDraft());
     setCustomExerciseResult({ error: false, message: existing ? 'Custom exercise updated.' : 'Custom exercise created.' });
   }
@@ -858,6 +888,7 @@ export default function App() {
     >
       {tab === 'today' && <TodayView
         todayName={todayName()}
+        watchSession={watchSession}
         weeklyWorkouts={workouts}
         onBuildPlan={() => setTab('library')}
         onBrowseQuests={() => setTab('quests')}

@@ -8,7 +8,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
-/** One received session event plus a locally-generated id for JS-side acking. */
+/** One received session event plus a stable id for JS-side deduplication and acking. */
 @Serializable
 data class PendingSessionEventRecord(val id: String, val event: WorkoutSessionEvent)
 
@@ -20,34 +20,36 @@ class PendingSessionEventsStore(context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    @Synchronized
-    fun addPending(event: WorkoutSessionEvent) {
+    fun addPending(event: WorkoutSessionEvent) = synchronized(lock) {
         val current = loadAll().toMutableList()
-        current.add(PendingSessionEventRecord(id = UUID.randomUUID().toString(), event = event))
+        val id = UUID.nameUUIDFromBytes(json.encodeToString(event).toByteArray(Charsets.UTF_8)).toString()
+        if (current.any { it.id == id }) return@synchronized
+        current.add(PendingSessionEventRecord(id = id, event = event))
         saveAll(current)
     }
 
-    @Synchronized
-    fun loadAll(): List<PendingSessionEventRecord> {
-        val raw = prefs.getString(KEY_EVENTS, null) ?: return emptyList()
-        return try {
+    fun loadAll(): List<PendingSessionEventRecord> = synchronized(lock) {
+        val raw = prefs.getString(KEY_EVENTS, null) ?: return@synchronized emptyList()
+        try {
             json.decodeFromString<List<PendingSessionEventRecord>>(raw)
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    @Synchronized
-    fun ack(ids: List<String>) {
+    fun ack(ids: List<String>) = synchronized(lock) {
         val idSet = ids.toSet()
         saveAll(loadAll().filterNot { it.id in idSet })
     }
 
     private fun saveAll(records: List<PendingSessionEventRecord>) {
-        prefs.edit().putString(KEY_EVENTS, json.encodeToString(records)).apply()
+        check(prefs.edit().putString(KEY_EVENTS, json.encodeToString(records)).commit()) {
+            "Could not save pending watch session events"
+        }
     }
 
     companion object {
+        private val lock = Any()
         private const val PREFS_NAME = "pending_session_events"
         private const val KEY_EVENTS = "pending_session_events_json"
     }

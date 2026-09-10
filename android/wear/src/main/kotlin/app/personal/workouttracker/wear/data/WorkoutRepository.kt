@@ -55,7 +55,7 @@ data class DownloadFeedback(val message: String, val error: Boolean, val revisio
  * avoiding a `protoc` codegen dependency for a project that can't be
  * compile-verified in this sandbox.
  */
-class WorkoutRepository(private val context: Context) {
+class WorkoutRepository(private val context: Context) : WorkoutSessionStore {
 
     // UI and listener service share one app process. Feedback is transient, not workout data.
     companion object {
@@ -77,7 +77,7 @@ class WorkoutRepository(private val context: Context) {
         state.entries
     }
 
-    suspend fun getEntry(entryId: String): DownloadedWorkoutEntry? =
+    override suspend fun getEntry(entryId: String): DownloadedWorkoutEntry? =
         entries.first().find { it.id == entryId }
 
     /**
@@ -115,7 +115,7 @@ class WorkoutRepository(private val context: Context) {
 
     /** Prompt 4: persists progress for a specific entry — resume-in-place or
      *  auto-save-as-paused on exit. */
-    suspend fun updateSessionState(entryId: String, newState: SessionState) {
+    override suspend fun updateSessionState(entryId: String, newState: SessionState) {
         context.workoutDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: return@edit
             val updated = current.entries.map { if (it.id == entryId) it.copy(sessionState = newState) else it }
@@ -126,7 +126,7 @@ class WorkoutRepository(private val context: Context) {
     /** Saves a watch-side prescription adjustment made from the active
      * exercise screen. The scheduled-row identity and quest metadata remain
      * attached because [newExercise] is copied from the downloaded row. */
-    suspend fun updateExercise(entryId: String, exerciseIndex: Int, newExercise: WorkoutExercise) {
+    override suspend fun updateExercise(entryId: String, exerciseIndex: Int, newExercise: WorkoutExercise) {
         context.workoutDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: return@edit
             val updatedEntries = current.entries.map { entry ->

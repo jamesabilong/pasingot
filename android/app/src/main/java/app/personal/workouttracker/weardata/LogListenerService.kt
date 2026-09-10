@@ -27,6 +27,7 @@ class LogListenerService : WearableListenerService() {
         try {
             val entry = json.decodeFromString(LogEntry.serializer(), String(event.data, Charsets.UTF_8))
             PendingLogsStore(applicationContext).addPending(entry)
+            WatchDataUpdates.notifyChanged()
         } catch (e: Exception) {
             Log.e(TAG, "Malformed /log payload", e)
         }
@@ -36,11 +37,3 @@ class LogListenerService : WearableListenerService() {
         private const val TAG = "LogListenerService"
     }
 }
-
-// FUTURE-PHASE(live-mirror): real-time phone-side display of watch progress
-// is not required for daily use — the watch runs offline from its
-// downloaded copy (Prompt 5) and only reports back via this log sync
-// (Prompt 8). If built later: a WearableListenerService here would also
-// listen for a small "current position" update (exercise, currentSet) sent
-// on every Complete Set/Skip/Next tap, feeding a StateFlow for the phone UI
-// to mirror live watch progress. Not implemented.

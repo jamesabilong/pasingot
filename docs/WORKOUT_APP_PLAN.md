@@ -16,15 +16,15 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `4f5da66 PST01: Code cleanup`, including the
-  PWA feature-screen redesigns and weekly planning slice.
+- Latest committed checkpoint: `0a8bcf6 PST01: Update watch and app design`,
+  including the watch redesign and manual schedule sync.
 - Stage 17's first implementation commit is
   `493754d PST01: Stage 16 implementation`. Despite its message, the commit
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active local work: round-screen Wear OS redesign (shared theme, session,
-  workout list, and schedule settings), with round-emulator acceptance recorded below.
+- Active local work: watch battery use, live watch-to-phone session status,
+  reliable queued history imports, and custom exercise names/time labels.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
@@ -49,11 +49,50 @@ updated at each checkpoint so the plan is visible from every device.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; these do not need reimplementation |
-| **Current** | Stage 18 watch theme, session hierarchy, rest timer, saved-workout list, schedule settings | Emulator smoke test and final APK build passed; review before commit |
-| **Pending validation** | Health Connect grant/revoke, body-weight add/edit/delete and retries; paired phone/watch Data Layer; interruption and reboot cases | Real-device/paired checks with evidence; single-emulator checks cannot close these |
+| **Current** | Watch battery/sync fixes and custom exercise names/time labels | Local implementation; builds and regression checks recorded below; review before commit |
+| **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Built-in licensed exercise media; custom-exercise quest authoring and reference safeguards | Define and implement one Stage 16 follow-up at a time |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
+
+### Battery, custom inputs, and watch sync audit — 2026-09-10
+
+- The earlier watch redesign/manual sync work is already committed in `0a8bcf6`.
+  This audit found no other active Pasingot task in the recent task list.
+- Battery: removed indefinite 15-minute empty-queue polling. Upload retries
+  use one-time work with backoff and a battery-not-low constraint; the old
+  periodic job is cancelled on upgrade launch. Session redraws stop when the
+  screen is not resumed. Rest uses its saved deadline and catches up on return.
+  No GPS, heart-rate polling, manual wake lock, or keep-screen-on flag was found.
+- Custom inputs: playlist/player labels explicitly distinguish reps, min/sec,
+  and rest seconds. New custom prescriptions use the entered display name.
+  Existing schedule/history/draft/backup names are repaired without changing
+  record IDs. Old watch downloads hide the generated numeric name prefix while
+  retaining their progress; exact spelling/capitalization comes with a new download.
+- Live sync: a separate persistent `/session-state` DataItem now carries start,
+  set/rest, pause/resume, and terminal status. The phone shows the latest watch
+  update and receives changes while already open. This is a status view;
+  workout controls stay on the watch, and the timestamp remains visible offline.
+  Live state is kept out of completed-session statistics.
+- History sync: session-only queues now drain, retries preserve unsent suffixes,
+  and concurrent native writes/drains are serialized. Stable native receipt IDs
+  and atomic IndexedDB receipts prevent duplicates after failed ACKs or overlapping
+  app-resume/event drains. Native schema numbers map to the PWA storage schema.
+- Validation: TypeScript, production web build, Capacitor asset sync, shared
+  Kotlin tests, Wear session/queue tests, and both debug APK builds passed.
+  A browser fixture exercises nine real IndexedDB/native-bridge cases, including
+  transaction rollback, ACK replay, concurrent drains, session-only history,
+  legacy names, and live listener cleanup. Open `/tests/watch-sync.html` on the
+  local Vite server to rerun it; it uses an isolated temporary database.
+- Browser: created `Tempo Hold 30`, added `30 sec` with `60` seconds of rest,
+  saved it to Thursday, and checked the layout at 390px wide. The name and units
+  remained readable. No physical device was connected (`adb devices -l` empty),
+  so actual battery savings, background cues, and paired delivery are unmeasured.
+- Still pending: physical-watch battery comparison, phone-open/closed and
+  disconnected/reconnected transfer, clock/sleep/reboot recovery, Health Connect
+  permissions/mutations/retries, and the remaining device acceptance matrix.
+  Licensed catalog media and custom-exercise quest authoring/reference safeguards
+  remain the pending implementation items; optional roadmap features are unchanged.
 
 ### Emulator evidence from 2026-09-09
 

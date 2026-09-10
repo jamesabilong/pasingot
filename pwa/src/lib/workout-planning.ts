@@ -174,7 +174,7 @@ export function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseC
     const loadUnit = loadWeight != null ? item.loadUnit ?? 'kg' : null;
     return {
       sourceId,
-      name: exercise.name,
+      name: exercise.custom ? exercise.displayName : exercise.name,
       sets: Number.isInteger(sets) && sets > 0 ? sets : 3,
       reps: reps || '8-12',
       rest: Number.isInteger(rest) && rest >= 0 ? rest : 60,

@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,9 +40,9 @@ fun WorkoutListScreen(
     onOpenEntry: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val entries by viewModel.entries.collectAsState()
-    val feedback by viewModel.feedback.collectAsState()
-    val syncing by viewModel.syncing.collectAsState()
+    val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val feedback by viewModel.feedback.collectAsStateWithLifecycle()
+    val syncing by viewModel.syncing.collectAsStateWithLifecycle()
 
     WatchPage {
         item {

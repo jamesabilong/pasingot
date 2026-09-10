@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { EstimateSummary, LevelPicker } from './SummaryCards';
-import { CUSTOM_EXERCISE_CATEGORIES, type CustomExerciseDraft } from '../lib/custom-exercises';
+import { CUSTOM_EXERCISE_CATEGORIES, customExerciseDisplayName, type CustomExerciseDraft } from '../lib/custom-exercises';
 import { WEEKDAYS, type ExerciseCatalogItem, type ExerciseLevel, type PlaylistDraft, type PlaylistItem, type Weekday, type WeightUnit } from '../types';
 
 export function LibraryView({
@@ -207,6 +207,7 @@ export function LibraryView({
           <h2 className="text-base font-semibold text-slate-200">Workout Playlist</h2>
           <span className="text-xs text-slate-500">{draft.items.length ? `${draft.items.length}/${maxPlaylistItems} · ${draftEstimate}` : `${draft.items.length}/${maxPlaylistItems}`}</span>
         </div>
+        <p className="text-xs text-slate-500">Enter a rep count, or include the duration unit: 2 min or 30 sec. Rest is in seconds.</p>
         {draft.items.length > 0 && <EstimateSummary value={draftEstimate} />}
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-slate-500">
@@ -225,10 +226,10 @@ export function LibraryView({
             <div key={item.sourceId} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-3">
               <div className="flex items-center gap-2">
                 <span className="grid size-6 shrink-0 place-items-center rounded bg-emerald-500 text-xs font-bold text-slate-950">{index + 1}</span>
-                <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.name}</p>
-                <button type="button" disabled={index === 0} title="Move up" aria-label={`Move ${item.name} up`} onClick={() => onReorderDraftItem(index, -1)} className="playlist-icon-action"><ArrowUp size={17} aria-hidden="true" /></button>
-                <button type="button" disabled={index === draft.items.length - 1} title="Move down" aria-label={`Move ${item.name} down`} onClick={() => onReorderDraftItem(index, 1)} className="playlist-icon-action"><ArrowDown size={17} aria-hidden="true" /></button>
-                <button type="button" title="Remove" aria-label={`Remove ${item.name}`} onClick={() => onDraftChange({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="playlist-icon-action playlist-icon-action--danger"><X size={17} aria-hidden="true" /></button>
+                <p className="min-w-0 flex-1 truncate text-sm font-medium">{customExerciseDisplayName(item.name, catalog)}</p>
+                <button type="button" disabled={index === 0} title="Move up" aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} up`} onClick={() => onReorderDraftItem(index, -1)} className="playlist-icon-action"><ArrowUp size={17} aria-hidden="true" /></button>
+                <button type="button" disabled={index === draft.items.length - 1} title="Move down" aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} down`} onClick={() => onReorderDraftItem(index, 1)} className="playlist-icon-action"><ArrowDown size={17} aria-hidden="true" /></button>
+                <button type="button" title="Remove" aria-label={`Remove ${customExerciseDisplayName(item.name, catalog)}`} onClick={() => onDraftChange({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="playlist-icon-action playlist-icon-action--danger"><X size={17} aria-hidden="true" /></button>
               </div>
               <div className="grid grid-cols-[4.5rem_1fr_5rem] gap-2 pl-8">
                 <label className="text-[10px] uppercase text-slate-600">
@@ -236,11 +237,11 @@ export function LibraryView({
                   <input type="number" min="1" max="99" value={item.sets} onChange={(event) => onUpdateDraftItem(index, { sets: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                 </label>
                 <label className="text-[10px] uppercase text-slate-600">
-                  Reps / duration
-                  <input type="text" maxLength={30} value={item.reps} onChange={(event) => onUpdateDraftItem(index, { reps: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                  Reps / min / sec
+                  <input type="text" maxLength={30} placeholder="8-12 / 2 min / 30 sec" value={item.reps} onChange={(event) => onUpdateDraftItem(index, { reps: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                 </label>
                 <label className="text-[10px] uppercase text-slate-600">
-                  Rest after
+                  Rest (sec)
                   <input type="number" min="0" max="3600" value={item.rest} onChange={(event) => onUpdateDraftItem(index, { rest: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                 </label>
               </div>

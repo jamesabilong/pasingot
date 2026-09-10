@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Watch bridge regression checks</title>
+<h1>Watch bridge regression checks</h1>
+<pre id="result">Running…</pre>
+<script type="module">
+// Open /tests/watch-sync.html on the local Vite server. Use the browser's real
+// IndexedDB transactions in an isolated test database; never touch app data.
+import { addWatchRecord, getAll, getRecord, STORES } from '/src/lib/db.ts';
+import { drainPendingWatchLogs, getLatestWatchSession, subscribeToWatchChanges } from '/src/lib/native-bridge.ts';
+
+const factory = window.indexedDB;
+const database = `pasingot-watch-test-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: {
+  open: (_name, version) => factory.open(database, version),
+} });
+const checks = [];
+const check = (condition, message) => {
+  if (!condition) throw new Error(message);
+  checks.push(`PASS: ${message}`);
+};
+try {
+  const record = { schemaVersion: 1, date: '2026-09-10T08:00:00Z', exercise: 'Squat', status: 'done', workoutRowId: 1 };
+  const concurrent = await Promise.all([
+    addWatchRecord(STORES.logs, 'concurrent', record),
+    addWatchRecord(STORES.logs, 'concurrent', record),
+  ]);
+  check(concurrent.filter(Boolean).length === 1 && (await getAll(STORES.logs)).length === 1, 'Concurrent delivery imports a record once');
+
+  const [saved] = await getAll(STORES.logs);
+  let aborted = false;
+  try { await addWatchRecord(STORES.logs, 'abort', { ...record, id: saved.id }); }
+  catch { aborted = true; }
+  check(aborted && !await getRecord(STORES.appState, 'watchImport:logs:abort'), 'Failed transaction leaves no false receipt');
+  check(await addWatchRecord(STORES.logs, 'abort', record), 'An aborted import can be retried');
+
+  let logs = [{ id: 'ack-replay', schemaVersion: 5, timestamp: record.date, exercise: 'custom:123:tempo-hold', status: 'done', workoutRowId: 7 }];
+  let events = [];
+  let failAck = true;
+  let callback;
+  let removed = false;
+  const session = { schemaVersion: 5, workoutEntryId: '2026-09-10', workoutDate: '2026-09-10', status: 'active', timestamp: record.date, exerciseIndex: 0, currentSet: 1, totalExercises: 1, currentExercise: 'custom:123:tempo-hold', elapsedSeconds: 0 };
+  window.Capacitor = { Plugins: { WorkoutLogBridge: {
+    getPendingLogs: async () => ({ logs }),
+    ackLogs: async () => { if (failAck) throw new Error('Simulated ACK failure'); logs = []; },
+    getPendingSessionEvents: async () => ({ events }),
+    ackSessionEvents: async () => { events = []; },
+    getLatestWatchSession: async () => ({ session }),
+    addListener: async (name, listener) => {
+      if (name !== 'watchDataChanged') throw new Error('Wrong event name');
+      callback = listener;
+      return { remove: async () => { removed = true; } };
+    },
+  } } };
+  check(await drainPendingWatchLogs() === 1, 'An ACK failure still reports the committed import');
+  failAck = false;
+  const replay = await Promise.all([drainPendingWatchLogs(), drainPendingWatchLogs()]);
+  const imported = await getAll(STORES.logs);
+  check(replay.every(count => count === 0) && imported.length === 3, 'ACK replay and overlapping drains do not duplicate history');
+  check(imported[2].exercise === 'Tempo hold' && imported[2].schemaVersion === 1, 'Legacy watch names and native schema map to the PWA record');
+
+  events = [{ ...session, id: 'session-only', eventType: 'ended', stopReason: 'ended_by_user', elapsedSeconds: 10 }];
+  check(await drainPendingWatchLogs() === 1 && (await getAll(STORES.sessionEvents)).length === 1, 'Session history imports with an empty exercise log queue');
+  const latest = await getLatestWatchSession();
+  check(latest.status === 'active' && latest.currentExercise === 'Tempo hold', 'A live start is readable without adding a history event');
+  let notified = false;
+  const remove = await subscribeToWatchChanges(() => { notified = true; });
+  callback();
+  remove();
+  check(notified && removed, 'Live event subscription and cleanup work');
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+} finally {
+  Object.defineProperty(window, 'indexedDB', { configurable: true, value: factory });
+  factory.deleteDatabase(database);
+}
+</script>
+</html>

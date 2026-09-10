@@ -25,6 +25,14 @@ private const val SET_SETUP_SECONDS: Int = 10
 private const val BETWEEN_EXERCISE_TRANSITION_SECONDS: Int = 15
 private const val DEFAULT_REP_COUNT: Int = 10
 
+/** Older downloads used the catalog key as the label. Keep their progress and
+ * identity intact, but do not expose the generated timestamp on the watch. */
+fun exerciseDisplayName(name: String): String {
+    val legacy = Regex("^custom:\\d+:(.+)$", RegexOption.IGNORE_CASE).matchEntire(name) ?: return name
+    val label = legacy.groupValues[1].replace('-', ' ').trim()
+    return label.replaceFirstChar { it.uppercase() }.ifEmpty { "Custom exercise" }
+}
+
 /** Wearable Data Layer message/data-item paths. Both sides must use these
  *  constants rather than inlined string literals. */
 object DataLayerPaths {
@@ -41,6 +49,9 @@ object DataLayerPaths {
 
     /** Watch -> phone: workout-level completion/end event, see [WorkoutSessionEvent]. */
     const val SESSION_EVENT = "/session-event"
+
+    /** Watch -> phone: latest live session, retained by the Data Layer while offline. */
+    const val SESSION_STATE = "/session-state"
 }
 
 /** Session status literals for [SessionState.status]. Kept as plain strings
@@ -310,6 +321,22 @@ data class WorkoutSessionEvent(
     val currentSet: Int,
     val totalExercises: Int,
     val currentExercise: String? = null,
+)
+
+/** A replaceable live view of the watch, separate from completed workout history. */
+@Serializable
+data class WatchSessionSnapshot(
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    val workoutEntryId: String,
+    val workoutDate: String,
+    val status: String,
+    val timestamp: String,
+    val exerciseIndex: Int,
+    val currentSet: Int,
+    val totalExercises: Int,
+    val currentExercise: String? = null,
+    val elapsedSeconds: Int,
+    val restUntilEpochMillis: Long? = null,
 )
 
 /**

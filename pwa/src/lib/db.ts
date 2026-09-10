@@ -84,6 +84,28 @@ export function putRecord<T>(storeName: StoreName, record: T): Promise<IDBValidK
   return write(storeName, (store) => store.put(record));
 }
 
+// Commit the received record and its receipt together. If the native ACK fails
+// or the app closes before it is sent, replaying the same watch ID is harmless.
+export async function addWatchRecord<T>(storeName: typeof STORES.logs | typeof STORES.sessionEvents, watchId: string, record: T): Promise<boolean> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([storeName, STORES.appState], 'readwrite');
+    const receipts = transaction.objectStore(STORES.appState);
+    const key = `watchImport:${storeName}:${watchId}`;
+    let inserted = false;
+    const existing = receipts.get(key);
+    existing.onsuccess = () => {
+      if (existing.result) return;
+      transaction.objectStore(storeName).add(record);
+      receipts.put({ key, schemaVersion: 1 });
+      inserted = true;
+    };
+    transaction.oncomplete = () => { db.close(); resolve(inserted); };
+    transaction.onerror = () => { db.close(); reject(transaction.error); };
+    transaction.onabort = () => { db.close(); reject(transaction.error); };
+  });
+}
+
 export function deleteRecord(storeName: StoreName, key: IDBValidKey): Promise<void> {
   return write(storeName, (store) => store.delete(key)).then(() => undefined);
 }

@@ -1,4 +1,5 @@
 import { getAll, clearAndBulkInsert, STORES } from './db';
+import { repairLegacyCustomExerciseNames } from './custom-exercises';
 import { SCHEMA_VERSION, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 
 export const BACKUP_FORMAT = 'pasingot.workout-tracker.backup';
@@ -108,5 +109,6 @@ export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<Backu
     clearAndBulkInsert(STORES.customExercises, backup.stores.customExercises),
     clearAndBulkInsert(STORES.appState, backup.stores.appState),
   ]);
+  await repairLegacyCustomExerciseNames();
   return summarizeBackup(backup);
 }

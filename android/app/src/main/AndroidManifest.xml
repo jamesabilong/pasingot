@@ -80,6 +80,15 @@
                     android:path="/session-event" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".weardata.SessionStateListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:path="/session-state" />
+            </intent-filter>
+        </service>
     </application>
 
     <queries>

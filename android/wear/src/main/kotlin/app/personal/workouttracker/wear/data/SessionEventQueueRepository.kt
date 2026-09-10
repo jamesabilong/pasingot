@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.personal.workouttracker.shared.CURRENT_SCHEMA_VERSION
 import app.personal.workouttracker.shared.WorkoutSessionEvent
+import app.personal.workouttracker.shared.WatchSessionSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
@@ -19,6 +20,7 @@ private val Context.sessionEventQueueDataStore by preferencesDataStore(name = "s
 private data class SessionEventQueueState(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val entries: List<WorkoutSessionEvent> = emptyList(),
+    val pendingSnapshot: WatchSessionSnapshot? = null,
 )
 
 /** Offline queue for workout-level watch session events. */
@@ -29,6 +31,17 @@ class SessionEventQueueRepository(private val context: Context) {
 
     val queuedEntries: Flow<List<WorkoutSessionEvent>> = context.sessionEventQueueDataStore.data.map { prefs ->
         prefs[key]?.let { decodeState(it) }?.entries ?: emptyList()
+    }
+
+    val pendingSnapshot: Flow<WatchSessionSnapshot?> = context.sessionEventQueueDataStore.data.map { prefs ->
+        prefs[key]?.let { decodeState(it) }?.pendingSnapshot
+    }
+
+    suspend fun setPendingSnapshot(snapshot: WatchSessionSnapshot?) {
+        context.sessionEventQueueDataStore.edit { prefs ->
+            val current = prefs[key]?.let { decodeState(it) } ?: SessionEventQueueState()
+            prefs[key] = json.encodeToString(current.copy(pendingSnapshot = snapshot))
+        }
     }
 
     suspend fun enqueue(entry: WorkoutSessionEvent) {

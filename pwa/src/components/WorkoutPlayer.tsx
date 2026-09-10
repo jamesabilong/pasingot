@@ -82,10 +82,11 @@ export function WorkoutPlayer({
           <em>{row.reps} · {loadLabel}</em>
         </div>
         <div className="set-inputs">
-          <label><span>Reps / duration</span><input type="text" maxLength={30} value={setInput.actualReps} onChange={(event) => onSetInputChange({ actualReps: event.target.value })} /></label>
+          <label><span>Reps / min / sec</span><input type="text" maxLength={30} placeholder="8 / 2 min / 30 sec" value={setInput.actualReps} onChange={(event) => onSetInputChange({ actualReps: event.target.value })} /></label>
           <label><span>Load</span><input type="number" min="0" max="2000" step="0.5" inputMode="decimal" placeholder="Optional" value={setInput.loadWeight} onChange={(event) => onSetInputChange({ loadWeight: event.target.value })} /></label>
           <label><span>Unit</span><select value={setInput.loadUnit} onChange={(event) => onSetInputChange({ loadUnit: event.target.value as WeightUnit })}><option value="kg">kg</option><option value="lb">lb</option></select></label>
         </div>
+        <p className="text-xs text-slate-500">For duration, include min or sec (e.g. 2 min or 30 sec).</p>
       </div>}
 
       {session.status === 'resting' && <div className="player-focus player-focus--rest">

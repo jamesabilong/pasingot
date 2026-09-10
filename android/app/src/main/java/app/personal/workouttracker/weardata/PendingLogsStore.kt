@@ -20,8 +20,8 @@ data class PendingLogRecord(val id: String, val entry: LogEntry)
  * IndexedDB `logs` store, and only then acks — see the bridge design note
  * on why a background Kotlin service can't write into IndexedDB directly.
  *
- * `@Synchronized` because a WearableListenerService callback and a
- * Capacitor plugin call (triggered from the WebView) can race on this.
+ * A shared lock covers every store instance because listener services and
+ * the Capacitor plugin can otherwise overwrite each other's changes.
  */
 class PendingLogsStore(context: Context) {
 
@@ -30,17 +30,17 @@ class PendingLogsStore(context: Context) {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    @Synchronized
-    fun addPending(entry: LogEntry) {
+    fun addPending(entry: LogEntry) = synchronized(lock) {
         val current = loadAll().toMutableList()
-        current.add(PendingLogRecord(id = UUID.randomUUID().toString(), entry = entry))
+        val id = UUID.nameUUIDFromBytes(json.encodeToString(entry).toByteArray(Charsets.UTF_8)).toString()
+        if (current.any { it.id == id }) return@synchronized
+        current.add(PendingLogRecord(id = id, entry = entry))
         saveAll(current)
     }
 
-    @Synchronized
-    fun loadAll(): List<PendingLogRecord> {
-        val raw = prefs.getString(KEY_LOGS, null) ?: return emptyList()
-        return try {
+    fun loadAll(): List<PendingLogRecord> = synchronized(lock) {
+        val raw = prefs.getString(KEY_LOGS, null) ?: return@synchronized emptyList()
+        try {
             json.decodeFromString<List<PendingLogRecord>>(raw)
         } catch (e: Exception) {
             emptyList()
@@ -50,17 +50,19 @@ class PendingLogsStore(context: Context) {
     /** Only removes entries the JS side has confirmed it committed to
      *  IndexedDB — ack-after-commit, so a failed web-side write can't lose
      *  an entry. */
-    @Synchronized
-    fun ack(ids: List<String>) {
+    fun ack(ids: List<String>) = synchronized(lock) {
         val idSet = ids.toSet()
         saveAll(loadAll().filterNot { it.id in idSet })
     }
 
     private fun saveAll(records: List<PendingLogRecord>) {
-        prefs.edit().putString(KEY_LOGS, json.encodeToString(records)).apply()
+        check(prefs.edit().putString(KEY_LOGS, json.encodeToString(records)).commit()) {
+            "Could not save pending watch logs"
+        }
     }
 
     companion object {
+        private val lock = Any()
         private const val PREFS_NAME = "pending_logs"
         private const val KEY_LOGS = "pending_logs_json"
     }

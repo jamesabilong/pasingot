@@ -10,9 +10,11 @@ import app.personal.workouttracker.shared.SessionEventType
 import app.personal.workouttracker.shared.SessionStopReason
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutSessionEvent
+import app.personal.workouttracker.shared.WatchSessionSnapshot
 import app.personal.workouttracker.shared.estimatedDurationSeconds
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.WorkoutRepository
+import app.personal.workouttracker.wear.data.WorkoutSessionStore
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +44,7 @@ data class SessionUiState(
  */
 class SessionViewModel(
     private val entryId: String,
-    private val repository: WorkoutRepository,
+    private val repository: WorkoutSessionStore,
     private val logSender: LogSender,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
@@ -50,6 +52,7 @@ class SessionViewModel(
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
     private var restTimerJob: Job? = null
+    private var screenVisible = false
 
     init {
         viewModelScope.launch {
@@ -57,13 +60,17 @@ class SessionViewModel(
             // Resume in place if a SessionState already exists, else start
             // fresh at exerciseIndex = 0 (Prompt 4 req 3).
             val storedSession = entry?.sessionState
-            val session = storedSession ?: newSession()
+            val session = entry?.let { storedSession ?: newSession() }
             _uiState.value = SessionUiState(
                 entry = entry,
                 session = session,
-                elapsedSeconds = elapsedSeconds(session),
+                elapsedSeconds = session?.let(::elapsedSeconds) ?: 0,
                 loading = false,
             )
+            if (entry != null && session != null) {
+                sendSessionSnapshot(entry, session)
+                if (storedSession == null) repository.updateSessionState(entryId, session)
+            }
             synchronizeRestTimer()
         }
     }
@@ -92,7 +99,11 @@ class SessionViewModel(
         if (session.status != SessionStatus.ACTIVE) return@mutate session
         val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate session
         viewModelScope.launch { logSender.send(exercise, LogStatus.SKIPPED, exercise.workoutRowId) }
-        advanceExercise(entry, session, restAfterCurrent = false)
+        val nextSession = advanceExercise(entry, session, restAfterCurrent = false)
+        if (nextSession.status == SessionStatus.COMPLETED) {
+            sendSessionEvent(entry, nextSession, SessionEventType.COMPLETED, SessionStopReason.COMPLETED)
+        }
+        nextSession
     }
 
     /** Ends the current rest early and starts the next planned set/exercise. */
@@ -170,6 +181,13 @@ class SessionViewModel(
         if (session.status == SessionStatus.ACTIVE) setSession(pauseSession(session, SessionStopReason.APP_CLOSED))
     }
 
+    /** Only redraw a visible session. Deadlines preserve rest/elapsed time while hidden. */
+    fun onScreenVisibilityChanged(visible: Boolean) {
+        if (screenVisible == visible) return
+        screenVisible = visible
+        synchronizeRestTimer()
+    }
+
     override fun onCleared() {
         restTimerJob?.cancel()
         super.onCleared()
@@ -209,6 +227,7 @@ class SessionViewModel(
             repository.updateExercise(entryId, index, updatedExercise)
             repository.updateSessionState(entryId, updatedSession)
         }
+        sendSessionSnapshot(_uiState.value.entry ?: entry, updatedSession)
         synchronizeRestTimer()
     }
 
@@ -331,8 +350,26 @@ class SessionViewModel(
         return ((until - nowEpochMillis() + 999L) / 1_000L).toInt().coerceAtLeast(0)
     }
 
+    private fun sendSessionSnapshot(entry: DownloadedWorkoutEntry, session: SessionState) {
+        val snapshot = WatchSessionSnapshot(
+            workoutEntryId = entry.id,
+            workoutDate = entry.date,
+            status = session.status,
+            timestamp = Instant.ofEpochMilli(nowEpochMillis()).toString(),
+            exerciseIndex = session.exerciseIndex,
+            currentSet = session.currentSet,
+            totalExercises = entry.exercises.size,
+            currentExercise = entry.exercises.getOrNull(session.exerciseIndex)?.exercise,
+            elapsedSeconds = elapsedSeconds(session),
+            restUntilEpochMillis = session.restUntilEpochMillis,
+        )
+        viewModelScope.launch { logSender.sendSessionSnapshot(snapshot) }
+    }
+
     private fun synchronizeRestTimer() {
         restTimerJob?.cancel()
+        restTimerJob = null
+        if (!screenVisible) return
         val session = _uiState.value.session ?: return
         val pausedRestRemainingSeconds = session.pausedRestRemainingSeconds
         if (session.status == SessionStatus.PAUSED && pausedRestRemainingSeconds != null) {
@@ -379,8 +416,10 @@ class SessionViewModel(
     }
 
     private fun setSession(newSession: SessionState) {
+        if (newSession == _uiState.value.session) return
         _uiState.value = _uiState.value.copy(session = newSession, elapsedSeconds = elapsedSeconds(newSession))
         viewModelScope.launch { repository.updateSessionState(entryId, newSession) }
+        _uiState.value.entry?.let { sendSessionSnapshot(it, newSession) }
         synchronizeRestTimer()
     }
 
@@ -403,9 +442,7 @@ class SessionViewModel(
         val entry = state.entry ?: return
         val session = state.session ?: return
         val newSession = transform(entry, session)
-        _uiState.value = state.copy(session = newSession, elapsedSeconds = elapsedSeconds(newSession))
-        viewModelScope.launch { repository.updateSessionState(entryId, newSession) }
-        synchronizeRestTimer()
+        setSession(newSession)
     }
 
     class Factory(

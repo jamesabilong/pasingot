@@ -21,6 +21,7 @@ class SessionEventListenerService : WearableListenerService() {
                 String(event.data, Charsets.UTF_8),
             )
             PendingSessionEventsStore(applicationContext).addPending(sessionEvent)
+            WatchDataUpdates.notifyChanged()
         } catch (e: Exception) {
             Log.e(TAG, "Malformed /session-event payload", e)
         }

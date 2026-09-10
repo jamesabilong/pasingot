@@ -4,20 +4,22 @@ import android.content.Context
 import android.util.Log
 import app.personal.workouttracker.shared.DataLayerPaths
 import app.personal.workouttracker.shared.LogEntry
+import app.personal.workouttracker.shared.WatchSessionSnapshot
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.wear.download.LogFlushWorker
+import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
-/**
- * Prompt 8: sends a [LogEntry] on Complete Set/Skip, falling back to the
- * offline queue ([LogQueueRepository]) on any failure — implements
- * [LogSender], the seam [SessionScreen]/[SessionViewModel] talk to.
- */
+/** Persists before sending, and serializes app/worker drains so they cannot drop each other's queue. */
 class LogSyncManager(private val context: Context) : LogSender {
 
     private val queue = LogQueueRepository(context)
@@ -31,75 +33,119 @@ class LogSyncManager(private val context: Context) : LogSender {
             timestamp = Instant.now().toString(),
             workoutRowId = workoutRowId,
         )
-        if (!trySend(entry)) {
+        deliveryMutex.withLock {
             queue.enqueue(entry)
+            LogFlushWorker.scheduleRetry(context)
+            flushLocked()
         }
     }
 
     override suspend fun sendSessionEvent(event: WorkoutSessionEvent) {
-        if (!trySendSessionEvent(event)) {
+        deliveryMutex.withLock {
             sessionEventQueue.enqueue(event)
+            LogFlushWorker.scheduleRetry(context)
+            flushLocked()
         }
     }
 
-    /** Drains the offline queue — called on app start and by the periodic
-     *  [LogFlushWorker]. Stops at the first failure (still offline) rather
-     *  than looping through remaining entries pointlessly. */
-    suspend fun flushQueue() {
+    override suspend fun sendSessionSnapshot(snapshot: WatchSessionSnapshot) {
+        deliveryMutex.withLock {
+            sessionEventQueue.setPendingSnapshot(snapshot)
+            LogFlushWorker.scheduleRetry(context)
+            flushLocked()
+        }
+    }
+
+    /** False keeps the one-time retry worker alive; an empty queue makes no radio calls. */
+    suspend fun flushQueue(): Boolean = deliveryMutex.withLock { flushLocked() }
+
+    private suspend fun flushLocked(): Boolean {
+        // Live state uses a persistent DataItem, so Play services handles disconnected peers.
+        // Keep a fallback locally only until Play services accepts the item.
+        val snapshot = sessionEventQueue.pendingSnapshot.first()
+        var snapshotSent = true
+        if (snapshot != null) {
+            snapshotSent = trySendSnapshot(snapshot)
+            if (snapshotSent) sessionEventQueue.setPendingSnapshot(null)
+        }
+
         val pending = queue.queuedEntries.first()
-        if (pending.isEmpty()) return
-
-        var sentCount = 0
-        for (entry in pending) {
-            if (trySend(entry)) sentCount += 1 else break
-        }
-        queue.removeSentPrefix(sentCount)
-
         val pendingSessionEvents = sessionEventQueue.queuedEntries.first()
-        var sentSessionEventCount = 0
-        for (event in pendingSessionEvents) {
-            if (trySendSessionEvent(event)) sentSessionEventCount += 1 else break
+        if (pending.isEmpty() && pendingSessionEvents.isEmpty()) return snapshotSent
+
+        val nodes = try {
+            Wearable.getNodeClient(context).connectedNodes.await()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Log.w(TAG, "Could not find connected phone", error)
+            return false
         }
-        sessionEventQueue.removeSentPrefix(sentSessionEventCount)
+        if (nodes.isEmpty()) return false
+        val nodeIds = nodes.map { it.id }
+
+        val historySent = flushQueuedHistory(
+            pending,
+            pendingSessionEvents,
+            sendLog = { trySendBytes(nodeIds, DataLayerPaths.LOG, json.encodeToString(it)) },
+            sendSessionEvent = { trySendBytes(nodeIds, DataLayerPaths.SESSION_EVENT, json.encodeToString(it)) },
+            removeLogs = queue::removeSentPrefix,
+            removeSessionEvents = sessionEventQueue::removeSentPrefix,
+        )
+        return snapshotSent && historySent
     }
 
-    private suspend fun trySend(entry: LogEntry): Boolean = try {
-        val connectedNodes = Wearable.getNodeClient(context).connectedNodes.await()
-        if (connectedNodes.isEmpty()) {
-            false
-        } else {
-            val bytes = json.encodeToString(entry).toByteArray(Charsets.UTF_8)
-            val messageClient = Wearable.getMessageClient(context)
-            for (node in connectedNodes) {
-                messageClient.sendMessage(node.id, DataLayerPaths.LOG, bytes).await()
-            }
-            true
-        }
-    } catch (e: Exception) {
-        Log.w(TAG, "Failed to send log entry for ${entry.exercise}", e)
+    private suspend fun trySendSnapshot(snapshot: WatchSessionSnapshot): Boolean = try {
+        val request = PutDataMapRequest.create(DataLayerPaths.SESSION_STATE).apply {
+            dataMap.putString("payload", json.encodeToString(snapshot))
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request).await()
+        true
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        Log.w(TAG, "Failed to publish live watch session", error)
         false
     }
 
-    private suspend fun trySendSessionEvent(event: WorkoutSessionEvent): Boolean = try {
-        val bytes = json.encodeToString(event).toByteArray(Charsets.UTF_8)
-        sendBytes(DataLayerPaths.SESSION_EVENT, bytes)
-    } catch (e: Exception) {
-        Log.w(TAG, "Failed to send session event for ${event.workoutEntryId}", e)
-        false
-    }
-
-    private suspend fun sendBytes(path: String, bytes: ByteArray): Boolean {
-        val connectedNodes = Wearable.getNodeClient(context).connectedNodes.await()
-        if (connectedNodes.isEmpty()) return false
-
+    private suspend fun trySendBytes(nodeIds: List<String>, path: String, payload: String): Boolean = try {
         val messageClient = Wearable.getMessageClient(context)
-        for (node in connectedNodes) {
-            messageClient.sendMessage(node.id, path, bytes).await()
-        }
-        return true
+        val bytes = payload.toByteArray(Charsets.UTF_8)
+        for (nodeId in nodeIds) messageClient.sendMessage(nodeId, path, bytes).await()
+        true
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        Log.w(TAG, "Failed to send queued watch data on $path", error)
+        false
     }
 
     companion object {
         private const val TAG = "LogSyncManager"
+        private val deliveryMutex = Mutex()
     }
+}
+
+/** Drain both histories independently, preserving each unsent suffix on failure. */
+internal suspend fun flushQueuedHistory(
+    logs: List<LogEntry>,
+    sessionEvents: List<WorkoutSessionEvent>,
+    sendLog: suspend (LogEntry) -> Boolean,
+    sendSessionEvent: suspend (WorkoutSessionEvent) -> Boolean,
+    removeLogs: suspend (Int) -> Unit,
+    removeSessionEvents: suspend (Int) -> Unit,
+): Boolean {
+    var sentLogs = 0
+    for (entry in logs) {
+        if (sendLog(entry)) sentLogs += 1 else break
+    }
+    removeLogs(sentLogs)
+
+    // A workout ended before completing any set still has a session event to deliver.
+    var sentEvents = 0
+    for (event in sessionEvents) {
+        if (sendSessionEvent(event)) sentEvents += 1 else break
+    }
+    removeSessionEvents(sentEvents)
+    return sentLogs == logs.size && sentEvents == sessionEvents.size
 }

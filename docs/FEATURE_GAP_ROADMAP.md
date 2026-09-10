@@ -179,10 +179,12 @@ the delivery board and stage status distinguish implementation from validation.
 
 ## 2026-09-10 reconciliation
 
-PWA feature-screen and weekly plan work is committed in `4f5da66`. The active
-implementation is the round-screen watch redesign; see the delivery board in
-`WORKOUT_APP_PLAN.md`. Health Connect and paired sync are principally validation
-gaps. Stage 16 media, custom-exercise quest authoring/reference safeguards,
+PWA feature-screen and weekly plan work is committed in `4f5da66`; the watch
+redesign/manual sync followed in `0a8bcf6`. Current local fixes address watch
+battery use, missing live session sync, queued history retries, and custom
+exercise names/time labels; see the delivery board in `WORKOUT_APP_PLAN.md`.
+Actual battery consumption, Health Connect, and paired sync still need physical
+validation. Stage 16 media, custom-exercise quest authoring/reference safeguards,
 and the explicitly listed future candidates remain unimplemented. Do not treat
 all comparison-table suggestions as approved requirements.
 

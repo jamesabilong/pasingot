@@ -6,6 +6,9 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import org.json.JSONObject
 
 /**
  * Native -> JS bridge for Prompt 8's IndexedDB bridge decision: the PWA
@@ -20,6 +23,28 @@ class WorkoutLogBridgePlugin : Plugin() {
 
     private val store by lazy { PendingLogsStore(context) }
     private val sessionEventsStore by lazy { PendingSessionEventsStore(context) }
+    private val watchSessionStore by lazy { WatchSessionStore(context) }
+    private val snapshotJson = Json { encodeDefaults = true }
+    private val dataChangedListener: () -> Unit = {
+        notifyListeners("watchDataChanged", JSObject())
+    }
+
+    override fun load() {
+        WatchDataUpdates.addListener(dataChangedListener)
+    }
+
+    override fun handleOnDestroy() {
+        WatchDataUpdates.removeListener(dataChangedListener)
+        super.handleOnDestroy()
+    }
+
+    @PluginMethod
+    fun getLatestWatchSession(call: PluginCall) {
+        val session = watchSessionStore.load()
+        call.resolve(JSObject().apply {
+            put("session", session?.let { JSObject(snapshotJson.encodeToString(it)) } ?: JSONObject.NULL)
+        })
+    }
 
     @PluginMethod
     fun getPendingLogs(call: PluginCall) {

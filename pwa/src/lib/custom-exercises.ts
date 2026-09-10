@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION, type CustomExercise, type ExerciseCatalogItem, type ExerciseLevel } from '../types';
+import { getAll, getRecord, putRecord, STORES } from './db';
 
 export interface CustomExerciseDraft {
   sourceId?: number;
@@ -92,4 +93,38 @@ export function customExerciseFromDraft(draft: CustomExerciseDraft, existing?: C
 
 export function mergeCatalogWithCustomExercises(catalog: ExerciseCatalogItem[], customExercises: CustomExercise[]): ExerciseCatalogItem[] {
   return [...catalog, ...customExercises].sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+/** Resolve keys saved by older releases without exposing their timestamp to users. */
+export function customExerciseDisplayName(name: string, catalog: ExerciseCatalogItem[] = []): string {
+  const legacy = /^custom:(\d+):(.+)$/i.exec(name);
+  if (!legacy) return name;
+  const exercise = catalog.find((item) => item.custom && (item.name === name || Math.abs(item.sourceId) === Number(legacy[1])));
+  if (exercise?.displayName.trim()) return exercise.displayName;
+  // Deleted exercises can still be present in history or a watch's offline queue.
+  const fallback = legacy[2].replace(/-/g, ' ').trim();
+  return fallback ? fallback[0].toUpperCase() + fallback.slice(1) : 'Custom exercise';
+}
+
+/** Repair persisted labels while retaining row IDs, log IDs, and catalog keys. */
+export async function repairLegacyCustomExerciseNames(): Promise<void> {
+  const catalog = await getAll<CustomExercise>(STORES.customExercises);
+  const stores = [STORES.workouts, STORES.logs, STORES.setLogs, STORES.sessionEvents] as const;
+  const storedRecords = await Promise.all(stores.map((store) => getAll<Record<string, unknown>>(store)));
+  for (const [index, records] of storedRecords.entries()) {
+    for (const record of records) {
+      const repaired = { ...record };
+      for (const field of ['exercise', 'currentExercise'] as const) {
+        const value = record[field];
+        if (typeof value === 'string') repaired[field] = customExerciseDisplayName(value, catalog);
+      }
+      if (repaired.exercise !== record.exercise || repaired.currentExercise !== record.currentExercise) {
+        await putRecord(stores[index], repaired);
+      }
+    }
+  }
+  const draft = await getRecord<{ key: string; items?: Array<{ name: string }> }>(STORES.appState, 'playlistDraft');
+  if (draft?.items?.some((item) => customExerciseDisplayName(item.name, catalog) !== item.name)) {
+    await putRecord(STORES.appState, { ...draft, items: draft.items.map((item) => ({ ...item, name: customExerciseDisplayName(item.name, catalog) })) });
+  }
 }

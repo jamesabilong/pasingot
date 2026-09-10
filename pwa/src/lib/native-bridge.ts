@@ -1,5 +1,21 @@
 import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
-import { addRecord, getRecord, putRecord, STORES } from './db';
+import { addWatchRecord, getAll, getRecord, putRecord, STORES } from './db';
+import { customExerciseDisplayName } from './custom-exercises';
+import type { CustomExercise } from '../types';
+
+export interface WatchSessionSnapshot {
+  schemaVersion: number;
+  workoutEntryId: string;
+  workoutDate: string;
+  status: 'active' | 'resting' | 'paused' | 'completed' | 'ended';
+  timestamp: string;
+  exerciseIndex: number;
+  currentSet: number;
+  totalExercises: number;
+  currentExercise?: string | null;
+  elapsedSeconds: number;
+  restUntilEpochMillis?: number | null;
+}
 
 interface PendingWatchLog {
   id: string;
@@ -36,6 +52,8 @@ declare global {
           ackLogs: (payload: { ids: string[] }) => Promise<void>;
           getPendingSessionEvents?: () => Promise<{ events?: PendingWatchSessionEvent[] }>;
           ackSessionEvents?: (payload: { ids: string[] }) => Promise<void>;
+          getLatestWatchSession?: () => Promise<{ session: WatchSessionSnapshot | null }>;
+          addListener?: (event: 'watchDataChanged', callback: () => void) => Promise<{ remove: () => Promise<void> }>;
         };
         HealthConnectBridge?: {
           getStatus: () => Promise<HealthConnectStatus>;
@@ -186,26 +204,37 @@ export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCo
   return bridge.sendTodayToWatch();
 }
 
-export async function drainPendingWatchLogs(): Promise<number> {
+// Event notifications and app resume can overlap; serialize imports and ACKs.
+let watchDrainQueue: Promise<number> = Promise.resolve(0);
+
+export function drainPendingWatchLogs(): Promise<number> {
+  watchDrainQueue = watchDrainQueue.then(importPendingWatchLogs, importPendingWatchLogs);
+  return watchDrainQueue;
+}
+
+async function importPendingWatchLogs(): Promise<number> {
   const bridge = window.Capacitor?.Plugins?.WorkoutLogBridge;
   if (!bridge) return 0;
+  let imported = 0;
   try {
+    const customCatalog = await getAll<CustomExercise>(STORES.customExercises);
     const { logs = [] } = await bridge.getPendingLogs();
     for (const log of logs) {
-      await addRecord(STORES.logs, {
-        schemaVersion: log.schemaVersion ?? SCHEMA_VERSION,
+      const inserted = await addWatchRecord(STORES.logs, log.id, {
+        schemaVersion: SCHEMA_VERSION,
         date: log.timestamp,
-        exercise: log.exercise,
+        exercise: customExerciseDisplayName(log.exercise, customCatalog),
         status: log.status,
         workoutRowId: log.workoutRowId ?? null,
       } satisfies WorkoutLog);
+      if (inserted) imported += 1;
     }
     if (logs.length) await bridge.ackLogs({ ids: logs.map((log) => log.id) });
 
     const { events = [] } = bridge.getPendingSessionEvents ? await bridge.getPendingSessionEvents() : {};
     for (const event of events) {
-      await addRecord(STORES.sessionEvents, {
-        schemaVersion: event.schemaVersion ?? SCHEMA_VERSION,
+      const inserted = await addWatchRecord(STORES.sessionEvents, event.id, {
+        schemaVersion: SCHEMA_VERSION,
         workoutEntryId: event.workoutEntryId,
         workoutDate: event.workoutDate,
         eventType: event.eventType,
@@ -216,15 +245,32 @@ export async function drainPendingWatchLogs(): Promise<number> {
         exerciseIndex: event.exerciseIndex,
         currentSet: event.currentSet,
         totalExercises: event.totalExercises,
-        currentExercise: event.currentExercise ?? null,
+        currentExercise: event.currentExercise ? customExerciseDisplayName(event.currentExercise, customCatalog) : null,
       } satisfies WorkoutSessionEvent);
+      if (inserted) imported += 1;
     }
     if (events.length && bridge.ackSessionEvents) await bridge.ackSessionEvents({ ids: events.map((event) => event.id) });
-    return logs.length + events.length;
+    return imported;
   } catch (error) {
     console.error('Failed to drain pending watch logs/session events:', error);
-    return 0;
+    return imported;
   }
+}
+
+export async function getLatestWatchSession(): Promise<WatchSessionSnapshot | null> {
+  const bridge = window.Capacitor?.Plugins?.WorkoutLogBridge;
+  if (!bridge?.getLatestWatchSession) return null;
+  const { session } = await bridge.getLatestWatchSession();
+  if (!session) return null;
+  const customCatalog = await getAll<CustomExercise>(STORES.customExercises);
+  return { ...session, currentExercise: session.currentExercise ? customExerciseDisplayName(session.currentExercise, customCatalog) : null };
+}
+
+export async function subscribeToWatchChanges(callback: () => void): Promise<() => void> {
+  const bridge = window.Capacitor?.Plugins?.WorkoutLogBridge;
+  if (!bridge?.addListener) return () => {};
+  const listener = await bridge.addListener('watchDataChanged', callback);
+  return () => { void listener.remove(); };
 }
 
 export async function getHealthConnectStatus(): Promise<HealthConnectStatus> {

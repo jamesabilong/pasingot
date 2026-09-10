@@ -5,6 +5,7 @@ import { WeeklyPlan } from './WeeklyPlan';
 import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutSetInput, type WorkoutPlayerSession } from './WorkoutPlayer';
 import { type PlanProgress } from './SummaryCards';
 import { type Weekday, type WorkoutLog, type WorkoutRow } from '../types';
+import { type WatchSessionSnapshot } from '../lib/native-bridge';
 
 function scheduleLoadLabel(row: WorkoutRow): string {
   return row.loadWeight != null && row.loadUnit ? ` · ${row.loadWeight} ${row.loadUnit}` : '';
@@ -12,6 +13,7 @@ function scheduleLoadLabel(row: WorkoutRow): string {
 
 export function TodayView({
   todayName,
+  watchSession,
   weeklyWorkouts,
   onBuildPlan,
   onBrowseQuests,
@@ -41,6 +43,7 @@ export function TodayView({
   onLogExercise,
 }: {
   todayName: Weekday;
+  watchSession: WatchSessionSnapshot | null;
   weeklyWorkouts: WorkoutRow[];
   onBuildPlan: () => void;
   onBrowseQuests: () => void;
@@ -112,7 +115,7 @@ export function TodayView({
         </div>}
       </div>
 
-      <WatchSyncPanel hasWorkout={hasWorkout} />
+      <WatchSyncPanel hasWorkout={hasWorkout} session={watchSession} />
 
       {activeSession && activeRows.length === 0 && (
         <div className="today-empty" role="alert">

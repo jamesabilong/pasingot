@@ -56,10 +56,12 @@ class WearMainActivity : ComponentActivity() {
             ScheduleDownloadWorker.enqueueNext(applicationContext, settingsRepository.scheduledTime.first())
         }
 
-        // Prompt 8 req 5: retry the offline log queue on app start, plus a
-        // periodic WorkManager flush for while the app isn't open.
-        lifecycleScope.launch { logSyncManager.flushQueue() }
-        LogFlushWorker.schedulePeriodic(applicationContext)
+        // Migrate away from always-on queue polling. Background retries exist
+        // only when a delivery failed, and stop once the queue is drained.
+        LogFlushWorker.cancelPeriodic(applicationContext)
+        lifecycleScope.launch {
+            if (!logSyncManager.flushQueue()) LogFlushWorker.scheduleRetry(applicationContext)
+        }
 
         setContent {
             PasingotTheme {
