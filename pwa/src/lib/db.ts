@@ -111,13 +111,45 @@ export function deleteRecord(storeName: StoreName, key: IDBValidKey): Promise<vo
 }
 
 export async function clearAndBulkInsert<T>(storeName: StoreName, records: T[]): Promise<void> {
+  await replaceStores({ [storeName]: records });
+}
+
+// A restore must either commit every user store or leave all of them intact.
+// Synchronous request errors also abort: otherwise an earlier clear can commit.
+export async function transact(storeNames: StoreName[], operation: (transaction: IDBTransaction) => void): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, 'readwrite');
-    const store = transaction.objectStore(storeName);
-    store.clear();
-    records.forEach((record) => store.put(record));
+    const transaction = db.transaction(storeNames, 'readwrite');
+    let failure: unknown;
     transaction.oncomplete = () => { db.close(); resolve(); };
-    transaction.onerror = () => { db.close(); reject(transaction.error); };
+    transaction.onabort = () => { db.close(); reject(failure ?? transaction.error ?? new Error('Database transaction aborted.')); };
+    try { operation(transaction); }
+    catch (error) { failure = error; transaction.abort(); }
   });
+}
+
+export function replaceStores(stores: Partial<Record<StoreName, unknown[]>>): Promise<void> {
+  return transact(Object.keys(stores) as StoreName[], (transaction) => {
+    for (const [name, records] of Object.entries(stores)) {
+      const store = transaction.objectStore(name);
+      store.clear();
+      records.forEach((record) => store.put(record));
+    }
+  });
+}
+
+export async function updateRecord<T>(storeName: StoreName, key: IDBValidKey, update: (current: T | undefined) => T | undefined): Promise<T | undefined> {
+  let next: T | undefined;
+  await transact([storeName], (transaction) => {
+    const store = transaction.objectStore(storeName);
+    const request = store.get(key);
+    request.onsuccess = () => {
+      try {
+        next = update(request.result as T | undefined);
+        if (next === undefined) store.delete(key);
+        else store.put(next);
+      } catch { transaction.abort(); }
+    };
+  });
+  return next;
 }

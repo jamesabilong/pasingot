@@ -98,6 +98,20 @@ export interface HealthConnectDeleteResult extends HealthConnectStatus {
 const HEALTH_CONNECT_PENDING_KEY = 'healthConnectPendingWrites';
 export const HEALTH_CONNECT_SETTINGS_KEY = 'healthConnectSettings';
 
+// Mutations and retries share one order. A slow retry must not overwrite a
+// newer edit/delete or replace a queue to which another call just appended.
+let healthConnectQueue: Promise<unknown> = Promise.resolve();
+export function withHealthConnectSyncLock<T>(operation: () => Promise<T>): Promise<T> {
+  const result = healthConnectQueue.then(operation, operation);
+  healthConnectQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+async function healthConnectSyncEnabled(): Promise<boolean> {
+  const settings = await getRecord<{ schemaVersion: number; enabled: boolean }>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
+  return settings?.schemaVersion === SCHEMA_VERSION && settings.enabled === true;
+}
+
 interface HealthConnectPendingQueue {
   key: typeof HEALTH_CONNECT_PENDING_KEY;
   schemaVersion: number;
@@ -150,11 +164,14 @@ async function clearPendingHealthConnectOperation(operation: HealthConnectPendin
 
 // Unsuccessful mutations are retried on app-open/visibility triggers, matching the watch-log
 // queue. The enabled check ensures turning sync off also pauses queued native mutations.
-export async function drainPendingHealthConnectWrites(): Promise<number> {
+export function drainPendingHealthConnectWrites(): Promise<number> {
+  return withHealthConnectSyncLock(drainHealthConnectOperations);
+}
+
+async function drainHealthConnectOperations(): Promise<number> {
   const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
   if (!bridge) return 0;
-  const settings = await getRecord<{ schemaVersion: number; enabled: boolean }>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
-  if (settings?.schemaVersion !== SCHEMA_VERSION || !settings.enabled) return 0;
+  if (!await healthConnectSyncEnabled()) return 0;
   const stored = await getRecord<HealthConnectPendingQueue>(STORES.appState, HEALTH_CONNECT_PENDING_KEY);
   const operations = pendingOperations(stored);
   if (!operations.length) return 0;
@@ -162,6 +179,10 @@ export async function drainPendingHealthConnectWrites(): Promise<number> {
   const remaining: HealthConnectPendingOperation[] = [];
   let succeeded = 0;
   for (const operation of operations) {
+    if (!await healthConnectSyncEnabled()) {
+      remaining.push(operation);
+      continue;
+    }
     try {
       let completed = false;
       if (operation.kind === 'workout-write') {
@@ -296,12 +317,17 @@ export async function requestHealthConnectPermissions(): Promise<HealthConnectSt
   }
 }
 
-export async function writeSessionEventToHealthConnect(
+export function writeSessionEventToHealthConnect(event: WorkoutSessionEvent, rows: WorkoutRow[]): Promise<HealthConnectWriteResult> {
+  return withHealthConnectSyncLock(() => writeSessionEvent(event, rows));
+}
+
+async function writeSessionEvent(
   event: WorkoutSessionEvent,
   rows: WorkoutRow[],
 ): Promise<HealthConnectWriteResult> {
   const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
   if (!bridge) return { availability: 'unavailable', permissionGranted: false, written: false };
+  if (!await healthConnectSyncEnabled()) return { ...(await getHealthConnectStatus()), written: false };
   if (event.eventType !== 'completed' || event.elapsedSeconds <= 0) {
     return { ...(await getHealthConnectStatus()), written: false };
   }
@@ -320,6 +346,7 @@ export async function writeSessionEventToHealthConnect(
     startTime: startTime.toISOString(),
     endTime: endTime.toISOString(),
   };
+  await queuePendingHealthConnectOperation({ kind: 'workout-write', payload });
   try {
     const result = await bridge.writeWorkoutSession(payload);
     const operation = { kind: 'workout-write' as const, payload };
@@ -342,10 +369,18 @@ function bodyMetricTime(date: string): string {
   return new Date(year, month - 1, day, 12).toISOString();
 }
 
-export async function writeBodyMetricToHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectWriteResult> {
+export function writeBodyMetricToHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectWriteResult> {
+  return withHealthConnectSyncLock(() => writeBodyMetric(entry));
+}
+
+async function writeBodyMetric(entry: BodyMetricEntry): Promise<HealthConnectWriteResult> {
   const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
   if (!bridge?.writeBodyWeight || entry.id == null) {
     return { availability: 'unavailable', permissionGranted: false, written: false };
+  }
+  if (!await healthConnectSyncEnabled()) {
+    await clearPendingHealthConnectOperation({ kind: 'body-weight-delete', payload: { clientRecordId: bodyMetricRecordId(entry.id) } });
+    return { ...(await getHealthConnectStatus()), written: false };
   }
   const payload: HealthConnectBodyWeightPayload = {
     clientRecordId: bodyMetricRecordId(entry.id),
@@ -353,6 +388,7 @@ export async function writeBodyMetricToHealthConnect(entry: BodyMetricEntry): Pr
     time: bodyMetricTime(entry.date),
     kilograms: entry.unit === 'lb' ? entry.weight * 0.45359237 : entry.weight,
   };
+  await queuePendingHealthConnectOperation({ kind: 'body-weight-write', payload });
   try {
     const result = await bridge.writeBodyWeight(payload);
     const operation = { kind: 'body-weight-write' as const, payload };
@@ -366,12 +402,21 @@ export async function writeBodyMetricToHealthConnect(entry: BodyMetricEntry): Pr
   }
 }
 
-export async function deleteBodyMetricFromHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectDeleteResult> {
+export function deleteBodyMetricFromHealthConnect(entry: BodyMetricEntry): Promise<HealthConnectDeleteResult> {
+  return withHealthConnectSyncLock(() => deleteBodyMetric(entry));
+}
+
+async function deleteBodyMetric(entry: BodyMetricEntry): Promise<HealthConnectDeleteResult> {
   const bridge = window.Capacitor?.Plugins?.HealthConnectBridge;
   if (!bridge?.deleteBodyWeight || entry.id == null) {
     return { availability: 'unavailable', permissionGranted: false, deleted: false };
   }
+  if (!await healthConnectSyncEnabled()) {
+    await clearPendingHealthConnectOperation({ kind: 'body-weight-delete', payload: { clientRecordId: bodyMetricRecordId(entry.id) } });
+    return { ...(await getHealthConnectStatus()), deleted: false };
+  }
   const payload: HealthConnectBodyWeightDeletePayload = { clientRecordId: bodyMetricRecordId(entry.id) };
+  await queuePendingHealthConnectOperation({ kind: 'body-weight-delete', payload });
   try {
     const result = await bridge.deleteBodyWeight(payload);
     const operation = { kind: 'body-weight-delete' as const, payload };
@@ -387,8 +432,9 @@ export async function deleteBodyMetricFromHealthConnect(entry: BodyMetricEntry):
 
 export async function discardPendingBodyMetricSync(entry: BodyMetricEntry): Promise<void> {
   if (entry.id == null) return;
-  await clearPendingHealthConnectOperation({
+  const clientRecordId = bodyMetricRecordId(entry.id);
+  await withHealthConnectSyncLock(() => clearPendingHealthConnectOperation({
     kind: 'body-weight-delete',
-    payload: { clientRecordId: bodyMetricRecordId(entry.id) },
-  });
+    payload: { clientRecordId },
+  }));
 }

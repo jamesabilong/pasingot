@@ -129,7 +129,7 @@ export async function repairLegacyCustomExerciseNames(): Promise<void> {
       if (typeof record.exercise === 'string') {
         const normalizedName = record.exercise.trim().toLowerCase();
         const customExercise = catalog.find((item) => customExerciseNames(item).has(normalizedName));
-        if (customExercise && (record.exerciseSourceId == null || Number(record.exerciseSourceId) !== customExercise.sourceId)) {
+        if (customExercise && record.exerciseSourceId == null) {
           repaired.exerciseSourceId = customExercise.sourceId;
         }
       }

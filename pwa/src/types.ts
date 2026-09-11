@@ -26,6 +26,7 @@ export interface WorkoutRow {
   loadWeight?: number | null;
   loadUnit?: WeightUnit | null;
   questId?: string;
+  questRunId?: string;
   questDayIndex?: number;
   questDayLabel?: string;
   questLevel?: ExerciseLevel;
@@ -190,10 +191,23 @@ export interface QuestState {
   key: string;
   schemaVersion: number;
   questId: string;
+  runId?: string;
   level: ExerciseLevel;
   nextDayIndex: number;
   scheduledTime: string;
   startedAt: string;
   completedDays: QuestCompletion[];
   status: 'active' | 'completed';
+}
+
+export interface QuestArchiveEntry {
+  state: QuestState;
+  template: QuestTemplate;
+  archivedAt: string;
+}
+
+export interface QuestHistory {
+  key: 'questHistory';
+  schemaVersion: number;
+  entries: QuestArchiveEntry[];
 }

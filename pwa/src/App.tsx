@@ -13,6 +13,7 @@ import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { type WorkoutSetInput } from './components/WorkoutPlayer';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
+import { useLocalDate } from './hooks/useLocalDate';
 import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
 import { useToasts } from './hooks/useToasts';
@@ -46,6 +47,7 @@ import {
   type WatchSessionSnapshot,
 } from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
+import { archiveQuest, belongsToQuestRun, QUEST_HISTORY_KEY, QUEST_STATE_KEY, reconcileQuestDay, resolveQuestDay } from './lib/quest-progress';
 import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
 import {
   calculatePlanProgress,
@@ -64,6 +66,7 @@ import {
   todayName,
   validLoadWeight,
   validateWorkoutRow,
+  workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
   ACTIVE_SESSION_IDLE_TIMEOUT_MS,
@@ -93,7 +96,7 @@ import {
   type HistoryRange,
   type PlaylistDraft,
   type PlaylistItem,
-  type QuestCompletion,
+  type QuestHistory,
   type QuestState,
   type QuestTemplate,
   type QuestWorkoutRow,
@@ -105,7 +108,6 @@ import {
 } from './types';
 
 const PLAYLIST_DRAFT_KEY = 'playlistDraft';
-const QUEST_STATE_KEY = 'questState';
 
 function questTotalDays(template: QuestTemplate): number {
   return template.durationWeeks * template.daysPerWeek;
@@ -120,6 +122,7 @@ function questTemplateDayNumber(state: QuestState, template: QuestTemplate): num
 }
 
 export default function App() {
+  const localToday = useLocalDate();
   const [tab, setTab] = useState<Tab>('today');
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
@@ -135,6 +138,7 @@ export default function App() {
   const [builtInQuestRows, setBuiltInQuestRows] = useState<QuestWorkoutRow[]>([]);
   const [customQuestDefinitions, setCustomQuestDefinitions] = useState<CustomQuestDefinition[]>([]);
   const [questState, setQuestState] = useState<QuestState | null>(null);
+  const [questHistory, setQuestHistory] = useState<QuestHistory['entries']>([]);
   const [draft, setDraft] = useState<PlaylistDraft>(initialDraft);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -169,6 +173,7 @@ export default function App() {
     writeCompletedSession: writeHealthConnectSession,
     writeBodyMetric: writeHealthConnectBodyMetric,
     deleteBodyMetric: deleteHealthConnectBodyMetric,
+    refreshEnabled: refreshHealthConnectEnabled,
   } = useHealthConnectSync(addToast);
   const {
     settings: workoutCueSettings,
@@ -272,6 +277,8 @@ export default function App() {
       if (!disposed) setCustomQuestDefinitions(storedCustomQuests.quests);
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
+      const storedQuestHistory = await getRecord<QuestHistory>(STORES.appState, QUEST_HISTORY_KEY);
+      if (!disposed) setQuestHistory(storedQuestHistory?.entries ?? []);
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
       if (!disposed) loadWorkoutCueSettings(storedCueSettings);
       const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
@@ -296,7 +303,7 @@ export default function App() {
 
   const todayWorkouts = useMemo(() => workouts
     .filter((row) => row.day.toLowerCase() === todayName().toLowerCase())
-    .sort((left, right) => left.time.localeCompare(right.time)), [workouts]);
+    .sort((left, right) => left.time.localeCompare(right.time)), [workouts, localToday]);
   const todayEstimate = useMemo(() => (
     formatEstimatedDuration(estimateWorkoutDurationSeconds(todayWorkouts, estimateLevelFor(todayWorkouts)))
   ), [todayWorkouts]);
@@ -304,13 +311,7 @@ export default function App() {
     formatEstimatedDuration(estimateWorkoutDurationSeconds(draft.items, draft.level))
   ), [draft.items, draft.level]);
 
-  const todayStatuses = useMemo(() => {
-    const statuses = new Map<number, WorkoutLog['status']>();
-    logs.forEach((log) => {
-      if (log.date.startsWith(todayDateKey()) && log.workoutRowId != null) statuses.set(log.workoutRowId, log.status);
-    });
-    return statuses;
-  }, [logs]);
+  const todayStatuses = useMemo(() => workoutStatusesOnDate(logs, localToday), [logs, localToday]);
   const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
   const activeWorkoutRows = useMemo(() => {
     if (!activeWorkoutSession) return [];
@@ -380,7 +381,7 @@ export default function App() {
     reps: '',
     rest: 0,
   });
-  const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => entry.date.startsWith(todayDateKey())).length, [setLogEntries]);
+  const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => localDateKey(entry.date) === localToday).length, [setLogEntries, localToday]);
 
   const categories = useMemo(() => [...new Set(catalog.map((item) => item.category))].sort(), [catalog]);
   const levelCounts = useMemo(() => LEVELS.reduce((result, level) => ({
@@ -412,18 +413,14 @@ export default function App() {
     : null;
   const currentQuestRows = useMemo(() => {
     if (!questState || !activeQuestTemplate || currentQuestDayNumber == null || questState.status !== 'active') return [];
-    return questRows
-      .filter((row) => row.questId === questState.questId && row.level === questState.level && row.dayNumber === currentQuestDayNumber)
-      .map((row) => ({ row, exercise: catalogBySourceId.get(row.exerciseSourceId) }))
-      .filter((entry): entry is { row: QuestWorkoutRow; exercise: ExerciseCatalogItem } => Boolean(entry.exercise))
-      .sort((left, right) => left.row.sequence - right.row.sequence);
+    return resolveQuestDay(questRows, questState, activeQuestTemplate, catalogBySourceId);
   }, [activeQuestTemplate, catalogBySourceId, currentQuestDayNumber, questRows, questState]);
   const currentQuestEstimate = useMemo(() => (
     formatEstimatedDuration(estimateWorkoutDurationSeconds(currentQuestRows.map(({ row }) => row), questState?.level ?? 'beginner'))
   ), [currentQuestRows, questState?.level]);
   const scheduledCurrentQuestRows = useMemo(() => {
     if (!questState) return [];
-    return workouts.filter((row) => row.questId === questState.questId && row.questDayIndex === questState.nextDayIndex);
+    return workouts.filter((row) => belongsToQuestRun(row, questState) && row.questDayIndex === questState.nextDayIndex);
   }, [questState, workouts]);
   const currentQuestProgressRows = useMemo(() => (
     scheduledCurrentQuestRows.length
@@ -440,12 +437,12 @@ export default function App() {
     // IndexedDB; phone-button logs use this same path through the logs state.
     const candidates = new Map<string, WorkoutRow>();
     workouts.forEach((row) => {
-      if (!row.questId || row.questDayIndex == null || row.id == null) return;
-      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id && log.date.startsWith(todayDateKey()));
+      if (!questState || !belongsToQuestRun(row, questState) || row.questDayIndex !== questState.nextDayIndex || row.id == null) return;
+      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id && localDateKey(log.date) === localToday);
       if (hasLinkedLog) candidates.set(`${row.questId}:${row.questDayIndex}`, row);
     });
     candidates.forEach((row) => { void maybeCompleteQuestDay(row, logs); });
-  }, [logs, questTemplates, workouts]);
+  }, [logs, questTemplates, workouts, questState, localToday]);
 
   async function logExercise(row: WorkoutRow, status: WorkoutLog['status']) {
     if (row.id == null) return;
@@ -620,14 +617,26 @@ export default function App() {
   }
 
   async function importCsv(file: File) {
-    const parsed = await new Promise<Papa.ParseResult<Record<string, string>>>((resolve) => {
-      Papa.parse<Record<string, string>>(file, { header: true, skipEmptyLines: true, complete: resolve });
-    });
-    const valid = parsed.data.map(validateWorkoutRow).filter((row): row is WorkoutRow => row !== null);
-    await clearAndBulkInsert(STORES.workouts, valid);
-    await pushScheduleToNative(valid);
-    setImportResult({ imported: valid.length, skipped: parsed.data.length - valid.length });
-    await refreshWorkouts();
+    try {
+      if (activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)) {
+        throw new Error('Finish or end the current workout before replacing the schedule.');
+      }
+      const parsed = await new Promise<Papa.ParseResult<Record<string, string>>>((resolve, reject) => {
+        Papa.parse<Record<string, string>>(file, { header: true, skipEmptyLines: true, complete: resolve, error: reject });
+      });
+      const valid = parsed.data.map(validateWorkoutRow).filter((row): row is WorkoutRow => row !== null);
+      if (parsed.errors.length || !valid.length) throw new Error('The CSV has no usable schedule or could not be parsed. The current schedule was kept.');
+      const skipped = parsed.data.length - valid.length;
+      if (!window.confirm(`Replace the current schedule with ${valid.length} exercise rows${skipped ? `, skipping ${skipped} invalid rows` : ''}? Workout history will be kept.`)) return;
+      await clearAndBulkInsert(STORES.workouts, valid);
+      await saveActiveWorkoutSession(null);
+      const saved = await getAll<WorkoutRow>(STORES.workouts);
+      await pushScheduleToNative(saved);
+      setWorkouts(saved);
+      setImportResult({ imported: saved.length, skipped });
+    } catch (error) {
+      setImportResult({ imported: 0, skipped: 0, error: error instanceof Error ? error.message : 'Could not import the schedule.' });
+    }
   }
 
   async function refreshUserData() {
@@ -641,6 +650,8 @@ export default function App() {
     ]);
     const storedCustomQuests = normalizeCustomQuestCollection(await getRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY));
     setCustomQuestDefinitions(storedCustomQuests.quests);
+    const storedQuestHistory = await getRecord<QuestHistory>(STORES.appState, QUEST_HISTORY_KEY);
+    setQuestHistory(storedQuestHistory?.entries ?? []);
   }
 
   async function exportBackup() {
@@ -671,6 +682,7 @@ export default function App() {
       const summary = await restoreWorkoutBackup(backup);
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
       await refreshUserData();
+      await refreshHealthConnectEnabled();
       setCustomExercises(backup.stores.customExercises);
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       setQuestState(storedQuestState?.schemaVersion === SCHEMA_VERSION ? storedQuestState : null);
@@ -806,6 +818,7 @@ export default function App() {
       key: QUEST_STATE_KEY,
       schemaVersion: SCHEMA_VERSION,
       questId: template.questId,
+      runId: crypto.randomUUID(),
       level: availableLevels.includes(draft.level) ? draft.level : availableLevels[0],
       nextDayIndex: 1,
       scheduledTime: draft.time,
@@ -858,10 +871,19 @@ export default function App() {
 
   async function leaveQuest() {
     if (!questState) return;
-    const action = questState.status === 'completed' ? 'Choose another quest?' : 'Leave this quest? Current quest progress will be removed.';
+    const questRowIds = new Set(workouts.filter((row) => belongsToQuestRun(row, questState)).map((row) => row.id));
+    if (activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)
+      && activeWorkoutSession.rowIds.some((id) => questRowIds.has(id))) {
+      setQuestResult({ error: true, message: 'Finish or end the current workout before leaving this quest.' });
+      return;
+    }
+    const action = 'Leave this quest and remove its scheduled exercises? Completed days and workout history will be kept in History.';
     if (!window.confirm(action)) return;
-    await deleteRecord(STORES.appState, QUEST_STATE_KEY);
+    await archiveQuest(questState, activeQuestTemplate);
     setQuestState(null);
+    if (activeWorkoutSession?.rowIds.some((id) => questRowIds.has(id))) await saveActiveWorkoutSession(null);
+    await refreshUserData();
+    await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
     setQuestResult(null);
   }
 
@@ -885,6 +907,7 @@ export default function App() {
       loadWeight: row.loadWeight ?? null,
       loadUnit: row.loadWeight != null ? row.loadUnit ?? 'kg' : null,
       questId: questState.questId,
+      questRunId: questState.runId,
       questDayIndex: questState.nextDayIndex,
       questDayLabel: dayLabel,
       questLevel: questState.level,
@@ -892,7 +915,7 @@ export default function App() {
     const completedQuestDayIndexes = new Set(questState.completedDays.map((day) => day.dayIndex));
     const replacementRows = workouts.filter((existing) => (
       existing.id != null
-      && existing.questId === questState.questId
+      && belongsToQuestRun(existing, questState)
       && existing.questDayIndex != null
       && completedQuestDayIndexes.has(existing.questDayIndex)
       && existing.day === todayName()
@@ -904,7 +927,7 @@ export default function App() {
       existing.day === proposed.day
       && existing.time === proposed.time
       && existing.exercise.toLowerCase() === proposed.exercise.toLowerCase()
-      && !(existing.questId === proposed.questId && existing.questDayIndex === proposed.questDayIndex)
+      && !(belongsToQuestRun(existing, questState) && existing.questDayIndex === proposed.questDayIndex)
     )));
     if (conflicts.length) {
       setQuestResult({ error: true, message: `Move this quest to a different time; ${conflicts.length} exercise${conflicts.length === 1 ? '' : 's'} already exist at ${questState.scheduledTime}.` });
@@ -914,7 +937,7 @@ export default function App() {
       if (row.id != null) await deleteRecord(STORES.workouts, row.id);
     }
     const existingQuestKeys = new Set(activeWorkouts
-      .filter((row) => row.questId === questState.questId && row.questDayIndex === questState.nextDayIndex)
+      .filter((row) => belongsToQuestRun(row, questState) && row.questDayIndex === questState.nextDayIndex)
       .map((row) => row.exercise.toLowerCase()));
     const additions = proposedRows.filter((row) => !existingQuestKeys.has(row.exercise.toLowerCase()));
     for (const row of additions) await addRecord(STORES.workouts, row);
@@ -926,33 +949,12 @@ export default function App() {
 
   async function maybeCompleteQuestDay(row: WorkoutRow, latestLogs: WorkoutLog[]) {
     if (!row.questId || row.questDayIndex == null) return;
-    const storedState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
     const template = questTemplates.find((item) => item.questId === row.questId);
-    if (!storedState || storedState.schemaVersion !== SCHEMA_VERSION || !template) return;
-    if (storedState.completedDays.some((day) => day.dayIndex === row.questDayIndex)) return;
-    const questDayRows = workouts.filter((item) => item.questId === row.questId && item.questDayIndex === row.questDayIndex);
-    if (!questDayRows.length) return;
-    const terminal = questDayRows.every((item) => item.id != null && latestLogs.some((log) => (
-      log.workoutRowId === item.id && log.date.startsWith(todayDateKey()) && (log.status === 'done' || log.status === 'skipped')
-    )));
-    if (!terminal) return;
-    const totalDays = questTotalDays(template);
-    const dayNumber = ((row.questDayIndex - 1) % template.daysPerWeek) + 1;
-    const completion: QuestCompletion = {
-      dayIndex: row.questDayIndex,
-      dayNumber,
-      dayLabel: row.questDayLabel ?? `Day ${dayNumber}`,
-      level: row.questLevel ?? storedState.level,
-      completedAt: new Date().toISOString(),
-    };
-    const nextDayIndex = storedState.nextDayIndex === row.questDayIndex ? storedState.nextDayIndex + 1 : storedState.nextDayIndex;
-    const nextState: QuestState = {
-      ...storedState,
-      completedDays: [...storedState.completedDays, completion],
-      nextDayIndex,
-      status: nextDayIndex > totalDays ? 'completed' : 'active',
-    };
-    await saveQuestState(nextState);
+    if (!template) return;
+    const nextState = await reconcileQuestDay(template, row, workouts, latestLogs);
+    if (!nextState) return;
+    setQuestState(nextState);
+    const completion = nextState.completedDays.at(-1)!;
     setQuestResult({ error: false, message: nextState.status === 'completed' ? `${template.title} completed.` : `${completion.dayLabel} completed. Next quest day is ready.` });
   }
 
@@ -1082,6 +1084,8 @@ export default function App() {
       />}
 
       {tab === 'history' && <HistoryView
+        key={localToday}
+        questHistory={questHistory}
         range={historyRange}
         logs={logs}
         sessionEvents={sessionEvents}

@@ -1,4 +1,5 @@
 import { type PlanProgress } from '../components/SummaryCards';
+import { localDateKey } from './history-stats';
 import {
   SCHEMA_VERSION,
   WEEKDAYS,
@@ -52,7 +53,8 @@ export function validLoadWeight(value: unknown): number | null {
   if (value === '' || value == null) return null;
   const weight = Number(value);
   if (!Number.isFinite(weight) || weight <= 0 || weight > 2000) return null;
-  return Math.round(weight * 10) / 10;
+  const rounded = Math.round(weight * 10) / 10;
+  return rounded > 0 ? rounded : null;
 }
 
 export function todayName(): Weekday {
@@ -70,14 +72,24 @@ export function calculatePlanProgress(rows: Array<{ id?: number }>, statuses: Ma
   return { ...progress, resolvedPercent: progress.total ? Math.round((resolved / progress.total) * 100) : 0 };
 }
 
+export function workoutStatusesOnDate(logs: WorkoutLog[], date: string): Map<number, WorkoutLog['status']> {
+  const statuses = new Map<number, WorkoutLog['status']>();
+  logs.slice().sort((left, right) => Date.parse(left.date) - Date.parse(right.date)).forEach((log) => {
+    if (localDateKey(log.date) === date && log.workoutRowId != null) statuses.set(log.workoutRowId, log.status);
+  });
+  return statuses;
+}
+
 export function validateWorkoutRow(raw: Record<string, string>): WorkoutRow | null {
   const dayRaw = String(raw.day ?? '').trim();
   const day = WEEKDAYS.find((item) => item.toLowerCase() === dayRaw.toLowerCase());
   const time = String(raw.time ?? '').trim();
   const exercise = String(raw.exercise ?? '').trim();
   const reps = String(raw.reps ?? '').trim();
-  const sets = Number.parseInt(String(raw.sets ?? '').trim(), 10);
-  const rest = Number.parseInt(String(raw.rest ?? '').trim(), 10);
+  const setsText = String(raw.sets ?? '').trim();
+  const restText = String(raw.rest ?? '').trim();
+  const sets = /^\d+$/.test(setsText) ? Number(setsText) : Number.NaN;
+  const rest = /^\d+$/.test(restText) ? Number(restText) : Number.NaN;
   const rawLoadWeight = raw.load_weight ?? raw.loadWeight ?? raw.weight;
   const loadWeight = validLoadWeight(rawLoadWeight);
   const loadUnitRaw = String(raw.load_unit ?? raw.loadUnit ?? raw.unit ?? '').trim().toLowerCase();
@@ -163,7 +175,8 @@ export function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseC
   const day = WEEKDAYS.includes(input.day as Weekday) ? input.day as Weekday : todayName();
   const time = TIME_RE.test(String(input.time ?? '')) ? String(input.time) : '07:00';
   const level = isExerciseLevel(input.level) ? input.level : 'beginner';
-  const items: PlaylistItem[] = (input.items ?? []).map((item): PlaylistItem | null => {
+  const items: PlaylistItem[] = (Array.isArray(input.items) ? input.items : []).map((item): PlaylistItem | null => {
+    if (!item || typeof item !== 'object') return null;
     const sourceId = Number(item.sourceId);
     const exercise = catalog.find((candidate) => candidate.sourceId === sourceId);
     if (!exercise) return null;
@@ -171,7 +184,7 @@ export function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseC
     const rest = Number(item.rest);
     const reps = String(item.reps ?? '').trim().slice(0, 30);
     const loadWeight = validLoadWeight(item.loadWeight);
-    const loadUnit = loadWeight != null ? item.loadUnit ?? 'kg' : null;
+    const loadUnit = loadWeight != null ? (isWeightUnit(item.loadUnit) ? item.loadUnit : 'kg') : null;
     return {
       sourceId,
       name: exercise.custom ? exercise.displayName : exercise.name,

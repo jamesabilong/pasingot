@@ -1,4 +1,6 @@
-import { getAll, clearAndBulkInsert, STORES } from './db';
+import { getAll, replaceStores, STORES } from './db';
+import { validateBackupStores } from './backup-validation';
+import { withHealthConnectSyncLock } from './native-bridge';
 import { repairLegacyCustomExerciseNames } from './custom-exercises';
 import { SCHEMA_VERSION, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 
@@ -78,6 +80,10 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
   }
   const stores = parsed.stores;
   if (!isObject(stores)) throw new Error('Backup file is missing stores.');
+  if (parsed.schemaVersion !== SCHEMA_VERSION) throw new Error('This backup uses an unsupported data schema.');
+  // Older backups predate the custom-exercise store.
+  if (stores.customExercises === undefined) stores.customExercises = [];
+  validateBackupStores(stores);
   const requiredStores = ['workouts', 'logs', 'sessionEvents', 'setLogs', 'bodyMetrics', 'appState'] as const;
   requiredStores.forEach((storeName) => {
     if (!Array.isArray(stores[storeName])) throw new Error(`Backup file is missing ${storeName}.`);
@@ -100,15 +106,8 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
 }
 
 export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<BackupSummary> {
-  await Promise.all([
-    clearAndBulkInsert(STORES.workouts, backup.stores.workouts),
-    clearAndBulkInsert(STORES.logs, backup.stores.logs),
-    clearAndBulkInsert(STORES.sessionEvents, backup.stores.sessionEvents),
-    clearAndBulkInsert(STORES.setLogs, backup.stores.setLogs),
-    clearAndBulkInsert(STORES.bodyMetrics, backup.stores.bodyMetrics),
-    clearAndBulkInsert(STORES.customExercises, backup.stores.customExercises),
-    clearAndBulkInsert(STORES.appState, backup.stores.appState),
-  ]);
+  validateBackupStores(backup.stores);
+  await withHealthConnectSyncLock(() => replaceStores(backup.stores));
   await repairLegacyCustomExerciseNames();
   return summarizeBackup(backup);
 }

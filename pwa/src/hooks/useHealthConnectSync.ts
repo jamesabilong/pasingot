@@ -31,7 +31,7 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
 
   const refreshEnabled = useCallback(async () => {
     const stored = await getRecord<HealthConnectSettings>(STORES.appState, HEALTH_CONNECT_SETTINGS_KEY);
-    if (stored?.schemaVersion === SCHEMA_VERSION) setEnabled(stored.enabled);
+    setEnabled(stored?.schemaVersion === SCHEMA_VERSION && stored.enabled === true);
   }, []);
 
   useEffect(() => {
@@ -129,5 +129,6 @@ export function useHealthConnectSync(addToast: (message: string) => void) {
     writeCompletedSession,
     writeBodyMetric,
     deleteBodyMetric,
+    refreshEnabled,
   };
 }

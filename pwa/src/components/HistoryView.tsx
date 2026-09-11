@@ -7,6 +7,7 @@ import type {
   ExerciseLevel,
   HistoryRange,
   QuestState,
+  QuestHistory,
   QuestTemplate,
   WorkoutLog,
   WorkoutSetLog,
@@ -54,6 +55,7 @@ interface HistoryViewProps {
   bodyMetrics: BodyMetricEntry[];
   catalog: ExerciseCatalogItem[];
   questState: QuestState | null;
+  questHistory: QuestHistory['entries'];
   activeQuestTemplate?: QuestTemplate;
   levelLabels: Record<ExerciseLevel, string>;
   bodyMetricDraft: BodyMetricDraft;
@@ -78,6 +80,7 @@ export function HistoryView({
   bodyMetrics,
   catalog,
   questState,
+  questHistory,
   activeQuestTemplate,
   levelLabels,
   bodyMetricDraft,
@@ -190,6 +193,15 @@ export function HistoryView({
         percent={questPercent}
         levelLabels={levelLabels}
       />
+      {questHistory.slice().reverse().map((entry) => <QuestProgress
+        key={`${entry.state.questId}:${entry.state.startedAt}`}
+        questState={entry.state}
+        activeQuestTemplate={entry.template}
+        completions={entry.state.completedDays.filter((day) => inHistoryRange(day.completedAt, range))}
+        percent={Math.round(100 * entry.state.completedDays.length / (entry.template.durationWeeks * entry.template.daysPerWeek))}
+        levelLabels={levelLabels}
+        archived
+      />)}
       <WorkoutSessions events={historySessionEvents} />
       <RecentActivity groups={dateGroups} />
       <ExerciseBreakdown items={byExercise} />
@@ -534,18 +546,20 @@ function QuestProgress({
   completions,
   percent,
   levelLabels,
+  archived = false,
 }: {
   questState: QuestState | null;
   activeQuestTemplate?: QuestTemplate;
   completions: QuestState['completedDays'];
   percent: number;
   levelLabels: Record<ExerciseLevel, string>;
+  archived?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quest Progress</h3>
-        {questState && activeQuestTemplate && <span className="text-xs text-slate-500">{questState.status}</span>}
+        {questState && activeQuestTemplate && <span className="text-xs text-slate-500">{archived ? 'Archived' : questState.status}</span>}
       </div>
       {!questState || !activeQuestTemplate ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No quest progress yet.</p> : <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="flex items-start justify-between gap-3">

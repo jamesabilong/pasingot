@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Data integrity regression checks</title>
+<h1>Data integrity regression checks</h1>
+<pre id="result">Running…</pre>
+<script type="module">
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import { createCustomQuestDefinition, normalizeCustomQuestCollection } from '/src/lib/custom-quests.ts';
+import { archiveQuest, completeQuestDay, reconcileQuestDay, resolveQuestDay } from '/src/lib/quest-progress.ts';
+import { localDateKey } from '/src/lib/history-stats.ts';
+import { validateWorkoutRow, workoutStatusesOnDate } from '/src/lib/workout-planning.ts';
+import { drainPendingHealthConnectWrites, writeBodyMetricToHealthConnect, deleteBodyMetricFromHealthConnect } from '/src/lib/native-bridge.ts';
+
+// Every write goes to a disposable database, never the installed app's data.
+const factory = window.indexedDB;
+const database = `pasingot-integrity-test-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const checks = [];
+const check = (condition, message) => {
+  if (!condition) throw new Error(message);
+  checks.push(`PASS: ${message}`);
+};
+const rejects = async (operation) => { try { await operation(); return false; } catch { return true; } };
+const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
+try {
+  const exercise = {
+    schemaVersion: 1, sourceId: -42, name: 'custom:42:tempo-hold', displayName: 'Tempo Hold', category: 'Mobility',
+    primaryMuscles: ['Core'], secondaryMuscles: [], equipment: [], featured: false, minimumLevel: 'beginner',
+    progressionGroup: 'custom', progressionLevel: 'beginner', license: 'User-provided', licenseUrl: '', author: 'Custom', sourceUrl: '',
+    custom: true, createdAt: '2026-09-11T00:00:00Z', updatedAt: '2026-09-11T00:00:00Z',
+  };
+  const playlist = { day: 'Friday', time: '07:00', level: 'beginner', items: [{ sourceId: -42, name: 'Tempo Hold', sets: 2, reps: '30 sec', rest: 30 }] };
+  const { definition } = createCustomQuestDefinition({ title: 'Test program', description: 'Test goal', safetyNote: 'Test safety', durationWeeks: 2, daysPerWeek: 2 }, playlist, [exercise]);
+  const normalized = (quest) => normalizeCustomQuestCollection({ quests: [quest] }).quests.length;
+  check(normalized({ ...definition, template: { ...definition.template, title: 42 } }) === 0, 'Wrong-type template text is rejected without throwing');
+  check(normalized({ ...definition, rows: [{ ...definition.rows[0], reps: 10 }] }) === 0, 'Wrong-type prescriptions are rejected without throwing');
+  check(normalized({ ...definition, template: { ...definition.template, durationWeeks: 53 } }) === 0, 'Restored duration obeys authoring bounds');
+  check(normalized({ ...definition, rows: [definition.rows[0]] }) === 0, 'A template cannot omit a weekly day');
+  check(normalized({ ...definition, rows: [...definition.rows, definition.rows[0]] }) === 0, 'Duplicate exercise sequences are rejected');
+  check(normalized({ ...definition, questId: 'builtin', template: { ...definition.template, questId: 'builtin' } }) === 0, 'Custom templates cannot shadow built-in IDs');
+
+  const stamp = new Date(2026, 8, 11, 0, 30).toISOString();
+  const state = { key: 'questState', schemaVersion: 1, questId: definition.questId, runId: 'run-2', level: 'beginner', nextDayIndex: 1,
+    scheduledTime: '07:00', startedAt: new Date(2026, 8, 10, 12).toISOString(), completedDays: [], status: 'active' };
+  const row = { id: 1, schemaVersion: 1, day: 'Friday', time: '07:00', exercise: 'Tempo Hold', exerciseSourceId: -42, sets: 2, reps: '30 sec', rest: 30,
+    questId: definition.questId, questRunId: 'run-2', questDayIndex: 1, questDayLabel: 'Test day', questLevel: 'beginner' };
+  const log = { id: 1, schemaVersion: 1, date: stamp, exercise: row.exercise, exerciseSourceId: -42, status: 'done', workoutRowId: 1 };
+  const complete = (candidateState, candidateRow = row, candidateLogs = [log]) => completeQuestDay(candidateState, definition.template, candidateRow, [candidateRow], candidateLogs, localDateKey(stamp));
+  check(complete({ ...state, questId: 'different-quest' }).nextDayIndex === 1, 'An old quest cannot advance another quest');
+  check(complete(state, { ...row, questRunId: 'run-1' }).nextDayIndex === 1, 'A previous run cannot advance a restarted quest');
+  check(complete(state, row, []).nextDayIndex === 1, 'Pending exercise rows prevent completion');
+  check(complete(state).nextDayIndex === 2, 'Early-morning logs complete the local quest day');
+  check(complete({ ...state, startedAt: new Date(2026, 8, 11, 1).toISOString() }).nextDayIndex === 1, 'Pre-enrollment logs cannot complete a new quest');
+  check(workoutStatusesOnDate([log], '2026-09-11').get(1) === 'done', 'Today uses the local date of a UTC timestamp');
+  const laterLog = { ...log, date: new Date(2026, 8, 11, 1).toISOString(), status: 'skipped' };
+  check(workoutStatusesOnDate([laterLog, log], '2026-09-11').get(1) === 'skipped', 'Out-of-order sync preserves the latest status by timestamp');
+  const incompleteCatalog = new Map();
+  check(resolveQuestDay(definition.rows, state, definition.template, incompleteCatalog).length === 0, 'Missing catalog exercises block the whole quest day');
+  const extraRow = { ...definition.rows[0], exerciseSourceId: 999, sequence: 2 };
+  check(resolveQuestDay([...definition.rows, extraRow], state, definition.template, new Map([[-42, exercise]])).length === 0, 'One resolvable exercise cannot hide another missing exercise');
+
+  // Use today's timestamp for the persistence reconciliation's real clock.
+  const currentLog = { ...log, date: new Date().toISOString() };
+  const currentState = { ...state, startedAt: new Date(Date.now() - 1000).toISOString() };
+  await putRecord(STORES.appState, currentState);
+  await putRecord(STORES.workouts, row);
+  await putRecord(STORES.logs, currentLog);
+  await putRecord(STORES.customExercises, exercise);
+  await putRecord(STORES.appState, { key: 'customQuests', schemaVersion: 1, quests: [definition] });
+  const reconciled = await Promise.all([reconcileQuestDay(definition.template, row, [row], [currentLog]), reconcileQuestDay(definition.template, row, [row], [currentLog])]);
+  check(reconciled.filter(Boolean).length === 1 && (await getRecord(STORES.appState, 'questState')).completedDays.length === 1, 'Concurrent phone/watch reconciliation credits a day once');
+  await putRecord(STORES.workouts, { ...row, id: 2, questId: 'other-program' });
+  await archiveQuest(currentState, definition.template);
+  const history = await getRecord(STORES.appState, 'questHistory');
+  check(history.entries[0].state.completedDays.length === 1 && !await getRecord(STORES.appState, 'questState'), 'Leaving archives the latest committed completion history');
+  check((await getAll(STORES.workouts)).length === 1 && (await getAll(STORES.logs)).length === 1, 'Leaving removes only that run’s schedule and keeps workout logs');
+
+  const backup = await buildWorkoutBackup();
+  check(parseWorkoutBackup(JSON.stringify(backup)).stores.appState.some((entry) => entry.key === 'questHistory'), 'Full backup includes archived quest history');
+  check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, schemaVersion: 99 }))), 'Unsupported backup schemas are rejected');
+  check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, stores: { ...backup.stores, logs: [null] } }))), 'Malformed history is rejected before restore');
+  check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, stores: { ...backup.stores, workouts: [row, row] } }))), 'Duplicate stored IDs are rejected before restore');
+  const oldBackup = structuredClone(backup);
+  delete oldBackup.stores.customExercises;
+  oldBackup.stores.appState = [];
+  check(parseWorkoutBackup(JSON.stringify(oldBackup)).stores.customExercises.length === 0, 'Older backups without custom exercises remain compatible');
+  check(await rejects(() => replaceStores({ logs: [], workouts: [], appState: [{}] })), 'A synchronous IndexedDB write failure rejects the transaction');
+  check((await getAll(STORES.logs)).length === 1 && (await getAll(STORES.workouts)).length === 1, 'A failed multi-store restore rolls back earlier clears');
+  await restoreWorkoutBackup(backup);
+  check((await getRecord(STORES.appState, 'questHistory')).entries.length === 1, 'A valid backup restores archived history successfully');
+
+  const csvRow = { day: 'Friday', time: '07:00', exercise: 'Squat', sets: '3', reps: '10', rest: '30' };
+  check(validateWorkoutRow({ ...csvRow, sets: '3.5' }) === null && validateWorkoutRow({ ...csvRow, rest: '30oops' }) === null, 'CSV rejects truncated decimals and trailing junk');
+  check(validateWorkoutRow({ ...csvRow, load_weight: '0.01', load_unit: 'kg' }) === null, 'A load rounded to zero is rejected');
+
+  const status = { availability: 'available', permissionGranted: true, workoutPermissionGranted: true, bodyWeightPermissionGranted: true };
+  await putRecord(STORES.appState, { key: 'healthConnectSettings', schemaVersion: 1, enabled: true });
+  const entry = { id: 7, schemaVersion: 1, date: '2026-09-11', weight: 70, unit: 'kg' };
+  let persistedBeforeNative = false;
+  window.Capacitor = { Plugins: { HealthConnectBridge: {
+    getStatus: async () => status,
+    writeBodyWeight: async () => {
+      persistedBeforeNative = (await getRecord(STORES.appState, 'healthConnectPendingWrites')).operations.length === 1;
+      return { ...status, written: false };
+    },
+    deleteBodyWeight: async () => ({ ...status, deleted: true }),
+  } } };
+  await writeBodyMetricToHealthConnect(entry);
+  check(persistedBeforeNative, 'Health mutations persist before the native call so interruption can retry');
+  const entered = deferred();
+  const release = deferred();
+  let calls = 0;
+  window.Capacitor.Plugins.HealthConnectBridge.writeBodyWeight = async () => {
+    calls += 1;
+    if (calls === 1) { entered.resolve(); await release.promise; return { ...status, written: true }; }
+    return { ...status, written: false };
+  };
+  const retry = drainPendingHealthConnectWrites();
+  await entered.promise;
+  const newer = writeBodyMetricToHealthConnect({ ...entry, id: 8, weight: 75 });
+  release.resolve();
+  await Promise.all([retry, newer]);
+  const queue = await getRecord(STORES.appState, 'healthConnectPendingWrites');
+  check(queue.operations.length === 1 && queue.operations[0].payload.clientRecordId.endsWith(':8'), 'A slow retry cannot erase a newly queued mutation');
+  let nativeCalls = 0;
+  window.Capacitor.Plugins.HealthConnectBridge.writeBodyWeight = async () => { nativeCalls += 1; return { ...status, written: true }; };
+  await Promise.all([drainPendingHealthConnectWrites(), drainPendingHealthConnectWrites()]);
+  check(nativeCalls === 1, 'Overlapping retry triggers process each pending mutation once');
+  await Promise.all([writeBodyMetricToHealthConnect(entry), deleteBodyMetricFromHealthConnect(entry)]);
+  check((await getRecord(STORES.appState, 'healthConnectPendingWrites')).operations.length === 0, 'An ordered edit then delete leaves no stale write to resurrect the record');
+  await putRecord(STORES.appState, { key: 'healthConnectSettings', schemaVersion: 1, enabled: false });
+  const beforeDisabledWrite = nativeCalls;
+  await writeBodyMetricToHealthConnect(entry);
+  check(nativeCalls === beforeDisabledWrite, 'Persisted sync-off is respected even with a stale caller');
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+} finally {
+  Object.defineProperty(window, 'indexedDB', { configurable: true, value: factory });
+  factory.deleteDatabase(database);
+}
+</script>
+</html>

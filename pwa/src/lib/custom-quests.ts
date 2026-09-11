@@ -12,7 +12,7 @@ import {
   type WorkoutSetLog,
 } from '../types';
 import { customExerciseNames } from './custom-exercises';
-import { isExerciseLevel, isWeightUnit, TIME_RE, validLoadWeight } from './workout-planning';
+import { isExerciseLevel, isWeightUnit, MAX_PLAYLIST_ITEMS, TIME_RE, validLoadWeight } from './workout-planning';
 
 export const CUSTOM_QUESTS_KEY = 'customQuests' as const;
 
@@ -85,7 +85,7 @@ export function createCustomQuestDefinition(
   if (!Number.isInteger(daysPerWeek) || daysPerWeek < 1 || daysPerWeek > 7) {
     return { definition: null, error: 'Days per week must be between 1 and 7.' };
   }
-  if (!TIME_RE.test(playlist.time) || !playlist.items.length) {
+  if (!isExerciseLevel(playlist.level) || !TIME_RE.test(playlist.time) || !playlist.items.length || playlist.items.length > MAX_PLAYLIST_ITEMS) {
     return { definition: null, error: 'Build a valid playlist in Library before creating a quest.' };
   }
   const catalogBySourceId = new Map(catalog.map((exercise) => [exercise.sourceId, exercise]));
@@ -134,37 +134,55 @@ export function createCustomQuestDefinition(
   };
 }
 
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function text(value: unknown): value is string {
+  return typeof value === 'string' && Boolean(value.trim());
+}
+
+function integer(value: unknown, min: number, max: number): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
+}
+
+export function isCustomQuestDefinition(value: unknown): value is CustomQuestDefinition {
+  if (!record(value) || value.schemaVersion !== SCHEMA_VERSION || !text(value.questId) || !value.questId.startsWith('custom:')) return false;
+  const template = value.template;
+  if (!record(template) || template.schemaVersion !== SCHEMA_VERSION || template.questId !== value.questId || template.custom !== true) return false;
+  if (!text(template.title) || !text(template.description) || !text(template.safetyNote)) return false;
+  if (!integer(template.durationWeeks, 1, 52) || !integer(template.daysPerWeek, 1, 7)) return false;
+  if (!Array.isArray(template.evidenceBasis) || !template.evidenceBasis.every((url) => typeof url === 'string')) return false;
+  const levels = template.availableLevels;
+  if (!Array.isArray(levels) || !levels.length || !levels.every(isExerciseLevel) || new Set(levels).size !== levels.length) return false;
+  if (!text(value.createdAt) || !Number.isFinite(Date.parse(value.createdAt)) || !text(value.updatedAt) || !Number.isFinite(Date.parse(value.updatedAt))) return false;
+  if (!Array.isArray(value.rows) || !value.rows.length || value.rows.length > MAX_PLAYLIST_ITEMS * template.daysPerWeek * levels.length) return false;
+  const sequences = new Map<string, Set<number>>();
+  for (const row of value.rows) {
+    if (!record(row) || row.schemaVersion !== SCHEMA_VERSION || row.questId !== value.questId
+      || !isExerciseLevel(row.level) || !levels.includes(row.level)
+      || !integer(row.dayNumber, 1, template.daysPerWeek) || !integer(row.sequence, 1, MAX_PLAYLIST_ITEMS)
+      || !integer(row.exerciseSourceId, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER) || row.exerciseSourceId === 0
+      || !integer(row.sets, 1, Number.MAX_SAFE_INTEGER) || !text(row.reps) || !text(row.dayLabel) || !text(row.progressionGroup)
+      || !integer(row.rest, 0, Number.MAX_SAFE_INTEGER)
+      || (row.loadWeight != null && (typeof row.loadWeight !== 'number' || validLoadWeight(row.loadWeight) == null || !isWeightUnit(row.loadUnit)))) return false;
+    const key = `${row.level}:${row.dayNumber}`;
+    const daySequences = sequences.get(key) ?? new Set<number>();
+    if (daySequences.has(row.sequence)) return false;
+    daySequences.add(row.sequence);
+    sequences.set(key, daySequences);
+  }
+  for (const level of levels) {
+    for (let day = 1; day <= template.daysPerWeek; day += 1) {
+      const daySequences = sequences.get(`${level}:${day}`);
+      if (!daySequences || [...daySequences].some((sequence) => sequence > daySequences.size)) return false;
+    }
+  }
+  return true;
+}
+
 export function normalizeCustomQuestCollection(value: unknown): CustomQuestCollection {
-  const candidate = value as Partial<CustomQuestCollection> | null;
-  const quests = Array.isArray(candidate?.quests) ? candidate.quests.filter((definition): definition is CustomQuestDefinition => {
-    if (!definition || definition.schemaVersion !== SCHEMA_VERSION || typeof definition.questId !== 'string') return false;
-    const template = definition.template;
-    if (!template || template.schemaVersion !== SCHEMA_VERSION || template.questId !== definition.questId || template.custom !== true) return false;
-    if (!template.title?.trim() || !template.description?.trim() || !template.safetyNote?.trim()) return false;
-    if (!Number.isInteger(template.durationWeeks) || template.durationWeeks < 1 || !Number.isInteger(template.daysPerWeek) || template.daysPerWeek < 1) return false;
-    if (!Array.isArray(template.evidenceBasis) || !template.evidenceBasis.every((url) => typeof url === 'string')) return false;
-    if (!Array.isArray(template.availableLevels) || !template.availableLevels.length || !template.availableLevels.every(isExerciseLevel)) return false;
-    if (!Array.isArray(definition.rows) || !definition.rows.length) return false;
-    return definition.rows.every((row) => (
-      row?.schemaVersion === SCHEMA_VERSION
-      && row.questId === definition.questId
-      && isExerciseLevel(row.level)
-      && template.availableLevels!.includes(row.level)
-      && Number.isInteger(row.dayNumber)
-      && row.dayNumber >= 1
-      && row.dayNumber <= template.daysPerWeek
-      && Number.isInteger(row.sequence)
-      && row.sequence >= 1
-      && Number.isInteger(row.exerciseSourceId)
-      && row.exerciseSourceId !== 0
-      && Number.isInteger(row.sets)
-      && row.sets >= 1
-      && Boolean(row.reps?.trim())
-      && Number.isInteger(row.rest)
-      && row.rest >= 0
-      && (row.loadWeight == null || (validLoadWeight(row.loadWeight) != null && isWeightUnit(row.loadUnit)))
-    ));
-  }) : [];
+  const quests = record(value) && Array.isArray(value.quests) ? value.quests.filter(isCustomQuestDefinition) : [];
   const seenQuestIds = new Set<string>();
   return {
     key: CUSTOM_QUESTS_KEY,
@@ -184,7 +202,7 @@ function referencesName(value: string | null | undefined, names: Set<string>): b
 export function findCustomExerciseReferences(exercise: CustomExercise, snapshot: CustomExerciseReferenceSnapshot): CustomExerciseReferences {
   const names = customExerciseNames(exercise);
   const hasIdentity = (sourceId: number | null | undefined, name: string | null | undefined) => (
-    sourceId === exercise.sourceId || referencesName(name, names)
+    sourceId != null ? sourceId === exercise.sourceId : referencesName(name, names)
   );
   const draft = snapshot.draft.items.filter((item) => hasIdentity(item.sourceId, item.name)).length;
   const schedule = snapshot.workouts.filter((row) => hasIdentity(row.exerciseSourceId, row.exercise)).length;

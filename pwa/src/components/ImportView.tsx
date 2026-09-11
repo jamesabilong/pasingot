@@ -4,6 +4,7 @@ import { WEEKDAYS, type WorkoutRow } from '../types';
 export interface ImportResult {
   imported: number;
   skipped: number;
+  error?: string;
 }
 
 export interface BackupTransferResult {
@@ -77,7 +78,7 @@ export function ImportView({
           />
         </label>
         {result && <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm">
-          <p className="text-emerald-400">Imported {result.imported} exercise row{result.imported === 1 ? '' : 's'}.</p>
+          {result.error ? <p className="text-rose-300">{result.error}</p> : <p className="text-emerald-400">Imported {result.imported} exercise row{result.imported === 1 ? '' : 's'}.</p>}
           {result.skipped > 0 && <p className="text-amber-400">Skipped {result.skipped} malformed row{result.skipped === 1 ? '' : 's'}.</p>}
         </div>}
       </div>

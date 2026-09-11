@@ -163,7 +163,7 @@ function CustomQuestBuilder({
       <div>
         <p className="section-kicker">Your program</p>
         <h3 className="text-base font-semibold text-slate-200">Create quest from Library playlist</h3>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">Each quest day repeats the current playlist and keeps its exercise IDs, set prescriptions, rest, and planned loads. Edit the playlist in Library before creating the quest.</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">Each quest day repeats your Library playlist with the same sets, reps, rest, and weights. Edit the playlist in Library before creating the quest.</p>
       </div>
       <p className={`rounded-md border p-2 text-xs ${playlistDraft.items.length ? 'border-emerald-900 bg-emerald-950/30 text-emerald-300' : 'border-slate-800 bg-slate-950 text-slate-500'}`}>{playlistSummary}</p>
       <label className="block text-xs text-slate-500">Title<input type="text" maxLength={80} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none" /></label>
