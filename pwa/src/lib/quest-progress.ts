@@ -49,9 +49,18 @@ export async function reconcileQuestDay(template: QuestTemplate, row: WorkoutRow
   let changed: QuestState | null = null;
   await updateRecord<QuestState>(STORES.appState, QUEST_STATE_KEY, (state) => {
     if (!state) return state;
-    const next = completeQuestDay(state, template, row, workouts, logs);
-    if (next !== state) changed = next;
-    return next;
+    // A watch may deliver yesterday's completed day after reconnecting.
+    // Keep its workout date instead of requiring delivery to happen that day.
+    const dates = [...new Set(logs.filter((log) => log.workoutRowId === row.id).map((log) => localDateKey(log.date)))].sort();
+    for (const date of dates) {
+      if (date > todayDateKey()) continue;
+      const dayRowIds = new Set(workouts.filter((item) => belongsToQuestRun(item, state) && item.questDayIndex === state.nextDayIndex).map((item) => item.id));
+      const timestamps = logs.filter((log) => log.workoutRowId != null && dayRowIds.has(log.workoutRowId) && localDateKey(log.date) === date)
+        .map((log) => Date.parse(log.date)).filter(Number.isFinite);
+      const next = completeQuestDay(state, template, row, workouts, logs, date, new Date(Math.max(...timestamps)));
+      if (next !== state) { changed = next; return next; }
+    }
+    return state;
   });
   return changed;
 }

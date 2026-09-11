@@ -9,25 +9,26 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
-**Sanity-checked against the live code on 2026-09-09.** Stages 10-16 and the
-first Stage 17 slice are committed on `PST01`; cross-references keep this
-checklist traceable to the active plan.
+**Reviewed against the code on 2026-09-12.** Stage 16 media/custom quests are
+committed in `6d97150`; integrity fixes began in `6a75c06`. Iteration status and
+verification are in [Implementation progress](IMPLEMENTATION_PROGRESS.md).
 
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/
   equipment/category, with source link and license attribution.
-- Quests: templated, evidence-informed multi-week progression programs that
-  self-schedule into the weekly plan.
+- Quests: built-in programs and user-authored playlist templates, with an
+  explicit action to add the current quest day to the weekly plan. Separate
+  enrollments have stable run identity; departed quests retain archived progress.
 - CSV import of the weekly schedule (now including optional load columns —
   Stage 12).
 - Live workout player: complete set, skip exercise, **rest countdown that
   auto-starts and auto-advances to the next set/exercise** with +5/+10/+30s
   extensions, pause/resume/restart, end workout, elapsed time, crash/close
   recovery, and per-set reps/load input (Stage 12).
-- **Rest-end cues**: haptic, sound, and optional text-to-speech voice
-  announcement, each independently toggleable, on both the PWA and Wear OS
-  (Stage 14).
+- **PWA rest-end cues**: haptic, sound, and optional text-to-speech voice,
+  each independently toggleable. Wear OS has haptic feedback on session
+  actions; watch rest-end sound/voice is not implemented (Stage 14).
 - **Weighted-set logging and strength analytics**: per-set reps/load records,
   personal-record detection (max load, max reps at a load, best estimated
   1RM), and per-exercise trend data (Stage 12-13).
@@ -101,7 +102,7 @@ importance in general.
 | Wanted? | Feature | What it is | Common in | Priority | Notes |
 |---|---|---|---|---|---|
 | ✅ Done | Auto-advancing rest countdown + TTS | Rest starts automatically after a set, counts down, and auto-starts the next set/exercise — no manual "start" tap needed | Strong, Hevy, Nike Training Club, JEFIT | High | **Implemented and committed** in `WorkoutPlayer.tsx` and `SessionViewModel.kt`. Rest is timestamp-based and auto-transitions to `active` when it hits 0 on both phone and watch. The PWA has independently configurable haptic, sound, and voice cues; voice defaults **off**. A manual "Start now" action remains for skipping rest early. See "Polish opportunities" below for optional refinements. |
-| 🚧 In progress | Google Health Connect sync | Write workouts/body weight to Android's Health Connect | Most Android fitness apps | Medium | Stage 17 workout-session sync is committed. Body-weight add/update/delete sync now exists as the local second slice and shares the persisted retry queue; physical-device validation is pending. Heart-rate summaries are not yet built. |
+| 🚧 In progress | Google Health Connect sync | Write workouts/body weight to Android's Health Connect | Most Android fitness apps | Medium | Workout and body-weight add/update/delete implementation is committed. Iteration 2 serializes retries and mutations and persists requests before native calls; physical-device validation is pending. Heart-rate summaries remain deferred. |
 | | Heart-rate during workout | Live/avg HR shown per session via the watch | Hevy, Strong, Apple Fitness+ | Medium | Still open. Stage 17 now has workout-session and body-weight writes, but no Wear OS heart-rate capture or summary model. |
 | | Calorie burn estimate | Estimated kcal per session | Nearly all major apps | Low–Medium | |
 | | Apple Health sync / iOS app | N/A today — Pasingot is Android + Wear OS only | Strong, Hevy, JEFIT, Fitbod | N/A | Would require a full iOS build; flagging for awareness, not a near-term item. |
@@ -124,7 +125,7 @@ apps (Seconds Pro) do during a rest period:
 | | Voice on by default | Flip `voiceEnabled` default to `true` (or prompt once on first workout) | — | Medium | Currently defaults off (`initialWorkoutCueSettings`); a user who never opens the cue toggles never hears it. |
 | | Announce the upcoming exercise at the *start* of rest, not just the end | "Up next: push-ups" spoken as rest begins, so the user knows what's coming without looking at the screen | Peloton, Nike Training Club | Medium | Today's `playWorkoutCue` only fires once, when rest hits 0 ("Rest complete. Next set: X"). |
 | | Spoken/audible final countdown | "3, 2, 1, go" in the last few seconds of rest | Nike Training Club, Seconds Pro, most interval timers | Medium | Cheap addition to the existing 1-second `syncTimers` tick — trigger extra cues at `restSeconds` 3/2/1. |
-| | Wear OS voice cue | Speak the same "rest complete" cue on the watch, not just haptic | Some Wear OS fitness apps with speaker support | Low | Depends on whether the target watches have a speaker; haptic-only is a reasonable fallback if not. |
+| | Wear OS voice cue | Speak the same "rest complete" cue on the watch, not just haptic | Some Wear OS fitness apps with speaker support | Low | Not implemented. Current watch feedback is action haptics via `rememberCueAction`; PWA voice settings do not apply to the watch. This remains an optional candidate. |
 | | Large, glanceable countdown number/ring on the rest screen | Big circular countdown so the phone can be glanced at across the room, not just heard | Strong, Hevy, Nike Training Club | Medium | See the UI/UX section below — this is really a visual-design change to `WorkoutPlayer.tsx`'s resting view. |
 
 ## UI/UX design direction, screen by screen
@@ -145,10 +146,10 @@ retains the original targets; full browser and device acceptance is still open.
 | ✅ Done | Global nav | Persistent Start/Continue action in the sticky header | Strava's prominent record button; Nike Training Club's Start Workout CTA | Completed in Stage 18's first shell slice | Medium |
 | 🚧 Partial | Installed PWA/mobile shell | Thumb-reachable bottom nav, safe-area spacing, active-session banner, online/Health/install/reminder status | Native fitness apps | Shell behavior is implemented; feature screens still need mobile-specific visual passes | High |
 | 🚧 Partial | Today | Local hero, explicit status counts, queue filters, weekly schedule preview, and empty-state actions; player remains inline | Hevy/Strong home screen: a single "today's workout" card with a big primary Start/Continue button, a compact stat strip above it (streak, sessions this week) | Redesign Today as one hero card (exercise count, estimated time, Start/Continue button) sitting above the exercise list, with the streak/weekly-count strip from the Stats section above it | High |
-| 🚧 Partial | Workout Player — one screen, two states | Active set (text reps/weight fields, "Complete Set") and resting (small "Rest remaining" text + `+5/+10/+30s`) already live in the same `WorkoutPlayer.tsx` component/screen, switching on `session.status` | Strong/Hevy/Nike Training Club: the exercise name, set count, and screen chrome stay fixed in place; only the central focal element morphs — steppers/Complete Set while active, a large circular countdown ring while resting | **Important:** resting is a *state* of the active-exercise screen, not a separate destination — don't turn it into its own tab/screen when redesigning. Keep the exercise header pinned across both states; swap only the center: numeric steppers + "Complete Set" while active, a large ring countdown while resting. Demote skip/pause/end to a small icon row in both states. | High |
-| | Quests | Flat "current day" panel per template | JEFIT/Fitbod program browser: horizontal scrollable program cards with a progress ring per program; Duolingo/Habitica-style vertical path map for day-by-day progression, which fits the existing "Quest" naming well | Show enrolled/available quests as cards with a progress ring (days complete / total), and render the day-by-day sequence as a vertical path/map instead of a plain list, leaning into the game-like "quest" framing already in the copy | Medium |
-| | Library | Segmented level filter + flat list rows | Strong/Hevy exercise browser: search bar pinned at top, horizontal scrollable filter chips (muscle group/equipment), a photo/thumbnail per exercise card | Add a search bar above the filters, turn muscle-group/equipment/category into scrollable filter chips alongside the existing level filter, and surface an exercise thumbnail once exercise images are added (see catalog media row above) | Medium |
-| | History | Text overview metrics + thin flat bars | Apple Fitness+ "close your rings"; Strava's calendar heatmap + trend line charts | Turn the done/pending/skipped `PlanProgressSummary` bars into activity rings, and add the calendar heatmap + trend charts already proposed in the Stats & analytics section above as the top of the History screen | Medium |
+| ✅ Implemented | Workout Player — one screen, two states | Active set inputs and a large rest countdown ring share the same exercise header, with rest extensions and compact secondary actions | Strong/Hevy/Nike Training Club | Preserve active/rest as states of one player; finish physical-device cue/readability acceptance | High |
+| 🚧 Partial | Quests | Program cards, active progress ring, current-day exercise path, completion history, and archived runs | JEFIT/Fitbod program browser and day-by-day path | Current-day path is implemented; a map of every program day remains a design candidate | Medium |
+| 🚧 Partial | Library | Search, level/category filters, exercise cards and attributed thumbnails | Strong/Hevy exercise browser | Dedicated muscle/equipment filter chips and mobile polish remain candidates; text search already matches those fields | Medium |
+| ✅ Implemented | History | Activity rings, calendar heatmap, trends, body metrics, strength records, and archived quests | Apple Fitness+/Strava | Core planned panels are implemented; physical-device readability remains part of acceptance | Medium |
 | 🚧 Partial | Wear OS session screen | Compact Compose chips list (Complete Set, Pause, Skip, etc.) | Google/Samsung Wear fitness complications: the countdown number fills most of the round screen, 1-2 buttons max, everything else swiped away | Make the rest-remaining number the dominant element on the round screen (large centered text or a ring around the bezel), and reduce the resting-state action list to Start now / Pause only, moving Restart/End behind the existing Cancel/Paused flow | Low |
 
 ## Out of scope for this app's thesis (listed for completeness, not recommended)
@@ -161,17 +162,20 @@ retains the original targets; full browser and device acceptance is still open.
 ## Next step
 
 The Stage 18 shell and Stage 17 body-weight sync are committed in `b7f251f`.
-Local Stage 18 changes now extend across Today, Workout Player, Library,
-Quests, History, Import, and the Wear session screen. Today additionally has
+Stage 18 feature screens and weekly planning are committed in `4f5da66`, and
+the Wear session redesign/manual sync in `0a8bcf6`. Today additionally has
 weekly schedule previews grouped by time, pending/done/skipped queue filters,
 and empty-state navigation. These are implemented changes, not a claim that
 all screen-by-screen acceptance criteria above are complete.
 
-1. Review and commit the local Stage 16 media, custom quest, and reference work.
+1. Review the verified local follow-up to `6a75c06`. Iteration 2 is complete
+   locally, with regression, UI, and build evidence in the progress log.
 2. Finish physical-device recovery and Health Connect mutation/retry checks.
 3. Complete paired phone/watch delivery and physical battery evidence.
 4. Choose the next feature independently: RPE/RIR, plate calculator, supersets,
    warm-up suggestions, or body measurements. These remain candidates.
+5. Continue Stage 14B's remaining hook extraction as maintenance; its first
+   cleanup slice did not achieve the whole composition-root goal.
 
 Use the delivery board in `WORKOUT_APP_PLAN.md` for current, pending, next,
 and future work. Earlier comparison rows describe the original design target;
@@ -203,3 +207,12 @@ custom exercises and planned loads. Stable exercise IDs, rename aliases, and
 cross-store reference checks prevent referenced custom exercises or quest
 templates from being deleted. See the delivery board and validation evidence in
 `WORKOUT_APP_PLAN.md`.
+
+## 2026-09-12 integrity review
+
+The review found gaps in quest run isolation/history retention, restored-data
+validation, atomic backup replacement, local-date progress, delayed watch-log
+reconciliation, Health Connect queue ordering, and CSV replacement/native IDs.
+Corrections and per-iteration completion evidence are maintained in
+`IMPLEMENTATION_PROGRESS.md`. This review does not promote the unchecked future
+feature candidates into committed scope.

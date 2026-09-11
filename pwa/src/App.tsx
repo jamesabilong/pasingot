@@ -438,7 +438,7 @@ export default function App() {
     const candidates = new Map<string, WorkoutRow>();
     workouts.forEach((row) => {
       if (!questState || !belongsToQuestRun(row, questState) || row.questDayIndex !== questState.nextDayIndex || row.id == null) return;
-      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id && localDateKey(log.date) === localToday);
+      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id);
       if (hasLinkedLog) candidates.set(`${row.questId}:${row.questDayIndex}`, row);
     });
     candidates.forEach((row) => { void maybeCompleteQuestDay(row, logs); });

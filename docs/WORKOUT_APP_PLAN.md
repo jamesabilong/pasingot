@@ -3,6 +3,10 @@
 This is the tracked plan for the personal Workout Tracker app. Keep this file
 updated at each checkpoint so the plan is visible from every device.
 
+Iteration-by-iteration changes, completed work, validation evidence, and next
+actions are tracked in [Implementation progress](IMPLEMENTATION_PROGRESS.md).
+Update that log during every implementation iteration, not only at handoff.
+
 ## Current State
 
 - Branch: `PST01`
@@ -16,8 +20,11 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `e06dfc6 PST01: Fix completed items`, including
-  the phone elapsed-time completion fix and its browser regression coverage.
+- Latest committed checkpoint: `6a75c06 PST01: Fix gaps`, including the first
+  data-integrity review fixes. Iteration 2 follow-up validation/corrections are
+  tracked in `IMPLEMENTATION_PROGRESS.md`. Stage 16 media/custom quests are
+  committed in `6d97150`; the phone elapsed-time completion fix and browser
+  regression coverage are in `e06dfc6`.
   The watch battery/sync fixes and custom exercise names/time labels are in
   `5c95815`; the watch redesign and manual schedule sync are in `0a8bcf6`.
 - Stage 17's first implementation commit is
@@ -25,9 +32,9 @@ updated at each checkpoint so the plan is visible from every device.
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active work: the two approved Stage 16 follow-ups are implemented locally:
-  attributed built-in catalog media plus custom quest authoring/reference
-  safeguards. Physical-device validation remains independent and open.
+- Latest completed work: Iteration 2's data-integrity review, browser/native
+  verification, and plan reconciliation. Follow-up changes after `6a75c06` are
+  local; see the progress log for the exact verified work and remaining items.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
@@ -47,14 +54,15 @@ updated at each checkpoint so the plan is visible from every device.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-11
+## Delivery board — reviewed 2026-09-12
 
 | Lane | Scope | Next action |
 |---|---|---|
-| **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; review and commit the local Stage 16 follow-up |
-| **Current** | Local Stage 16 follow-up validation plus committed watch battery/sync validation | Browser/regression/build evidence below; complete the remaining paired/physical acceptance checks separately |
+| **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; integrity corrections began in `6a75c06` |
+| **Current** | Iteration 2 complete locally: integrity fixes, 60 browser regression checks, native tests/builds, and durable progress tracking | Review the local follow-up to `6a75c06`; paired/physical acceptance stays separate |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | None in the approved staged scope | Prioritize a future candidate before starting another feature |
+| **Pending implementation** | No unresolved functional defect found in this iteration's corrected workflows | Keep unvalidated device behavior open; choose future features separately |
+| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
@@ -131,8 +139,9 @@ updated at each checkpoint so the plan is visible from every device.
   seconds despite the player displaying at least **2m 47s**. Completion set
   the terminal status before folding in the latest active segment, causing the
   elapsed-time helper to omit it; the manual-end path has the same ordering.
-  A product fix and emulator retest are in progress; elapsed-duration acceptance
-  remains open until the retest passes.
+  This finding was subsequently fixed in `e06dfc6`; its six browser timing
+  regressions pass. This paragraph records the original emulator observation,
+  not an outstanding implementation defect.
 - Evidence: screenshots, UI XML, logs, and fixtures are retained locally in the
   Git-ignored `output/emulator-validation/2026-09-11/` and `output/playwright/`
   directories.
@@ -141,8 +150,9 @@ updated at each checkpoint so the plan is visible from every device.
   sizing/font scale and tactile/audio cues; Health Connect grant/revoke,
   workout/body-weight mutations and retries; clock changes, sleep, low battery,
   swipe-away and reboot recovery; and the remaining skip/download-error device
-  matrix. Licensed exercise media and custom-exercise quest authoring/reference
-  safeguards remain pending implementation.
+  matrix. At this validation checkpoint, licensed media and custom-exercise
+  quest authoring/reference safeguards were still pending; they subsequently
+  landed in `6d97150`.
 
 ### Battery, custom inputs, and watch sync audit — 2026-09-10
 
@@ -180,8 +190,9 @@ updated at each checkpoint so the plan is visible from every device.
 - Still pending: physical-watch battery comparison, phone-open/closed and
   disconnected/reconnected transfer, clock/sleep/reboot recovery, Health Connect
   permissions/mutations/retries, and the remaining device acceptance matrix.
-  Licensed catalog media and custom-exercise quest authoring/reference safeguards
-  remain the pending implementation items; optional roadmap features are unchanged.
+  The then-pending catalog media and custom-exercise quest authoring/reference
+  safeguards subsequently landed in `6d97150`; optional roadmap features remain
+  independent candidates.
 
 ### Emulator evidence from 2026-09-09
 
@@ -1159,8 +1170,10 @@ Manual acceptance:
 
 ## Stage 14B - React State and Logic Overhaul
 
-**Status:** complete and pushed on `origin/PST01` as
-`650ac65 PST01: React cleanup`.
+**Status:** first cleanup slice complete and pushed as `650ac65 PST01: React
+cleanup`; the full composition-root goal remains partial. Several workflows
+still own state/effects/handlers in `App.tsx`. Iteration 2 adds local-date and
+quest-progress modules but does not claim the entire hook extraction is done.
 
 Goal: reduce `App.tsx` from a large app controller into a thin composition
 root by moving feature-specific state, effects, persistence, and action
@@ -1253,7 +1266,9 @@ Implemented behavior:
 - Adds full local JSON backup export for schedule, logs, session events, set
   logs, body metrics, and app state including quests, draft playlist, cue
   settings, and active session state.
-- Adds full backup restore with supported-format validation.
+- Adds full backup restore with supported-format and per-record validation.
+- Replaces user stores in one transaction, rolling everything back if any write
+  fails. Archived quest history is included in app state.
 - Restores by replacing local user stores so duplicate IDs are not created
   during recovery.
 - Pushes restored schedules back to the Android native cache.
@@ -1283,7 +1298,8 @@ Manual acceptance:
 
 **Status:** complete. The first slice is committed as
 `2d1d558 PST01: Stage 16 implemented`; the media, quest-authoring, and
-reference-safeguard follow-up is implemented locally as described above.
+reference-safeguard follow-up is committed in `6d97150`. Integrity corrections
+and their verification are tracked in Iteration 2 of the progress log.
 
 Goal: make the library more personal and more useful for form reference.
 
@@ -1305,6 +1321,11 @@ Implemented behavior:
 - Prevents deletion of custom exercises while drafts, schedule rows, history,
   sessions, or custom quests still reference them. Rename aliases and optional
   source IDs protect legacy as well as new records.
+- Separates enrollments with run IDs, reconciles each completed day atomically,
+  credits delayed watch logs on their original workout date, and archives
+  completed progress before removing a departed quest's schedule.
+- Blocks partial quest days when catalog exercises are missing and rejects
+  malformed or incomplete custom templates before restore.
 
 Key files:
 

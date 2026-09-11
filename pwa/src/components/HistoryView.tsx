@@ -558,10 +558,10 @@ function QuestProgress({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quest Progress</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{archived ? 'Past quest' : 'Quest Progress'}</h3>
         {questState && activeQuestTemplate && <span className="text-xs text-slate-500">{archived ? 'Archived' : questState.status}</span>}
       </div>
-      {!questState || !activeQuestTemplate ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No quest progress yet.</p> : <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
+      {!questState || !activeQuestTemplate ? <p className="rounded-lg border border-slate-800 bg-slate-900 p-3 text-sm text-slate-500">No current quest.</p> : <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{activeQuestTemplate.title}</p>

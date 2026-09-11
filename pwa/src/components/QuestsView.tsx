@@ -230,6 +230,7 @@ function QuestProgress({
       </div>
 
       {questState.status === 'active' && <>
+        <fieldset disabled={scheduledCurrentQuestRows.length > 0} className="space-y-3 disabled:opacity-60">
         <LevelPicker levels={levels} levelLabels={levelLabels} selected={questState.level} onSelect={(level) => onQuestStateChange({ ...questState, level })} />
 
         <label className="block text-xs text-slate-500">
@@ -241,6 +242,8 @@ function QuestProgress({
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
           />
         </label>
+        </fieldset>
+        {scheduledCurrentQuestRows.length > 0 && <p className="text-xs text-slate-500">This day's level and time are saved. You can choose new settings for the next quest day.</p>}
 
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">

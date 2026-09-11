@@ -15,7 +15,7 @@ const prescription = (row: RecordValue) => integer(row.sets, 1) && text(row.reps
 
 function questState(row: RecordValue): boolean {
   return text(row.questId) && (row.runId == null || text(row.runId)) && isExerciseLevel(row.level)
-    && integer(row.nextDayIndex, 1) && text(row.scheduledTime) && TIME_RE.test(row.scheduledTime)
+    && integer(row.nextDayIndex, 1) && typeof row.scheduledTime === 'string' && (row.scheduledTime === '' || TIME_RE.test(row.scheduledTime))
     && timestamp(row.startedAt) && ['active', 'completed'].includes(String(row.status))
     && Array.isArray(row.completedDays) && row.completedDays.every((day) => object(day)
       && integer(day.dayIndex, 1) && integer(day.dayNumber, 1) && text(day.dayLabel)
@@ -39,9 +39,15 @@ function appState(row: RecordValue): boolean {
       return Array.isArray(row.entries) && row.entries.every((entry) => object(entry)
         && object(entry.state) && questState(entry.state) && questTemplate(entry.template) && timestamp(entry.archivedAt));
     case 'playlistDraft':
-      return WEEKDAYS.includes(row.day as typeof WEEKDAYS[number]) && text(row.time) && TIME_RE.test(row.time)
+      // Drafts can be exported halfway through editing. Check their shape;
+      // normalizeDraft supplies defaults when the app restores the form.
+      return WEEKDAYS.includes(row.day as typeof WEEKDAYS[number]) && typeof row.time === 'string'
         && isExerciseLevel(row.level) && Array.isArray(row.items) && row.items.every((item) => object(item)
-          && identity(item.sourceId) && item.sourceId != null && text(item.name) && prescription(item));
+          && identity(item.sourceId) && item.sourceId != null && typeof item.name === 'string'
+          && typeof item.sets === 'number' && Number.isFinite(item.sets) && typeof item.reps === 'string'
+          && typeof item.rest === 'number' && Number.isFinite(item.rest)
+          && (item.loadWeight == null || (typeof item.loadWeight === 'number' && Number.isFinite(item.loadWeight)))
+          && (item.loadUnit == null || isWeightUnit(item.loadUnit)));
     case 'activeWorkoutSession':
       return timestamp(row.planDate) && Array.isArray(row.rowIds) && row.rowIds.every((id) => integer(id, 1))
         && ['active', 'resting', 'paused', 'completed', 'ended'].includes(String(row.status))

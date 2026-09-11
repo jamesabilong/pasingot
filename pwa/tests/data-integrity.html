@@ -71,6 +71,15 @@ try {
   await putRecord(STORES.appState, { key: 'customQuests', schemaVersion: 1, quests: [definition] });
   const reconciled = await Promise.all([reconcileQuestDay(definition.template, row, [row], [currentLog]), reconcileQuestDay(definition.template, row, [row], [currentLog])]);
   check(reconciled.filter(Boolean).length === 1 && (await getRecord(STORES.appState, 'questState')).completedDays.length === 1, 'Concurrent phone/watch reconciliation credits a day once');
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(12, 0, 0, 0);
+  const offlineState = { ...currentState, startedAt: new Date(yesterday.getTime() - 3600000).toISOString() };
+  const offlineLog = { ...currentLog, date: yesterday.toISOString() };
+  await putRecord(STORES.appState, offlineState);
+  const offlineCompletion = await reconcileQuestDay(definition.template, row, [row], [offlineLog]);
+  check(offlineCompletion?.completedDays[0].completedAt === offlineLog.date, 'Delayed watch delivery credits the original workout date');
+  await putRecord(STORES.appState, { ...offlineCompletion, startedAt: currentState.startedAt });
   await putRecord(STORES.workouts, { ...row, id: 2, questId: 'other-program' });
   await archiveQuest(currentState, definition.template);
   const history = await getRecord(STORES.appState, 'questHistory');
@@ -79,6 +88,9 @@ try {
 
   const backup = await buildWorkoutBackup();
   check(parseWorkoutBackup(JSON.stringify(backup)).stores.appState.some((entry) => entry.key === 'questHistory'), 'Full backup includes archived quest history');
+  const editingBackup = structuredClone(backup);
+  editingBackup.stores.appState.push({ ...playlist, key: 'playlistDraft', schemaVersion: 1, time: '', items: [{ ...playlist.items[0], sets: 0, reps: '' }] });
+  check(parseWorkoutBackup(JSON.stringify(editingBackup)).stores.appState.some((entry) => entry.key === 'playlistDraft'), 'An unfinished form draft does not make a valid backup unrestorable');
   check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, schemaVersion: 99 }))), 'Unsupported backup schemas are rejected');
   check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, stores: { ...backup.stores, logs: [null] } }))), 'Malformed history is rejected before restore');
   check(await rejects(() => parseWorkoutBackup(JSON.stringify({ ...backup, stores: { ...backup.stores, workouts: [row, row] } }))), 'Duplicate stored IDs are rejected before restore');

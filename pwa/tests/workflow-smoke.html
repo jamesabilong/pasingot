@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isolated quest workflow smoke test</title>
+<div style="padding:8px;color:#fff;background:#444;text-align:center">Isolated test database — reload to start fresh. No personal workout data is used.</div>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from '/src/App.tsx';
+import '/src/styles.css';
+import { putRecord, STORES } from '/src/lib/db.ts';
+import { createCustomQuestDefinition } from '/src/lib/custom-quests.ts';
+
+const factory = window.indexedDB;
+const database = `pasingot-workflow-smoke-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), { once: true });
+const now = new Date().toISOString();
+const exercise = {
+  schemaVersion: 1, sourceId: -42, name: 'custom:42:tempo-hold', displayName: 'Test Tempo Hold', category: 'Mobility',
+  primaryMuscles: ['Core'], secondaryMuscles: [], equipment: [], featured: false, minimumLevel: 'beginner',
+  progressionGroup: 'custom', progressionLevel: 'beginner', license: 'User-provided', licenseUrl: '', author: 'Custom', sourceUrl: '',
+  custom: true, createdAt: now, updatedAt: now,
+};
+const playlist = { key: 'playlistDraft', schemaVersion: 1, day: new Date().toLocaleDateString('en-US', { weekday: 'long' }), time: '07:00', level: 'beginner',
+  items: [{ sourceId: -42, name: 'Test Tempo Hold', sets: 1, reps: '10 sec', rest: 0, loadWeight: 8, loadUnit: 'kg' }] };
+const { definition } = createCustomQuestDefinition({ title: 'Test Mobility Program', description: 'A one-day program for workflow verification.', safetyNote: 'Fixture only.', durationWeeks: 1, daysPerWeek: 1 }, playlist, [exercise]);
+await putRecord(STORES.customExercises, exercise);
+await putRecord(STORES.appState, playlist);
+await putRecord(STORES.appState, { key: 'customQuests', schemaVersion: 1, quests: [definition] });
+await putRecord(STORES.appState, { key: 'questHistory', schemaVersion: 1, entries: [{
+  template: { ...definition.template, title: 'Archived Test Program' }, archivedAt: now,
+  state: { key: 'questState', schemaVersion: 1, questId: definition.questId, runId: 'old-run', level: 'beginner', nextDayIndex: 2, scheduledTime: '07:00', startedAt: now, status: 'completed',
+    completedDays: [{ dayIndex: 1, dayNumber: 1, dayLabel: 'Archived test day', level: 'beginner', completedAt: now }] },
+}] });
+createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</html>
