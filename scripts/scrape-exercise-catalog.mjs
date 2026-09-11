@@ -3,7 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 
 const API_URL = 'https://wger.de/api/v2/exerciseinfo/?language=2&limit=100';
+const LICENSE_API_URL = 'https://wger.de/api/v2/license/?limit=100';
 const OUTPUT_PATH = path.resolve('pwa/public/data/exercises.csv');
+const MEDIA_MANIFEST_PATH = path.resolve('pwa/public/data/exercise-media.json');
+const MEDIA_OUTPUT_DIR = path.resolve('pwa/public/media/exercises');
 const QUESTS_OUTPUT_PATH = path.resolve('pwa/public/data/quest-templates.csv');
 const QUEST_WORKOUTS_OUTPUT_PATH = path.resolve('pwa/public/data/quest-workouts.csv');
 const SCHEMA_VERSION = 1;
@@ -197,7 +200,30 @@ function minimumLevel(sourceId) {
   return 'intermediate';
 }
 
-function toCatalogRow(item) {
+function mediaLicense(media, licensesById) {
+  if (!media || !Number.isInteger(media.license)) return null;
+  const license = licensesById.get(media.license);
+  const shortName = cleanText(license?.short_name, 80);
+  const licenseUrl = cleanText(license?.url, 240);
+  const author = cleanText(media.license_author, 120);
+  if ((!shortName.startsWith('CC-BY') && shortName !== 'CC0') || !licenseUrl.startsWith('http') || !author) return null;
+  return { shortName, licenseUrl, author };
+}
+
+function preferredMedia(items, licensesById) {
+  return [...(items ?? [])]
+    .sort((left, right) => Number(right.is_main) - Number(left.is_main) || left.id - right.id)
+    .map((media) => ({ media, license: mediaLicense(media, licensesById) }))
+    .find((candidate) => candidate.license) ?? null;
+}
+
+function fileExtension(mediaUrl) {
+  const filename = new URL(mediaUrl).pathname.split('/').pop() || '';
+  const extension = filename.match(/\.(png|jpe?g|webp)$/i)?.[1]?.toLowerCase();
+  return extension === 'jpeg' ? 'jpg' : extension || 'png';
+}
+
+function toCatalogRow(item, licensesById) {
   const translation = item.translations?.find(
     (candidate) => candidate.language === ENGLISH_LANGUAGE_ID && cleanText(candidate.name),
   );
@@ -208,6 +234,11 @@ function toCatalogRow(item) {
   const licenseName = cleanText(license.short_name || license.full_name, 80);
   const licenseUrl = cleanText(license.url, 240);
   const progression = PROGRESSION_METADATA.get(item.id);
+  const imageCandidate = preferredMedia(item.images, licensesById);
+  const videoCandidate = preferredMedia(item.videos, licensesById);
+  const imageRemoteUrl = imageCandidate?.media.thumbnails?.medium || imageCandidate?.media.image || '';
+  const imageFileName = imageRemoteUrl ? `${item.id}-${imageCandidate.media.id}.${fileExtension(imageRemoteUrl)}` : '';
+  const videoUrl = cleanText(videoCandidate?.media.video, 400);
 
   if (!Number.isInteger(item.id) || !name || !item.category?.name) return null;
   if (!licenseName.startsWith('CC-BY-SA')) return null;
@@ -230,6 +261,18 @@ function toCatalogRow(item) {
     license_url: licenseUrl,
     author: cleanText(translation.license_author || item.license_author || 'wger contributors', 120),
     source_url: sourceUrl(item.id),
+    image_url: imageFileName ? `/media/exercises/${imageFileName}` : '',
+    image_license: imageCandidate?.license.shortName || '',
+    image_license_url: imageCandidate?.license.licenseUrl || '',
+    image_author: imageCandidate?.license.author || '',
+    image_source_url: imageCandidate ? cleanText(imageCandidate.media.image, 400) : '',
+    video_url: videoUrl,
+    video_license: videoCandidate?.license.shortName || '',
+    video_license_url: videoCandidate?.license.licenseUrl || '',
+    video_author: videoCandidate?.license.author || '',
+    video_source_url: videoUrl,
+    _image_download_url: imageRemoteUrl,
+    _image_file_name: imageFileName,
   };
 }
 
@@ -259,6 +302,38 @@ async function fetchAllExercises() {
   return records;
 }
 
+async function fetchLicenses() {
+  const response = await fetch(LICENSE_API_URL, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'personal-workout-catalog/1.0 (+local reviewed CSV import)',
+    },
+  });
+  if (!response.ok) throw new Error(`wger API returned HTTP ${response.status} for ${LICENSE_API_URL}`);
+  const body = await response.json();
+  if (!Array.isArray(body.results)) throw new Error('wger license response did not contain a results array.');
+  return new Map(body.results.map((license) => [license.id, license]));
+}
+
+async function downloadExerciseMedia(rows) {
+  await mkdir(MEDIA_OUTPUT_DIR, { recursive: true });
+  const manifest = [];
+  for (const row of rows) {
+    if (!row._image_download_url || !row._image_file_name) continue;
+    const response = await fetch(row._image_download_url, {
+      headers: { 'User-Agent': 'personal-workout-catalog/1.0 (+offline attributed exercise media)' },
+    });
+    if (!response.ok) throw new Error(`wger media returned HTTP ${response.status} for ${row._image_download_url}`);
+    if (!response.headers.get('content-type')?.startsWith('image/')) {
+      throw new Error(`Expected image content for ${row._image_download_url}.`);
+    }
+    await writeFile(path.join(MEDIA_OUTPUT_DIR, row._image_file_name), Buffer.from(await response.arrayBuffer()));
+    manifest.push(`./media/exercises/${row._image_file_name}`);
+  }
+  await writeFile(MEDIA_MANIFEST_PATH, `${JSON.stringify(manifest.sort(), null, 2)}\n`, 'utf8');
+  return manifest.length;
+}
+
 function csvCell(value) {
   const text = String(value ?? '');
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -285,6 +360,16 @@ const EXERCISE_COLUMNS = [
     'license_url',
     'author',
     'source_url',
+    'image_url',
+    'image_license',
+    'image_license_url',
+    'image_author',
+    'image_source_url',
+    'video_url',
+    'video_license',
+    'video_license_url',
+    'video_author',
+    'video_source_url',
 ];
 
 const QUEST_TEMPLATE_COLUMNS = [
@@ -326,7 +411,7 @@ function buildQuestWorkouts(exerciseRows) {
   return workouts;
 }
 
-function validateAndDedupe(items) {
+function validateAndDedupe(items, licensesById) {
   const rows = [];
   const seenNames = new Set();
   let skippedNoEnglishOrInvalid = 0;
@@ -334,7 +419,7 @@ function validateAndDedupe(items) {
 
   for (const item of items) {
     if (!CURATED_SOURCE_IDS.has(item.id)) continue;
-    const row = toCatalogRow(item);
+    const row = toCatalogRow(item, licensesById);
     if (!row) {
       skippedNoEnglishOrInvalid += 1;
       continue;
@@ -354,8 +439,8 @@ function validateAndDedupe(items) {
 }
 
 async function main() {
-  const raw = await fetchAllExercises();
-  const { rows, skippedNoEnglishOrInvalid, skippedDuplicate } = validateAndDedupe(raw);
+  const [raw, licensesById] = await Promise.all([fetchAllExercises(), fetchLicenses()]);
+  const { rows, skippedNoEnglishOrInvalid, skippedDuplicate } = validateAndDedupe(raw, licensesById);
   if (rows.length !== CURATED_SOURCE_IDS.size) {
     throw new Error(
       `Expected ${CURATED_SOURCE_IDS.size} reviewed exercises but produced ${rows.length}; refusing to replace the catalog.`,
@@ -366,6 +451,7 @@ async function main() {
     throw new Error(`Expected 45 quest workout rows but produced ${questWorkouts.length}.`);
   }
 
+  const mediaCount = await downloadExerciseMedia(rows);
   await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
   await Promise.all([
     writeFile(OUTPUT_PATH, toCsv(rows, EXERCISE_COLUMNS), 'utf8'),
@@ -377,6 +463,7 @@ async function main() {
   console.log(`Wrote ${rows.length} reviewed English exercises to ${OUTPUT_PATH}.`);
   console.log(`Skipped ${skippedNoEnglishOrInvalid} invalid/non-English and ${skippedDuplicate} duplicate names.`);
   console.log(`Featured ${rows.filter((row) => row.featured === 'true').length} common exercises.`);
+  console.log(`Bundled ${mediaCount} attributed exercise images and linked ${rows.filter((row) => row.video_url).length} attributed videos.`);
   console.log(`Wrote ${questWorkouts.length} level-resolved quest rows across ${QUEST_DAY_GROUPS.length} workout days.`);
 }
 

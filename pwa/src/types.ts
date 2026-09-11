@@ -19,6 +19,7 @@ export interface WorkoutRow {
   day: Weekday;
   time: string;
   exercise: string;
+  exerciseSourceId?: number | null;
   sets: number;
   reps: string;
   rest: number;
@@ -35,6 +36,7 @@ export interface WorkoutLog {
   schemaVersion: number;
   date: string;
   exercise: string;
+  exerciseSourceId?: number | null;
   status: LogStatus;
   workoutRowId: number | null;
 }
@@ -61,6 +63,7 @@ export interface WorkoutSetLog {
   date: string;
   workoutRowId: number | null;
   exercise: string;
+  exerciseSourceId?: number | null;
   setNumber: number;
   plannedReps: string;
   actualReps: string;
@@ -97,10 +100,19 @@ export interface ExerciseCatalogItem {
   custom?: boolean;
   imageUrl?: string | null;
   videoUrl?: string | null;
+  imageLicense?: string | null;
+  imageLicenseUrl?: string | null;
+  imageAuthor?: string | null;
+  imageSourceUrl?: string | null;
+  videoLicense?: string | null;
+  videoLicenseUrl?: string | null;
+  videoAuthor?: string | null;
+  videoSourceUrl?: string | null;
 }
 
 export interface CustomExercise extends ExerciseCatalogItem {
   custom: true;
+  aliases?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -131,6 +143,8 @@ export interface QuestTemplate {
   daysPerWeek: number;
   evidenceBasis: string[];
   safetyNote: string;
+  custom?: true;
+  availableLevels?: ExerciseLevel[];
 }
 
 export interface QuestWorkoutRow {
@@ -145,6 +159,23 @@ export interface QuestWorkoutRow {
   sets: number;
   reps: string;
   rest: number;
+  loadWeight?: number | null;
+  loadUnit?: WeightUnit | null;
+}
+
+export interface CustomQuestDefinition {
+  schemaVersion: number;
+  questId: string;
+  template: QuestTemplate;
+  rows: QuestWorkoutRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomQuestCollection {
+  key: 'customQuests';
+  schemaVersion: number;
+  quests: CustomQuestDefinition[];
 }
 
 export interface QuestCompletion {

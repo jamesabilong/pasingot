@@ -66,6 +66,9 @@ export function customExerciseFromDraft(draft: CustomExerciseDraft, existing?: C
   const category = draft.category.trim().slice(0, 40) || 'Custom';
   const primaryMuscles = listFromCsv(draft.primaryMuscles).slice(0, 8);
   const equipment = listFromCsv(draft.equipment).slice(0, 8);
+  const aliases = existing
+    ? [...new Set([...(existing.aliases ?? []), existing.name, existing.displayName])].filter((name) => name !== displayName)
+    : [];
   return {
     schemaVersion: SCHEMA_VERSION,
     sourceId,
@@ -84,6 +87,7 @@ export function customExerciseFromDraft(draft: CustomExerciseDraft, existing?: C
     author: 'Custom',
     sourceUrl: '',
     custom: true,
+    aliases,
     imageUrl: cleanUrl(draft.imageUrl),
     videoUrl: cleanUrl(draft.videoUrl),
     createdAt: existing?.createdAt ?? now,
@@ -106,6 +110,10 @@ export function customExerciseDisplayName(name: string, catalog: ExerciseCatalog
   return fallback ? fallback[0].toUpperCase() + fallback.slice(1) : 'Custom exercise';
 }
 
+export function customExerciseNames(exercise: CustomExercise): Set<string> {
+  return new Set([exercise.name, exercise.displayName, ...(exercise.aliases ?? [])].map((name) => name.trim().toLowerCase()).filter(Boolean));
+}
+
 /** Repair persisted labels while retaining row IDs, log IDs, and catalog keys. */
 export async function repairLegacyCustomExerciseNames(): Promise<void> {
   const catalog = await getAll<CustomExercise>(STORES.customExercises);
@@ -118,7 +126,14 @@ export async function repairLegacyCustomExerciseNames(): Promise<void> {
         const value = record[field];
         if (typeof value === 'string') repaired[field] = customExerciseDisplayName(value, catalog);
       }
-      if (repaired.exercise !== record.exercise || repaired.currentExercise !== record.currentExercise) {
+      if (typeof record.exercise === 'string') {
+        const normalizedName = record.exercise.trim().toLowerCase();
+        const customExercise = catalog.find((item) => customExerciseNames(item).has(normalizedName));
+        if (customExercise && (record.exerciseSourceId == null || Number(record.exerciseSourceId) !== customExercise.sourceId)) {
+          repaired.exerciseSourceId = customExercise.sourceId;
+        }
+      }
+      if (repaired.exercise !== record.exercise || repaired.currentExercise !== record.currentExercise || repaired.exerciseSourceId !== record.exerciseSourceId) {
         await putRecord(stores[index], repaired);
       }
     }

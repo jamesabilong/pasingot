@@ -284,6 +284,21 @@ a:focus-visible {
   gap: 0.3rem;
 }
 
+.library-media {
+  margin-top: 0.5rem;
+}
+
+.library-media figcaption {
+  margin-top: 0.3rem;
+  color: var(--app-color-muted);
+  font-size: 0.625rem;
+  line-height: 1.35;
+}
+
+.library-media figcaption a {
+  color: var(--app-color-accent);
+}
+
 .library-inline-action,
 .playlist-icon-action {
   display: inline-grid;
@@ -324,6 +339,24 @@ a:focus-visible {
   border: 1px solid var(--app-color-border);
   border-radius: var(--app-radius-panel);
   background: var(--app-color-surface);
+}
+
+.quest-catalog {
+  display: grid;
+  gap: 1rem;
+}
+
+.custom-quest-builder {
+  border: 1px solid var(--app-color-border);
+  border-radius: var(--app-radius-panel);
+  padding: 1rem;
+  background: var(--app-color-surface);
+}
+
+@media (min-width: 40rem) {
+  .quest-catalog {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .quest-program-card--active {

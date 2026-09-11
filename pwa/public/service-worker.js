@@ -1,5 +1,5 @@
 // Cache-first for versioned app shell assets; network-first for data that can change.
-const CACHE_VERSION = 'v17-stage18-weekly-plan';
+const CACHE_VERSION = 'v18-custom-quests-media';
 const CACHE_NAME = `workout-app-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',
@@ -7,6 +7,7 @@ const APP_SHELL = [
   './assets/app.js',
   './assets/index.css',
   './data/exercises.csv',
+  './data/exercise-media.json',
   './data/quest-templates.csv',
   './data/quest-workouts.csv',
   './manifest.json',
@@ -15,7 +16,13 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then(async (cache) => {
+    await cache.addAll(APP_SHELL);
+    const response = await cache.match('./data/exercise-media.json');
+    if (!response?.ok) throw new Error('Exercise media manifest could not be loaded.');
+    const mediaAssets = await response.json();
+    if (Array.isArray(mediaAssets) && mediaAssets.length) await cache.addAll(mediaAssets);
+  }).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {

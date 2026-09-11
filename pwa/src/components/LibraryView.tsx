@@ -129,12 +129,26 @@ export function LibraryView({
                     {item.featured && <span className="rounded border border-emerald-700 px-1.5 py-0.5 text-[10px] uppercase text-emerald-300">Common</span>}
                     {item.custom && <span className="rounded border border-indigo-700 px-1.5 py-0.5 text-[10px] uppercase text-indigo-300">Custom</span>}
                   </div>
-                  {item.imageUrl && <img src={item.imageUrl} alt="" className="mt-2 aspect-video w-full max-w-44 rounded-md border border-slate-800 object-cover" loading="lazy" />}
+                  {item.imageUrl && <figure className="library-media">
+                    <img src={item.imageUrl} alt={`${item.displayName} exercise demonstration`} className="aspect-video w-full max-w-44 rounded-md border border-slate-800 object-cover" loading="lazy" />
+                    {item.imageAuthor && <figcaption>
+                      Image by {item.imageSourceUrl ? <a href={item.imageSourceUrl} target="_blank" rel="noreferrer">{item.imageAuthor}</a> : item.imageAuthor}
+                      {item.imageLicense && <> · {item.imageLicenseUrl ? <a href={item.imageLicenseUrl} target="_blank" rel="noreferrer">{item.imageLicense}</a> : item.imageLicense}</>}
+                    </figcaption>}
+                  </figure>}
                   <p className="truncate text-xs text-slate-500">{item.category} · {item.primaryMuscles.length ? item.primaryMuscles.join(', ') : item.category}</p>
                   <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest after {prescription.rest}s</p>
                   <div className="flex flex-wrap gap-3 text-xs">
                     {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-emerald-400 hover:text-emerald-300">Source</a>}
-                    {item.videoUrl && <a href={item.videoUrl} target="_blank" rel="noreferrer" className="inline-flex text-indigo-300 hover:text-indigo-200">Video</a>}
+                    {item.videoUrl && <span className="inline-flex items-center gap-1 text-indigo-300">
+                      <a href={item.videoUrl} target="_blank" rel="noreferrer" className="hover:text-indigo-200">Video{item.videoAuthor ? ` by ${item.videoAuthor}` : ''}</a>
+                      {item.videoLicense && <>
+                        <span aria-hidden="true">·</span>
+                        {item.videoLicenseUrl
+                          ? <a href={item.videoLicenseUrl} target="_blank" rel="noreferrer" className="hover:text-indigo-200">{item.videoLicense}</a>
+                          : <span>{item.videoLicense}</span>}
+                      </>}
+                    </span>}
                     {item.custom && <>
                       <button type="button" onClick={() => onEditCustomExercise(item.sourceId)} className="library-inline-action" title="Edit exercise" aria-label={`Edit ${item.displayName}`}><Pencil size={15} aria-hidden="true" /></button>
                       <button type="button" onClick={() => onDeleteCustomExercise(item.sourceId)} className="library-inline-action library-inline-action--danger" title="Delete exercise" aria-label={`Delete ${item.displayName}`}><Trash2 size={15} aria-hidden="true" /></button>

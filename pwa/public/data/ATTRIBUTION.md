@@ -6,10 +6,13 @@ author, and Creative Commons Attribution-ShareAlike license URL.
 
 The generator fetches the upstream catalog, selects an explicit allowlist of
 common cardio, strength, and bodyweight movements, and rejects any missing or
-invalid allowlist entry. The generated catalog contains names and structured classification metadata
-only. It deliberately excludes exercise descriptions and remote media. Source
-data is provided by wger contributors under the per-row CC-BY-SA license shown
-in the CSV.
+invalid allowlist entry. The generated catalog contains names, structured
+classification metadata, and reviewed media whose upstream record has an
+explicit Creative Commons license and author. Still images are bundled for
+offline use; videos remain attributed links because bundling the full video set
+would add hundreds of megabytes. Each media item retains its author, license,
+license URL, and original wger media URL in the CSV. The Library displays that
+attribution beside the media.
 
 `minimum_level` and the progression fields are local editorial metadata for
 app filtering and substitutions. They are not medical classifications and do

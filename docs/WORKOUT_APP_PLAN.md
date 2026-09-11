@@ -16,17 +16,18 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `5c95815 PST01: Fix sync issue`, including
-  watch battery/sync fixes and custom exercise names/time labels. The watch
-  redesign and manual schedule sync are committed in `0a8bcf6`.
+- Latest committed checkpoint: `e06dfc6 PST01: Fix completed items`, including
+  the phone elapsed-time completion fix and its browser regression coverage.
+  The watch battery/sync fixes and custom exercise names/time labels are in
+  `5c95815`; the watch redesign and manual schedule sync are in `0a8bcf6`.
 - Stage 17's first implementation commit is
   `493754d PST01: Stage 16 implementation`. Despite its message, the commit
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active work: emulator validation of the committed watch battery/sync and
-  custom-input changes. The working tree was clean at the start of the
-  2026-09-11 validation; these features are no longer pending implementation.
+- Active work: the two approved Stage 16 follow-ups are implemented locally:
+  attributed built-in catalog media plus custom quest authoring/reference
+  safeguards. Physical-device validation remains independent and open.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
@@ -50,12 +51,36 @@ updated at each checkpoint so the plan is visible from every device.
 
 | Lane | Scope | Next action |
 |---|---|---|
-| **Implemented** | Stages 1–15; Stage 16 custom exercises; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; these do not need reimplementation |
-| **Current** | Validation of committed watch battery/sync fixes and custom exercise names/time labels (`5c95815`) | Emulator and regression evidence below; complete the remaining paired/physical acceptance checks |
+| **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; review and commit the local Stage 16 follow-up |
+| **Current** | Local Stage 16 follow-up validation plus committed watch battery/sync validation | Browser/regression/build evidence below; complete the remaining paired/physical acceptance checks separately |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Built-in licensed exercise media; custom-exercise quest authoring and reference safeguards | Define and implement one Stage 16 follow-up at a time |
+| **Pending implementation** | None in the approved staged scope | Prioritize a future candidate before starting another feature |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
+
+### Stage 16 follow-up — 2026-09-11
+
+- The catalog generator now reviews media licenses independently from exercise
+  text, bundles 32 attributed still images (about 1.1 MB) for offline use, and
+  exposes 15 attributed upstream video links without adding hundreds of
+  megabytes to the app. The service worker pre-caches the generated media
+  manifest, and Library cards show the author and Creative Commons license.
+- The current Library playlist can be authored as a reusable custom quest with
+  a title, goal, safety note, duration, and days per week. Authored quest rows
+  retain stable exercise IDs, prescriptions, rest, planned load, and the
+  playlist's selected level. Definitions are stored in backed-up app state.
+- Quest enrollment now lists built-in and custom templates. Custom templates
+  can be removed only when no active quest or saved schedule rows reference
+  them; active/completed quests expose an explicit leave/choose-another action.
+- Custom exercise deletion now checks the draft, weekly schedule, workout/set
+  history, session history, and custom quest definitions. Exercise IDs and
+  rename aliases keep those checks stable for new and legacy records.
+- Validation passed: `npx tsc --noEmit`, `npm run build`, `npm run cap:sync`,
+  all shared/Wear/phone JVM unit tests, both debug APK builds, `git diff
+  --check`, and 10 focused browser regression checks. Browser inspection
+  confirmed attributed Library media and the custom quest form. The checked-in
+  Gradle launchers were also repaired so `gradlew` no longer passes an empty
+  classpath before `-jar`.
 
 ### Committed update validation — 2026-09-11
 
@@ -1256,8 +1281,9 @@ Manual acceptance:
 
 ## Stage 16 - Exercise Library Expansion
 
-**Status:** first slice complete and committed as
-`2d1d558 PST01: Stage 16 implemented`; deferred items remain below.
+**Status:** complete. The first slice is committed as
+`2d1d558 PST01: Stage 16 implemented`; the media, quest-authoring, and
+reference-safeguard follow-up is implemented locally as described above.
 
 Goal: make the library more personal and more useful for form reference.
 
@@ -1271,19 +1297,21 @@ Implemented behavior:
 - Carries custom exercises in full JSON backups and restores.
 - Retains built-in source attribution and labels custom exercises as
   user-provided.
-
-Deferred from this first slice:
-
-- Built-in catalog media scraping and license review for third-party images.
-- Quest-template authoring against custom exercises.
-- Preventing deletion of a custom exercise already used by saved schedule rows
-  or historic logs; those records currently keep their exercise name.
+- Bundles reviewed built-in exercise images for offline use, keeps large videos
+  as attributed upstream links, and renders per-media author/license details.
+- Creates custom quest templates from the Library playlist, including custom
+  exercises, stable source IDs, prescriptions, planned load, and selected
+  level. Custom quests participate in backup/restore through app state.
+- Prevents deletion of custom exercises while drafts, schedule rows, history,
+  sessions, or custom quests still reference them. Rename aliases and optional
+  source IDs protect legacy as well as new records.
 
 Key files:
 
 - `pwa/src/types.ts`
 - `pwa/src/lib/db.ts`
 - `pwa/src/lib/custom-exercises.ts`
+- `pwa/src/lib/custom-quests.ts`
 - `pwa/src/lib/backup.ts`
 - `pwa/src/App.tsx`
 - `pwa/src/components/LibraryView.tsx`
@@ -1302,6 +1330,10 @@ Manual acceptance:
 3. Add image/video URLs and confirm Library shows the custom media affordances.
 4. Export/import a full backup and confirm custom exercises are restored.
 5. Confirm built-in catalog attribution remains visible.
+6. Create a quest from a playlist containing a custom exercise, start it, and
+   confirm its prescription and planned load reach the schedule.
+7. Confirm deleting a referenced custom exercise or custom quest is blocked
+   with a specific explanation.
 
 ## Stage 17 - Health Connect Integration
 

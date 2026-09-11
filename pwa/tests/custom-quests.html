@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Custom quest and exercise reference checks</title>
+<h1>Custom quest and exercise reference checks</h1>
+<pre id="result">Running…</pre>
+<script type="module">
+import {
+  createCustomQuestDefinition,
+  describeCustomExerciseReferences,
+  findCustomExerciseReferences,
+  normalizeCustomQuestCollection,
+} from '/src/lib/custom-quests.ts';
+
+const checks = [];
+const check = (condition, message) => {
+  if (!condition) throw new Error(message);
+  checks.push(`PASS: ${message}`);
+};
+
+try {
+  const exercise = {
+    schemaVersion: 1,
+    sourceId: -42,
+    name: 'custom:42:tempo-hold',
+    displayName: 'Tempo Hold',
+    aliases: ['Old Tempo Hold'],
+    category: 'Mobility',
+    primaryMuscles: ['Core'],
+    secondaryMuscles: [],
+    equipment: [],
+    featured: false,
+    minimumLevel: 'beginner',
+    progressionGroup: 'custom',
+    progressionLevel: 'beginner',
+    license: 'User-provided',
+    licenseUrl: '',
+    author: 'Custom',
+    sourceUrl: '',
+    custom: true,
+    createdAt: '2026-09-11T00:00:00.000Z',
+    updatedAt: '2026-09-11T00:00:00.000Z',
+  };
+  const playlist = {
+    day: 'Friday',
+    time: '18:30',
+    level: 'beginner',
+    items: [{ sourceId: -42, name: 'Tempo Hold', sets: 3, reps: '30 sec', rest: 45, loadWeight: 8, loadUnit: 'kg' }],
+  };
+  const authored = createCustomQuestDefinition({
+    title: 'Mobility Reset',
+    description: 'A repeatable mobility session.',
+    durationWeeks: 3,
+    daysPerWeek: 2,
+    safetyNote: 'Move within a comfortable range.',
+  }, playlist, [exercise], new Date('2026-09-11T01:02:03.000Z'));
+  check(!authored.error && authored.definition?.rows.length === 2, 'Authoring expands the playlist across every weekly quest day');
+  check(authored.definition?.rows.every((row) => row.exerciseSourceId === -42), 'Authored rows keep the custom exercise identity');
+  check(authored.definition?.rows.every((row) => row.loadWeight === 8 && row.loadUnit === 'kg'), 'Authored rows keep planned load data');
+  check(authored.definition?.template.availableLevels?.[0] === 'beginner', 'A custom quest stays on its authored level');
+  check(Boolean(createCustomQuestDefinition({ ...authored.definition.template, title: '' }, playlist, [exercise]).error), 'Blank quest titles are rejected');
+  check(Boolean(createCustomQuestDefinition({ ...authored.definition.template }, { ...playlist, items: [] }, [exercise]).error), 'An empty Library playlist is rejected');
+  check(Boolean(createCustomQuestDefinition({ ...authored.definition.template }, { ...playlist, items: [{ ...playlist.items[0], loadUnit: 'stone' }] }, [exercise]).error), 'Invalid planned load units are rejected');
+
+  const collection = normalizeCustomQuestCollection({ key: 'customQuests', schemaVersion: 1, quests: [authored.definition, { broken: true }] });
+  check(collection.quests.length === 1, 'Malformed restored quest definitions are ignored');
+
+  const references = findCustomExerciseReferences(exercise, {
+    draft: playlist,
+    workouts: [{ schemaVersion: 1, day: 'Friday', time: '18:30', exercise: 'Tempo Hold', sets: 3, reps: '30 sec', rest: 45 }],
+    logs: [{ schemaVersion: 1, date: '2026-09-11T18:30:00Z', exercise: 'Old Tempo Hold', status: 'done', workoutRowId: 1 }],
+    setLogs: [],
+    sessionEvents: [],
+    customQuests: [authored.definition],
+  });
+  check(references.draft === 1 && references.schedule === 1 && references.history === 1 && references.quests === 2, 'Deletion safeguards find IDs, current names, and aliases across every reference type');
+  check(describeCustomExerciseReferences(references).includes('custom quest rows'), 'Reference errors explain what must be removed');
+
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+}
+</script>
+</html>

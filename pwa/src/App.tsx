@@ -27,6 +27,14 @@ import {
   repairLegacyCustomExerciseNames,
   type CustomExerciseDraft,
 } from './lib/custom-exercises';
+import {
+  createCustomQuestDefinition,
+  CUSTOM_QUESTS_KEY,
+  describeCustomExerciseReferences,
+  findCustomExerciseReferences,
+  normalizeCustomQuestCollection,
+  type CustomQuestDraft,
+} from './lib/custom-quests';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import {
@@ -78,6 +86,8 @@ import {
 import {
   SCHEMA_VERSION,
   type CustomExercise,
+  type CustomQuestCollection,
+  type CustomQuestDefinition,
   type ExerciseLevel,
   type ExerciseCatalogItem,
   type HistoryRange,
@@ -121,8 +131,9 @@ export default function App() {
   const [workoutRestRemainingSeconds, setWorkoutRestRemainingSeconds] = useState(0);
   const [catalog, setCatalog] = useState<ExerciseCatalogItem[]>([]);
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
-  const [questTemplates, setQuestTemplates] = useState<QuestTemplate[]>([]);
-  const [questRows, setQuestRows] = useState<QuestWorkoutRow[]>([]);
+  const [builtInQuestTemplates, setBuiltInQuestTemplates] = useState<QuestTemplate[]>([]);
+  const [builtInQuestRows, setBuiltInQuestRows] = useState<QuestWorkoutRow[]>([]);
+  const [customQuestDefinitions, setCustomQuestDefinitions] = useState<CustomQuestDefinition[]>([]);
   const [questState, setQuestState] = useState<QuestState | null>(null);
   const [draft, setDraft] = useState<PlaylistDraft>(initialDraft);
   const [search, setSearch] = useState('');
@@ -251,12 +262,14 @@ export default function App() {
           parseQuestWorkoutsCsv(await workoutResponse.text()),
         ];
         if (!disposed) {
-          setQuestTemplates(freshTemplates);
-          setQuestRows(freshQuestRows);
+          setBuiltInQuestTemplates(freshTemplates);
+          setBuiltInQuestRows(freshQuestRows);
         }
       } catch (error) {
         console.warn('Could not load quest definitions:', error);
       }
+      const storedCustomQuests = normalizeCustomQuestCollection(await getRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY));
+      if (!disposed) setCustomQuestDefinitions(storedCustomQuests.quests);
       const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
       if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
@@ -382,9 +395,18 @@ export default function App() {
       && (!featuredOnly || item.featured);
   }), [catalog, search, category, featuredOnly, draft.level]);
   const catalogBySourceId = useMemo(() => new Map(catalog.map((item) => [item.sourceId, item])), [catalog]);
+  const questTemplates = useMemo(() => [
+    ...builtInQuestTemplates,
+    ...customQuestDefinitions.map((definition) => definition.template),
+  ], [builtInQuestTemplates, customQuestDefinitions]);
+  const questRows = useMemo(() => [
+    ...builtInQuestRows,
+    ...customQuestDefinitions.flatMap((definition) => definition.rows),
+  ], [builtInQuestRows, customQuestDefinitions]);
   const activeQuestTemplate = useMemo(() => (
     questState ? questTemplates.find((template) => template.questId === questState.questId) : questTemplates[0]
   ), [questState, questTemplates]);
+  const activeQuestLevels = activeQuestTemplate?.availableLevels?.length ? activeQuestTemplate.availableLevels : LEVELS;
   const currentQuestDayNumber = questState && activeQuestTemplate && questState.status === 'active'
     ? questTemplateDayNumber(questState, activeQuestTemplate)
     : null;
@@ -427,7 +449,7 @@ export default function App() {
 
   async function logExercise(row: WorkoutRow, status: WorkoutLog['status']) {
     if (row.id == null) return;
-    await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, status, workoutRowId: row.id } satisfies WorkoutLog);
+    await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, status, workoutRowId: row.id } satisfies WorkoutLog);
     const latestLogs = await getAll<WorkoutLog>(STORES.logs);
     setLogs(latestLogs);
   }
@@ -455,6 +477,7 @@ export default function App() {
       date: new Date().toISOString(),
       workoutRowId: row.id ?? null,
       exercise: row.exercise,
+      exerciseSourceId: row.exerciseSourceId ?? null,
       setNumber,
       plannedReps: row.reps,
       actualReps,
@@ -616,6 +639,8 @@ export default function App() {
       refreshBodyMetrics(),
       refreshCustomExercises(),
     ]);
+    const storedCustomQuests = normalizeCustomQuestCollection(await getRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY));
+    setCustomQuestDefinitions(storedCustomQuests.quests);
   }
 
   async function exportBackup() {
@@ -680,6 +705,14 @@ export default function App() {
       setCustomExerciseResult({ error: true, message: 'Enter a custom exercise name.' });
       return;
     }
+    const duplicate = catalog.find((item) => item.sourceId !== exercise.sourceId && (
+      item.name.trim().toLowerCase() === exercise.displayName.toLowerCase()
+      || item.displayName.trim().toLowerCase() === exercise.displayName.toLowerCase()
+    ));
+    if (duplicate) {
+      setCustomExerciseResult({ error: true, message: `An exercise named ${duplicate.displayName} already exists.` });
+      return;
+    }
     await putRecord(STORES.customExercises, exercise);
     const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
     const baseCatalog = catalog.filter((item) => !item.custom);
@@ -700,11 +733,21 @@ export default function App() {
   }
 
   async function deleteCustomExercise(sourceId: number) {
-    const usedInDraft = draft.items.some((item) => item.sourceId === sourceId);
-    if (usedInDraft) {
-      setCustomExerciseResult({ error: true, message: 'Remove this exercise from the draft playlist before deleting it.' });
+    const exercise = customExercises.find((item) => item.sourceId === sourceId);
+    if (!exercise) return;
+    const references = findCustomExerciseReferences(exercise, {
+      draft,
+      workouts,
+      logs,
+      setLogs: setLogEntries,
+      sessionEvents,
+      customQuests: customQuestDefinitions,
+    });
+    if (references.total) {
+      setCustomExerciseResult({ error: true, message: `This exercise is still used by ${describeCustomExerciseReferences(references)}. Remove those references before deleting it.` });
       return;
     }
+    if (!window.confirm(`Delete ${exercise.displayName}?`)) return;
     await deleteRecord(STORES.customExercises, sourceId);
     const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
     const baseCatalog = catalog.filter((item) => !item.custom);
@@ -743,6 +786,7 @@ export default function App() {
       day: draft.day,
       time: draft.time,
       exercise: item.name,
+      exerciseSourceId: item.sourceId,
       sets: item.sets,
       reps: item.reps.trim(),
       rest: item.rest,
@@ -757,11 +801,12 @@ export default function App() {
   }
 
   async function startQuest(template: QuestTemplate) {
+    const availableLevels = template.availableLevels?.length ? template.availableLevels : LEVELS;
     const next: QuestState = {
       key: QUEST_STATE_KEY,
       schemaVersion: SCHEMA_VERSION,
       questId: template.questId,
-      level: draft.level,
+      level: availableLevels.includes(draft.level) ? draft.level : availableLevels[0],
       nextDayIndex: 1,
       scheduledTime: draft.time,
       startedAt: new Date().toISOString(),
@@ -770,6 +815,54 @@ export default function App() {
     };
     setQuestResult(null);
     await saveQuestState(next);
+  }
+
+  async function createCustomQuest(questDraft: CustomQuestDraft) {
+    const { definition, error } = createCustomQuestDefinition(questDraft, draft, catalog);
+    if (!definition || error) {
+      setQuestResult({ error: true, message: error ?? 'Could not create the custom quest.' });
+      return;
+    }
+    const nextDefinitions = [...customQuestDefinitions, definition];
+    await putRecord(STORES.appState, {
+      key: CUSTOM_QUESTS_KEY,
+      schemaVersion: SCHEMA_VERSION,
+      quests: nextDefinitions,
+    } satisfies CustomQuestCollection);
+    setCustomQuestDefinitions(nextDefinitions);
+    setQuestResult({ error: false, message: `${definition.template.title} created from the ${draft.items.length}-exercise Library playlist.` });
+  }
+
+  async function deleteCustomQuest(questId: string) {
+    const definition = customQuestDefinitions.find((item) => item.questId === questId);
+    if (!definition) return;
+    if (questState?.questId === questId) {
+      setQuestResult({ error: true, message: 'Leave this quest before deleting its template.' });
+      return;
+    }
+    const scheduledRows = workouts.filter((row) => row.questId === questId).length;
+    if (scheduledRows) {
+      setQuestResult({ error: true, message: `This quest still has ${scheduledRows} saved schedule row${scheduledRows === 1 ? '' : 's'} and cannot be deleted.` });
+      return;
+    }
+    if (!window.confirm(`Delete the ${definition.template.title} quest template?`)) return;
+    const nextDefinitions = customQuestDefinitions.filter((item) => item.questId !== questId);
+    await putRecord(STORES.appState, {
+      key: CUSTOM_QUESTS_KEY,
+      schemaVersion: SCHEMA_VERSION,
+      quests: nextDefinitions,
+    } satisfies CustomQuestCollection);
+    setCustomQuestDefinitions(nextDefinitions);
+    setQuestResult({ error: false, message: 'Custom quest deleted.' });
+  }
+
+  async function leaveQuest() {
+    if (!questState) return;
+    const action = questState.status === 'completed' ? 'Choose another quest?' : 'Leave this quest? Current quest progress will be removed.';
+    if (!window.confirm(action)) return;
+    await deleteRecord(STORES.appState, QUEST_STATE_KEY);
+    setQuestState(null);
+    setQuestResult(null);
   }
 
   async function saveQuestDayToSchedule() {
@@ -784,10 +877,13 @@ export default function App() {
       schemaVersion: SCHEMA_VERSION,
       day: todayName(),
       time: questState.scheduledTime,
-      exercise: exercise.name,
+      exercise: exercise.custom ? exercise.displayName : exercise.name,
+      exerciseSourceId: exercise.sourceId,
       sets: row.sets,
       reps: row.reps,
       rest: row.rest,
+      loadWeight: row.loadWeight ?? null,
+      loadUnit: row.loadWeight != null ? row.loadUnit ?? 'kg' : null,
       questId: questState.questId,
       questDayIndex: questState.nextDayIndex,
       questDayLabel: dayLabel,
@@ -922,8 +1018,10 @@ export default function App() {
       {tab === 'quests' && <QuestsView
         questState={questState}
         activeQuestTemplate={activeQuestTemplate}
+        questTemplates={questTemplates}
+        playlistDraft={draft}
         draftLevel={draft.level}
-        levels={LEVELS}
+        levels={activeQuestLevels}
         levelLabels={LEVEL_LABELS}
         currentQuestRows={currentQuestRows}
         scheduledCurrentQuestRows={scheduledCurrentQuestRows}
@@ -937,6 +1035,9 @@ export default function App() {
         onQuestStateChange={(state) => void saveQuestState(state)}
         onStartQuest={(template) => void startQuest(template)}
         onSaveQuestDayToSchedule={() => void saveQuestDayToSchedule()}
+        onCreateCustomQuest={(questDraft) => void createCustomQuest(questDraft)}
+        onDeleteCustomQuest={(questId) => void deleteCustomQuest(questId)}
+        onLeaveQuest={() => void leaveQuest()}
       />}
 
       {tab === 'library' && <LibraryView

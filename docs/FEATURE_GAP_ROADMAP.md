@@ -64,7 +64,7 @@ importance in general.
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
-| 🚧 Partial | Exercise video/GIF demos | Visual form demonstration per exercise | Strong, Hevy, JEFIT, Fitbod | Medium | Stage 16 supports optional image/video URLs for custom exercises. Built-in catalog media scraping and third-party license review remain deferred. |
+| 🚧 Partial | Exercise video/GIF demos | Visual form demonstration per exercise | Strong, Hevy, JEFIT, Fitbod | Medium | Stage 16 now bundles 32 reviewed, attributed built-in images for offline use, links 15 attributed upstream videos, and supports optional custom exercise media URLs. Coverage depends on licensed upstream availability; large videos are deliberately not bundled. |
 | | Warm-up set suggestions | Auto-suggested ramp-up sets before working sets | Fitbod, JEFIT | Low | Still open, not on a proposed stage yet. |
 | | AI/adaptive programming | Auto-builds next session from recovery/history instead of a fixed template | Fitbod, JEFIT | Low | Runs counter to the curated-quest design; likely out of scope. |
 
@@ -167,11 +167,11 @@ weekly schedule previews grouped by time, pending/done/skipped queue filters,
 and empty-state navigation. These are implemented changes, not a claim that
 all screen-by-screen acceptance criteria above are complete.
 
-1. Validate and review the local Stage 18 feature-screen changes.
+1. Review and commit the local Stage 16 media, custom quest, and reference work.
 2. Finish physical-device recovery and Health Connect mutation/retry checks.
-3. Validate the Wear session redesign on a round-screen emulator or watch.
+3. Complete paired phone/watch delivery and physical battery evidence.
 4. Choose the next feature independently: RPE/RIR, plate calculator, supersets,
-   body measurements, or licensed exercise media. These remain candidates.
+   warm-up suggestions, or body measurements. These remain candidates.
 
 Use the delivery board in `WORKOUT_APP_PLAN.md` for current, pending, next,
 and future work. Earlier comparison rows describe the original design target;
@@ -184,10 +184,22 @@ redesign/manual sync followed in `0a8bcf6`. Current local fixes address watch
 battery use, missing live session sync, queued history retries, and custom
 exercise names/time labels; see the delivery board in `WORKOUT_APP_PLAN.md`.
 Actual battery consumption, Health Connect, and paired sync still need physical
-validation. Stage 16 media, custom-exercise quest authoring/reference safeguards,
-and the explicitly listed future candidates remain unimplemented. Do not treat
+validation. At that checkpoint, Stage 16 media and custom-exercise quest
+authoring/reference safeguards remained unimplemented. Do not treat
 all comparison-table suggestions as approved requirements.
 
 The 2026-09-10 watch pass now has round-emulator evidence for active/rest/paused
 layouts, process-restart recovery, end confirmation, and schedule adjustment.
 Physical and paired-device acceptance remains open; no second emulator was run.
+
+## 2026-09-11 Stage 16 follow-up
+
+The two pending Stage 16 implementation items are now complete locally. The
+catalog generator verifies per-media Creative Commons attribution, bundles the
+reviewed still images, generates an offline cache manifest, and retains
+attributed video links. The Library renders author/license details. Users can
+also create a reusable quest from the current Library playlist, including
+custom exercises and planned loads. Stable exercise IDs, rename aliases, and
+cross-store reference checks prevent referenced custom exercises or quest
+templates from being deleted. See the delivery board and validation evidence in
+`WORKOUT_APP_PLAN.md`.
