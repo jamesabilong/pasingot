@@ -16,15 +16,17 @@ updated at each checkpoint so the plan is visible from every device.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `0a8bcf6 PST01: Update watch and app design`,
-  including the watch redesign and manual schedule sync.
+- Latest committed checkpoint: `5c95815 PST01: Fix sync issue`, including
+  watch battery/sync fixes and custom exercise names/time labels. The watch
+  redesign and manual schedule sync are committed in `0a8bcf6`.
 - Stage 17's first implementation commit is
   `493754d PST01: Stage 16 implementation`. Despite its message, the commit
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Active local work: watch battery use, live watch-to-phone session status,
-  reliable queued history imports, and custom exercise names/time labels.
+- Active work: emulator validation of the committed watch battery/sync and
+  custom-input changes. The working tree was clean at the start of the
+  2026-09-11 validation; these features are no longer pending implementation.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
@@ -44,16 +46,78 @@ updated at each checkpoint so the plan is visible from every device.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-10
+## Delivery board — reviewed 2026-09-11
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Preserve existing workflows; these do not need reimplementation |
-| **Current** | Watch battery/sync fixes and custom exercise names/time labels | Local implementation; builds and regression checks recorded below; review before commit |
+| **Current** | Validation of committed watch battery/sync fixes and custom exercise names/time labels (`5c95815`) | Emulator and regression evidence below; complete the remaining paired/physical acceptance checks |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Built-in licensed exercise media; custom-exercise quest authoring and reference safeguards | Define and implement one Stage 16 follow-up at a time |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
+
+### Committed update validation — 2026-09-11
+
+- Validated checkpoint `5c95815` from a clean working tree. `npm run cap:sync`
+  (including the production build), TypeScript, both debug APK builds, 16 shared
+  Kotlin tests, 10 Wear tests, and the existing one phone unit test passed.
+  The initial incremental Wear compilation could not resolve unchanged
+  `WearUi` helpers; `:wear:clean` followed by a rebuild resolved this without
+  source changes.
+- The nine real IndexedDB/native-bridge browser regression checks passed,
+  including the deliberately simulated ACK failure/replay case. That expected
+  fixture error is not an application failure.
+- Installed the latest Wear APK on the round 480 × 480 emulator. **Sync from
+  phone** showed the explicit unpaired error. Added an isolated workout fixture
+  alongside existing saved data, then restored the original watch data after
+  validation.
+- Watch: legacy custom-name cleanup displayed **Tempo hold**, with a **30 sec**
+  prescription. Completing set 1 entered rest for set 2; `+30`, `+10`, and `+5`
+  increased the remaining rest, and **Start now** advanced to set 2. Completing
+  the fixture produced exactly two exercise logs and one completed-session
+  event, persisted in the offline queues.
+- Watch recovery: paused rest of 62 seconds and elapsed workout time of 33
+  seconds survived force-stop/relaunch. Reset returned the workout to **Not
+  Started**; restart returned to set 1. Ending before a completed set queued an
+  ended-session event without adding an exercise log. The native crash buffer
+  remained empty.
+- Installed the latest phone APK. The app reported a native runtime with no
+  service-worker registrations or caches. Health Connect was available, with
+  permissions disabled; grant/revoke and record mutation checks remain open.
+- Phone import: manually staged the captured watch payloads in backed-up native
+  phone pending stores, bypassing Data Layer transport. The actual native/PWA
+  bridge imported two logs and two session events, mapped native schema 5 to
+  storage schema 1, preserved custom names, acknowledged both queues, and
+  displayed the latest ended watch-session card. Replaying the same IDs across
+  an app restart retained exactly two logs/two events and emptied the native
+  queues. This verifies the phone import path, not paired delivery.
+- Imported the two-row Friday CSV on the phone. **Send today to watch** entered
+  a disabled **Sending** state, then re-enabled and showed a raw
+  `17: API: Wearable.API is not available on this device` error with
+  `ConnectionResult{statusCode=API_UNAVAILABLE,...}` details. The emulator
+  environment blocks paired delivery; the technical alert also leaves a
+  user-facing wording issue because it gives no actionable next step. This
+  alert wording remains unfixed.
+- The phone player started with the correct **30 sec** target. Set 2 recovery
+  preserved 98 seconds of rest and 70 seconds of elapsed workout time through
+  force-stop/relaunch. Progress reached **1 done / 0 pending / 1 skipped**.
+- Phone timing defect found: completing after resume saved only 70 elapsed
+  seconds despite the player displaying at least **2m 47s**. Completion set
+  the terminal status before folding in the latest active segment, causing the
+  elapsed-time helper to omit it; the manual-end path has the same ordering.
+  A product fix and emulator retest are in progress; elapsed-duration acceptance
+  remains open until the retest passes.
+- Evidence: screenshots, UI XML, logs, and fixtures are retained locally in the
+  Git-ignored `output/emulator-validation/2026-09-11/` and `output/playwright/`
+  directories.
+- Still pending: paired live/offline Data Layer transfer (the AVDs are unpaired
+  and the phone companion app is absent); physical-watch battery measurement,
+  sizing/font scale and tactile/audio cues; Health Connect grant/revoke,
+  workout/body-weight mutations and retries; clock changes, sleep, low battery,
+  swipe-away and reboot recovery; and the remaining skip/download-error device
+  matrix. Licensed exercise media and custom-exercise quest authoring/reference
+  safeguards remain pending implementation.
 
 ### Battery, custom inputs, and watch sync audit — 2026-09-10
 
@@ -690,8 +754,11 @@ Progress tracker:
 - Completed: PWA/mobile active sessions now track last user interaction,
   auto-pause after 45 minutes without player activity, and close stale
   prior-day sessions instead of letting the timer run into the next day.
-- Pending: Device-level validation for app swipe-away, process kill,
-  low-battery interruption, and device restart.
+- Passed on the Wear emulator (2026-09-11): paused rest and elapsed time survived
+  force-stop/relaunch; reset, restart, completion, and early end behaved as
+  recorded above. Phone recovery evidence from 2026-09-09 is also recorded above.
+- Pending: Remaining app swipe-away, physical-device process kill,
+  clock/sleep, low-battery interruption, and device restart validation.
 
 Current validation completed:
 
@@ -1306,9 +1373,10 @@ Manual acceptance:
 ## Stage 18 - Cross-Device UI Overhaul
 
 **Status:** in progress. PWA feature-screen and weekly plan changes are
-committed in `4f5da66`. The refined watch design is local with round-emulator
-smoke-test evidence above. Full physical/paired cross-device acceptance remains
-open.
+committed in `4f5da66`. The refined watch design/manual sync are committed in
+`0a8bcf6`, with the battery/sync/custom-input follow-up in `5c95815` and
+round-emulator evidence above. Full physical/paired cross-device acceptance
+remains open.
 
 Goal: modernize the workout experience across web, installed PWA/mobile, and
 Wear OS while preserving the component boundary rule that `App.tsx` coordinates

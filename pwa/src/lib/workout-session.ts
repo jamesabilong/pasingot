@@ -79,6 +79,11 @@ export function stopElapsedSession(session: ActiveWorkoutSession, reason: string
   };
 }
 
+export function finishElapsedSession(session: ActiveWorkoutSession, status: 'completed' | 'ended', reason: string, now = Date.now()): ActiveWorkoutSession {
+  // Account for the running segment before changing to a terminal status.
+  return { ...stopElapsedSession(session, reason, now), status };
+}
+
 export function startElapsedSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
   return {
     ...session,

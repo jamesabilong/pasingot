@@ -63,6 +63,7 @@ import {
   currentSetInput,
   defaultSetInput,
   elapsedSecondsForSession,
+  finishElapsedSession,
   newPwaSession,
   normalizeActiveWorkoutSession,
   restCueKey,
@@ -315,7 +316,7 @@ export default function App() {
     const syncTimers = () => {
       const now = Date.now();
       if (activeWorkoutSession.planDate !== todayDateKey()) {
-        const ended = stopElapsedSession({ ...activeWorkoutSession, status: 'ended' }, 'stale_next_day', now);
+        const ended = finishElapsedSession(activeWorkoutSession, 'ended', 'stale_next_day', now);
         void recordLocalSessionEvent(ended, 'ended', 'stale_next_day', activeWorkoutRows)
           .then(() => saveActiveWorkoutSession(null))
           .then(() => addToast('Previous workout was closed because the day changed.'));
@@ -509,7 +510,7 @@ export default function App() {
     await logExercise(row, 'done');
     const nextIndex = touchedSession.exerciseIndex + 1;
     if (nextIndex >= rows.length) {
-      const completed = stopElapsedSession({ ...touchedSession, status: 'completed' }, 'completed');
+      const completed = finishElapsedSession(touchedSession, 'completed', 'completed');
       await saveActiveWorkoutSession(completed);
       await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
       return;
@@ -527,7 +528,7 @@ export default function App() {
     await logExercise(row, 'skipped');
     const nextIndex = touchedSession.exerciseIndex + 1;
     if (nextIndex >= rows.length) {
-      const completed = stopElapsedSession({ ...touchedSession, status: 'completed' }, 'completed');
+      const completed = finishElapsedSession(touchedSession, 'completed', 'completed');
       await saveActiveWorkoutSession(completed);
       await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
       return;
@@ -571,7 +572,7 @@ export default function App() {
   async function endPwaWorkout() {
     if (!activeWorkoutSession || activeWorkoutSession.status === 'ended' || activeWorkoutSession.status === 'completed') return;
     const rows = activeWorkoutRows;
-    const ended = stopElapsedSession({ ...touchSession(activeWorkoutSession), status: 'ended' }, 'ended_by_user');
+    const ended = finishElapsedSession(touchSession(activeWorkoutSession), 'ended', 'ended_by_user');
     await saveActiveWorkoutSession(ended);
     await recordLocalSessionEvent(ended, 'ended', 'ended_by_user', rows);
   }

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Workout elapsed-time regression checks</title>
+<h1>Workout elapsed-time regression checks</h1>
+<pre id="result">Running…</pre>
+<script type="module">
+import { elapsedSecondsForSession, finishElapsedSession, newPwaSession, stopElapsedSession } from '/src/lib/workout-session.ts';
+
+const checks = [];
+const check = (condition, message) => {
+  if (!condition) throw new Error(message);
+  checks.push(`PASS: ${message}`);
+};
+try {
+  // Synthetic timestamps keep these checks independent of wall-clock delays.
+  const running = { ...newPwaSession([]), accumulatedElapsedMillis: 70000, elapsedStartedAtEpochMillis: 100000 };
+  const completed = finishElapsedSession(running, 'completed', 'completed', 125000);
+  check(elapsedSecondsForSession(completed, 125000) === 95, 'Completion includes time since the last resume');
+  check(elapsedSecondsForSession(completed, 200000) === 95 && completed.elapsedStartedAtEpochMillis === null, 'Completed time stays fixed');
+  const uninterrupted = finishElapsedSession({ ...running, accumulatedElapsedMillis: 0 }, 'completed', 'completed', 125000);
+  check(elapsedSecondsForSession(uninterrupted) === 25, 'A workout without any pause keeps its duration');
+  const ended = finishElapsedSession({ ...running, status: 'resting' }, 'ended', 'stale_next_day', 125000);
+  check(elapsedSecondsForSession(ended) === 95 && ended.lastStopReason === 'stale_next_day', 'Ending during rest includes the running segment and reason');
+  const paused = { ...stopElapsedSession(running, 'paused_by_user', 125000), status: 'paused' };
+  check(elapsedSecondsForSession(finishElapsedSession(paused, 'ended', 'ended_by_user', 200000)) === 95, 'Ending while paused excludes paused time');
+  check(elapsedSecondsForSession(finishElapsedSession(completed, 'completed', 'completed', 200000)) === 95, 'Finishing twice does not double-count elapsed time');
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+}
+</script>
+</html>
