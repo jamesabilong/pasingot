@@ -10,7 +10,8 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 ## Current baseline (already built, for reference)
 
 **Reviewed against the code on 2026-09-12.** Stage 16 media/custom quests are
-committed in `6d97150`; integrity fixes began in `6a75c06`. Iteration status and
+committed in `6d97150`; integrity fixes and follow-ups are now in `3ba1bc6`.
+Iteration status and
 verification are in [Implementation progress](IMPLEMENTATION_PROGRESS.md).
 
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
@@ -44,6 +45,9 @@ verification are in [Implementation progress](IMPLEMENTATION_PROGRESS.md).
 - Native Wear OS companion: downloads today's workout, runs the same live
   session flow (including the auto-advancing rest countdown), syncs logs back
   to the phone over the Wearable Data Layer, offline retry queue.
+- Browser/PWA watch setup guidance and native platform/plugin capability checks
+  are the Iteration 3 correction. Automatic website → watch transfer remains
+  unimplemented; see [feasibility and transport options](BROWSER_WATCH_SYNC.md).
 - Fully offline, on-device (IndexedDB), no accounts, no cloud backend.
 
 ## How to use this
@@ -112,6 +116,7 @@ importance in general.
 | Wanted? | Feature | What it is | Common in | Priority | Notes |
 |---|---|---|---|---|---|
 | | Cloud backup / cross-device sync | Optional account that syncs logs across phone/tablet/web | Strong ("Strong Cloud," free), Hevy, JEFIT | Medium | Direct tension with the current no-accounts/offline-first design. Stage 15 completed local export/import; account-based cloud sync remains intentionally deferred. |
+| Under review | Website/PWA → Wear OS sync | Send browser-planned workouts and receive watch history without the Pasingot phone app | Product-specific capability | Pending choice | Feasible via new authenticated HTTPS service/watch client; not supplied by PWA installation or the existing Wear bridge. BLE is experimental, device/browser-dependent. See `BROWSER_WATCH_SYNC.md`; no transport selected or implemented. |
 | ✅ Done | Data export beyond CSV schedule | Export full history/logs (not just the weekly schedule) | Strong, Hevy, JEFIT | Medium | Stage 15 is committed: full local JSON export/restore covers schedule, logs, session events, set logs, body metrics, custom exercises, quests, settings, and active app state. |
 
 ## Polish opportunities for the rest countdown + TTS feature

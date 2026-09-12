@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { addWatchRecord, getAll, getRecord, putRecord, STORES } from './db';
 import { customExerciseDisplayName } from './custom-exercises';
@@ -217,9 +218,27 @@ export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<void> {
   }
 }
 
-export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCount: number; date: string }> {
+export type WatchSyncAvailability = 'available' | 'browser' | 'unsupported-platform' | 'app-update-required';
+
+export const WATCH_SYNC_UNAVAILABLE_MESSAGES = {
+  browser: 'This website or installed browser PWA cannot send workouts to a watch yet. Use the Pasingot Android app with the Wear OS app on your paired watch.',
+  'unsupported-platform': 'Watch sync currently requires the Pasingot Android app and a paired Wear OS watch running Pasingot.',
+  'app-update-required': 'Update the Pasingot Android phone app to use manual watch sync.',
+} as const;
+
+export function getWatchSyncAvailability(platform = Capacitor.getPlatform()): WatchSyncAvailability {
+  if (platform === 'web') return 'browser';
+  if (platform !== 'android') return 'unsupported-platform';
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
-  if (!bridge?.sendTodayToWatch) throw new Error('Update the Android phone app to use manual watch sync.');
+  return typeof bridge?.syncSchedule === 'function' && typeof bridge.sendTodayToWatch === 'function'
+    ? 'available' : 'app-update-required';
+}
+
+export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCount: number; date: string }> {
+  const availability = getWatchSyncAvailability();
+  if (availability !== 'available') throw new Error(WATCH_SYNC_UNAVAILABLE_MESSAGES[availability]);
+  const bridge = window.Capacitor?.Plugins?.ScheduleSync;
+  if (!bridge?.sendTodayToWatch) throw new Error(WATCH_SYNC_UNAVAILABLE_MESSAGES['app-update-required']);
   // Do not use the automatic cache helper here: manual actions must surface failures.
   await bridge.syncSchedule({ rows });
   return bridge.sendTodayToWatch();

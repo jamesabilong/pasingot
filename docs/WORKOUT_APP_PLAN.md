@@ -20,8 +20,8 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `6a75c06 PST01: Fix gaps`, including the first
-  data-integrity review fixes. Iteration 2 follow-up validation/corrections are
+- Latest committed checkpoint: `3ba1bc6 PST01: Gap fix`, including Iteration 2's
+  follow-up after `6a75c06 PST01: Fix gaps`. Validation/corrections are
   tracked in `IMPLEMENTATION_PROGRESS.md`. Stage 16 media/custom quests are
   committed in `6d97150`; the phone elapsed-time completion fix and browser
   regression coverage are in `e06dfc6`.
@@ -32,9 +32,11 @@ Update that log during every implementation iteration, not only at handoff.
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Latest completed work: Iteration 2's data-integrity review, browser/native
-  verification, and plan reconciliation. Follow-up changes after `6a75c06` are
-  local; see the progress log for the exact verified work and remaining items.
+- Latest completed checkpoint work: Iteration 2's data-integrity review,
+  browser/native verification, and plan reconciliation, now in `3ba1bc6`.
+  Iteration 3 is complete locally: browser-to-watch feasibility and capability
+  UX corrections, with 73 browser checks and a refreshed phone APK. See the
+  progress log for validation and remaining items.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
@@ -58,13 +60,24 @@ Update that log during every implementation iteration, not only at handoff.
 
 | Lane | Scope | Next action |
 |---|---|---|
-| **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; integrity corrections began in `6a75c06` |
-| **Current** | Iteration 2 complete locally: integrity fixes, 60 browser regression checks, native tests/builds, and durable progress tracking | Review the local follow-up to `6a75c06`; paired/physical acceptance stays separate |
+| **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
+| **Current** | Iteration 3 complete locally: browser-to-watch feasibility and platform/bridge capability UX, 73 browser checks, production/phone build | Review the checkpoint; select transport scope before automatic browser sync implementation |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | No unresolved functional defect found in this iteration's corrected workflows | Keep unvalidated device behavior open; choose future features separately |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
+
+### Browser-to-watch check — 2026-09-12
+
+- Website or installed browser PWA → Wear OS is technically feasible with a
+  new transport; the existing Wear Data Layer path requires the Android app.
+- Iteration 3 adds visible browser migration guidance and accurate native
+  capability errors. Installing the PWA alone does not supply a Wear bridge.
+- Automatic browser sync is a scoped architecture decision, not a completed
+  feature. HTTPS relay/watch networking and experimental BLE considerations,
+  sources, and acceptance gates are in [Browser-to-watch feasibility](BROWSER_WATCH_SYNC.md).
+- No backend, account, or new personal-data upload is added by this correction.
 
 ### Stage 16 follow-up — 2026-09-11
 

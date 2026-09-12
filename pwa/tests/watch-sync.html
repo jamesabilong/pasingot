@@ -1,14 +1,22 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Watch bridge regression checks</title>
 <h1>Watch bridge regression checks</h1>
 <pre id="result">Running…</pre>
+<div id="panel" style="max-width:480px;margin:24px auto"></div>
 <script type="module">
 // Open /tests/watch-sync.html on the local Vite server. Use the browser's real
 // IndexedDB transactions in an isolated test database; never touch app data.
 import { addWatchRecord, getAll, getRecord, STORES } from '/src/lib/db.ts';
-import { drainPendingWatchLogs, getLatestWatchSession, subscribeToWatchChanges } from '/src/lib/native-bridge.ts';
+import { Capacitor } from '@capacitor/core';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { WatchSyncPanel } from '/src/components/WatchSyncPanel.tsx';
+import '/src/styles.css';
+import { drainPendingWatchLogs, getLatestWatchSession, subscribeToWatchChanges, getWatchSyncAvailability, sendTodayToWatch } from '/src/lib/native-bridge.ts';
 
 const factory = window.indexedDB;
 const database = `pasingot-watch-test-${crypto.randomUUID()}`;
@@ -16,6 +24,11 @@ Object.defineProperty(window, 'indexedDB', { configurable: true, value: {
   open: (_name, version) => factory.open(database, version),
 } });
 const checks = [];
+const originalCapacitor = window.Capacitor;
+const originalGetPlatform = Capacitor.getPlatform;
+const panel = document.getElementById('panel');
+const root = createRoot(panel);
+const renderPanel = (hasWorkout = true) => flushSync(() => root.render(React.createElement(WatchSyncPanel, { hasWorkout, session: null })));
 const check = (condition, message) => {
   if (!condition) throw new Error(message);
   checks.push(`PASS: ${message}`);
@@ -69,10 +82,52 @@ try {
   callback();
   remove();
   check(notified && removed, 'Live event subscription and cleanup work');
+
+  Capacitor.getPlatform = () => 'web';
+  check(getWatchSyncAvailability() === 'browser', 'Browser/PWA does not expose the native watch transport');
+  let errorMessage = '';
+  try { await sendTodayToWatch([]); } catch (error) { errorMessage = error.message; }
+  check(errorMessage.includes('browser PWA') && !errorMessage.includes('Update'), 'Browser action gives platform guidance, not an Android update error');
+  renderPanel();
+  check(panel.textContent.includes('Restore replaces') && !panel.querySelector('button'), 'Browser panel includes safe migration guidance without a nonfunctional send button');
+
+  Capacitor.getPlatform = () => 'ios';
+  renderPanel();
+  check(getWatchSyncAvailability() === 'unsupported-platform' && !panel.querySelector('button'), 'Other native platforms cannot offer the Android-only send action');
+
+  Capacitor.getPlatform = () => 'android';
+  renderPanel();
+  check(getWatchSyncAvailability() === 'app-update-required' && panel.textContent.includes('Update the Pasingot'), 'Missing Android bridge requests an app update');
+  const calls = [];
+  const rows = [{ day: 'Monday', time: '07:00', name: 'Squat', sets: 1, reps: '5', rest: 0 }];
+  window.Capacitor.Plugins.ScheduleSync = { syncSchedule: async () => {} };
+  check(getWatchSyncAvailability() === 'app-update-required', 'Legacy bridge without manual send is unavailable');
+  let failCache = false;
+  window.Capacitor.Plugins.ScheduleSync = {
+    syncSchedule: async (payload) => { calls.push('cache'); if (failCache) throw new Error('Cache failed'); check(payload.rows === rows, 'Manual action forwards the saved schedule'); },
+    sendTodayToWatch: async () => { calls.push('send'); return { exerciseCount: 1, date: '2026-09-12' }; },
+  };
+  check(getWatchSyncAvailability() === 'available', 'Complete Android bridge enables manual sync');
+  const sent = await sendTodayToWatch(rows);
+  check(calls.join(',') === 'cache,send' && sent.exerciseCount === 1, 'Schedule is cached before queuing the watch transfer');
+  calls.length = 0;
+  failCache = true;
+  errorMessage = '';
+  try { await sendTodayToWatch(rows); } catch (error) { errorMessage = error.message; }
+  check(errorMessage === 'Cache failed' && calls.join(',') === 'cache', 'Cache failure surfaces without sending stale data');
+  renderPanel(false);
+  check(panel.querySelector('button')?.disabled && panel.textContent.includes('schedule first'), 'Android empty schedule keeps send disabled with a next step');
+  renderPanel(true);
+  check(panel.querySelector('button')?.disabled === false, 'Android schedule with a complete bridge offers send');
+  Capacitor.getPlatform = () => 'web';
+  check(getWatchSyncAvailability() === 'browser', 'A leftover plugin object cannot enable sync in a browser');
+  renderPanel();
   document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
 } catch (error) {
   document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
 } finally {
+  Capacitor.getPlatform = originalGetPlatform;
+  window.Capacitor = originalCapacitor;
   Object.defineProperty(window, 'indexedDB', { configurable: true, value: factory });
   factory.deleteDatabase(database);
 }

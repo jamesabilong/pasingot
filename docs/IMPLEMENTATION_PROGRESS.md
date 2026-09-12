@@ -122,3 +122,71 @@ Reproduce browser checks with `npm run dev`, then open `/tests/data-integrity.ht
 `/tests/custom-quests.html`, `/tests/workout-session.html`, and `/tests/watch-sync.html`.
 For a seeded UI workflow, open `/tests/workflow-smoke.html`. Fixtures use isolated
 databases; do not substitute the production database name.
+
+## Iteration 3 — 2026-09-12 — Browser-to-watch feasibility and capability UX
+
+Status: **Completed locally — feasibility review and capability corrections verified**.
+
+Starting checkpoint: `3ba1bc6 PST01: Gap fix`, clean working tree. This commit
+contains Iteration 2's follow-up; the earlier statement that it was local is
+superseded by this checkpoint, without changing its historical test evidence.
+
+Findings:
+
+- Browser-to-Wear OS sync is feasible with a new transport, but Pasingot only
+  implements the native Android/Wear Data Layer route. Installing the browser
+  PWA does not add that bridge. A server-backed watch client would be a new
+  architecture, not a small compatibility fix.
+- The browser hid Watch sync entirely, providing no supported transfer path.
+- The bridge's missing-plugin error always suggested updating the Android app,
+  even in browsers; platform and plugin capability were not checked together.
+
+Changes in this iteration:
+
+- Show browser setup and manual backup-transfer guidance, including restore's
+  replacement warning and the fact that browser/app data do not auto-sync.
+- Use shared platform/plugin capability checks for the UI and manual action;
+  separate browser, unsupported-platform, and outdated/missing Android bridge.
+- Bump the production service-worker cache for the changed browser UI.
+- Add [Browser-to-watch feasibility](BROWSER_WATCH_SYNC.md), with official
+  platform sources, safe manual transfer instructions, transport tradeoffs,
+  security/data-model gaps, and separate device acceptance gates.
+- Update the plan, feature roadmap, and Android guide; reconcile Iteration 2's
+  committed checkpoint without rewriting historical validation evidence.
+
+Validation:
+
+- `npx tsc --noEmit`: passed on the final code.
+- `/tests/watch-sync.html`: 22 checks passed (9 existing + 13 new), including
+  browser/other-native/Android plugin gating, missing legacy methods, migration
+  guidance, enabled/disabled send UI, schedule-before-send ordering, and cache
+  failure propagation. The deliberately failed ACK remains expected test output.
+- Existing fixtures passed: 35 data-integrity, 10 custom-quest, and 6
+  workout-session checks; **73 browser checks total**.
+- Isolated Today workflow: watch guidance is visible in the actual app, expands
+  correctly, includes the restore replacement warning, and has no unsupported
+  browser send button. Inspected the rendered panel visually.
+- `npm run cap:sync`: final production build and Android asset sync passed.
+  Initial sandbox attempts hit esbuild `spawn EPERM`; approved reruns succeeded.
+- `gradlew.bat :app:assembleDebug --quiet`: passed with the final web bundle.
+  No native Kotlin/manifest source changed; Wear APK and JVM tests were not rerun
+  in this iteration. Earlier device/build evidence remains separately recorded.
+- `node --check pwa/public/service-worker.js` and `git diff --check`: passed.
+  Existing Git line-ending conversion notices are not whitespace errors.
+- `adb devices -l`: no connected devices. No new actual phone/watch delivery,
+  BLE, battery, or installed-device validation is claimed.
+
+Completed: feasibility assessment, accurate browser setup/UI errors, shared
+capability gating, focused regression coverage, build checks, and durable docs.
+
+Remaining: automatic browser/watch transfer is **not implemented**. Selecting
+a server-backed or experimental local route is still required before that
+architecture work. Physical paired-device acceptance and previous maintenance
+items remain open.
+
+Checkpoint: local changes after `3ba1bc6`; no commit created by the agent.
+Phone APK refreshed at `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Next action: review this correction checkpoint and choose whether to scope an
+authenticated HTTPS browser/watch route. Record its implementation as a new
+iteration; do not mark browser sync delivered based on this feasibility result.

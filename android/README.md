@@ -27,6 +27,13 @@ through the existing automatic queue when connected and the phone app opens.
 Health Connect is separate. Desktop/mobile browser PWAs do not provide the
 native Wear bridge; use the installed Android APK on the paired phone.
 
+Website/PWA → watch is possible with an additional transport, but it is not
+implemented by installing the PWA. For the existing manual browser-backup route,
+future HTTPS/BLE options, and acceptance gaps, see
+[Browser-to-watch feasibility](../docs/BROWSER_WATCH_SYNC.md). Restore replaces
+the destination app's local data; back up that app first. Browser and Android
+databases do not automatically synchronize.
+
 Without a connection, the watch reports an unreachable phone; a sent request
 that receives no result times out after 20 seconds and can be retried. Empty
 schedules, incompatible payloads, storage limits, and duplicate dates are shown
