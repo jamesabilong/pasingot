@@ -410,3 +410,48 @@ Next action: add revisioned Dismiss and Cancel operations to the transient
 store. Cover `READY` removal, `STARTING` refusal, duplicate terminal requests,
 wrong identity/revision, and concurrent Start-versus-Cancel headlessly; do not
 wire Data Layer or UI yet.
+
+## Iteration 8 — 2026-09-25 — Stage 19 Dismiss/Cancel persistence
+
+Status: **Completed locally — headless shared/Wear checks pass; not yet
+committed**.
+
+Starting checkpoint: `4e97388 PST01: Add global watch session gate`. That
+commit is local only and was not pushed.
+
+Implemented:
+
+- Added revisioned `dismiss` and `cancel` operations to the isolated transient
+  package-store interface and implementation.
+- A valid terminal operation removes the `READY` package and durably retains a
+  small dismissed/cancelled tombstone. Replayed delivery of the same request
+  returns the prior terminal outcome instead of recreating the workout.
+- Enforced the protocol race decision: only request revision + 1 may terminate
+  a ready package; once `STARTING` is persisted, Dismiss/Cancel is refused.
+- Serialized Start and termination through the existing cross-instance mutex,
+  giving concurrent Start-versus-Cancel exactly one winner.
+- Added tombstone shape validation. Corrupt or unsupported terminal status is
+  cleared rather than suppressing a future request indefinitely.
+- Kept transport, Data Item cleanup, notification/UI actions, runtime session
+  creation, result acknowledgement, and TTS out of this slice.
+
+Validation:
+
+- `./gradlew :shared:test :wear:testDebugUnitTest --no-daemon --quiet`: passed.
+- 31 shared tests passed unchanged.
+- 33 Wear tests passed: 15 transient-store tests, 8 global-gate tests, and 10
+  existing session/queued-history tests.
+- New coverage includes Dismiss persistence/replay, Cancel replay blocking,
+  STARTING refusal, wrong identity/revision, corrupt tombstone cleanup, and
+  simultaneous Start-versus-Cancel arbitration.
+
+Remaining:
+
+- Terminal tombstones are not yet emitted as acknowledgements or age-pruned by
+  Data Item cleanup. Completion summaries, capability/migration, production
+  gate wiring, transport, cues, UI, and device acceptance remain open.
+
+Next action: add the shared immutable workout-completion summary and
+per-exercise outcome contract required by the watch success screen. Cover
+completed/skipped exercises, set totals, elapsed/estimated time, schema
+serialization, and invalid summaries headlessly; do not wire UI or sync yet.

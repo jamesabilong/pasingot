@@ -5,6 +5,7 @@ import app.personal.workouttracker.shared.quickstart.QuickStartExercise
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartSource
+import app.personal.workouttracker.shared.quickstart.QuickStartStatus
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -151,6 +152,101 @@ class WatchSessionPackageStoreTest {
         val persistence = InMemoryPersistence(raw = "not-json")
 
         assertNull(WatchSessionPackageStore(persistence).current(now))
+        assertNull(persistence.raw)
+    }
+
+    @Test
+    fun `dismiss removes ready package and retains idempotent terminal record`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        store.accept(request(), now)
+
+        val dismissed = store.dismiss(REQUEST_ID, terminalRevision = 2, nowEpochMillis = now + 1_000)
+
+        assertTrue(dismissed is TerminateQuickStartResult.Terminated)
+        assertEquals(
+            QuickStartStatus.DISMISSED,
+            (dismissed as TerminateQuickStartResult.Terminated).terminal.status,
+        )
+        assertNull(store.current(now + 1_000))
+        val duplicate = WatchSessionPackageStore(persistence).dismiss(REQUEST_ID, 2, now + 2_000)
+        assertTrue(duplicate is TerminateQuickStartResult.AlreadyTerminal)
+    }
+
+    @Test
+    fun `cancel terminal prevents replayed request from being accepted again`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        val request = request()
+        store.accept(request, now)
+        val cancelled = store.cancel(REQUEST_ID, terminalRevision = 2, nowEpochMillis = now + 1_000)
+
+        assertEquals(
+            QuickStartStatus.CANCELLED,
+            (cancelled as TerminateQuickStartResult.Terminated).terminal.status,
+        )
+        val replay = WatchSessionPackageStore(persistence).accept(request, now + 2_000)
+        assertTrue(replay is AcceptQuickStartResult.PreviouslyTerminated)
+        assertEquals(
+            QuickStartStatus.CANCELLED,
+            (replay as AcceptQuickStartResult.PreviouslyTerminated).terminal.status,
+        )
+    }
+
+    @Test
+    fun `starting package refuses dismiss and cancel`() = runTest {
+        val store = WatchSessionPackageStore(InMemoryPersistence())
+        store.accept(request(), now)
+        store.markStarting(REQUEST_ID, 1, now + 1_000)
+
+        assertTrue(store.dismiss(REQUEST_ID, 2, now + 2_000) is TerminateQuickStartResult.RefusedStarting)
+        assertTrue(store.cancel(REQUEST_ID, 2, now + 2_000) is TerminateQuickStartResult.RefusedStarting)
+        assertEquals(QuickStartPackageState.STARTING, store.current(now + 2_000)?.state)
+    }
+
+    @Test
+    fun `wrong identity or revision cannot terminate ready package`() = runTest {
+        val store = WatchSessionPackageStore(InMemoryPersistence())
+        store.accept(request(), now)
+
+        assertSame(
+            TerminateQuickStartResult.Missing,
+            store.cancel("123e4567-e89b-12d3-a456-426614174001", 2, now + 1_000),
+        )
+        val wrongRevision = store.cancel(REQUEST_ID, 1, now + 1_000)
+        assertTrue(wrongRevision is TerminateQuickStartResult.RevisionMismatch)
+        assertEquals(2, (wrongRevision as TerminateQuickStartResult.RevisionMismatch).expectedRevision)
+        assertEquals(QuickStartPackageState.READY, store.current(now + 1_000)?.state)
+    }
+
+    @Test
+    fun `simultaneous start and cancel have exactly one terminal outcome`() = runTest {
+        val persistence = InMemoryPersistence()
+        val firstStore = WatchSessionPackageStore(persistence)
+        val secondStore = WatchSessionPackageStore(persistence)
+        firstStore.accept(request(), now)
+
+        val results = listOf(
+            async { firstStore.markStarting(REQUEST_ID, 1, now + 1_000) },
+            async { secondStore.cancel(REQUEST_ID, 2, now + 1_000) },
+        ).awaitAll()
+
+        val startWon = results[0] is MarkQuickStartStartingResult.MarkedStarting
+        val cancelWon = results[1] is TerminateQuickStartResult.Terminated
+        assertTrue(startWon.xor(cancelWon))
+        if (startWon) assertTrue(results[1] is TerminateQuickStartResult.RefusedStarting)
+        if (cancelWon) assertSame(MarkQuickStartStartingResult.Missing, results[0])
+    }
+
+    @Test
+    fun `invalid persisted terminal status is cleared safely`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        store.accept(request(), now)
+        store.cancel(REQUEST_ID, 2, now + 1_000)
+        persistence.raw = persistence.raw?.replace("\"cancelled\"", "\"started\"")
+
+        assertNull(WatchSessionPackageStore(persistence).current(now + 2_000))
         assertNull(persistence.raw)
     }
 

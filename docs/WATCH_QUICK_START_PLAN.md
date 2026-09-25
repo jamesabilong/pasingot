@@ -576,7 +576,7 @@ is recorded separately from code completion.
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, transient-store, and global-gate slices passed**
+Status: **In progress — contract, store, gate, and cancellation slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -608,6 +608,10 @@ Status: **In progress — contract, transient-store, and global-gate slices pass
 - [x] Define request/ack models and non-regressing revision-based state ordering.
 - [ ] Define cancellation races, revisions, node binding, Data Item paths and
       cleanup, clock-skew tolerance, capability handshake, and schema migration.
+- [x] Implement revisioned local Dismiss/Cancel persistence: `READY` becomes a
+      replay-safe terminal tombstone, `STARTING` wins over termination, and
+      simultaneous Start/Cancel has exactly one outcome. Transport cleanup,
+      capability, and migration work remain open.
 - [ ] Define persisted exercise/set outcomes and immutable success summary;
       local **saved** and phone **synced** states must remain distinct.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
@@ -835,13 +839,14 @@ The feature is done only when:
 the isolated Wear transient store is also implemented and verified. Phone,
 transport, UI, session integration, result acknowledgement, and cues are
 unchanged. The pure global start gate is implemented but not yet wired into
-production navigation/session creation.
+production navigation/session creation. Revisioned Dismiss/Cancel and terminal
+replay protection are implemented in the store but not wired to transport/UI.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** add revisioned Dismiss and Cancel operations to the
-transient store. Cover `READY` removal, `STARTING` refusal, duplicate terminal
-requests, wrong identity/revision, and concurrent Start-versus-Cancel headlessly;
-do not wire Data Layer or UI yet.
+**Exact next action:** add the shared immutable workout-completion summary and
+per-exercise outcome contract required by the watch success screen. Cover
+completed/skipped exercises, set totals, elapsed/estimated time, schema
+serialization, and invalid summaries headlessly; do not wire UI or sync yet.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 
