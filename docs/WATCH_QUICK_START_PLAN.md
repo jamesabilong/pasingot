@@ -258,6 +258,9 @@ After the final set of a non-final exercise:
 - show a high-contrast green check and **Exercise complete**;
 - show the completed exercise name and progress, for example
   **2 of 5 exercises**;
+- show explicit compact counts for **Completed**, **Skipped**, and **Pending**;
+  pending is derived from the persisted per-exercise outcomes rather than a
+  separate UI-only counter;
 - show the next exercise and target below it;
 - speak **“Exercise complete.”** once;
 - if rest follows, merge into the rest sequence:
@@ -276,6 +279,7 @@ After the final exercise, replace the current minimal completion page with:
 - a large animated check/ring and **Workout complete**;
 - a compact summary using already persisted session data:
   - exercises completed and skipped;
+  - exercises pending (normally `0` on a valid completed workout);
   - sets completed;
   - elapsed active time;
   - estimated time, when available;
@@ -576,7 +580,7 @@ is recorded separately from code completion.
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, and cancellation slices passed**
+Status: **In progress — contract, store, gate, cancellation, and summary slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -614,6 +618,10 @@ Status: **In progress — contract, store, gate, and cancellation slices passed*
       capability, and migration work remain open.
 - [ ] Define persisted exercise/set outcomes and immutable success summary;
       local **saved** and phone **synced** states must remain distinct.
+- [x] Add the shared immutable progress/completion contract with validated
+      per-exercise outcomes, completed/skipped/pending counts, completed/planned
+      sets, elapsed/estimated time, and stable serialization. Wear persistence
+      and saved/synced integration remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -841,12 +849,14 @@ transport, UI, session integration, result acknowledgement, and cues are
 unchanged. The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
+The shared progress/completion summary now includes explicit pending counts but
+is not yet produced by the runtime session engine.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** add the shared immutable workout-completion summary and
-per-exercise outcome contract required by the watch success screen. Cover
-completed/skipped exercises, set totals, elapsed/estimated time, schema
-serialization, and invalid summaries headlessly; do not wire UI or sync yet.
+**Exact next action:** implement a pure Wear outcome reducer that produces the
+shared progress snapshot from set completion and exercise skip transitions.
+Cover partial sets, completed/skipped/pending counts, duplicate transitions,
+and final-summary creation headlessly; do not wire UI or persistence yet.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 

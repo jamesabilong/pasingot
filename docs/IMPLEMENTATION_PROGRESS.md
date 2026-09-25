@@ -366,8 +366,8 @@ and concurrent attempts headlessly; do not wire Data Layer or UI yet.
 
 ## Iteration 7 — 2026-09-25 — Stage 19 global session-start gate
 
-Status: **Completed locally — headless shared/Wear checks pass; not yet
-committed**.
+Status: **Completed and committed in `4e97388` — headless shared/Wear checks
+pass**.
 
 Starting checkpoint: `ae0d8df PST01: Add Watch Quick Start foundations`. That
 commit is local only and was not pushed.
@@ -413,8 +413,8 @@ wire Data Layer or UI yet.
 
 ## Iteration 8 — 2026-09-25 — Stage 19 Dismiss/Cancel persistence
 
-Status: **Completed locally — headless shared/Wear checks pass; not yet
-committed**.
+Status: **Completed and committed in `d9466aa` — headless shared/Wear checks
+pass**.
 
 Starting checkpoint: `4e97388 PST01: Add global watch session gate`. That
 commit is local only and was not pushed.
@@ -455,3 +455,50 @@ Next action: add the shared immutable workout-completion summary and
 per-exercise outcome contract required by the watch success screen. Cover
 completed/skipped exercises, set totals, elapsed/estimated time, schema
 serialization, and invalid summaries headlessly; do not wire UI or sync yet.
+
+## Iteration 9 — 2026-09-25 — Stage 19 progress/completion summary contract
+
+Status: **Completed locally — headless shared/Wear checks pass; not yet
+committed**.
+
+Starting checkpoint: `d9466aa PST01: Add Quick Start cancellation handling`.
+That commit is local only and was not pushed.
+
+Implemented:
+
+- Added a separate shared `session` summary module used by any watch workout,
+  rather than coupling success data to Quick Start transport.
+- Added immutable per-exercise outcomes with stable completed, skipped, and
+  pending statuses plus completed/planned set counts.
+- Added explicit `ExerciseProgressCounts(total, completed, skipped, pending)`.
+  The pending number is derived from the outcome list and validation rejects a
+  mismatched counter, preventing UI/history drift.
+- Added immutable progress snapshots with aggregate set totals, elapsed active
+  time, optional estimated time, session/title identity, and schema version.
+- Added final completion summaries that require zero pending exercises while
+  still allowing partially completed skipped exercises.
+- Added validation for identities, duplicate items, outcome/set semantics,
+  aggregate counters, durations, schema, and completion time.
+- Updated the watch design plan so exercise-success and final-success states
+  visibly include the pending number.
+
+Validation:
+
+- `./gradlew :shared:test :wear:testDebugUnitTest --no-daemon --quiet`: passed.
+- 38 shared tests passed: 7 new summary tests, 15 Quick Start tests, and 16
+  existing data/transfer tests.
+- 33 Wear regression tests passed unchanged.
+- New summary coverage includes mixed completed/skipped/pending progress,
+  explicit pending serialization, final zero-pending enforcement, aggregate
+  mismatch rejection, invalid set/outcome semantics, and duplicate identity.
+
+Remaining:
+
+- The runtime session engine does not yet produce or persist this summary. The
+  watch success UI, saved/synced states, transport, cues, and device acceptance
+  remain open.
+
+Next action: implement a pure Wear outcome reducer that produces the shared
+progress snapshot from set completion and exercise skip transitions. Cover
+partial sets, completed/skipped/pending counts, duplicate transitions, and
+final-summary creation headlessly; do not wire UI or persistence yet.
