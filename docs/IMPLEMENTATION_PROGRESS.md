@@ -363,3 +363,50 @@ Next action: implement a pure global session-start gate that inspects all legacy
 downloaded sessions plus the transient package and permits exactly one atomic
 Quick Start transition. Cover active/resting/paused/completed/ended, expiry,
 and concurrent attempts headlessly; do not wire Data Layer or UI yet.
+
+## Iteration 7 — 2026-09-25 — Stage 19 global session-start gate
+
+Status: **Completed locally — headless shared/Wear checks pass; not yet
+committed**.
+
+Starting checkpoint: `ae0d8df PST01: Add Watch Quick Start foundations`. That
+commit is local only and was not pushed.
+
+Implemented:
+
+- Added a process-wide `GlobalSessionStartGate` as the single serialization
+  point for Quick Start and legacy downloaded-session start attempts.
+- Added a narrow `LegacySessionSnapshotSource` and production adapter over
+  `WorkoutRepository.entries`, without changing that repository's permanent
+  date-keyed storage.
+- Quick Start remains `READY` when any legacy session is active, resting,
+  paused, or has an unknown persisted status. Null, explicitly completed, and
+  explicitly ended legacy states do not block.
+- Legacy start is blocked by either `READY` or `STARTING` Quick Start packages,
+  and can resume its own entry while still rejecting another blocking entry.
+- The legacy persistence callback runs inside the same process-wide gate, so a
+  concurrent legacy/Quick Start race has exactly one winner once production
+  entry points use this API.
+- Kept this slice headless and isolated: the gate is not yet wired into
+  `SessionViewModel`, navigation, Data Layer, or UI.
+
+Validation:
+
+- `./gradlew :shared:test :wear:testDebugUnitTest --no-daemon --quiet`: passed.
+- 31 shared tests passed unchanged.
+- 27 Wear tests passed: 8 new global-gate tests, 9 transient-store tests, and 10
+  existing session/queued-history tests.
+- New coverage includes all legacy states, fail-closed unknown status,
+  Quick Start ready/starting conflicts, expiry cleanup, own-entry resume,
+  wrong identity, and concurrent Quick Start/legacy arbitration.
+
+Remaining:
+
+- Production session entry points do not yet call the gate. Revisioned
+  dismiss/cancel, result acknowledgement/removal, capability/migration,
+  summaries, cues, transport, and UI remain open.
+
+Next action: add revisioned Dismiss and Cancel operations to the transient
+store. Cover `READY` removal, `STARTING` refusal, duplicate terminal requests,
+wrong identity/revision, and concurrent Start-versus-Cancel headlessly; do not
+wire Data Layer or UI yet.

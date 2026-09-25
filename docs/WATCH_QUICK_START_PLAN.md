@@ -576,7 +576,7 @@ is recorded separately from code completion.
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — shared contract and transient-store slices passed**
+Status: **In progress — contract, transient-store, and global-gate slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -588,7 +588,12 @@ Status: **In progress — shared contract and transient-store slices passed**
 - [x] Implement isolated one-package Wear persistence with local received-time
       expiry, malformed/stale cleanup, duplicate idempotency, and pending-request
       rejection; result acknowledgement/removal remains open.
-- [ ] Define the global blocking-session invariant and atomic Start operation.
+- [x] Define the global blocking-session invariant: null/completed/ended legacy
+      states do not block; active/resting/paused/unknown states and Quick Start
+      `READY`/`STARTING` do block competing entry points.
+- [x] Implement the pure process-wide start gate and repository snapshot adapter
+      with atomic Quick Start/legacy arbitration; production entry-point wiring
+      remains open.
 - [ ] Define `READY`/`STARTING` persistence and back/navigation/reboot behavior.
 - [x] Persist and serialize the package's atomic `READY` to `STARTING`
       transition across store recreation; navigation behavior remains open.
@@ -829,13 +834,14 @@ The feature is done only when:
 **Current checkpoint:** Phase 0 shared contract slice implemented and verified;
 the isolated Wear transient store is also implemented and verified. Phone,
 transport, UI, session integration, result acknowledgement, and cues are
-unchanged.
+unchanged. The pure global start gate is implemented but not yet wired into
+production navigation/session creation.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** implement a pure global session-start gate that inspects
-all legacy downloaded sessions plus the transient package and permits exactly
-one atomic Quick Start transition. Cover active/resting/paused/completed/ended,
-expiry, and concurrent attempts headlessly; do not wire Data Layer or UI yet.
+**Exact next action:** add revisioned Dismiss and Cancel operations to the
+transient store. Cover `READY` removal, `STARTING` refusal, duplicate terminal
+requests, wrong identity/revision, and concurrent Start-versus-Cancel headlessly;
+do not wire Data Layer or UI yet.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 
