@@ -20,7 +20,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest committed checkpoint: `23dd15c PST01: Finalize code`. It includes
+- Latest local committed checkpoint: `18a7554 PST01: Add workout progress
+  summaries`. It includes Stage 19 Iteration 9 and has not been pushed. The
+  earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
   Iteration 3's browser-to-watch feasibility and capability UX work after
   `3ba1bc6 PST01: Gap fix`, including Iteration 2's
   follow-up after `6a75c06 PST01: Fix gaps`. Validation/corrections are
@@ -34,13 +36,15 @@ Update that log during every implementation iteration, not only at handoff.
   contains the Health Connect bridge, permission UI, and completed-workout
   write path. The actual Stage 16 custom-exercise slice landed earlier as
   `2d1d558 PST01: Stage 16 implemented`; pushed history is left intact.
-- Latest completed checkpoint work: Iteration 3's browser-to-watch feasibility
+- Latest pre-Stage 19 checkpoint work: Iteration 3's browser-to-watch feasibility
   and capability UX corrections, committed in `23dd15c`, with 73 browser checks
   and a refreshed phone APK. See the progress log for validation and remaining
   items. Iteration 2's earlier data-integrity review and plan reconciliation are
   in `3ba1bc6`.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
+- Stage 19's subsequent reducer/progress-presentation slice is verified but
+  remains uncommitted.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
   wiring bug in the Health Connect History panel (the app did not compile),
@@ -63,7 +67,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 Phase 0 in progress: contracts, transient storage, start arbitration, cancellation tombstones, and immutable progress/completion summaries are implemented; progress explicitly includes completed/skipped/pending counts; 38 shared and 33 Wear headless tests pass | Next small slice: add the pure Wear outcome reducer that creates these snapshots from session transitions; do not wire UI/persistence yet. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **16/93 checklist items (17%) overall**; Phase 0 foundations are **16/27 (59%)**. Contracts, transient storage, arbitration, cancellation tombstones, immutable summaries, and the pure Wear outcome reducer exist; progress includes completed/skipped/pending plus derived **completed/total** text; 38 shared and 40 Wear headless tests pass | Next small slice: persist reducer state for process recovery; then finish Phase 0 protocol/cue decisions before phone/watch UI. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 transport, phone/Watch UI, session integration, cues/success, result acknowledgement, and device acceptance; Phase 0 contract/store foundations are partial | Follow the plan's isolated feature modules and resumable phase checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |

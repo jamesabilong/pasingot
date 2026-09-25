@@ -256,8 +256,9 @@ timer is not reliable enough for process recovery.
 After the final set of a non-final exercise:
 
 - show a high-contrast green check and **Exercise complete**;
-- show the completed exercise name and progress, for example
-  **2 of 5 exercises**;
+- show the completed exercise name and compact **completed/total** progress,
+  for example **2/5 completed**; expose **2 of 5 exercises completed** to
+  TalkBack;
 - show explicit compact counts for **Completed**, **Skipped**, and **Pending**;
   pending is derived from the persisted per-exercise outcomes rather than a
   separate UI-only counter;
@@ -578,9 +579,40 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
+### Progress audit — 2026-09-25
+
+Checklist items are counted equally for a reproducible completed/total view;
+the ratio is not an engineering-effort estimate. The working tree currently
+stands at **16/93 items (17%) overall**:
+
+| Phase | Completed/total | Status |
+|---|---:|---|
+| Phase 0 — foundations | **16/27 (59%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, reducer, and focused fixtures exist |
+| Phase 1 — phone feature | **0/10 (0%)** | Not started |
+| Phase 2 — watch feature | **0/17 (0%)** | Not started |
+| Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
+| Phase 4 — device acceptance | **0/27 (0%)** | Not started |
+
+The latest committed checkpoint, `18a7554`, represents **14/92 items (15%)**.
+The difference is the uncommitted Iteration 10 reducer/presentation slice and
+this evidence reconciliation. Phase 0's 59% must not be reported as feature
+completion: there is no usable phone-to-watch Quick Start path yet.
+
+Preparation order for the next parts:
+
+1. Persist `WorkoutOutcomeState` and its revision atomically; prove restart,
+   corrupt-state cleanup, and transition retry behavior headlessly.
+2. Close the remaining Phase 0 protocol/cue decisions and mixed-version
+   fixtures, including result acknowledgement/removal and final-countdown lock.
+3. Build the isolated Phase 1 phone bridge and React sheet.
+4. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
+   UI using the persisted reducer output.
+5. Complete Phase 3 recovery/regression wiring before Phase 4 physical-device,
+   Play internal-track, audio-routing, and battery acceptance.
+
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, cancellation, and summary slices passed**
+Status: **In progress — contract, store, gate, cancellation, summary, and reducer slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -622,6 +654,9 @@ Status: **In progress — contract, store, gate, cancellation, and summary slice
       per-exercise outcomes, completed/skipped/pending counts, completed/planned
       sets, elapsed/estimated time, and stable serialization. Wear persistence
       and saved/synced integration remain open.
+- [x] Add the pure Wear outcome reducer and derived compact
+      **completed/total** presentation (for example `2/5`) with descriptive
+      TalkBack text. Runtime session wiring and UI rendering remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -630,8 +665,9 @@ Status: **In progress — contract, store, gate, cancellation, and summary slice
 
 Exit checks:
 
-- [x] `:shared:test` passes (31 tests: 15 Quick Start, 16 existing).
-- [ ] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
+- [x] `:shared:test` passes (38 tests: 15 Quick Start, 7 progress summary, and
+      16 existing).
+- [x] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
 - [ ] Migration and mixed phone/watch-version fixtures pass.
 - [ ] Contract fields and chosen decisions are recorded in this document.
@@ -849,14 +885,15 @@ transport, UI, session integration, result acknowledgement, and cues are
 unchanged. The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
-The shared progress/completion summary now includes explicit pending counts but
-is not yet produced by the runtime session engine.
+The shared progress/completion summary now includes explicit pending counts.
+A pure Wear reducer produces it and derives compact **completed/total** text,
+but it is not yet connected to the runtime session engine or rendered by UI.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** implement a pure Wear outcome reducer that produces the
-shared progress snapshot from set completion and exercise skip transitions.
-Cover partial sets, completed/skipped/pending counts, duplicate transitions,
-and final-summary creation headlessly; do not wire UI or persistence yet.
+**Exact next action:** add an isolated persisted outcome-state adapter for the
+Wear reducer so revisions and partial-set outcomes survive process recreation.
+Cover restore, invalid-state cleanup, and atomic transition persistence
+headlessly; do not wire session UI or Data Layer yet.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 

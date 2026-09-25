@@ -458,8 +458,8 @@ serialization, and invalid summaries headlessly; do not wire UI or sync yet.
 
 ## Iteration 9 — 2026-09-25 — Stage 19 progress/completion summary contract
 
-Status: **Completed locally — headless shared/Wear checks pass; not yet
-committed**.
+Status: **Completed and committed in `18a7554` — headless shared/Wear checks
+pass**.
 
 Starting checkpoint: `d9466aa PST01: Add Quick Start cancellation handling`.
 That commit is local only and was not pushed.
@@ -502,3 +502,59 @@ Next action: implement a pure Wear outcome reducer that produces the shared
 progress snapshot from set completion and exercise skip transitions. Cover
 partial sets, completed/skipped/pending counts, duplicate transitions, and
 final-summary creation headlessly; do not wire UI or persistence yet.
+
+## Iteration 10 — 2026-09-25 — Stage 19 outcome reducer and progress text
+
+Status: **Completed locally — headless shared/Wear checks pass; not yet
+committed**.
+
+Starting checkpoint: `18a7554 PST01: Add workout progress summaries`. That
+commit is local only and was not pushed.
+
+Implemented:
+
+- Added a pure Wear outcome reducer with ordered revisions for set-complete and
+  exercise-skip transitions.
+- Partial sets remain pending, final sets resolve as completed, and skips retain
+  any completed-set count.
+- Duplicate or old revisions are idempotent. Revision gaps, unknown items, and
+  attempts to change resolved exercises leave state unchanged.
+- Added valid progress snapshot creation and final-summary creation only when
+  every exercise is completed or skipped.
+- Added compact **completed/total** progress such as `2/5`, derived from the
+  validated counters, plus descriptive TalkBack text such as
+  **2 of 5 exercises completed**.
+- Kept this slice pure and headless. It does not yet persist reducer state or
+  connect to the current session engine or Compose UI.
+
+Validation:
+
+- `./gradlew :shared:test :wear:testDebugUnitTest --no-daemon --quiet`: passed
+  after the final initialization guard and fixture.
+- 38 shared tests passed unchanged. 40 Wear tests passed, including seven new
+  reducer/progress cases.
+
+Progress audit:
+
+- Reconciled the Stage 19 checklist against code and test evidence. The current
+  working tree is **16/93 items (17%) overall** and Phase 0 is
+  **16/27 items (59%)**.
+- The latest committed checkpoint `18a7554` is **14/92 items (15%)**; the delta
+  is this uncommitted reducer/presentation slice plus fixture reconciliation.
+- The completed/total ratio counts checklist items equally and is not an effort
+  estimate. No Phase 1–4 item is closed, so the feature is not end-to-end usable
+  and has no paired-device acceptance yet.
+- Confirmed the combined empty/oversized/partial/order/expiry/clock-skew/
+  duplicate/cancel/out-of-order/unsupported-schema fixture gate from the shared
+  contract and Wear store tests, and updated the stale shared-test count from
+  31 to 38.
+
+Remaining:
+
+- Reducer persistence, production session wiring, success UI rendering,
+  transport, cues, saved/synced acknowledgements, and device acceptance remain
+  open.
+
+Next action: add a persisted reducer-state adapter with restart,
+invalid-state cleanup, and atomic-transition coverage. Do not wire session UI
+or Data Layer in that slice.
