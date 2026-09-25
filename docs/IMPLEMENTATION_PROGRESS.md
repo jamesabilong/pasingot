@@ -190,3 +190,176 @@ Phone APK refreshed at `android/app/build/outputs/apk/debug/app-debug.apk`.
 Next action: review this correction checkpoint and choose whether to scope an
 authenticated HTTPS browser/watch route. Record its implementation as a new
 iteration; do not mark browser sync delivered based on this feasibility result.
+
+## Iteration 4 — 2026-09-25 — Watch Quick Start planning
+
+Status: **Plan audit complete and incorporated; implementation not started**.
+
+Starting checkpoint: `23dd15c PST01: Finalize code`, clean working tree.
+
+Decision:
+
+- Add a phone-selected Watch Quick Start workflow for one exercise, the current
+  Library playlist, or an ordered multi-selection.
+- The phone sends and tracks delivery; the watch requires one explicit Start
+  tap. Silent remote start and replacement of an active session are out of
+  scope.
+- Keep this workflow separate from weekly schedule sync and **Send today to
+  watch**. Use isolated shared, phone-native, React, and Wear `quickstart`
+  modules with a request/acknowledgement contract.
+- Use one list-based contract for all entry paths, preserve order, cap requests
+  at 24 items, and reject the whole request if any item is invalid.
+- Add a separate Wear cue/success module used by all watch workouts: explicit
+  voice opt-in, exercise/prescription briefing, five-second start warning,
+  prescribed-rest and next-target announcements, Go cue, per-exercise success,
+  and detailed final workout success. TTS failure falls back to complete visual
+  and haptic behavior.
+- Prevent rest-extension/TTS races with a persisted final-countdown lock. The
+  `+5`, `+10`, and `+30` actions remain available above five seconds, then are
+  atomically disabled before the five-second cue. The ViewModel repeats the
+  guard, and Start now/natural zero cancel unfinished warning speech before Go.
+
+Planning artifact:
+
+- [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) defines product states,
+  module/file boundaries, protocol reliability rules, five phased checkpoints,
+  automated/device acceptance, risks, definition of done, and a durable resume
+  marker.
+
+Audit amendments incorporated on 2026-09-25:
+
+- Made the phone the permanent source of truth for library, playlists,
+  schedule, and History. Quick Start uses a separate one-package transient
+  watch store plus the durable unsynced-result queue; it does not consume or
+  collide with the existing three-entry date-keyed download store.
+- Added explicit `READY`/`STARTING` lifecycle design, a global blocking-session
+  invariant, atomic Start requirements, persisted final summaries, and distinct
+  **Saved on watch** versus **Synced to phone** states.
+- Completed the protocol planning surface with revisions, cancellation races,
+  target-node binding, clock-skew-tolerant TTL, request-scoped Data Item cleanup,
+  migration/capability gating, mixed-version behavior, and replay-safe pruning.
+- Added short-rest speech rules, deterministic brief generation, TTS discovery
+  and lifecycle, audio output/focus, TalkBack, ambient/reduced-motion behavior,
+  and durable cue-ledger ordering.
+- Added a battery/runtime budget: no manual wake lock, continuous polling,
+  per-second persistence, or continuous progress sync; use deadline-derived
+  timers, lifecycle-aware redraws, callbacks, and bounded retry/backoff.
+- Declared automated contract/state/persistence/cue/bridge validation headless.
+  Physical checks remain for Data Layer delivery, TTS/haptics/audio routing,
+  ambient behavior, Play internal-track installation, and measured battery use.
+
+Validation for this planning-only iteration:
+
+- Source inspection confirmed that current phone-to-watch behavior sends only
+  today's complete `WorkoutSetPayload`; the watch stores it and the user starts
+  it locally. No phone-to-watch individual-exercise or remote-start command
+  exists.
+- No production source, schema, APK, or test fixture changed in this iteration.
+
+Remaining:
+
+- All Stage 19 implementation and validation phases are open.
+- Existing physical-device acceptance items remain separate and open.
+
+Next action: begin Stage 19 Phase 0. Finalize transient package persistence,
+global session states/atomic Start, request/ack/cancel transitions, schema and
+capability migration, short-rest/TTS behavior, durable summaries, and the
+battery budget; then add the shared list-based Quick Start contract and failing
+headless fixtures before UI work.
+
+## Iteration 5 — 2026-09-25 — Stage 19 shared contract slice
+
+Status: **Completed locally — headless shared checks pass; Phase 0 remains in
+progress**.
+
+Starting checkpoint: local planning changes after `23dd15c`; existing planning
+and roadmap edits were preserved.
+
+Implemented:
+
+- Added an isolated `shared/quickstart` contract with a feature-specific schema,
+  request/acknowledgement models, explicit serialized protocol names, source and
+  rejection enums, request-scoped Data Layer path prefixes, and a transient
+  `WatchSessionPackage` independent of the date-keyed download store.
+- Added all-or-nothing validation for UUID/revision/node identity, five-minute
+  TTL plus 30-second clock-skew tolerance, four entry-source rules, 24-item cap,
+  stable/unique item IDs, bounded prescriptions, rest/load values, and Today-row
+  source identity.
+- Chose the conservative first-release pending policy: reject a second pending
+  request rather than silently replacing the first.
+- Added explicit non-regressing acknowledgement transitions, terminal-state
+  protection, per-request reconciliation, and rejection-reason validation.
+- Kept this checkpoint deliberately limited to the shared JVM module. No phone
+  bridge, Data Layer service, Wear persistence/UI, session engine, or TTS code
+  changed.
+
+Validation:
+
+- `./gradlew :shared:test --no-daemon --quiet`: passed.
+- 31 tests passed: 15 new Quick Start contract tests plus 16 existing shared
+  data/transfer tests. Coverage includes ordering, empty/oversized/partially
+  invalid lists, duplicate IDs, schema/revision errors, TTL/clock skew, Today
+  identity, loads, serialization names, terminal regression, unrelated request
+  isolation, and acknowledgement reasons.
+
+Remaining:
+
+- Phase 0 persistence, atomic global session-start rules, capability/migration
+  fixtures, cancellation fixtures, success-summary model, and cue contracts are
+  still open. Later phone/Wear/UI/device phases have not started.
+
+Next action: implement the isolated Wear `WatchSessionPackageStore` behind an
+interface, with headless tests for one-package retention, duplicate idempotency,
+pending-request rejection, expiry, restart recovery, and atomic `READY` to
+`STARTING`. Do not wire Data Layer or UI in that slice.
+
+## Iteration 6 — 2026-09-25 — Stage 19 transient Wear store
+
+Status: **Completed locally — headless shared/Wear checks pass; Phase 0 remains
+in progress**.
+
+Starting checkpoint: Iteration 5's local shared Quick Start contract slice;
+existing uncommitted planning and contract changes were preserved.
+
+Implemented:
+
+- Added a `QuickStartPackageStore` interface and serialized
+  `WatchSessionPackageStore` that owns exactly one transient package outside the
+  permanent date-keyed `WorkoutRepository`.
+- Added a Preferences DataStore persistence adapter in the isolated Wear
+  `quickstart` package. Writes complete before accept/start success is returned.
+- Persisted a watch-local expiry derived from receive time, keeping phone/watch
+  clock skew at the validation boundary and making restart recovery
+  deterministic.
+- Added all-or-nothing accept results for accepted, duplicate, pending-conflict,
+  and invalid requests. Expired/malformed/stale ready data is cleared safely.
+- Serialized `READY` to `STARTING` with a process-wide mutex so separate service
+  and activity store instances cannot both win the transition. A persisted
+  `STARTING` package remains available after its original offer expiry.
+- Deliberately did not connect Data Layer, navigation, the legacy session
+  repository, UI, result acknowledgement, or TTS.
+
+Validation:
+
+- `./gradlew :shared:test :wear:testDebugUnitTest --no-daemon --quiet`: passed.
+- 31 shared tests passed: 15 Quick Start plus 16 existing.
+- 19 Wear tests passed: 9 new transient-store tests plus 10 existing session and
+  queued-history tests.
+- New Wear coverage includes store recreation, duplicate no-rewrite,
+  second-request rejection, local expiry/replacement, invalid isolation,
+  malformed cleanup, identity checks, persisted Start, and simultaneous Start
+  attempts through separate store instances.
+- The first compile exposed an invalid explicit DataStore `remove` import; it
+  was removed and the full scoped test command then passed.
+
+Remaining:
+
+- The store does not yet perform the global legacy-session conflict check or
+  create a runtime workout session. Result acknowledgement/removal,
+  cancellation, capability/migration fixtures, summaries, cue contracts,
+  transport, and UI remain open.
+
+Next action: implement a pure global session-start gate that inspects all legacy
+downloaded sessions plus the transient package and permits exactly one atomic
+Quick Start transition. Cover active/resting/paused/completed/ended, expiry,
+and concurrent attempts headlessly; do not wire Data Layer or UI yet.
