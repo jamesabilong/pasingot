@@ -3,7 +3,7 @@
 Status: **Phase 0 in progress — foundations implemented; end-to-end flow not started**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Prior committed checkpoint: `92ef2cb PST01: Add workout outcome progress`
+Prior committed checkpoint: `341a1f9 PST01: Persist watch workout outcomes`
 Last updated: **2026-09-26**
 
 ## Goal
@@ -386,6 +386,30 @@ New fields use backward-compatible defaults where safe. Phase 0 must define a
 feature-specific schema migration and a capability handshake for phone-new /
 watch-old and watch-new / phone-old combinations before either UI exposes Send.
 
+#### Capability and schema migration decision — 2026-09-26
+
+- The shared v1 capability envelope carries the publishing Data Layer node ID,
+  `phone` or `watch` role, envelope version, and an explicit list of implemented
+  request schema versions. The current helper constructs an advertisement for
+  request schema 1; native publication is still pending.
+- The sender checks the selected node is currently reachable and that the
+  advertised node ID matches it. Peers must have opposite roles. A missing
+  advertisement means the older app has no Quick Start capability; malformed or
+  unknown envelope versions fail closed. A cached Data Item alone does not
+  prove the peer is connected or that it has accepted a request.
+- Choose the highest schema in the intersection of the peers' advertised lists.
+  A future phone or watch may advertise schemas 1 and 2 only when it implements
+  both codecs. Mixed-version peers then use schema 1. If a peer supports only
+  schema 2 while the other supports only 1, no request is sent and the user
+  needs an app update. Current request validation still accepts only schema 1.
+- Optional fields within the v1 capability envelope are ignored for compatible
+  additions. A change that alters required meaning needs a new envelope
+  version and explicit support; unknown envelopes are rejected. No old app is
+  assumed to support Quick Start simply because it runs the same Android app ID.
+- These are shared contract rules and headless fixtures. Native discovery,
+  capability publication, request/ack delivery, user-facing update wording,
+  and migration of any future persisted schema remain pending.
+
 ### Android phone native module
 
 New directory:
@@ -580,33 +604,32 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-26
+### Progress audit — 2026-09-26, Iteration 12
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **17/94 items (18%) overall**:
+stands at **19/95 items (20%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
-| Phase 0 — foundations | **17/28 (61%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, and focused fixtures exist |
+| Phase 0 — foundations | **19/29 (66%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, and focused fixtures exist |
 | Phase 1 — phone feature | **0/10 (0%)** | Not started |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
-The prior committed checkpoint, `92ef2cb`, represents **16/93 items (17%)**.
-Iteration 10 is committed; the earlier `18a7554`/uncommitted-reducer marker is
-superseded. Iteration 11 adds one explicit persistence checklist item, verified
-in this checkpoint. Phase 0's 61% must not be reported as feature
+The prior committed checkpoint, `341a1f9`, represents **17/94 items (18%)**.
+Iteration 11's earlier uncommitted status is superseded by that commit.
+Iteration 12 adds capability and mixed-version fixture checklist items,
+verified in this checkpoint. Phase 0's 66% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
 
 Preparation order for the next parts:
 
-1. Define the shared Quick Start capability/version negotiation contract and
-   migration policy; cover absent capability, phone-new/watch-old,
-   watch-new/phone-old, and compatible additive fields headlessly.
-2. Close the remaining Phase 0 retention/navigation/cue decisions and fixtures,
-   including result acknowledgement/removal and final-countdown lock.
+1. Define acknowledged result retention/removal and READY/STARTING navigation
+   recovery with focused fixtures, including no loss of unsynced outcomes.
+2. Close the remaining Phase 0 cue decisions and fixtures, including the
+   final-countdown lock.
 3. Build the isolated Phase 1 phone bridge and React sheet.
 4. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
    UI using the persisted reducer output.
@@ -615,7 +638,7 @@ Preparation order for the next parts:
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, cancellation, summary, reducer, and outcome persistence slices passed**
+Status: **In progress — contract, store, gate, cancellation, summary, reducer, outcome persistence, and capability slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -665,6 +688,10 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
       conflicts, concurrent transitions, and storage failures. A real
       Preferences DataStore file recovery test passes. Runtime wiring and
       final-result/receipt transactions remain open.
+- [x] Define a shared v1 capability envelope and pure schema negotiation with
+      reachable-node/role binding. The current helper includes only implemented
+      request schema 1. Missing, malformed, unsupported, and mixed-version
+      fixtures pass; publication and UI gating remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -677,7 +704,8 @@ Exit checks:
       16 existing).
 - [x] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
-- [ ] Migration and mixed phone/watch-version fixtures pass.
+- [x] Shared capability negotiation and mixed phone/watch-version fixtures
+      pass, including schema-1 fallback and incompatible schema refusal.
 - [ ] Contract fields and chosen decisions are recorded in this document.
 
 ### Phase 1 — Phone bridge and React feature shell
@@ -898,15 +926,16 @@ A pure Wear reducer produces it and derives compact **completed/total** text,
 and Iteration 11 persists its ordered outcomes/revision atomically with tested
 recovery and failure behavior. It is not yet connected to the runtime session
 engine or rendered by UI. Completed outcomes are retained; result queueing and
-acknowledged removal are not implemented. All 38 shared and 54 Wear tests and
-the Wear debug build pass; physical-device acceptance remains open.
+acknowledged removal are not implemented. Iteration 12 adds a shared capability
+envelope and schema-1 negotiation with mixed-version fixtures. All 48 shared
+and 54 Wear tests pass; the prior Wear debug build passed before the shared
+contract change. Physical-device acceptance remains open.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** add shared `quickstart/QuickStartCapability.kt` and
-focused contract tests for reachable-node capability/schema negotiation,
-missing/unsupported capability, phone-new/watch-old, watch-new/phone-old, and
-compatible additive fields. Record the schema migration policy before marking
-the mixed-version gate complete; do not wire transport or UI in that slice.
+**Exact next action:** define result acknowledgement/removal and retained
+READY/STARTING recovery behavior in the isolated Wear stores. Add headless
+tests that prevent clearing unsynced outcomes and prove revision-safe replay;
+record the retention rules before native transport or UI wiring.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 

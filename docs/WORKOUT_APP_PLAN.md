@@ -20,9 +20,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Prior committed checkpoint: `92ef2cb PST01: Add workout outcome
-  progress`. It includes Stage 19 Iteration 10 and matched the local
-  `origin/PST01` tracking ref as of the 2026-09-26 audit (no remote fetch). The
+- Prior committed checkpoint: `341a1f9 PST01: Persist watch workout
+  outcomes`. It includes Stage 19 Iteration 11 and has not been pushed in this
+  task. The earlier `92ef2cb` checkpoint matched the local `origin/PST01`
+  tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
   earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
   Iteration 3's browser-to-watch feasibility and capability UX work after
   `3ba1bc6 PST01: Gap fix`, including Iteration 2's
@@ -45,8 +46,9 @@ Update that log during every implementation iteration, not only at handoff.
 - Weekly planning and the earlier feature-screen improvements are committed
   in `4f5da66`; they are no longer pending implementation.
 - Stage 19's reducer/progress-presentation slice is committed in `92ef2cb`.
-  Iteration 11's outcome persistence adapter is verified in the current
-  checkpoint; see `IMPLEMENTATION_PROGRESS.md` for recovery/failure evidence.
+  Iteration 11's outcome persistence adapter is committed in `341a1f9`;
+  Iteration 12's shared capability negotiation is verified in this checkpoint.
+  See `IMPLEMENTATION_PROGRESS.md` for recovery/failure evidence.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
   wiring bug in the Health Connect History panel (the app did not compile),
@@ -69,7 +71,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **17/94 checklist items (18%) overall**; Phase 0 foundations are **17/28 (61%)**. Contracts, transient storage, arbitration, cancellation tombstones, immutable summaries, and the Wear outcome reducer exist; outcomes/revisions now persist atomically with restart, replay, and storage-failure coverage; 38 shared and 54 Wear tests plus the Wear debug build pass | Next small slice: shared capability/version negotiation and mixed-version fixtures; then remaining Phase 0 retention/navigation/cue decisions before phone/watch UI. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **19/95 checklist items (20%) overall**; Phase 0 foundations are **19/29 (66%)**. Contracts, transient storage, arbitration, cancellation tombstones, immutable summaries, and the Wear outcome reducer exist; outcomes/revisions persist atomically. Shared capability negotiation now covers reachable nodes and mixed versions; 48 shared and 54 Wear tests pass | Next small slice: result acknowledgement/removal and READY/STARTING recovery; then remaining Phase 0 cue decisions before phone/watch UI. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 transport, phone/Watch UI, session integration, cues/success, result acknowledgement, and device acceptance; Phase 0 contract/store foundations are partial | Follow the plan's isolated feature modules and resumable phase checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |

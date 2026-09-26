@@ -626,3 +626,58 @@ Next action: add shared `quickstart/QuickStartCapability.kt` with headless
 capability/schema negotiation and mixed phone/watch-version fixtures. Record
 the migration policy before closing that Phase 0 gate; keep transport/UI out
 of that slice.
+
+## Iteration 12 — 2026-09-26 — Stage 19 capability and version contract
+
+Status: **Completed in this checkpoint — shared/Wear headless checks pass.
+Native delivery and device validation remain open**.
+
+Starting checkpoint: `341a1f9 PST01: Persist watch workout outcomes`. Its staged
+diff was reviewed, `git diff --cached --check` passed, and no unrelated files
+were committed. The branch is ahead of the local `origin/PST01` tracking ref by
+one commit; no remote fetch or push was made.
+
+Finding: the request schema is fixed at version 1, but the shared module has no
+typed capability advertisement or negotiation rule. The phone cannot yet
+distinguish an unreachable watch, absent app capability, incompatible schema,
+or a node identity mismatch before attempting transport.
+
+Implemented:
+
+- Added a shared v1 capability envelope with publisher node ID, phone/watch
+  role, and the list of request schema versions that peer implements. The
+  current helper includes only schema 1; the feature path remains separate from
+  legacy schedule sync.
+- Added pure negotiation for one selected reachable node, with identity/role
+  binding and the highest common request schema. It distinguishes unreachable,
+  absent, malformed, unsupported-envelope, wrong-node/role, and no-common-schema
+  outcomes. Unknown optional v1 envelope fields are accepted; unknown envelope
+  versions fail closed.
+- Recorded the migration rule: hypothetical upgraded peers supporting schemas
+  1 and 2 fall back to 1 with an old peer; 2-only versus 1-only is incompatible.
+  Future binaries must not advertise schema 2 until they actually implement it.
+  No native advertisement, discovery, or send gating is wired yet.
+- Reconciled the checklist: Stage 19 is **19/95 items (20%)**, Phase 0
+  **19/29 (66%)**. Two items were closed: the shared capability contract and
+  the mixed-version headless fixture gate. Actual native mixed-build delivery
+  and any future stored/request schema migration stay open.
+
+Validation:
+
+- `gradlew.bat :shared:test :wear:testDebugUnitTest --no-daemon --quiet`:
+  passed, with 48 shared tests (10 new capability cases) and 54 Wear regression
+  tests.
+- New fixtures cover current v1 peers, reachability, absent capability,
+  node/role mismatch, phone-new/watch-old and watch-new/phone-old fallback,
+  incompatible schemas, malformed/unsupported envelopes, additive fields, and
+  use of the negotiated schema by the existing request validator.
+- `git diff --check` passed for tracked changes. This is headless contract
+  validation, not native Data Layer or paired-device acceptance.
+
+Remaining: result acknowledgement/removal and retained READY/STARTING recovery,
+native capability publication/discovery, transport, phone/watch UI, cues,
+session integration, and device acceptance.
+
+Next action: define result acknowledgement/removal and READY/STARTING recovery
+in the isolated Wear stores. Add headless fixtures that prevent clearing
+unsynced outcomes and prove revision-safe replay; then record retention rules.
