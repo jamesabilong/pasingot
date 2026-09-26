@@ -1,6 +1,7 @@
 package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.quickstart.QUICK_START_SCHEMA_VERSION
+import app.personal.workouttracker.shared.quickstart.QUICK_START_CLOCK_SKEW_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
@@ -40,6 +41,8 @@ interface QuickStartPackageStore {
         terminalRevision: Long,
         nowEpochMillis: Long,
     ): TerminateQuickStartResult
+    /** Called only after the result store validates/persists the receipt and finishes cleanup. */
+    suspend fun releaseAcknowledged(receipt: QuickStartResultReceipt): ReleaseAcknowledgedQuickStartResult
 }
 
 sealed interface AcceptQuickStartResult {
@@ -48,6 +51,8 @@ sealed interface AcceptQuickStartResult {
     data class RejectedPending(val existing: WatchSessionPackage) : AcceptQuickStartResult
     data class RejectedInvalid(val issue: QuickStartValidationIssue) : AcceptQuickStartResult
     data class PreviouslyTerminated(val terminal: TerminalQuickStartRecord) : AcceptQuickStartResult
+    data class PreviouslyAcknowledged(val record: AcknowledgedQuickStartRecord) : AcceptQuickStartResult
+    data object ReplayHistoryFull : AcceptQuickStartResult
 }
 
 sealed interface MarkQuickStartStartingResult {
@@ -66,6 +71,23 @@ data class TerminalQuickStartRecord(
     val recordedAtMillis: Long,
 )
 
+@Serializable
+data class AcknowledgedQuickStartRecord(
+    val requestId: String,
+    val resultId: String,
+    val outcomeRevision: Long,
+    val recordedAtMillis: Long,
+    val replayUntilMillis: Long,
+)
+
+sealed interface ReleaseAcknowledgedQuickStartResult {
+    data class Released(val record: AcknowledgedQuickStartRecord) : ReleaseAcknowledgedQuickStartResult
+    data class AlreadyReleased(val record: AcknowledgedQuickStartRecord) : ReleaseAcknowledgedQuickStartResult
+    data object Missing : ReleaseAcknowledgedQuickStartResult
+    data object Mismatch : ReleaseAcknowledgedQuickStartResult
+    data object NotStarting : ReleaseAcknowledgedQuickStartResult
+}
+
 sealed interface TerminateQuickStartResult {
     data class Terminated(val terminal: TerminalQuickStartRecord) : TerminateQuickStartResult
     data class AlreadyTerminal(val terminal: TerminalQuickStartRecord) : TerminateQuickStartResult
@@ -79,6 +101,8 @@ private data class PersistedQuickStartPackage(
     val schemaVersion: Int = QUICK_START_SCHEMA_VERSION,
     val sessionPackage: WatchSessionPackage? = null,
     val terminal: TerminalQuickStartRecord? = null,
+    val acknowledged: AcknowledgedQuickStartRecord? = null,
+    val acknowledgedHistory: List<AcknowledgedQuickStartRecord> = emptyList(),
 )
 
 /**
@@ -92,6 +116,7 @@ class WatchSessionPackageStore(
     private companion object {
         /** Services and activities may construct separate store instances. */
         val processMutex = Mutex()
+        const val MAX_ACKNOWLEDGED_HISTORY = 64
     }
 
     override suspend fun current(nowEpochMillis: Long): WatchSessionPackage? = processMutex.withLock {
@@ -108,11 +133,22 @@ class WatchSessionPackageStore(
         }
         val incoming = (validated as QuickStartValidationResult.Valid).sessionPackage
         val state = loadState()
+        val recentHistory = state?.acknowledgedHistory.orEmpty().filter {
+            receivedAtMillis <= it.replayUntilMillis
+        }
+        (recentHistory + listOfNotNull(state?.acknowledged).filter {
+            receivedAtMillis <= it.replayUntilMillis
+        })
+            .firstOrNull { it.requestId == incoming.request.requestId }
+            ?.let { return@withLock AcceptQuickStartResult.PreviouslyAcknowledged(it) }
         val existing = state?.sessionPackage?.takeUnless { sessionPackage ->
             sessionPackage.state == QuickStartPackageState.READY &&
                 receivedAtMillis > sessionPackage.expiresLocallyAtMillis
         }
-        if (state?.sessionPackage != null && existing == null) persistence.write(null)
+        if (state?.sessionPackage != null && existing == null) {
+            val cleared = state.copy(sessionPackage = null, acknowledgedHistory = recentHistory)
+            persistOrClear(cleared)
+        }
         if (existing != null) {
             return@withLock if (existing.request == incoming.request) {
                 AcceptQuickStartResult.Duplicate(existing)
@@ -124,8 +160,14 @@ class WatchSessionPackageStore(
         if (terminal != null && terminal.requestId == incoming.request.requestId) {
             return@withLock AcceptQuickStartResult.PreviouslyTerminated(terminal)
         }
+        val keptHistory = recentHistory + listOfNotNull(state?.acknowledged).filter {
+            receivedAtMillis <= it.replayUntilMillis
+        }
+        if (keptHistory.size >= MAX_ACKNOWLEDGED_HISTORY) {
+            return@withLock AcceptQuickStartResult.ReplayHistoryFull
+        }
 
-        persistPackage(incoming)
+        persistPackage(incoming, keptHistory)
         AcceptQuickStartResult.Accepted(incoming)
     }
 
@@ -134,7 +176,8 @@ class WatchSessionPackageStore(
         revision: Long,
         nowEpochMillis: Long,
     ): MarkQuickStartStartingResult = processMutex.withLock {
-        val current = loadState()?.sessionPackage ?: return@withLock MarkQuickStartStartingResult.Missing
+        val state = loadState() ?: return@withLock MarkQuickStartStartingResult.Missing
+        val current = state.sessionPackage ?: return@withLock MarkQuickStartStartingResult.Missing
         if (current.request.requestId != requestId || current.request.revision != revision) {
             return@withLock MarkQuickStartStartingResult.Missing
         }
@@ -142,7 +185,7 @@ class WatchSessionPackageStore(
             current.state == QuickStartPackageState.READY &&
             nowEpochMillis > current.expiresLocallyAtMillis
         ) {
-            persistence.write(null)
+            persistOrClear(state.copy(sessionPackage = null))
             return@withLock MarkQuickStartStartingResult.Expired
         }
         if (current.state == QuickStartPackageState.STARTING) {
@@ -150,7 +193,7 @@ class WatchSessionPackageStore(
         }
 
         val starting = current.copy(state = QuickStartPackageState.STARTING)
-        persistPackage(starting)
+        persistPackage(starting, state.acknowledgedHistory)
         MarkQuickStartStartingResult.MarkedStarting(starting)
     }
 
@@ -175,6 +218,40 @@ class WatchSessionPackageStore(
         nowEpochMillis = nowEpochMillis,
         status = QuickStartStatus.CANCELLED,
     )
+
+    override suspend fun releaseAcknowledged(
+        receipt: QuickStartResultReceipt,
+    ): ReleaseAcknowledgedQuickStartResult = processMutex.withLock {
+        val state = loadState() ?: return@withLock ReleaseAcknowledgedQuickStartResult.Missing
+        (listOfNotNull(state.acknowledged) + state.acknowledgedHistory)
+            .firstOrNull { it.requestId == receipt.requestId }?.let { existing ->
+            return@withLock if (
+                existing.resultId == receipt.resultId && existing.outcomeRevision == receipt.outcomeRevision
+            ) ReleaseAcknowledgedQuickStartResult.AlreadyReleased(existing)
+            else ReleaseAcknowledgedQuickStartResult.Mismatch
+        }
+        val current = state.sessionPackage ?: return@withLock ReleaseAcknowledgedQuickStartResult.Missing
+        if (current.request.requestId != receipt.requestId) {
+            return@withLock ReleaseAcknowledgedQuickStartResult.Mismatch
+        }
+        if (current.state != QuickStartPackageState.STARTING) {
+            return@withLock ReleaseAcknowledgedQuickStartResult.NotStarting
+        }
+        val acknowledged = AcknowledgedQuickStartRecord(
+            requestId = receipt.requestId,
+            resultId = receipt.resultId,
+            outcomeRevision = receipt.outcomeRevision,
+            recordedAtMillis = receipt.receivedAtMillis,
+            // The request may have been created up to one skew allowance in
+            // the watch's future, then accepted through another at expiry.
+            replayUntilMillis = current.expiresLocallyAtMillis + 2 * QUICK_START_CLOCK_SKEW_MILLIS,
+        )
+        persistence.write(json.encodeToString(PersistedQuickStartPackage(
+            acknowledged = acknowledged,
+            acknowledgedHistory = state.acknowledgedHistory,
+        )))
+        ReleaseAcknowledgedQuickStartResult.Released(acknowledged)
+    }
 
     private suspend fun terminate(
         requestId: String,
@@ -205,17 +282,18 @@ class WatchSessionPackageStore(
             status = status,
             recordedAtMillis = nowEpochMillis,
         )
-        persistTerminal(terminal)
+        persistTerminal(terminal, state.acknowledgedHistory)
         TerminateQuickStartResult.Terminated(terminal)
     }
 
     private suspend fun loadCurrent(nowEpochMillis: Long): WatchSessionPackage? {
-        val current = loadState()?.sessionPackage ?: return null
+        val state = loadState() ?: return null
+        val current = state.sessionPackage ?: return null
         if (
             current.state == QuickStartPackageState.READY &&
             nowEpochMillis > current.expiresLocallyAtMillis
         ) {
-            persistence.write(null)
+            persistOrClear(state.copy(sessionPackage = null))
             return null
         }
         return current
@@ -243,13 +321,25 @@ class WatchSessionPackageStore(
                     expectedTargetNodeId = terminal.targetNodeId,
                 ) == null
         } ?: true
+        fun validAcknowledged(record: AcknowledgedQuickStartRecord): Boolean =
+            record.requestId.isNotBlank() && record.resultId.isNotBlank() &&
+                record.requestId.length <= 128 && record.resultId.length <= 128 &&
+                record.outcomeRevision >= 0 && record.recordedAtMillis >= 0 &&
+                record.replayUntilMillis >= 0 &&
+                record.requestId.none(Char::isISOControl) && record.resultId.none(Char::isISOControl)
+        val acknowledgedIsValid = state.acknowledged?.let(::validAcknowledged) ?: true
+        val historyIsValid = state.acknowledgedHistory.size <= MAX_ACKNOWLEDGED_HISTORY &&
+            state.acknowledgedHistory.all(::validAcknowledged) &&
+            (state.acknowledgedHistory.map { it.requestId } + listOfNotNull(state.acknowledged?.requestId))
+                .distinct().size == state.acknowledgedHistory.size +
+                (if (state.acknowledged == null) 0 else 1)
+        val recordCount = listOf(state.sessionPackage, state.terminal, state.acknowledged).count { it != null }
         if (
             state.schemaVersion != QUICK_START_SCHEMA_VERSION ||
             (state.sessionPackage != null &&
                 state.sessionPackage.request.schemaVersion != QUICK_START_SCHEMA_VERSION) ||
-            (state.sessionPackage == null && state.terminal == null) ||
-            (state.sessionPackage != null && state.terminal != null) ||
-            !terminalIsValid
+            (recordCount != 1 && (recordCount != 0 || state.acknowledgedHistory.isEmpty())) ||
+            !terminalIsValid || !acknowledgedIsValid || !historyIsValid
         ) {
             persistence.write(null)
             return null
@@ -257,11 +347,27 @@ class WatchSessionPackageStore(
         return state
     }
 
-    private suspend fun persistPackage(sessionPackage: WatchSessionPackage) {
-        persistence.write(json.encodeToString(PersistedQuickStartPackage(sessionPackage = sessionPackage)))
+    private suspend fun persistPackage(
+        sessionPackage: WatchSessionPackage,
+        history: List<AcknowledgedQuickStartRecord>,
+    ) {
+        persistence.write(json.encodeToString(PersistedQuickStartPackage(
+            sessionPackage = sessionPackage, acknowledgedHistory = history,
+        )))
     }
 
-    private suspend fun persistTerminal(terminal: TerminalQuickStartRecord) {
-        persistence.write(json.encodeToString(PersistedQuickStartPackage(terminal = terminal)))
+    private suspend fun persistTerminal(
+        terminal: TerminalQuickStartRecord,
+        history: List<AcknowledgedQuickStartRecord>,
+    ) {
+        persistence.write(json.encodeToString(PersistedQuickStartPackage(
+            terminal = terminal, acknowledgedHistory = history,
+        )))
+    }
+
+    private suspend fun persistOrClear(state: PersistedQuickStartPackage) {
+        if (state.acknowledgedHistory.isEmpty() && state.sessionPackage == null &&
+            state.terminal == null && state.acknowledged == null
+        ) persistence.write(null) else persistence.write(json.encodeToString(state))
     }
 }

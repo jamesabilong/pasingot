@@ -3,7 +3,7 @@
 Status: **Phase 0 in progress — foundations implemented; end-to-end flow not started**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Prior committed checkpoint: `341a1f9 PST01: Persist watch workout outcomes`
+Latest committed checkpoint: `0e7dee1 PST01: Define watch quick start capability`
 Last updated: **2026-09-26**
 
 ## Goal
@@ -68,6 +68,38 @@ completed package may be pruned only after the phone acknowledges its results;
 unsynced results survive app/process death, reboot, and temporary disconnection.
 Retention is bounded by one pending/active package plus the existing durable
 unsynced queue, with age-based cleanup only for acknowledged terminal data.
+
+### Completed-result retention decision — 2026-09-26
+
+- A completed Quick Start result is saved as an immutable validated summary
+  with stable request/result IDs, the final outcome revision, and the expected
+  phone node. This separate durable result record is the source for future
+  resend; success from Wear message transport is never a phone import receipt.
+- The phone must send a receipt after it has persisted the exact result. The
+  watch compares request ID, result ID, outcome revision, and the observed Data
+  Layer sender node with its saved record. Only the matching receipt is saved.
+  **Synced to phone** depends on that saved receipt, not transport acceptance.
+- Cleanup is replayable in this order: persist phone receipt, remove the matching
+  outcome snapshot with a durable cleared-session tombstone, compact the bulky
+  result to its receipt, then release the `STARTING` package to an acknowledged
+  tombstone. This supersedes the pre-audit package-first ordering, which allowed
+  a new offer to strand cleanup. A crash or write failure leaves the result
+  or receipt available for retry. A conflicting outcome revision blocks its
+  removal. The implementation currently covers completed workouts; the
+  ended-before-completion result shape remains open.
+- The watch keeps up to 64 recent acknowledged request tombstones through each
+  request's local expiry plus two clock-skew allowances. New offers are refused
+  rather than evicting unexpired replay protection when that bound is full.
+  Expired tombstones are pruned during the next acceptance. This policy is
+  distinct from the legacy history queue, which drops entries after message
+  transport acceptance and cannot prove phone import.
+- On navigation away from the foreground-only pre-start countdown, the offer
+  remains `READY` until its local expiry. The start gate changes it to
+  `STARTING` only at countdown zero. After process death/reboot, `READY` is
+  shown again if unexpired; `STARTING` requires explicit foreground recovery
+  of that same session and never replays the countdown or starts unseen.
+  Activity navigation, sender/receiver wiring, and device recovery checks are
+  still pending.
 
 Today-row requests retain their source row identity so the phone can reconcile
 schedule/quest progress. Ad-hoc exercise and playlist requests receive a new
@@ -553,8 +585,10 @@ speech; visual and haptic behavior remains complete when voice is suppressed.
    outcome without creating another transient package or session.
 7. The first release rejects a different request while an offer is pending with
    `pending_request`; it does not silently replace or dismiss the prior offer.
-8. Start atomically rechecks that no blocking session exists, creates/persists
-   `STARTING`, and only then sends `started`. Blocking states are `READY`,
+8. At the foreground countdown's zero, Start atomically rechecks that no
+   blocking session exists and persists `STARTING`. The `started` receipt must
+   follow durable runtime-session creation, including recovery after a process
+   interruption. Blocking states are `READY`,
    `STARTING`, `ACTIVE`, `RESTING`, and `PAUSED` across every watch entry path.
 9. Cancellation is a revisioned protocol event. It can dismiss `READY`; once
    `STARTING` or `started` wins the serialized transition, cancellation cannot
@@ -604,30 +638,31 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-26, Iteration 12
+### Progress audit — 2026-09-26, Iteration 13
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **19/95 items (20%) overall**:
+stands at **21/96 items (22%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
-| Phase 0 — foundations | **19/29 (66%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, and focused fixtures exist |
+| Phase 0 — foundations | **21/30 (70%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, completed-result receipts, recovery decisions, and focused fixtures exist |
 | Phase 1 — phone feature | **0/10 (0%)** | Not started |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
-The prior committed checkpoint, `341a1f9`, represents **17/94 items (18%)**.
-Iteration 11's earlier uncommitted status is superseded by that commit.
-Iteration 12 adds capability and mixed-version fixture checklist items,
-verified in this checkpoint. Phase 0's 66% must not be reported as feature
+The latest committed checkpoint, `0e7dee1`, represents **19/95 items (20%)**.
+Iteration 12's earlier uncommitted status is superseded by that commit.
+Iteration 13 adds one completed-result retention checklist item and closes the
+READY/STARTING behavior decision, included in this audited checkpoint. Phase 0's
+70% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
 
 Preparation order for the next parts:
 
-1. Define acknowledged result retention/removal and READY/STARTING navigation
-   recovery with focused fixtures, including no loss of unsynced outcomes.
+1. Extend immutable result retention to ended-before-completion sessions and
+   define the shared phone receipt payload before native transport wiring.
 2. Close the remaining Phase 0 cue decisions and fixtures, including the
    final-countdown lock.
 3. Build the isolated Phase 1 phone bridge and React sheet.
@@ -638,7 +673,7 @@ Preparation order for the next parts:
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, cancellation, summary, reducer, outcome persistence, and capability slices passed**
+Status: **In progress — contract, store, gate, cancellation, summary, reducer, outcome persistence, capability, and completed-result retention slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -656,7 +691,10 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
 - [x] Implement the pure process-wide start gate and repository snapshot adapter
       with atomic Quick Start/legacy arbitration; production entry-point wiring
       remains open.
-- [ ] Define `READY`/`STARTING` persistence and back/navigation/reboot behavior.
+- [x] Define `READY`/`STARTING` persistence and back/navigation/reboot behavior:
+      countdown navigation leaves `READY`; the gate marks `STARTING` at zero;
+      recovery resumes the same session explicitly without unseen auto-start.
+      Production navigation/reboot acceptance remains open.
 - [x] Persist and serialize the package's atomic `READY` to `STARTING`
       transition across store recreation; navigation behavior remains open.
 - [x] Confirm five-minute request expiry with 30 seconds of clock-skew tolerance.
@@ -692,6 +730,10 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
       reachable-node/role binding. The current helper includes only implemented
       request schema 1. Missing, malformed, unsupported, and mixed-version
       fixtures pass; publication and UI gating remain open.
+- [x] Persist completed Quick Start summaries separately until an exact phone
+      receipt; prune package/outcome/result in a restart-safe sequence and
+      retain bounded replay tombstones. Headless real-file and write-failure
+      fixtures pass. Ended results and native transport remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -700,7 +742,7 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
 
 Exit checks:
 
-- [x] `:shared:test` passes (38 tests: 15 Quick Start, 7 progress summary, and
+- [x] `:shared:test` passes (48 tests: 15 Quick Start, 10 capability, 7 progress summary, and
       16 existing).
 - [x] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
@@ -917,7 +959,7 @@ The feature is done only when:
 
 **Current checkpoint:** Phase 0 shared contract slice implemented and verified;
 the isolated Wear transient store is also implemented and verified. Phone,
-transport, UI, session integration, result acknowledgement, and cues are
+transport, UI, session integration, native result acknowledgement, and cues are
 unchanged. The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
@@ -925,17 +967,18 @@ The shared progress/completion summary now includes explicit pending counts.
 A pure Wear reducer produces it and derives compact **completed/total** text,
 and Iteration 11 persists its ordered outcomes/revision atomically with tested
 recovery and failure behavior. It is not yet connected to the runtime session
-engine or rendered by UI. Completed outcomes are retained; result queueing and
-acknowledged removal are not implemented. Iteration 12 adds a shared capability
+engine or rendered by UI. Completed outcomes are retained; a headless
+completed-result record, exact phone receipt, and guarded cleanup now exist,
+but native sender/receiver and UI do not. Iteration 12 adds a shared capability
 envelope and schema-1 negotiation with mixed-version fixtures. All 48 shared
-and 54 Wear tests pass; the prior Wear debug build passed before the shared
-contract change. Physical-device acceptance remains open.
+and 71 Wear tests and the Wear debug build pass. Physical-device acceptance
+remains open.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** define result acknowledgement/removal and retained
-READY/STARTING recovery behavior in the isolated Wear stores. Add headless
-tests that prevent clearing unsynced outcomes and prove revision-safe replay;
-record the retention rules before native transport or UI wiring.
+**Exact next action:** extend the immutable Quick Start result contract and
+retention store to ended-before-completion sessions, then specify the shared
+phone receipt payload and its sender-node validation. Cover both terminal
+types, replay, and offline retention headlessly before native transport or UI.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 

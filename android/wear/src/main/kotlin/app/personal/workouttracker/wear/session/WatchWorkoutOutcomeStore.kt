@@ -1,6 +1,8 @@
 package app.personal.workouttracker.wear.session
 
 import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
+import app.personal.workouttracker.wear.quickstart.ConfirmedQuickStartResult
+import app.personal.workouttracker.wear.quickstart.QuickStartResultReceipt
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -27,12 +29,16 @@ interface WorkoutOutcomeStore {
         sessionId: String,
         transition: WorkoutOutcomeTransition,
     ): ApplyWorkoutOutcomeResult
+    suspend fun clearAcknowledged(confirmed: ConfirmedQuickStartResult): ClearAcknowledgedOutcomeResult
 }
+
+enum class ClearAcknowledgedOutcomeResult { CLEARED, ALREADY_CLEARED, MISMATCH }
 
 sealed interface InitializeWorkoutOutcomeResult {
     data class Initialized(val state: WorkoutOutcomeState) : InitializeWorkoutOutcomeResult
     data class Existing(val state: WorkoutOutcomeState) : InitializeWorkoutOutcomeResult
     data class Conflict(val existing: WorkoutOutcomeState) : InitializeWorkoutOutcomeResult
+    data class AlreadyAcknowledged(val receipt: QuickStartResultReceipt) : InitializeWorkoutOutcomeResult
 }
 
 sealed interface ApplyWorkoutOutcomeResult {
@@ -47,7 +53,9 @@ private const val OUTCOME_STATE_SCHEMA_VERSION = 1
 private data class PersistedWorkoutOutcome(
     // Required on disk: a missing version must not silently select a schema.
     val schemaVersion: Int,
-    val state: WorkoutOutcomeState,
+    val state: WorkoutOutcomeState? = null,
+    val clearedReceipt: QuickStartResultReceipt? = null,
+    val clearedSessionId: String? = null,
 )
 
 /**
@@ -55,9 +63,9 @@ private data class PersistedWorkoutOutcome(
  * date-keyed repository and Quick Start offers. No state is cached: failed or
  * cancelled writes are reconciled from storage on the next call.
  *
- * Completed outcomes remain retained. Replacement/removal after durable result
- * acknowledgement belongs to the later session/result integration, not a new
- * initialize call. This store does not imply a queued result or phone receipt.
+ * Outcomes remain retained until an exact durable result receipt permits
+ * removal. A small receipt tombstone makes cleanup retryable even after a new
+ * session initializes; retry must never clear that newer session.
  */
 class WatchWorkoutOutcomeStore(
     private val persistence: WorkoutOutcomePersistence,
@@ -79,7 +87,11 @@ class WatchWorkoutOutcomeStore(
     ): InitializeWorkoutOutcomeResult = processMutex.withLock {
         // Validate before touching storage, including before corrupt-state cleanup.
         val initial = newWorkoutOutcomeState(sessionId, title, exercises)
-        val existing = loadState()
+        val record = loadRecord()
+        if (record?.clearedSessionId == sessionId && record.clearedReceipt != null) {
+            return@withLock InitializeWorkoutOutcomeResult.AlreadyAcknowledged(record.clearedReceipt)
+        }
+        val existing = record?.state
         if (existing != null) {
             val existingPlan = existing.exercises.map {
                 WorkoutExerciseOutcomePlan(it.itemId, it.exerciseId, it.exerciseName, it.plannedSets)
@@ -110,7 +122,32 @@ class WatchWorkoutOutcomeStore(
         ApplyWorkoutOutcomeResult.Reduced(result)
     }
 
-    private suspend fun loadState(): WorkoutOutcomeState? {
+    override suspend fun clearAcknowledged(
+        confirmed: ConfirmedQuickStartResult,
+    ): ClearAcknowledgedOutcomeResult = processMutex.withLock {
+        val persisted = loadRecord()
+        if (persisted?.clearedReceipt == confirmed.receipt) {
+            return@withLock ClearAcknowledgedOutcomeResult.ALREADY_CLEARED
+        }
+        val state = persisted?.state ?: return@withLock ClearAcknowledgedOutcomeResult.ALREADY_CLEARED
+        val result = confirmed.result
+        if (
+            state.sessionId != result.summary.snapshot.sessionId ||
+            state.lastAppliedRevision != result.outcomeRevision ||
+            state.toProgressSnapshot(
+                elapsedActiveSeconds = result.summary.snapshot.elapsedActiveSeconds,
+                estimatedDurationSeconds = result.summary.snapshot.estimatedDurationSeconds,
+            ) != result.summary.snapshot
+        ) return@withLock ClearAcknowledgedOutcomeResult.MISMATCH
+        persistence.write(json.encodeToString(PersistedWorkoutOutcome(
+            OUTCOME_STATE_SCHEMA_VERSION, clearedReceipt = confirmed.receipt, clearedSessionId = state.sessionId,
+        )))
+        ClearAcknowledgedOutcomeResult.CLEARED
+    }
+
+    private suspend fun loadState(): WorkoutOutcomeState? = loadRecord()?.state
+
+    private suspend fun loadRecord(): PersistedWorkoutOutcome? {
         // I/O failures and coroutine cancellation must propagate, never erase progress.
         val raw = persistence.read() ?: return null
         val persisted = try {
@@ -122,16 +159,21 @@ class WatchWorkoutOutcomeStore(
         }
         if (
             persisted == null || persisted.schemaVersion != OUTCOME_STATE_SCHEMA_VERSION ||
-            !persisted.state.isValidPersistedOutcome()
+            (persisted.state == null && persisted.clearedReceipt == null) ||
+            ((persisted.clearedReceipt == null) != (persisted.clearedSessionId == null)) ||
+            (persisted.state != null && !persisted.state.isValidPersistedOutcome())
         ) {
             persistence.write(null)
             return null
         }
-        return persisted.state
+        return persisted
     }
 
     private suspend fun persist(state: WorkoutOutcomeState) {
-        persistence.write(json.encodeToString(PersistedWorkoutOutcome(OUTCOME_STATE_SCHEMA_VERSION, state)))
+        val prior = loadRecord()
+        persistence.write(json.encodeToString(PersistedWorkoutOutcome(
+            OUTCOME_STATE_SCHEMA_VERSION, state, prior?.clearedReceipt, prior?.clearedSessionId,
+        )))
     }
 }
 

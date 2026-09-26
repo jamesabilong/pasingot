@@ -681,3 +681,81 @@ session integration, and device acceptance.
 Next action: define result acknowledgement/removal and READY/STARTING recovery
 in the isolated Wear stores. Add headless fixtures that prevent clearing
 unsynced outcomes and prove revision-safe replay; then record retention rules.
+
+## Iteration 13 — 2026-09-26 — Stage 19 result retention and recovery
+
+Status: **Completed locally and included in this audited checkpoint — shared/Wear
+tests and Wear debug build pass. Native delivery and device acceptance remain open**.
+
+Starting checkpoint: `0e7dee1 PST01: Define watch quick start capability`.
+The working tree was clean after that commit; no remote fetch or push occurred.
+
+Audit finding: the existing legacy `LogSyncManager` drops queued history after
+Wear message transport succeeds. That is not a phone import receipt, so Quick
+Start cannot use it as proof for **Synced to phone** or for pruning the new
+transient workout state. Its separate result receipt needs exact identity and
+revision checks. A persisted `STARTING` package must recover without launching
+a workout unseen, while an expired `READY` offer must not start.
+
+Implemented:
+
+- Added an isolated Preferences DataStore-backed completed-result record with
+  immutable summary, request/result identity, final outcome revision, and the
+  expected phone node. The record remains available for resend until an exact
+  receipt from that observed node is durably written. An unreadable/future
+  record fails closed without deleting its raw bytes.
+- Added a serial retention coordinator. It validates the package is `STARTING`
+  and the outcome snapshot matches the saved summary before saving a result.
+  After a matching phone receipt, it clears only the matching outcome revision,
+  compacts the result to a small receipt tombstone, then releases the package.
+  Every step is retryable after an interrupted
+  write; transport acceptance alone performs no pruning.
+- Added bounded acknowledged-request replay history to the package store. It
+  retains up to 64 recent receipts through local expiry plus two skew
+  allowances and refuses a new offer rather than evicting unexpired protection.
+  A delayed old request stays blocked even after a newer offer is dismissed.
+- Added a pure recovery decision: an unexpired `READY` offer returns to Ready;
+  a persisted `STARTING` package requires explicit foreground resume; an
+  expired offer cannot start. The pre-start countdown remains foreground-only
+  and does not persist a hidden auto-start.
+- Reconciled Stage 19 to **21/96 items (22%)** and Phase 0 to **21/30 (70%)**.
+  Closed the READY/STARTING behavior decision and one completed-result retention
+  item. Ended-before-completion results and native phone receipt delivery stay
+  open; no Phase 1–4 item was closed.
+
+Validation:
+
+- `gradlew.bat :shared:test :wear:testDebugUnitTest :wear:assembleDebug
+  --no-daemon --quiet`: passed. After the final replay-horizon fixture,
+  `gradlew.bat :wear:testDebugUnitTest --no-daemon --quiet` passed.
+- 48 shared tests passed unchanged; 66 Wear tests passed, including 11 new
+  retention/recovery cases and one real Preferences DataStore file-reopen case.
+- Headless fixtures cover no pruning on transport acceptance, exact node/ID/
+  revision matching, wrong/stale receipts, store recreation, cleanup after lost
+  write responses at every boundary, failed writes, malformed/future record
+  preservation, replay after a newer offer, bounded history, and the final
+  clock-skew-valid replay instant.
+- The final debug APK build and `git diff --check` passed. This is code/storage
+  evidence; it does not establish
+  paired Data Layer delivery, Android reboot behavior, or physical acceptance.
+
+Remaining: ended-session result variant, shared receipt wire contract, native
+sender/receiver, runtime integration, UI, cues, and paired-device validation.
+
+Next action: extend the immutable final result to ended-before-completion
+sessions and define a shared phone receipt payload with sender-node validation.
+Cover both terminal types and offline replay headlessly before native wiring.
+
+Checkpoint audit addendum: fixed a package-first cleanup race that could strand
+an acknowledged result after a new offer arrived. Package release now happens
+last; a durable outcome tombstone recognizes interrupted cleanup without
+touching a newer session and rejects reinitializing the acknowledged session.
+Saving also binds the session ID and ordered exercise plan to the original
+request and verifies that result revision equals accepted outcome transitions.
+The original 66-test evidence above predates this audit; final evidence follows.
+
+Final audit validation: 48 shared and 71 Wear tests pass (16 retention cases),
+Wear debug APK build passes, and whitespace checks pass. Five new regressions
+cover delayed compaction, newer outcomes, acknowledged history, package-plan
+binding, and acknowledged-session resurrection. Independent audit found no
+further blocking issue in this checkpoint. No native/device claim is added.
