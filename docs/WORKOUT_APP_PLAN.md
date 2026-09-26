@@ -20,9 +20,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest audited checkpoint: Stage 19 Iteration 17, native phone bridge and
-  durable request/acknowledgement store, included in this commit. Iteration 16
-  was committed as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
+- Latest audited checkpoint: Stage 19 Iteration 18, isolated React Quick Start
+  sheet and Library/Today entry points, included in this commit. Iteration 17
+  was committed as `e178b74` and Iteration 16 as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
   tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
   earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
   Iteration 3's browser-to-watch feasibility and capability UX work after
@@ -74,9 +74,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **32/97 checklist items (33%) overall**; Phase 0 headless foundations are **31/31 (100%)**. The native phone bridge stores offers/acks and gates sends by watch capability; six phone tests and its debug APK pass. Watch receiver, React UI, and paired-device acceptance remain open | Next: Phase 1 React feature shell and mocked browser fixtures. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **39/97 checklist items (40%) overall**; Phase 0 headless foundations are **31/31 (100%)** and Phase 1 is **8/10 (80%)**. The native bridge and isolated React sheet have passing JVM/TypeScript/Vite/Node checks and Android debug APK. Visible browser checks, watch receiver, and paired-device acceptance remain open | Next: run the visible browser fixture and inspect Library/Today at phone width. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 watch transport, phone/Watch UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Follow the plan's isolated feature modules and resumable phase checklist |
+| **Pending implementation** | Stage 19 watch transport/UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Finish Phase 1 browser validation, then follow the plan's Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

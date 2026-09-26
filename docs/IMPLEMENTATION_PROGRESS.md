@@ -930,3 +930,45 @@ Remaining: React sheet and entry points, mocked status fixture, watch receiver
 and runtime wiring, final-result import, transport cleanup, and paired-device
 acceptance. Next action: implement the isolated React feature hook/sheet and
 browser-safe capability gating, then run TypeScript and browser fixtures.
+
+## Iteration 18 — 2026-09-26 — Stage 19 React phone feature shell
+
+Status: **React implementation and headless checks complete in this audited checkpoint; visible browser and paired-device checks open**.
+
+Starting checkpoint: `e178b74 PST01: Add native quick start phone bridge`.
+The working tree was clean after that commit. No fetch or push occurred.
+
+Finding: the browser must not offer a send path for an unavailable native
+plugin. Transport acceptance must remain a waiting state in the phone UI until
+the watch's persisted Ready acknowledgement is restored or delivered live.
+The source contract also caps request titles at 80 characters, so single-item
+titles need truncation even though exercise names may reach 120.
+
+Implemented an isolated feature model, bridge adapter, hook and editing sheet.
+Library offers single exercise, saved playlist, and ordered selection entry
+points; Today offers a scheduled-row entry. The sheet edits sets, reps/duration,
+rest and optional load for one or many exercises, reorders items, validates all
+prescriptions before send, and displays the six watch statuses and rejection
+reasons. The hook handles native availability, send, live status hints, and
+durable status reconciliation on visibility return. `App.tsx` only composes the
+hook and passes callbacks. Browser controls are omitted when the native Android
+plugin is unavailable. The final Vite bundle was synced into Capacitor.
+
+Validation: `npx tsc --noEmit`, `npm run build`, `node
+--experimental-strip-types pwa/tests/quick-start.test.mjs`, `npx cap sync
+android`, `gradlew.bat :app:assembleDebug --no-daemon --quiet`, and `git diff
+--check` passed. The two Node fixtures cover all-or-nothing validation,
+selection order, title bounds, transport-versus-Ready wording, every
+phone-visible status, and rejection reasons. `pwa/tests/quick-start.html`
+adds a visible browser fixture, but the in-app browser reported
+`net::ERR_BLOCKED_BY_CLIENT` for both localhost and 127.0.0.1. Consequently the
+visible browser fixture and browser UI exit checks remain open. The first
+sandboxed Vite build and Node test-runner attempts hit local spawn EPERM; the
+permitted Vite rerun and direct Node test invocation passed.
+
+Stage 19 is **39/97 items (40%)** and Phase 1 is **8/10 (80%)**. This is a
+checklist ratio, not end-to-end feature completion. The watch does not yet
+publish its capability or receive Quick Start offers, so a paired send cannot
+be claimed. Next action: run the visible browser fixture and inspect phone-width
+Library/Today UI, then close the two remaining Phase 1 browser checks if they
+pass before beginning the Phase 2 watch receiver.

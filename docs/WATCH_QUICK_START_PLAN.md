@@ -755,12 +755,12 @@ is recorded separately from code completion.
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **32/97 items (33%) overall**:
+stands at **39/97 items (40%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
-| Phase 1 — phone feature | **1/10 (10%)** | Native bridge and durable request/ack store verified; React work open |
+| Phase 1 — phone feature | **8/10 (80%)** | Native bridge, React feature, and headless checks pass; visible browser checks open |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
@@ -772,6 +772,9 @@ Iteration 16 is committed in `085e39e` and closes eight Phase 0 decisions with c
 observed phone ownership, and terminal replay history. Phase 0's
 100% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
+Iteration 17's native phone bridge is committed in `e178b74`. Iteration 18
+adds the React sheet and entry points with headless status fixtures; its visible
+browser check is open because the in-app browser blocked the local Vite URL.
 
 Preparation order for the next parts:
 
@@ -866,24 +869,24 @@ Exit checks:
 
 ### Phase 1 — Phone bridge and React feature shell
 
-Status: **Native phone bridge verified; React feature shell open**
+Status: **Implementation and headless checks pass; visible browser checks open**
 
-- [ ] Create the isolated React feature directory.
-- [ ] Add the Quick Start sheet with one-or-many item editing, ordering, and
+- [x] Create the isolated React feature directory.
+- [x] Add the Quick Start sheet with one-or-many item editing, ordering, and
       prescription validation.
 - [x] Create the separate Capacitor plugin/client/receipt store. The phone
       persists requests and watch acknowledgements; final-result import remains
       in Phase 3.
-- [ ] Add platform/plugin gating without changing browser-to-watch claims.
-- [ ] Add mocked bridge tests for every phone-visible status.
-- [ ] Integrate Library and Today through narrow props/callbacks.
+- [x] Add platform/plugin gating without changing browser-to-watch claims.
+- [x] Add mocked bridge tests for every phone-visible status.
+- [x] Integrate Library and Today through narrow props/callbacks.
 
 Exit checks:
 
-- [ ] `npx tsc --noEmit` passes.
+- [x] `npx tsc --noEmit` passes.
 - [ ] Focused browser fixture passes.
 - [ ] Browser UI never offers a non-functional send action.
-- [ ] `App.tsx` does not acquire feature-specific effects or handlers.
+- [x] `App.tsx` does not acquire feature-specific effects or handlers.
 
 ### Phase 2 — Watch receiver and ready prompt
 
@@ -1076,8 +1079,13 @@ The feature is done only when:
 **Current checkpoint:** Phase 0 is complete with headless evidence. The Android
 phone now has a registered Quick Start Capacitor bridge, capability-gated Data
 Layer sender, and durable request/watch-acknowledgement store. Its six unit tests
-and debug APK build pass. Watch capability publication/receiver, React UI,
-session integration, native final-result acknowledgement, and cues remain open.
+and debug APK build pass. React now has an isolated editing/status sheet,
+Library single/playlist/selection and Today-row entry points, plugin gating,
+and mocked status fixtures. TypeScript, Vite build, Node fixtures, Capacitor sync,
+and the Android debug APK pass. The browser fixture was authored but could not
+be run because the in-app browser blocked the local Vite URL. Watch capability
+publication/receiver, session integration, native final-result acknowledgement,
+and cues remain open.
 The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
@@ -1093,8 +1101,10 @@ shared final-result/receipt codecs and a guarded Wear payload entry point. All 7
 and 100 Wear tests and the Wear debug build pass. Physical-device acceptance
 remains open.
 **Current phase:** Phase 1 — Phone bridge and React feature shell.
-**Exact next action:** build the isolated React Quick Start sheet and hook,
-connect Library/Today entry points, and add mocked bridge status fixtures.
+**Exact next action:** run `pwa/tests/quick-start.html` in a browser that can
+reach the local Vite server, inspect Library/Today at phone width, and close the
+two remaining Phase 1 browser checks only if they pass. Then implement Phase 2
+watch capability publication and request receiver.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

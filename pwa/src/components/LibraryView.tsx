@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { EstimateSummary, LevelPicker } from './SummaryCards';
 import { CUSTOM_EXERCISE_CATEGORIES, customExerciseDisplayName, type CustomExerciseDraft } from '../lib/custom-exercises';
@@ -33,6 +34,9 @@ export function LibraryView({
   onSaveCustomExercise,
   onEditCustomExercise,
   onDeleteCustomExercise,
+  onQuickStartSingle,
+  onQuickStartPlaylist,
+  onQuickStartSelection,
 }: {
   catalog: ExerciseCatalogItem[];
   filteredCatalog: ExerciseCatalogItem[];
@@ -63,7 +67,11 @@ export function LibraryView({
   onSaveCustomExercise: () => void;
   onEditCustomExercise: (sourceId: number) => void;
   onDeleteCustomExercise: (sourceId: number) => void;
+  onQuickStartSingle?: (item: ExerciseCatalogItem, prescription: Omit<PlaylistItem, 'sourceId' | 'name'>) => void;
+  onQuickStartPlaylist?: (items: PlaylistItem[]) => void;
+  onQuickStartSelection?: (items: PlaylistItem[]) => void;
 }) {
+  const [quickSelection, setQuickSelection] = useState<number[]>([]);
   return (
     <section className="library-view space-y-5">
       <div className="space-y-3">
@@ -138,6 +146,10 @@ export function LibraryView({
                   </figure>}
                   <p className="truncate text-xs text-slate-500">{item.category} · {item.primaryMuscles.length ? item.primaryMuscles.join(', ') : item.category}</p>
                   <p className="truncate text-xs text-slate-600">{item.equipment.join(', ') || 'No equipment listed'} · {prescription.sets} x {prescription.reps} · rest after {prescription.rest}s</p>
+                  {onQuickStartSingle && <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <button type="button" onClick={() => onQuickStartSingle(item, prescription)} className="text-emerald-300 hover:text-emerald-200">Quick Start on watch</button>
+                    {onQuickStartSelection && <label className="inline-flex items-center gap-1 text-slate-400"><input type="checkbox" checked={quickSelection.includes(item.sourceId)} disabled={!quickSelection.includes(item.sourceId) && quickSelection.length >= maxPlaylistItems} onChange={(event) => setQuickSelection(event.target.checked ? [...quickSelection, item.sourceId] : quickSelection.filter((id) => id !== item.sourceId))} />Select</label>}
+                  </div>}
                   <div className="flex flex-wrap gap-3 text-xs">
                     {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex text-emerald-400 hover:text-emerald-300">Source</a>}
                     {item.videoUrl && <span className="inline-flex items-center gap-1 text-indigo-300">
@@ -167,6 +179,7 @@ export function LibraryView({
             );
           })}
         </div>}
+        {onQuickStartSelection && quickSelection.length > 0 && <button type="button" className="secondary-action" onClick={() => onQuickStartSelection(quickSelection.flatMap((sourceId) => { const item = catalog.find((entry) => entry.sourceId === sourceId); return item ? [{ sourceId, name: item.displayName, ...defaultPrescriptionFor(item, draft.level) }] : []; }))}>Quick Start selected ({quickSelection.length})</button>}
       </div>
 
       <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -293,6 +306,7 @@ export function LibraryView({
           <button type="button" disabled={!draft.items.length} onClick={onSavePlaylistToSchedule} className="primary-action mt-0"><Save size={17} aria-hidden="true" />Add to weekly schedule</button>
           <button type="button" disabled={!draft.items.length} onClick={() => { onDraftChange({ ...draft, items: [] }); onClearPlaylistResult(); }} className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
         </div>
+        {onQuickStartPlaylist && <button type="button" disabled={!draft.items.length} onClick={() => onQuickStartPlaylist(draft.items)} className="secondary-action">Quick Start playlist on watch</button>}
         {playlistResult && <p className={`rounded-md border p-3 text-sm ${playlistResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{playlistResult.message}</p>}
       </div>
       <p className="border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-600">Reviewed metadata from <a href="https://wger.de/" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300">wger contributors</a>. License and source attribution are retained per exercise.</p>

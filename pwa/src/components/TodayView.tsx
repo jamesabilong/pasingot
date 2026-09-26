@@ -41,6 +41,7 @@ export function TodayView({
   onAddRestSeconds,
   onClosePlayer,
   onLogExercise,
+  onQuickStartRow,
 }: {
   todayName: Weekday;
   watchSession: WatchSessionSnapshot | null;
@@ -71,6 +72,7 @@ export function TodayView({
   onAddRestSeconds: (seconds: number) => void;
   onClosePlayer: () => void;
   onLogExercise: (row: WorkoutRow, status: WorkoutLog['status']) => void;
+  onQuickStartRow?: (row: WorkoutRow) => void;
 }) {
   const hasWorkout = workouts.length > 0;
   const [queueFilter, setQueueFilter] = useState<'all' | 'pending' | 'done' | 'skipped'>('all');
@@ -168,6 +170,7 @@ export function TodayView({
                 <span>{row.time} · {row.sets} × {row.reps}{scheduleLoadLabel(row)} · {row.rest}s rest</span>
               </div>
               <div className="exercise-row__actions">
+                {onQuickStartRow && row.id != null && !status && <button type="button" onClick={() => onQuickStartRow(row)} title="Quick Start on watch" aria-label={`Quick Start ${row.exercise} on watch`}><Play size={18} aria-hidden="true" /></button>}
                 <button type="button" onClick={() => onLogExercise(row, 'done')} className={status === 'done' ? 'is-active is-done' : ''} title="Mark as done" aria-label={`Mark ${row.exercise} as done`}><Check size={18} aria-hidden="true" /></button>
                 <button type="button" onClick={() => onLogExercise(row, 'skipped')} className={status === 'skipped' ? 'is-active is-skipped' : ''} title="Skip exercise" aria-label={`Skip ${row.exercise}`}><SkipForward size={18} aria-hidden="true" /></button>
               </div>

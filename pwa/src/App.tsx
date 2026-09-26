@@ -11,6 +11,8 @@ import { ImportView, type BackupTransferResult, type ImportResult } from './comp
 import { LibraryView } from './components/LibraryView';
 import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
+import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickStartSheet';
+import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
 import { type WorkoutSetInput } from './components/WorkoutPlayer';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useLocalDate } from './hooks/useLocalDate';
@@ -123,6 +125,7 @@ function questTemplateDayNumber(state: QuestState, template: QuestTemplate): num
 
 export default function App() {
   const localToday = useLocalDate();
+  const quickStart = useWatchQuickStart();
   const [tab, setTab] = useState<Tab>('today');
   const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
@@ -1015,6 +1018,7 @@ export default function App() {
         onAddRestSeconds={(seconds) => void addPwaRestSeconds(seconds)}
         onClosePlayer={() => void saveActiveWorkoutSession(null)}
         onLogExercise={(row, status) => void logExercise(row, status)}
+        onQuickStartRow={quickStart.supported ? (row) => quickStart.openToday(row, localToday) : undefined}
       />}
 
       {tab === 'quests' && <QuestsView
@@ -1072,6 +1076,9 @@ export default function App() {
         onSaveCustomExercise={() => void saveCustomExercise()}
         onEditCustomExercise={(sourceId) => void editCustomExercise(sourceId)}
         onDeleteCustomExercise={(sourceId) => void deleteCustomExercise(sourceId)}
+        onQuickStartSingle={quickStart.supported ? quickStart.openSingle : undefined}
+        onQuickStartPlaylist={quickStart.supported ? quickStart.openPlaylist : undefined}
+        onQuickStartSelection={quickStart.supported ? quickStart.openSelection : undefined}
       />}
 
       {tab === 'import' && <ImportView
@@ -1110,6 +1117,18 @@ export default function App() {
         onHealthConnectEnabledChange={(enabled) => void setHealthConnectSyncEnabled(enabled)}
         onHealthConnectPermissionRequest={() => void requestHealthConnectSyncPermission()}
       />}
+      <WatchQuickStartSheet
+        draft={quickStart.draft}
+        availability={quickStart.availability}
+        availabilityMessage={quickStart.availabilityMessage}
+        checking={quickStart.checking}
+        sending={quickStart.sending}
+        receipt={quickStart.receipt}
+        error={quickStart.error}
+        onDraftChange={quickStart.setDraft}
+        onSend={() => void quickStart.send()}
+        onClose={quickStart.close}
+      />
     </AppShell>
   );
 }

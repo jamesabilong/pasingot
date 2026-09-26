@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Quick Start browser checks</title>
+<h1>Quick Start browser checks</h1><pre id="result">Running…</pre><div id="panel"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { quickStartSupported } from '/src/features/watch-quick-start/bridge.ts';
+import { buildRequest, statusText, validateItems } from '/src/features/watch-quick-start/model.ts';
+import { WatchQuickStartSheet } from '/src/features/watch-quick-start/WatchQuickStartSheet.tsx';
+import '/src/styles.css';
+const checks = [];
+const check = (condition, label) => { if (!condition) throw Error(label); checks.push(`PASS: ${label}`); };
+const item = { itemId: crypto.randomUUID(), sourceId: 4, name: 'Squat', sets: 3, reps: '8-12', rest: 60 };
+const root = createRoot(document.getElementById('panel'));
+const render = (availability, receipt = null) => flushSync(() => root.render(React.createElement(WatchQuickStartSheet, {
+  draft: { source: 'single', items: [item] }, availability, availabilityMessage: availability?.available ? null : 'Connect your watch.',
+  checking: false, sending: false, receipt, error: null, onDraftChange: () => {}, onSend: () => {}, onClose: () => {},
+})));
+try {
+  check(!quickStartSupported(), 'Browser does not expose the native Quick Start bridge');
+  render(null);
+  check(document.querySelector('button.primary-action')?.disabled, 'Send is disabled without native availability');
+  render({ available: true, watchNodeId: 'watch-1' });
+  check(!document.querySelector('button.primary-action')?.disabled, 'Compatible watch enables a validated send');
+  check(validateItems([{ ...item, rest: -1 }])?.includes('rest'), 'Invalid prescription rejects the entire offer');
+  const request = buildRequest([item, { ...item, itemId: crypto.randomUUID(), name: 'Press' }], 'library_selection', 'watch-1', 1000);
+  check(request.exercises.map((exercise) => exercise.exerciseName).join(',') === 'Squat,Press', 'Explicit selection order survives conversion');
+  const pending = { requestId: request.requestId, transportAcceptedAtMillis: 1100, acknowledgement: null };
+  check(statusText(pending).includes('Waiting'), 'Transport acceptance is not Ready');
+  const mockBridge = { getQuickStartStatus: async ({ requestId }) => ({ ...pending, requestId, acknowledgement: null }) };
+  for (const [status, expected] of Object.entries({ ready: 'Ready on watch', started: 'started', dismissed: 'Dismissed', cancelled: 'Cancelled', expired: 'expired', rejected: 'rejected' })) {
+    const receipt = { ...pending, acknowledgement: { requestId: request.requestId, revision: 1, targetNodeId: 'watch-1', status, reason: status === 'rejected' ? 'active_session' : undefined, watchUpdatedAtMillis: 1200 } };
+    mockBridge.getQuickStartStatus = async () => receipt;
+    const restored = await mockBridge.getQuickStartStatus({ requestId: request.requestId });
+    check(statusText(restored).toLowerCase().includes(expected.toLowerCase()) || status === 'rejected' && statusText(restored).includes('active workout'), `${status} has accurate phone wording after bridge restore`);
+    render({ available: true, watchNodeId: 'watch-1' }, restored);
+    check(document.querySelector('button.primary-action')?.disabled, `${status} receipt prevents a duplicate send`);
+  }
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) { document.getElementById('result').textContent = `FAIL: ${error.stack || error}`; throw error; }
+</script></html>
