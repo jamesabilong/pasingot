@@ -131,6 +131,53 @@ class GlobalSessionStartGateTest {
     }
 
     @Test
+    fun `concurrent offer and legacy start admit exactly one owner`() = runTest {
+        val source = MutableLegacySessions(emptyList())
+        val store = WatchSessionPackageStore(InMemoryPersistence())
+        val offerGate = GlobalSessionStartGate(source, store)
+        val legacyGate = GlobalSessionStartGate(source, store)
+
+        val results = listOf(
+            async { offerGate.acceptQuickStart(request(), "phone-node", now) },
+            async {
+                legacyGate.startLegacy("legacy", now) {
+                    source.value = listOf(entry("legacy", SessionStatus.ACTIVE))
+                }
+            },
+        ).awaitAll()
+
+        val offerWon = (results[0] as? QuickStartOfferGateResult.Processed)?.result is
+            AcceptQuickStartResult.Accepted
+        val legacyWon = results[1] == LegacySessionGateResult.Started
+        assertTrue(offerWon != legacyWon)
+        if (offerWon) assertTrue(results[1] is LegacySessionGateResult.BlockedByQuickStart)
+        if (legacyWon) assertTrue(results[0] is QuickStartOfferGateResult.BlockedByLegacy)
+    }
+
+    @Test
+    fun `invalid offer stays invalid even with a blocking legacy session`() = runTest {
+        val source = MutableLegacySessions(listOf(entry("legacy", SessionStatus.ACTIVE)))
+        val gate = GlobalSessionStartGate(source, WatchSessionPackageStore(InMemoryPersistence()))
+
+        val result = gate.acceptQuickStart(request().copy(schemaVersion = 99), "phone-node", now)
+
+        assertTrue((result as QuickStartOfferGateResult.Processed).result is
+            AcceptQuickStartResult.RejectedInvalid)
+    }
+
+    @Test
+    fun `legacy blocker suppresses ready replay from older inconsistent state`() = runTest {
+        val store = WatchSessionPackageStore(InMemoryPersistence())
+        store.accept(request(), now, "phone-node")
+        val source = MutableLegacySessions(listOf(entry("legacy", SessionStatus.ACTIVE)))
+
+        val result = GlobalSessionStartGate(source, store)
+            .acceptQuickStart(request(), "phone-node", now + 1)
+
+        assertTrue(result is QuickStartOfferGateResult.BlockedByLegacy)
+    }
+
+    @Test
     fun `wrong Quick Start identity does not alter ready package`() = runTest {
         val fixture = fixture()
 

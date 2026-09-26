@@ -11,6 +11,14 @@ import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.WorkoutSessionStore
+import app.personal.workouttracker.shared.quickstart.QUICK_START_TTL_MILLIS
+import app.personal.workouttracker.shared.quickstart.QuickStartExercise
+import app.personal.workouttracker.shared.quickstart.QuickStartRequest
+import app.personal.workouttracker.shared.quickstart.QuickStartSource
+import app.personal.workouttracker.wear.quickstart.GlobalSessionStartGate
+import app.personal.workouttracker.wear.quickstart.LegacySessionSnapshotSource
+import app.personal.workouttracker.wear.quickstart.QuickStartPackagePersistence
+import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -44,12 +52,70 @@ class SessionViewModelTest {
         try { block() } finally { viewModels.clear() }
     }
 
-    private fun createSession(): SessionViewModel = SessionViewModel(
+    private fun createSession(gate: GlobalSessionStartGate = defaultGate()): SessionViewModel = SessionViewModel(
         repository.entry.id,
         repository,
         sender,
         nowEpochMillis = { 1_000_000L + dispatcher.scheduler.currentTime },
+        legacyStartGate = gate,
     ).also { viewModels.put("session", it) }
+
+    private fun defaultGate(): GlobalSessionStartGate {
+        val persistence = object : QuickStartPackagePersistence {
+            override suspend fun read(): String? = null
+            override suspend fun write(raw: String?) = Unit
+        }
+        return GlobalSessionStartGate(LegacySessionSnapshotSource { listOf(repository.entry) },
+            WatchSessionPackageStore(persistence))
+    }
+
+    @Test fun `ready Quick Start blocks downloaded workout before session write`() = runSessionTest {
+        val persistence = object : QuickStartPackagePersistence {
+            var raw: String? = null
+            override suspend fun read(): String? = raw
+            override suspend fun write(raw: String?) { this.raw = raw }
+        }
+        val packages = WatchSessionPackageStore(persistence)
+        val now = 1_000_000L
+        packages.accept(QuickStartRequest(
+            "123e4567-e89b-12d3-a456-426614174000", createdAtMillis = now,
+            expiresAtMillis = now + QUICK_START_TTL_MILLIS, targetNodeId = "watch-node",
+            source = QuickStartSource.SINGLE,
+            exercises = listOf(QuickStartExercise("item", "squat", "Squat", 3, "10 reps", 30)),
+        ), now)
+        val gate = GlobalSessionStartGate(LegacySessionSnapshotSource { listOf(repository.entry) }, packages)
+
+        val viewModel = createSession(gate)
+        runCurrent()
+
+        assertEquals("Quick Start is ready on watch", viewModel.uiState.value.blockedReason)
+        assertEquals(0, repository.sessionWrites)
+        assertTrue(sender.snapshots.isEmpty())
+    }
+
+    @Test fun `admitted downloaded workout persists before publishing snapshot`() = runSessionTest {
+        val persistence = object : QuickStartPackagePersistence {
+            override suspend fun read(): String? = null
+            override suspend fun write(raw: String?) = Unit
+        }
+        val gate = GlobalSessionStartGate(LegacySessionSnapshotSource { listOf(repository.entry) },
+            WatchSessionPackageStore(persistence))
+        val orderedSender = object : LogSender by sender {
+            override suspend fun sendSessionSnapshot(snapshot: WatchSessionSnapshot) {
+                assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+                sender.sendSessionSnapshot(snapshot)
+            }
+        }
+        val viewModel = SessionViewModel(repository.entry.id, repository, orderedSender,
+            nowEpochMillis = { 1_000_000L }, legacyStartGate = gate)
+        viewModels.put("session", viewModel)
+
+        runCurrent()
+
+        assertEquals(1, repository.sessionWrites)
+        assertEquals(SessionStatus.ACTIVE, viewModel.uiState.value.session?.status)
+        assertEquals(1, sender.snapshots.size)
+    }
 
     @Test fun `starting immediately persists and publishes active session`() = runSessionTest {
         val viewModel = createSession()

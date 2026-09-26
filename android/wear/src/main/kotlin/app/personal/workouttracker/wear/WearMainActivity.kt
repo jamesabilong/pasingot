@@ -90,7 +90,8 @@ class WearMainActivity : ComponentActivity() {
                     ) { backStackEntry ->
                         val entryId = backStackEntry.arguments?.getString("entryId") ?: return@composable
                         val viewModel: SessionViewModel = viewModel(
-                            factory = SessionViewModel.Factory(entryId, repository, logSyncManager)
+                            factory = SessionViewModel.Factory(entryId, repository, logSyncManager,
+                                applicationContext)
                         )
                         SessionScreen(
                             viewModel = viewModel,

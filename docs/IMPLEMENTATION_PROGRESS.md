@@ -1065,3 +1065,46 @@ client/prompt item remains open until the prompt exists; active-session handling
 remains open until both legacy and Quick Start start paths share the gate.
 Next action: build the Ready prompt and Start/Dismiss flow, wire the global gate
 into both session starts, then publish capability and verify paired delivery.
+
+## Iteration 21 — 2026-09-27 — Stage 19 session-admission audit
+
+Status: **Watch offer and downloaded-workout admission serialized with JVM/build
+evidence; Quick Start runtime UI and device validation remain open**.
+
+Starting checkpoint: `fe6089d PST01: Add watch quick start request receiver`.
+The working tree was clean and the branch was two commits ahead of its tracked
+remote. No fetch or push was made by this task.
+
+Audit finding: the previous receiver checked a snapshot of legacy sessions,
+but the production `SessionViewModel` created and persisted downloaded-workout
+sessions without using `GlobalSessionStartGate`. A legacy start could therefore
+race the listener and both could claim the session slot. The listener also
+checked active sessions before classifying invalid payloads, so an invalid
+request could receive the wrong rejection reason.
+
+Added an offer-admission method to the process-wide gate. It validates the
+request, checks all blocking legacy sessions, and persists the transient
+package while holding the same mutex used by `startLegacy`. The receiver uses
+that method before publishing its acknowledgement. Downloaded-workout
+initialization and resume now require `startLegacy`; a fresh session's
+DataStore write completes inside the gate before the UI or watch snapshot says
+it started. A blocked screen shows a reason and does not write a session or
+publish a snapshot. A duplicate Ready replay is suppressed if an older
+inconsistent state also contains an active legacy session. The UI still uses
+the existing date-keyed repository only for downloaded workouts; Quick Start
+remains in its separate transient package.
+
+Validation: `gradlew.bat :wear:testDebugUnitTest :wear:assembleDebug --no-daemon
+--quiet` passed with **113 Wear tests** and a debug APK. New cases cover a
+concurrent offer versus legacy start (exactly one winner), invalid schema while
+legacy is active, inconsistent duplicate replay, a blocked downloaded session
+making no write or snapshot, and persistence before an admitted snapshot. The existing session/repository suite also
+passes. `git diff --check` passed. This is JVM/build evidence, not physical-watch
+or paired-device proof.
+
+Stage 19 is **44/97 (45%)** and Phase 2 is **3/17 (18%)**. The active/invalid/
+expired/duplicate handling item and existing session/repository test exit check
+close. Ready prompt, Start/Dismiss/Cancel, runtime session creation, capability
+publication, and paired delivery remain open. Next action: render the persisted
+Ready offer in-app and connect Start/Dismiss to the runtime session engine; only
+then advertise capability to the phone.

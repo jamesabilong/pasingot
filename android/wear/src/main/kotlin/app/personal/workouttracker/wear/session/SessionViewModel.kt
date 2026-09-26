@@ -1,5 +1,6 @@
 package app.personal.workouttracker.wear.session
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -12,9 +13,16 @@ import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.shared.WatchSessionSnapshot
 import app.personal.workouttracker.shared.estimatedDurationSeconds
+import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.WorkoutRepository
 import app.personal.workouttracker.wear.data.WorkoutSessionStore
+import app.personal.workouttracker.wear.quickstart.DataStoreQuickStartPackagePersistence
+import app.personal.workouttracker.wear.quickstart.GlobalSessionStartGate
+import app.personal.workouttracker.wear.quickstart.LegacySessionGateResult
+import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
+import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +38,7 @@ data class SessionUiState(
     val restRemainingSeconds: Int = 0,
     val elapsedSeconds: Int = 0,
     val loading: Boolean = true,
+    val blockedReason: String? = null,
 ) {
     val currentExercise get() = entry?.exercises?.getOrNull(session?.exerciseIndex ?: 0)
     val totalExercises get() = entry?.exercises?.size ?: 0
@@ -47,6 +56,7 @@ class SessionViewModel(
     private val repository: WorkoutSessionStore,
     private val logSender: LogSender,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val legacyStartGate: GlobalSessionStartGate,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionUiState())
@@ -56,22 +66,43 @@ class SessionViewModel(
 
     init {
         viewModelScope.launch {
-            val entry = repository.getEntry(entryId)
-            // Resume in place if a SessionState already exists, else start
-            // fresh at exerciseIndex = 0 (Prompt 4 req 3).
-            val storedSession = entry?.sessionState
-            val session = entry?.let { storedSession ?: newSession() }
-            _uiState.value = SessionUiState(
-                entry = entry,
-                session = session,
-                elapsedSeconds = session?.let(::elapsedSeconds) ?: 0,
-                loading = false,
-            )
-            if (entry != null && session != null) {
-                sendSessionSnapshot(entry, session)
-                if (storedSession == null) repository.updateSessionState(entryId, session)
+            try {
+                val entry = repository.getEntry(entryId)
+                // Resume in place if a SessionState already exists, else start
+                // fresh at exerciseIndex = 0 (Prompt 4 req 3).
+                val storedSession = entry?.sessionState
+                val session = entry?.let { storedSession ?: newSession() }
+                if (entry != null && session != null && session.status != SessionStatus.COMPLETED &&
+                    session.status != SessionStatus.ENDED) {
+                    val result = legacyStartGate.startLegacy(entryId, nowEpochMillis()) {
+                        if (storedSession == null) repository.updateSessionState(entryId, session)
+                    }
+                    val blocked = when (result) {
+                        is LegacySessionGateResult.BlockedByQuickStart ->
+                            if (result.sessionPackage.state == QuickStartPackageState.READY)
+                                "Quick Start is ready on watch" else "Quick Start is in progress"
+                        is LegacySessionGateResult.BlockedByLegacy -> "Finish your current workout first"
+                        else -> null
+                    }
+                    if (blocked != null) {
+                        _uiState.value = SessionUiState(loading = false, blockedReason = blocked)
+                        return@launch
+                    }
+                }
+                _uiState.value = SessionUiState(
+                    entry = entry,
+                    session = session,
+                    elapsedSeconds = session?.let(::elapsedSeconds) ?: 0,
+                    loading = false,
+                )
+                if (entry != null && session != null) sendSessionSnapshot(entry, session)
+                synchronizeRestTimer()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _uiState.value = SessionUiState(loading = false,
+                    blockedReason = "Could not open workout")
             }
-            synchronizeRestTimer()
         }
     }
 
@@ -449,9 +480,14 @@ class SessionViewModel(
         private val entryId: String,
         private val repository: WorkoutRepository,
         private val logSender: LogSender,
+        private val appContext: Context,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SessionViewModel(entryId, repository, logSender) as T
+            SessionViewModel(entryId, repository, logSender,
+                legacyStartGate = GlobalSessionStartGate(
+                    WorkoutRepositorySessionSnapshotSource(repository),
+                    WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(appContext)),
+                )) as T
     }
 }

@@ -22,6 +22,8 @@ class QuickStartRequestCoordinator(
     private val receipts: QuickStartReceiptClient,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    private val gate = GlobalSessionStartGate(legacySessions, packages)
+
     suspend fun receive(
         payload: String,
         path: String,
@@ -45,16 +47,12 @@ class QuickStartRequestCoordinator(
             QuickStartRejectionReason.INVALID_PAYLOAD, nowEpochMillis) }
         if (request.requestId != pathId || request.targetNodeId != localWatchNodeId) return null
 
-        val existing = packages.current(nowEpochMillis)
-        if (existing == null || existing.request != request ||
-            existing.sourcePhoneNodeId != observedPhoneNodeId) {
-            if (legacySessions.entries().blockingSessions().isNotEmpty()) {
-                return reject(pathId, request.revision.coerceAtLeast(1), localWatchNodeId,
-                    QuickStartRejectionReason.ACTIVE_SESSION, nowEpochMillis)
-            }
+        val admission = gate.acceptQuickStart(request, observedPhoneNodeId, nowEpochMillis)
+        if (admission is QuickStartOfferGateResult.BlockedByLegacy) {
+            return reject(pathId, request.revision.coerceAtLeast(1), localWatchNodeId,
+                QuickStartRejectionReason.ACTIVE_SESSION, nowEpochMillis)
         }
-
-        val acknowledgement = when (val result = packages.accept(request, nowEpochMillis, observedPhoneNodeId)) {
+        val acknowledgement = when (val result = (admission as QuickStartOfferGateResult.Processed).result) {
             is AcceptQuickStartResult.Accepted -> ready(result.sessionPackage.request, localWatchNodeId, nowEpochMillis)
             is AcceptQuickStartResult.Duplicate -> when (result.sessionPackage.state) {
                 QuickStartPackageState.READY -> ready(result.sessionPackage.request, localWatchNodeId, nowEpochMillis)

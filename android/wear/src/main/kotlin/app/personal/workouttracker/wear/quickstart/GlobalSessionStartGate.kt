@@ -3,6 +3,9 @@ package app.personal.workouttracker.wear.quickstart
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
+import app.personal.workouttracker.shared.quickstart.QuickStartRequest
+import app.personal.workouttracker.shared.quickstart.QuickStartValidationResult
+import app.personal.workouttracker.shared.quickstart.validateQuickStartRequest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -29,6 +32,11 @@ sealed interface LegacySessionGateResult {
     data class BlockedByLegacy(val sessions: List<BlockingLegacySession>) : LegacySessionGateResult
 }
 
+sealed interface QuickStartOfferGateResult {
+    data class Processed(val result: AcceptQuickStartResult) : QuickStartOfferGateResult
+    data class BlockedByLegacy(val sessions: List<BlockingLegacySession>) : QuickStartOfferGateResult
+}
+
 /**
  * Process-wide serialization point for every session start. Existing session
  * entry points must call [startLegacy] before persisting an active legacy
@@ -40,6 +48,25 @@ class GlobalSessionStartGate(
 ) {
     private companion object {
         val processStartMutex = Mutex()
+    }
+
+    /** Serializes offer acceptance against a legacy session's durable start. */
+    suspend fun acceptQuickStart(
+        request: QuickStartRequest,
+        observedPhoneNodeId: String,
+        nowEpochMillis: Long,
+    ): QuickStartOfferGateResult = processStartMutex.withLock {
+        val validated = validateQuickStartRequest(request, nowEpochMillis)
+        if (validated is QuickStartValidationResult.Invalid) {
+            return@withLock QuickStartOfferGateResult.Processed(
+                AcceptQuickStartResult.RejectedInvalid(validated.issue),
+            )
+        }
+        val blocking = legacySessions.entries().blockingSessions()
+        if (blocking.isNotEmpty()) return@withLock QuickStartOfferGateResult.BlockedByLegacy(blocking)
+        QuickStartOfferGateResult.Processed(
+            quickStartPackages.accept(request, nowEpochMillis, observedPhoneNodeId),
+        )
     }
 
     suspend fun startQuickStart(

@@ -3,8 +3,8 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch transport in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 20 — observed-sender watch request receiver and durable Ready receipt**
-Previous checkpoint: `e0005d8 PST01: Complete quick start phone phase audit`
+Latest checkpoint: **Iteration 21 — serialized watch offer and downloaded-session admission**
+Previous checkpoint: `fe6089d PST01: Add watch quick start request receiver`
 Last updated: **2026-09-27**
 
 ## Goal
@@ -755,13 +755,13 @@ is recorded separately from code completion.
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **42/97 items (43%) overall**:
+stands at **44/97 items (45%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **1/17 (6%)** | Request receiver persists an observed-sender package before Ready; UI and capability publication remain open |
+| Phase 2 — watch feature | **3/17 (18%)** | Request and downloaded-session starts share an admission gate; UI and capability publication remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -899,12 +899,12 @@ Exit checks:
 
 ### Phase 2 — Watch receiver and ready prompt
 
-Status: **In progress — native request receiver passes JVM tests; no ready prompt or capability publication yet**
+Status: **In progress — transport and session admission pass JVM tests; no ready prompt or capability publication yet**
 
 - [ ] Implement listener, coordinator, receipt client, and prompt.
 - [x] Persist accepted requests through the transient package store, leaving the
       permanent date-keyed download store unchanged.
-- [ ] Handle active-session, invalid, expired, and duplicate requests.
+- [x] Handle active-session, invalid, expired, and duplicate requests.
 - [ ] Add Start, Dismiss, and Cancel acknowledgements and serialized races.
 - [ ] Add the isolated cue controller, TTS adapter, preferences, and cue ledger.
 - [ ] Add the foreground-only five-second start state and cancellation path.
@@ -928,7 +928,7 @@ Exit checks:
 - [ ] Rest-boundary tests cover extension accepted at six seconds, rejected at
       five seconds, simultaneous tap/threshold ordering, Start now cancellation,
       and no warning/Go speech overlap.
-- [ ] Existing session/repository tests still pass.
+- [x] Existing session/repository tests still pass.
 - [ ] Round-screen preview/emulator shows readable Start/Dismiss, five-second
       countdown, exercise-success, rest, and final-success states.
 
@@ -1101,6 +1101,14 @@ before Ready is sent. Eight new coordinator fixtures pass (108 Wear tests total)
 and the Wear debug APK builds. Capability publication remains gated until the
 watch has a usable Start/Dismiss prompt. Session integration, native
 final-result acknowledgement, and cues remain open.
+Iteration 21 wires both offer acceptance and downloaded-workout initialization
+through the process-wide gate. Invalid offers are classified before the active
+session check; active or paused legacy sessions block offers, including duplicate
+Ready replay from an older inconsistent state. The existing session screen now
+shows a block reason instead of starting a downloaded workout while Quick Start
+owns the slot. Concurrent offer/start, blocker, and existing session tests pass:
+113 Wear tests and the debug APK build. The gate does not yet start a Quick Start
+runtime session; that remains with the prompt and Start path.
 The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
@@ -1113,12 +1121,12 @@ final records, exact phone receipts, offline recovery, and guarded cleanup exist
 but native sender/receiver and UI do not. Iteration 12 adds a shared capability
 envelope and schema-1 negotiation with mixed-version fixtures. Iteration 15 adds
 shared final-result/receipt codecs and a guarded Wear payload entry point. The
-latest Wear suite has 108 passing tests and a passing debug build. Physical-device acceptance
+latest Wear suite has 113 passing tests and a passing debug build. Physical-device acceptance
 remains open.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** build the watch Ready prompt and Start/Dismiss path,
-including the global session-start gate; publish the watch capability only when
-that path is usable. Then test request/legacy-start races and paired delivery.
+**Exact next action:** build the watch Ready prompt and Start/Dismiss path over
+the transient package and existing session engine; publish watch capability only
+when that path is usable. Then verify paired delivery.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

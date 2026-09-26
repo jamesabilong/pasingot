@@ -82,7 +82,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val session = state.session
 
     if (session == null) {
-        CompletedView("Workout unavailable", onCancel)
+        CompletedView(state.blockedReason ?: "Workout unavailable", onCancel)
         return
     }
 
