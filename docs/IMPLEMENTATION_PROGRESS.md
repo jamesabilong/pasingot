@@ -505,8 +505,9 @@ final-summary creation headlessly; do not wire UI or persistence yet.
 
 ## Iteration 10 — 2026-09-25 — Stage 19 outcome reducer and progress text
 
-Status: **Completed locally — headless shared/Wear checks pass; not yet
-committed**.
+Status: **Completed locally — headless shared/Wear checks pass; subsequently
+committed in `92ef2cb`**. The uncommitted references below preserve the original
+2026-09-25 audit; Iteration 11 records the newer checkpoint.
 
 Starting checkpoint: `18a7554 PST01: Add workout progress summaries`. That
 commit is local only and was not pushed.
@@ -558,3 +559,70 @@ Remaining:
 Next action: add a persisted reducer-state adapter with restart,
 invalid-state cleanup, and atomic-transition coverage. Do not wire session UI
 or Data Layer in that slice.
+
+## Iteration 11 — 2026-09-26 — Stage 19 outcome-state persistence
+
+Status: **Completed in this checkpoint — shared/Wear checks and Wear debug
+build pass. Runtime integration and device acceptance remain open**.
+
+Starting checkpoint: `92ef2cb PST01: Add workout outcome progress`. The working
+tree was clean and HEAD matched the local `origin/PST01` tracking ref. This is
+local Git evidence, not a fresh remote fetch.
+
+Audit findings:
+
+- Iteration 10 is now committed in `92ef2cb`; its original uncommitted status
+  and the plan's `18a7554` latest-checkpoint marker are superseded.
+- Stage 19 starts at 16/93 checklist items (17%), Phase 0 at 16/27 (59%). The
+  Quick Start plan's top-level “implementation not started” label is stale;
+  the detailed checklist correctly shows partial Phase 0 foundations.
+- The pure reducer has no durable adapter. Recovery must validate both outcome
+  semantics and the matching revision before accepting another transition.
+
+Implemented:
+
+- Added `WorkoutOutcomeStore`/`WatchWorkoutOutcomeStore` and a production
+  Preferences DataStore adapter, separate from Quick Start offers and the
+  permanent date-keyed repository. One versioned record stores session identity,
+  ordered outcomes, and revision in a single awaited write.
+- Reinitializing the same session/plan preserves progress. A different session,
+  title, order, or prescription cannot overwrite it, even after all exercises
+  resolve; acknowledged removal is a later integration step.
+- Serialized initialization and read/reduce/write across store instances.
+  Duplicate and rejected transitions do not rewrite storage. No optimistic
+  cache can diverge from a failed or uncertain write.
+- Restore validates outcome semantics and requires the revision to equal
+  completed sets plus skip transitions. Malformed, unsupported, or inconsistent
+  records are cleared; storage errors/cancellation propagate without erasing
+  progress or falsely returning success.
+- Reconciled the latest committed checkpoint and stale plan header. Added an
+  explicit outcome-persistence checklist item: Stage 19 is now **17/94 (18%)**,
+  Phase 0 **17/28 (61%)**. This ratio counts items equally, not effort. No
+  Phase 1–4 item was closed.
+
+Validation:
+
+- `gradlew.bat :shared:test :wear:testDebugUnitTest :wear:assembleDebug
+  --no-daemon --quiet`: passed.
+- 38 shared tests passed unchanged; 54 Wear tests passed, including 13 new
+  outcome-store cases and one real Preferences DataStore file recovery case.
+- Covered partial/skipped outcomes and order, replay after recreation, final
+  snapshot derivation, initialization conflicts, invalid-state cleanup,
+  additive fields, concurrent instances, blocked writes, before/after-commit
+  failures, read/cleanup failures, and cancellation/retry.
+- The real-file test closes the original DataStore scope, reopens the same
+  preferences file, restores both state and revision, rejects a duplicate, and
+  verifies malformed-record cleanup. This is headless disk evidence, not an
+  Android process-kill/reboot or paired-device test.
+- Wear debug APK built successfully; `git diff --check` passed. The initial
+  sandbox run could not lock the existing user Gradle cache; the permitted
+  elevated run passed with that cache. No toolchain/dependency changes needed.
+
+Remaining: production session integration, immutable final-result/queue
+transactions, saved/synced receipts, transport, cue contracts, UI, and device
+acceptance. This slice does not connect session UI or Data Layer.
+
+Next action: add shared `quickstart/QuickStartCapability.kt` with headless
+capability/schema negotiation and mixed phone/watch-version fixtures. Record
+the migration policy before closing that Phase 0 gate; keep transport/UI out
+of that slice.

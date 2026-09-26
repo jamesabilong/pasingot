@@ -7,6 +7,7 @@ import app.personal.workouttracker.shared.session.WorkoutProgressSnapshot
 import app.personal.workouttracker.shared.session.summarizeExerciseProgress
 import app.personal.workouttracker.shared.session.validateWorkoutCompletionSummary
 import app.personal.workouttracker.shared.session.validateWorkoutProgressSnapshot
+import kotlinx.serialization.Serializable
 
 data class WorkoutExerciseOutcomePlan(
     val itemId: String,
@@ -18,10 +19,11 @@ data class WorkoutExerciseOutcomePlan(
 /**
  * Pure progress state for one watch workout.
  *
- * The next persistence adapter must save [exercises] and [lastAppliedRevision]
- * atomically. Saving either field alone would allow a replayed transition to
- * double-count a set after process recreation.
+ * [WatchWorkoutOutcomeStore] saves [exercises] and [lastAppliedRevision] in one
+ * atomic record. Saving either field alone would allow a replayed transition
+ * to double-count a set after process recreation.
  */
+@Serializable
 data class WorkoutOutcomeState(
     val sessionId: String,
     val title: String? = null,

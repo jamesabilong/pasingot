@@ -1,9 +1,10 @@
 # Watch Quick Start Plan
 
-Status: **Audit incorporated; implementation not started**
-Proposed stage: **Stage 19 — Phone-selected Watch Quick Start**
+Status: **Phase 0 in progress — foundations implemented; end-to-end flow not started**
+Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Last updated: **2026-09-25**
+Prior committed checkpoint: `92ef2cb PST01: Add workout outcome progress`
+Last updated: **2026-09-26**
 
 ## Goal
 
@@ -579,31 +580,33 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-25
+### Progress audit — 2026-09-26
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **16/93 items (17%) overall**:
+stands at **17/94 items (18%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
-| Phase 0 — foundations | **16/27 (59%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, reducer, and focused fixtures exist |
+| Phase 0 — foundations | **17/28 (61%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, and focused fixtures exist |
 | Phase 1 — phone feature | **0/10 (0%)** | Not started |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
-The latest committed checkpoint, `18a7554`, represents **14/92 items (15%)**.
-The difference is the uncommitted Iteration 10 reducer/presentation slice and
-this evidence reconciliation. Phase 0's 59% must not be reported as feature
+The prior committed checkpoint, `92ef2cb`, represents **16/93 items (17%)**.
+Iteration 10 is committed; the earlier `18a7554`/uncommitted-reducer marker is
+superseded. Iteration 11 adds one explicit persistence checklist item, verified
+in this checkpoint. Phase 0's 61% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
 
 Preparation order for the next parts:
 
-1. Persist `WorkoutOutcomeState` and its revision atomically; prove restart,
-   corrupt-state cleanup, and transition retry behavior headlessly.
-2. Close the remaining Phase 0 protocol/cue decisions and mixed-version
-   fixtures, including result acknowledgement/removal and final-countdown lock.
+1. Define the shared Quick Start capability/version negotiation contract and
+   migration policy; cover absent capability, phone-new/watch-old,
+   watch-new/phone-old, and compatible additive fields headlessly.
+2. Close the remaining Phase 0 retention/navigation/cue decisions and fixtures,
+   including result acknowledgement/removal and final-countdown lock.
 3. Build the isolated Phase 1 phone bridge and React sheet.
 4. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
    UI using the persisted reducer output.
@@ -612,7 +615,7 @@ Preparation order for the next parts:
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, cancellation, summary, and reducer slices passed**
+Status: **In progress — contract, store, gate, cancellation, summary, reducer, and outcome persistence slices passed**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
@@ -652,11 +655,16 @@ Status: **In progress — contract, store, gate, cancellation, summary, and redu
       local **saved** and phone **synced** states must remain distinct.
 - [x] Add the shared immutable progress/completion contract with validated
       per-exercise outcomes, completed/skipped/pending counts, completed/planned
-      sets, elapsed/estimated time, and stable serialization. Wear persistence
-      and saved/synced integration remain open.
+      sets, elapsed/estimated time, and stable serialization. Immutable final
+      result persistence and saved/synced integration remain open.
 - [x] Add the pure Wear outcome reducer and derived compact
       **completed/total** presentation (for example `2/5`) with descriptive
       TalkBack text. Runtime session wiring and UI rendering remain open.
+- [x] Persist ordered reducer outcomes and revision atomically in an isolated
+      Wear store; verify restart/replay, invalid-state cleanup, identity/plan
+      conflicts, concurrent transitions, and storage failures. A real
+      Preferences DataStore file recovery test passes. Runtime wiring and
+      final-result/receipt transactions remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -887,13 +895,18 @@ production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
 The shared progress/completion summary now includes explicit pending counts.
 A pure Wear reducer produces it and derives compact **completed/total** text,
-but it is not yet connected to the runtime session engine or rendered by UI.
+and Iteration 11 persists its ordered outcomes/revision atomically with tested
+recovery and failure behavior. It is not yet connected to the runtime session
+engine or rendered by UI. Completed outcomes are retained; result queueing and
+acknowledged removal are not implemented. All 38 shared and 54 Wear tests and
+the Wear debug build pass; physical-device acceptance remains open.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** add an isolated persisted outcome-state adapter for the
-Wear reducer so revisions and partial-set outcomes survive process recreation.
-Cover restore, invalid-state cleanup, and atomic transition persistence
-headlessly; do not wire session UI or Data Layer yet.
+**Exact next action:** add shared `quickstart/QuickStartCapability.kt` and
+focused contract tests for reachable-node capability/schema negotiation,
+missing/unsupported capability, phone-new/watch-old, watch-new/phone-old, and
+compatible additive fields. Record the schema migration policy before marking
+the mixed-version gate complete; do not wire transport or UI in that slice.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 
