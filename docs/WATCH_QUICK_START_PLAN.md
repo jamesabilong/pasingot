@@ -1,11 +1,11 @@
 # Watch Quick Start Plan
 
-Status: **Phase 0 headless foundations complete; Phase 1 phone feature in progress**
+Status: **Phase 0 foundations and Phase 1 phone feature checks complete; Phase 2 watch work next**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 16 — Phase 0 cue and protocol decisions (included in this commit)**
-Previous checkpoint: `61edf55 PST01: Share quick start result and receipt contracts`
-Last updated: **2026-09-26**
+Latest checkpoint: **Iteration 19 — phone recovery audit and Phase 1 browser closure (included in this commit)**
+Previous checkpoint: `4a62ae0 PST01: Add quick start phone feature shell`
+Last updated: **2026-09-27**
 
 ## Goal
 
@@ -751,16 +751,16 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-26, Iteration 16
+### Progress audit — 2026-09-27, Iteration 19
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **39/97 items (40%) overall**:
+stands at **41/97 items (42%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
-| Phase 1 — phone feature | **8/10 (80%)** | Native bridge, React feature, and headless checks pass; visible browser checks open |
+| Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
@@ -775,6 +775,14 @@ completion: there is no usable phone-to-watch Quick Start path yet.
 Iteration 17's native phone bridge is committed in `e178b74`. Iteration 18
 adds the React sheet and entry points with headless status fixtures; its visible
 browser check is open because the in-app browser blocked the local Vite URL.
+Iteration 19 audits recovery: the phone now exposes its latest durable offer,
+React restores it before enabling Quick Start entry points, pending/Ready offers
+block a second send, and conflicting equal-revision acknowledgements are stale.
+Its 74 shared and eight phone tests, React build and debug APK pass. The visible
+fixture passes 18 checks on the configured Vite port; Library and a scheduled
+Today row show no browser Quick Start send at 390px, with no horizontal overflow.
+This supersedes Iteration 18's local-browser block. Phase 1's two remaining
+browser checks close; watch/paired-device acceptance remains open.
 
 Preparation order for the next parts:
 
@@ -869,7 +877,7 @@ Exit checks:
 
 ### Phase 1 — Phone bridge and React feature shell
 
-Status: **Implementation and headless checks pass; visible browser checks open**
+Status: **Code, headless checks, and browser UI checks complete; paired-device delivery remains in later phases**
 
 - [x] Create the isolated React feature directory.
 - [x] Add the Quick Start sheet with one-or-many item editing, ordering, and
@@ -884,8 +892,9 @@ Status: **Implementation and headless checks pass; visible browser checks open**
 Exit checks:
 
 - [x] `npx tsc --noEmit` passes.
-- [ ] Focused browser fixture passes.
-- [ ] Browser UI never offers a non-functional send action.
+- [x] Focused browser fixture passes (18 checks on 2026-09-27).
+- [x] Browser UI never offers a non-functional send action (Library and a
+      scheduled Today row inspected at 390px).
 - [x] `App.tsx` does not acquire feature-specific effects or handlers.
 
 ### Phase 2 — Watch receiver and ready prompt
@@ -1078,12 +1087,14 @@ The feature is done only when:
 
 **Current checkpoint:** Phase 0 is complete with headless evidence. The Android
 phone now has a registered Quick Start Capacitor bridge, capability-gated Data
-Layer sender, and durable request/watch-acknowledgement store. Its six unit tests
-and debug APK build pass. React now has an isolated editing/status sheet,
-Library single/playlist/selection and Today-row entry points, plugin gating,
-and mocked status fixtures. TypeScript, Vite build, Node fixtures, Capacitor sync,
-and the Android debug APK pass. The browser fixture was authored but could not
-be run because the in-app browser blocked the local Vite URL. Watch capability
+Layer sender, and durable request/watch-acknowledgement store. Iteration 19 adds
+latest-offer recovery, pending-offer enforcement and strict revision replay.
+Its eight phone tests and debug APK build pass. React has an isolated editing
+sheet, Library single/playlist/selection and Today-row entry points, plugin
+gating, mocked status fixtures, and a restored Today status. TypeScript, Vite,
+Node fixtures, Capacitor sync and the Android debug APK pass. The browser
+fixture passes 18 checks on the configured Vite port; Library and a scheduled
+Today row show no browser send control at phone width. Watch capability
 publication/receiver, session integration, native final-result acknowledgement,
 and cues remain open.
 The pure global start gate is implemented but not yet wired into
@@ -1097,14 +1108,13 @@ engine or rendered by UI. Completed and ended outcomes are frozen and retained;
 final records, exact phone receipts, offline recovery, and guarded cleanup exist,
 but native sender/receiver and UI do not. Iteration 12 adds a shared capability
 envelope and schema-1 negotiation with mixed-version fixtures. Iteration 15 adds
-shared final-result/receipt codecs and a guarded Wear payload entry point. All 73 shared
+shared final-result/receipt codecs and a guarded Wear payload entry point. All 74 shared
 and 100 Wear tests and the Wear debug build pass. Physical-device acceptance
 remains open.
-**Current phase:** Phase 1 — Phone bridge and React feature shell.
-**Exact next action:** run `pwa/tests/quick-start.html` in a browser that can
-reach the local Vite server, inspect Library/Today at phone width, and close the
-two remaining Phase 1 browser checks only if they pass. Then implement Phase 2
-watch capability publication and request receiver.
+**Current phase:** Phase 2 — Watch receiver and ready prompt.
+**Exact next action:** implement watch capability publication and an observed-
+sender request listener that persists through the transient package store,
+then add receipt/duplicate/invalid-state fixtures before the ready prompt.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

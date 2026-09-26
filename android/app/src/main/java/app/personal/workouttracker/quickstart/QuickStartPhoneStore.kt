@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
+import app.personal.workouttracker.shared.quickstart.QUICK_START_CLOCK_SKEW_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
@@ -62,6 +63,11 @@ class QuickStartPhoneStore(private val persistence: QuickStartPhonePersistence) 
         load().records.firstOrNull { it.request.requestId == requestId }
     }
 
+    /** Last created offer, including its durable watch state after process death. */
+    suspend fun latest(): PhoneQuickStartRecord? = processMutex.withLock {
+        load().records.lastOrNull()
+    }
+
     suspend fun saveRequest(request: QuickStartRequest, nowEpochMillis: Long): PhoneQuickStartRecord =
         processMutex.withLock {
             require(validateQuickStartRequest(request, nowEpochMillis) is QuickStartValidationResult.Valid)
@@ -70,6 +76,12 @@ class QuickStartPhoneStore(private val persistence: QuickStartPhonePersistence) 
                 require(existing.request == request) { "Request ID already belongs to a different offer" }
                 return@withLock existing
             }
+            val liveOffer = state.records.any { record ->
+                nowEpochMillis <= record.request.expiresAtMillis + QUICK_START_CLOCK_SKEW_MILLIS &&
+                    (record.acknowledgement?.status == QuickStartStatus.READY ||
+                        (record.transportAcceptedAtMillis != null && record.acknowledgement == null))
+            }
+            require(!liveOffer) { "A Quick Start request is already pending on the watch" }
             require(state.records.size < MAX_REQUESTS) { "Quick Start request history is full" }
             val record = PhoneQuickStartRecord(request)
             persist(state.copy(records = state.records + record))

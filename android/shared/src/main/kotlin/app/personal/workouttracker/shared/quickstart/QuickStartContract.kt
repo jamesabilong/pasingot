@@ -159,7 +159,8 @@ fun reconcileQuickStartAcknowledgement(
 ): QuickStartAcknowledgement {
     if (current == null) return incoming
     if (current.requestId != incoming.requestId) return current
-    if (incoming.revision < current.revision) return current
-    if (incoming.revision == current.revision && incoming == current) return current
+    // A revision represents one immutable watch decision. A conflicting replay
+    // at the same revision cannot replace a state the phone already persisted.
+    if (incoming.revision <= current.revision) return current
     return if (canTransitionQuickStartStatus(current.status, incoming.status)) incoming else current
 }

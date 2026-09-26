@@ -80,6 +80,39 @@ class QuickStartPhoneStoreTest {
         assertEquals(started, store.current(requestId)?.acknowledgement)
     }
 
+    @Test fun `conflicting equal revision is stale and latest offer survives recreation`() = runTest {
+        val persistence = MemoryPersistence()
+        val store = QuickStartPhoneStore(persistence)
+        assertNull(store.latest())
+        store.saveRequest(request(), now)
+        val ready = ack(QuickStartStatus.READY)
+        assertEquals(PhoneAcknowledgementResult.RECORDED,
+            store.acceptAcknowledgement(Json.encodeToString(ready), path, "watch-1"))
+        assertEquals(PhoneAcknowledgementResult.STALE,
+            store.acceptAcknowledgement(Json.encodeToString(ack(QuickStartStatus.STARTED)), path, "watch-1"))
+        val restored = QuickStartPhoneStore(persistence).latest()
+        assertEquals(request(), restored?.request)
+        assertEquals(ready, restored?.acknowledgement)
+    }
+
+    @Test fun `accepted pending offer blocks another send until terminal or expiry`() = runTest {
+        val store = QuickStartPhoneStore(MemoryPersistence())
+        val next = request("123e4567-e89b-12d3-a456-426614174001")
+        store.saveRequest(request(), now)
+        store.markTransportAccepted(requestId, now + 1)
+        try { store.saveRequest(next, now + 2); fail("Expected pending offer") }
+        catch (error: IllegalArgumentException) { assertTrue(error.message!!.contains("pending")) }
+        assertEquals(PhoneAcknowledgementResult.RECORDED,
+            store.acceptAcknowledgement(Json.encodeToString(ack(QuickStartStatus.STARTED)), path, "watch-1"))
+        assertEquals(next, store.saveRequest(next, now + 2).request)
+        store.markTransportAccepted(next.requestId, now + 3)
+
+        val afterExpiry = request("123e4567-e89b-12d3-a456-426614174002").copy(
+            createdAtMillis = now + 400_000, expiresAtMillis = now + 700_000,
+        )
+        assertEquals(afterExpiry, store.saveRequest(afterExpiry, now + 400_000).request)
+    }
+
     @Test fun `interrupted writes reconcile from durable bytes`() = runTest {
         val persistence = MemoryPersistence()
         val store = QuickStartPhoneStore(persistence)

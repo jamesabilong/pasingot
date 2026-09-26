@@ -19,7 +19,7 @@ import kotlinx.serialization.json.Json
 @CapacitorPlugin(name = "WatchQuickStart")
 class WatchQuickStartPlugin : Plugin() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val store by lazy { QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context)) }
     private val client by lazy { WatchQuickStartClient(context) }
 
@@ -86,6 +86,16 @@ class WatchQuickStartPlugin : Plugin() {
                     put("acknowledgement", record.acknowledgement?.let { JSObject(json.encodeToString(it)) })
                 })
             } catch (error: Exception) { call.reject(error.message ?: "Could not load status", error) }
+        }
+    }
+
+    @PluginMethod fun getLatestQuickStart(call: PluginCall) {
+        scope.launch {
+            try {
+                call.resolve(JSObject().apply {
+                    put("record", store.latest()?.let { JSObject(json.encodeToString(it)) })
+                })
+            } catch (error: Exception) { call.reject(error.message ?: "Could not load latest offer", error) }
         }
     }
 

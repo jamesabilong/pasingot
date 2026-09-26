@@ -13,7 +13,25 @@ export interface QuickStartRequest {
   }>;
 }
 export interface QuickStartAck { requestId: string; revision: number; targetNodeId: string; status: QuickStartStatus; reason?: string; watchUpdatedAtMillis: number }
-export interface QuickStartReceipt { requestId: string; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null }
+export interface QuickStartReceipt { requestId: string; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null; expiresAtMillis?: number }
+export interface PhoneQuickStartRecord { request: QuickStartRequest; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null }
+
+export function receiptFromRecord(record: PhoneQuickStartRecord): QuickStartReceipt {
+  return { requestId: record.request.requestId, transportAcceptedAtMillis: record.transportAcceptedAtMillis,
+    acknowledgement: record.acknowledgement, expiresAtMillis: record.request.expiresAtMillis };
+}
+export function itemsFromRequest(request: QuickStartRequest): QuickStartItem[] {
+  return request.exercises.map((exercise) => ({ itemId: exercise.itemId,
+    sourceId: Number(exercise.exerciseId) || 0, name: exercise.exerciseName,
+    sets: exercise.sets, reps: exercise.prescription, rest: exercise.restSeconds,
+    loadWeight: exercise.loadWeight, loadUnit: exercise.loadUnit,
+    sourceDate: exercise.sourceDate, sourceWorkoutRowId: exercise.sourceWorkoutRowId }));
+}
+export function activeOffer(record: PhoneQuickStartRecord, now = Date.now()): boolean {
+  if (now > record.request.expiresAtMillis + 30_000) return false;
+  return record.acknowledgement?.status === 'ready' ||
+    (record.transportAcceptedAtMillis != null && record.acknowledgement == null);
+}
 
 export function fromCatalog(item: ExerciseCatalogItem, prescription: Omit<PlaylistItem, 'sourceId' | 'name'>): QuickStartItem {
   return { itemId: crypto.randomUUID(), sourceId: item.sourceId, name: item.displayName, ...prescription };
@@ -57,11 +75,12 @@ export function buildRequest(items: QuickStartItem[], source: QuickStartSource, 
       ...(item.sourceDate ? { sourceDate: item.sourceDate, sourceWorkoutRowId: item.sourceWorkoutRowId } : {}),
     })) };
 }
-export function statusText(receipt: QuickStartReceipt | null, sending = false): string {
+export function statusText(receipt: QuickStartReceipt | null, sending = false, now = Date.now()): string {
   if (sending) return 'Sending to watch…';
   if (!receipt) return 'Confirm the exercises before sending.';
   const ack = receipt.acknowledgement;
-  if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Waiting for transport confirmation…';
+  if (receipt.expiresAtMillis && now > receipt.expiresAtMillis + 30_000 && (!ack || ack.status === 'ready')) return 'Request expired. Send a new one.';
+  if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Send was interrupted. Try a new request.';
   switch (ack.status) {
     case 'ready': return 'Ready on watch. Tap Start there.';
     case 'started': return 'Workout started on watch.';

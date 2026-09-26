@@ -972,3 +972,51 @@ publish its capability or receive Quick Start offers, so a paired send cannot
 be claimed. Next action: run the visible browser fixture and inspect phone-width
 Library/Today UI, then close the two remaining Phase 1 browser checks if they
 pass before beginning the Phase 2 watch receiver.
+
+## Iteration 19 — 2026-09-27 — Stage 19 phone recovery audit
+
+Status: **Phone recovery and Phase 1 browser checks complete in this audited checkpoint; watch/device delivery remains open**.
+
+Starting checkpoint: `4a62ae0 PST01: Add quick start phone feature shell`.
+The tree was clean at the start. The local origin tracking ref advanced to HEAD
+during this iteration; no fetch or push was made by this task.
+
+Audit findings: the Android store retained the latest offer, but React had no
+way to discover its ID after a phone process restart. That made a persisted
+Ready or waiting state invisible. The shared acknowledgement reducer also
+accepted a different state at the same revision, although one revision should
+represent one immutable watch decision. Finally, the phone could accept a
+second offer while the first was unexpired and pending/Ready, contrary to the
+Phase 0 pending-request decision.
+
+Implemented `getLatestQuickStart` over the durable phone store and hydrated the
+React hook before exposing native Quick Start entry points. Today now shows the
+restored status with a View action, and opening a new entry while the latest
+offer is pending/Ready returns to that offer. A single deadline refresh changes
+stale waiting/Ready wording to expired without polling. The phone store rejects
+a new offer while an unexpired transport-accepted or Ready offer exists; exact
+same-ID retries remain idempotent. Equal-revision conflicting acknowledgements
+are now stale. Audit correction: the fixed-width Today row action remains an
+icon, and the recovered sheet keeps its original exercise order and targets.
+
+Validation: `gradlew.bat :shared:test :app:testDebugUnitTest
+:app:assembleDebug --no-daemon --quiet` passed with 74 shared and eight phone
+tests, zero failures. `:wear:testDebugUnitTest :wear:assembleDebug` also passed
+with 100 Wear tests and a fresh Wear APK. `npx tsc --noEmit`, `node --experimental-strip-types
+pwa/tests/quick-start.test.mjs` (three fixtures), `npm run build`, `npx cap
+sync android`, and the final phone debug APK build passed. Fixtures cover
+same-revision conflicts, durable latest lookup, pending-offer rejection and
+terminal/expiry release, exact React offer restoration, and expiry wording.
+The in-app browser reached the project's configured Vite port on this audit.
+`pwa/tests/quick-start.html` passed all 18 checks. At a 390px viewport, Library
+and a scheduled Today row displayed no browser Quick Start send control and no
+horizontal overflow. The sheet itself fit the viewport; its disabled send now
+has a visible disabled style. The fixture's long results also wrap on mobile.
+This supersedes Iteration 18's blocked browser attempt. No paired-device
+behavior is claimed.
+
+Stage 19 is **41/97 (42%)**, Phase 1 **10/10 (100%)**: the two browser exit
+checks close on visible evidence. Phase 1 completion covers phone code and
+browser validation only. Next action: implement Phase 2 watch capability
+publication and an observed-sender request listener, with invalid/duplicate
+receipt fixtures before building the ready prompt.

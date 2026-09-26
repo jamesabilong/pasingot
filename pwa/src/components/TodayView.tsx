@@ -3,6 +3,7 @@ import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
 import { WatchSyncPanel } from './WatchSyncPanel';
 import { WeeklyPlan } from './WeeklyPlan';
 import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutSetInput, type WorkoutPlayerSession } from './WorkoutPlayer';
+import { statusText, type QuickStartReceipt } from '../features/watch-quick-start/model';
 import { type PlanProgress } from './SummaryCards';
 import { type Weekday, type WorkoutLog, type WorkoutRow } from '../types';
 import { type WatchSessionSnapshot } from '../lib/native-bridge';
@@ -42,6 +43,8 @@ export function TodayView({
   onClosePlayer,
   onLogExercise,
   onQuickStartRow,
+  quickStartReceipt,
+  onViewQuickStart,
 }: {
   todayName: Weekday;
   watchSession: WatchSessionSnapshot | null;
@@ -73,6 +76,8 @@ export function TodayView({
   onClosePlayer: () => void;
   onLogExercise: (row: WorkoutRow, status: WorkoutLog['status']) => void;
   onQuickStartRow?: (row: WorkoutRow) => void;
+  quickStartReceipt?: QuickStartReceipt | null;
+  onViewQuickStart?: () => void;
 }) {
   const hasWorkout = workouts.length > 0;
   const [queueFilter, setQueueFilter] = useState<'all' | 'pending' | 'done' | 'skipped'>('all');
@@ -118,6 +123,10 @@ export function TodayView({
       </div>
 
       <WatchSyncPanel hasWorkout={hasWorkout} session={watchSession} />
+      {quickStartReceipt && <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3" role="status">
+        <div className="min-w-0"><p className="text-xs font-semibold text-emerald-300">Watch Quick Start</p><p className="text-sm text-slate-200">{statusText(quickStartReceipt)}</p></div>
+        {onViewQuickStart && <button type="button" onClick={onViewQuickStart} className="secondary-action shrink-0">View</button>}
+      </div>}
 
       {activeSession && activeRows.length === 0 && (
         <div className="today-empty" role="alert">

@@ -49,7 +49,7 @@ export function WatchQuickStartSheet({ draft, availability, availabilityMessage,
       {availabilityMessage && <p className="mt-3 text-sm text-amber-300" role="status">{availabilityMessage}</p>}
       {checking && <p className="mt-3 text-sm text-slate-400" role="status">Checking watch…</p>}
       {receipt && <p className="mt-3 text-sm text-emerald-300" role="status">{statusText(receipt)}</p>}
-      <button type="button" className="primary-action mt-4" disabled={!!validation || !availability?.available || checking || locked} onClick={onSend}>
+      <button type="button" className="primary-action mt-4 disabled:cursor-not-allowed disabled:opacity-50" disabled={!!validation || !availability?.available || checking || locked} onClick={onSend}>
         {sending ? 'Sending…' : receipt ? 'Sent to watch' : `Send ${draft.items.length} to watch`}
       </button>
     </section>

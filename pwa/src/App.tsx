@@ -1019,6 +1019,8 @@ export default function App() {
         onClosePlayer={() => void saveActiveWorkoutSession(null)}
         onLogExercise={(row, status) => void logExercise(row, status)}
         onQuickStartRow={quickStart.supported ? (row) => quickStart.openToday(row, localToday) : undefined}
+        quickStartReceipt={quickStart.supported ? quickStart.receipt : null}
+        onViewQuickStart={quickStart.supported ? quickStart.openLatest : undefined}
       />}
 
       {tab === 'quests' && <QuestsView

@@ -1,12 +1,13 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { PluginListenerHandle } from '@capacitor/core';
-import type { QuickStartAck, QuickStartReceipt, QuickStartRequest } from './model';
+import type { PhoneQuickStartRecord, QuickStartAck, QuickStartReceipt, QuickStartRequest } from './model';
 
 export interface QuickStartAvailability { available: boolean; watchNodeId?: string; reason?: string }
 export interface QuickStartBridge {
   getAvailability(): Promise<QuickStartAvailability>;
   sendQuickStart(input: { request: QuickStartRequest }): Promise<{ requestId: string; transportAcceptedAtMillis: number }>;
   getQuickStartStatus(input: { requestId: string }): Promise<QuickStartReceipt>;
+  getLatestQuickStart(): Promise<{ record: PhoneQuickStartRecord | null }>;
   addListener(event: 'quickStartStatus', callback: (ack: QuickStartAck) => void): Promise<PluginListenerHandle>;
 }
 

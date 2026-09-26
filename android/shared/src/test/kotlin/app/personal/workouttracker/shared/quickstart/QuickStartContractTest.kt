@@ -206,6 +206,16 @@ class QuickStartContractTest {
     }
 
     @Test
+    fun conflictingEqualRevisionCannotReplacePersistedDecision() {
+        val ready = acknowledgement(QuickStartStatus.READY, revision = 1)
+        val sameRevisionStarted = acknowledgement(QuickStartStatus.STARTED, revision = 1)
+        val sameRevisionReadyWithDifferentTimestamp = ready.copy(watchUpdatedAtMillis = ready.watchUpdatedAtMillis + 1)
+
+        assertSame(ready, reconcileQuickStartAcknowledgement(ready, sameRevisionStarted))
+        assertSame(ready, reconcileQuickStartAcknowledgement(ready, sameRevisionReadyWithDifferentTimestamp))
+    }
+
+    @Test
     fun receiptForAnotherRequestCannotReplaceCurrentRequestStatus() {
         val current = acknowledgement(QuickStartStatus.READY, revision = 1)
         val unrelated = acknowledgement(QuickStartStatus.STARTED, revision = 2).copy(
