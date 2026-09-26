@@ -17,6 +17,49 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WatchSessionPackageStoreTest {
+    @Test
+    fun `observed phone owner survives restart and another sender cannot claim duplicate`() = runTest {
+        val persistence = InMemoryPersistence()
+        val request = request()
+        val first = WatchSessionPackageStore(persistence)
+        assertTrue(first.accept(request, now, "phone-1") is AcceptQuickStartResult.Accepted)
+        val restored = WatchSessionPackageStore(persistence)
+        assertEquals("phone-1", restored.current(now)?.sourcePhoneNodeId)
+        assertTrue(restored.accept(request, now + 1, "phone-2") is AcceptQuickStartResult.RejectedPending)
+        assertTrue(restored.accept(request, now + 1, "phone-1") is AcceptQuickStartResult.Duplicate)
+        assertTrue(restored.accept(request.copy(requestId = "123e4567-e89b-12d3-a456-426614174099"), now + 1, request.targetNodeId)
+            is AcceptQuickStartResult.RejectedInvalid)
+    }
+
+    @Test
+    fun `dismissed request cannot replay after a newer offer is accepted`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        val old = request()
+        val next = request("123e4567-e89b-12d3-a456-426614174099")
+        assertTrue(store.accept(old, now) is AcceptQuickStartResult.Accepted)
+        assertTrue(store.dismiss(old.requestId, 2, now + 1) is TerminateQuickStartResult.Terminated)
+        assertTrue(store.accept(next, now + 2) is AcceptQuickStartResult.Accepted)
+        assertTrue(WatchSessionPackageStore(persistence).accept(old, now + 3) is
+            AcceptQuickStartResult.PreviouslyTerminated)
+    }
+
+    @Test
+    fun `terminal replay history refuses a new offer rather than evicting live protection`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        repeat(64) { index ->
+            val item = request("123e4567-e89b-12d3-a456-${(index + 1).toString().padStart(12, '0')}")
+            assertTrue(store.accept(item, now) is AcceptQuickStartResult.Accepted)
+            assertTrue(store.dismiss(item.requestId, 2, now + 1) is TerminateQuickStartResult.Terminated)
+        }
+        val raw = persistence.raw
+        assertEquals(AcceptQuickStartResult.ReplayHistoryFull,
+            store.accept(request("123e4567-e89b-12d3-a456-426614174099"), now + 2))
+        assertEquals(raw, persistence.raw)
+        val oldest = request("123e4567-e89b-12d3-a456-000000000001")
+        assertTrue(store.accept(oldest, now + 3) is AcceptQuickStartResult.PreviouslyTerminated)
+    }
     private val now = 1_800_000_000_000L
 
     @Test

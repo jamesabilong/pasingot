@@ -68,6 +68,10 @@ class QuickStartResultRetentionCoordinator(
         if (sessionPackage.state != QuickStartPackageState.STARTING) {
             return@withLock SaveCompletedQuickStartResult.NotStarting
         }
+        if (sessionPackage.sourcePhoneNodeId != null &&
+            sessionPackage.sourcePhoneNodeId != result.phoneNodeId) {
+            return@withLock SaveCompletedQuickStartResult.OutcomeMismatch
+        }
         val state = outcomes.current() ?: return@withLock SaveCompletedQuickStartResult.OutcomeMismatch
         val snapshot = result.snapshot
         if (

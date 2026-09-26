@@ -127,6 +127,8 @@ data class WatchSessionPackage(
     val receivedAtMillis: Long,
     val expiresLocallyAtMillis: Long,
     val state: QuickStartPackageState = QuickStartPackageState.READY,
+    /** Set from the observed Data Layer sender, never from request JSON. */
+    val sourcePhoneNodeId: String? = null,
 )
 
 fun QuickStartStatus.isTerminal(): Boolean = when (this) {

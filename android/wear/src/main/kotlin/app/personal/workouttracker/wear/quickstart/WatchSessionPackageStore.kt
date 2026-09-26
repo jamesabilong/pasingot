@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.quickstart.QUICK_START_SCHEMA_VERSION
 import app.personal.workouttracker.shared.quickstart.QUICK_START_CLOCK_SKEW_MILLIS
+import app.personal.workouttracker.shared.quickstart.QUICK_START_TTL_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
@@ -25,7 +26,7 @@ interface QuickStartPackagePersistence {
 
 interface QuickStartPackageStore {
     suspend fun current(nowEpochMillis: Long): WatchSessionPackage?
-    suspend fun accept(request: QuickStartRequest, receivedAtMillis: Long): AcceptQuickStartResult
+    suspend fun accept(request: QuickStartRequest, receivedAtMillis: Long, observedPhoneNodeId: String? = null): AcceptQuickStartResult
     suspend fun markStarting(
         requestId: String,
         revision: Long,
@@ -103,6 +104,7 @@ private data class PersistedQuickStartPackage(
     val terminal: TerminalQuickStartRecord? = null,
     val acknowledged: AcknowledgedQuickStartRecord? = null,
     val acknowledgedHistory: List<AcknowledgedQuickStartRecord> = emptyList(),
+    val terminalHistory: List<TerminalQuickStartRecord> = emptyList(),
 )
 
 /**
@@ -126,48 +128,66 @@ class WatchSessionPackageStore(
     override suspend fun accept(
         request: QuickStartRequest,
         receivedAtMillis: Long,
+        observedPhoneNodeId: String?,
     ): AcceptQuickStartResult = processMutex.withLock {
+        if (observedPhoneNodeId != null && (observedPhoneNodeId.isBlank() ||
+            observedPhoneNodeId.length > 256 || observedPhoneNodeId.any(Char::isISOControl) ||
+            observedPhoneNodeId == request.targetNodeId)) {
+            return@withLock AcceptQuickStartResult.RejectedInvalid(
+                QuickStartValidationIssue(app.personal.workouttracker.shared.quickstart.QuickStartValidationCode.INVALID_SOURCE_NODE,
+                    field = "observedPhoneNodeId"),
+            )
+        }
         val validated = validateQuickStartRequest(request, receivedAtMillis)
         if (validated is QuickStartValidationResult.Invalid) {
             return@withLock AcceptQuickStartResult.RejectedInvalid(validated.issue)
         }
         val incoming = (validated as QuickStartValidationResult.Valid).sessionPackage
+            .copy(sourcePhoneNodeId = observedPhoneNodeId)
         val state = loadState()
         val recentHistory = state?.acknowledgedHistory.orEmpty().filter {
             receivedAtMillis <= it.replayUntilMillis
+        }
+        val recentTerminals = state?.terminalHistory.orEmpty().filter {
+            receivedAtMillis <= it.recordedAtMillis + QUICK_START_TTL_MILLIS + 2 * QUICK_START_CLOCK_SKEW_MILLIS
         }
         (recentHistory + listOfNotNull(state?.acknowledged).filter {
             receivedAtMillis <= it.replayUntilMillis
         })
             .firstOrNull { it.requestId == incoming.request.requestId }
             ?.let { return@withLock AcceptQuickStartResult.PreviouslyAcknowledged(it) }
+        (recentTerminals + listOfNotNull(state?.terminal))
+            .firstOrNull { it.requestId == incoming.request.requestId }
+            ?.let { return@withLock AcceptQuickStartResult.PreviouslyTerminated(it) }
         val existing = state?.sessionPackage?.takeUnless { sessionPackage ->
             sessionPackage.state == QuickStartPackageState.READY &&
                 receivedAtMillis > sessionPackage.expiresLocallyAtMillis
         }
         if (state?.sessionPackage != null && existing == null) {
-            val cleared = state.copy(sessionPackage = null, acknowledgedHistory = recentHistory)
+            val cleared = state.copy(sessionPackage = null, acknowledgedHistory = recentHistory,
+                terminalHistory = recentTerminals)
             persistOrClear(cleared)
         }
         if (existing != null) {
-            return@withLock if (existing.request == incoming.request) {
+            return@withLock if (existing.request == incoming.request &&
+                existing.sourcePhoneNodeId == incoming.sourcePhoneNodeId) {
                 AcceptQuickStartResult.Duplicate(existing)
             } else {
                 AcceptQuickStartResult.RejectedPending(existing)
             }
         }
-        val terminal = state?.terminal
-        if (terminal != null && terminal.requestId == incoming.request.requestId) {
-            return@withLock AcceptQuickStartResult.PreviouslyTerminated(terminal)
-        }
         val keptHistory = recentHistory + listOfNotNull(state?.acknowledged).filter {
             receivedAtMillis <= it.replayUntilMillis
         }
-        if (keptHistory.size >= MAX_ACKNOWLEDGED_HISTORY) {
+        val keptTerminals = recentTerminals + listOfNotNull(state?.terminal).filter {
+            receivedAtMillis <= it.recordedAtMillis + QUICK_START_TTL_MILLIS + 2 * QUICK_START_CLOCK_SKEW_MILLIS
+        }
+        if (keptHistory.size >= MAX_ACKNOWLEDGED_HISTORY ||
+            keptTerminals.size >= MAX_ACKNOWLEDGED_HISTORY) {
             return@withLock AcceptQuickStartResult.ReplayHistoryFull
         }
 
-        persistPackage(incoming, keptHistory)
+        persistPackage(incoming, keptHistory, keptTerminals)
         AcceptQuickStartResult.Accepted(incoming)
     }
 
@@ -193,7 +213,7 @@ class WatchSessionPackageStore(
         }
 
         val starting = current.copy(state = QuickStartPackageState.STARTING)
-        persistPackage(starting, state.acknowledgedHistory)
+        persistPackage(starting, state.acknowledgedHistory, state.terminalHistory)
         MarkQuickStartStartingResult.MarkedStarting(starting)
     }
 
@@ -249,6 +269,7 @@ class WatchSessionPackageStore(
         persistence.write(json.encodeToString(PersistedQuickStartPackage(
             acknowledged = acknowledged,
             acknowledgedHistory = state.acknowledgedHistory,
+            terminalHistory = state.terminalHistory,
         )))
         ReleaseAcknowledgedQuickStartResult.Released(acknowledged)
     }
@@ -282,7 +303,7 @@ class WatchSessionPackageStore(
             status = status,
             recordedAtMillis = nowEpochMillis,
         )
-        persistTerminal(terminal, state.acknowledgedHistory)
+        persistTerminal(terminal, state.acknowledgedHistory, state.terminalHistory)
         TerminateQuickStartResult.Terminated(terminal)
     }
 
@@ -333,13 +354,28 @@ class WatchSessionPackageStore(
             (state.acknowledgedHistory.map { it.requestId } + listOfNotNull(state.acknowledged?.requestId))
                 .distinct().size == state.acknowledgedHistory.size +
                 (if (state.acknowledged == null) 0 else 1)
+        val terminalHistoryIsValid = state.terminalHistory.size <= MAX_ACKNOWLEDGED_HISTORY &&
+            state.terminalHistory.all { record ->
+                record.status in setOf(QuickStartStatus.DISMISSED, QuickStartStatus.CANCELLED) &&
+                record.recordedAtMillis >= 0 && record.revision > 0 && record.requestId.isNotBlank() &&
+                    record.requestId.length <= 128 && record.requestId.none(Char::isISOControl) &&
+                    record.targetNodeId.isNotBlank() && record.targetNodeId.length <= 256 &&
+                    record.targetNodeId.none(Char::isISOControl)
+            } &&
+            (state.terminalHistory.map { it.requestId } + listOfNotNull(state.terminal?.requestId)).distinct().size ==
+                state.terminalHistory.size + (if (state.terminal == null) 0 else 1)
         val recordCount = listOf(state.sessionPackage, state.terminal, state.acknowledged).count { it != null }
         if (
             state.schemaVersion != QUICK_START_SCHEMA_VERSION ||
             (state.sessionPackage != null &&
                 state.sessionPackage.request.schemaVersion != QUICK_START_SCHEMA_VERSION) ||
-            (recordCount != 1 && (recordCount != 0 || state.acknowledgedHistory.isEmpty())) ||
-            !terminalIsValid || !acknowledgedIsValid || !historyIsValid
+            (state.sessionPackage?.sourcePhoneNodeId?.let { source ->
+                source.isBlank() || source.length > 256 || source.any(Char::isISOControl) ||
+                    source == state.sessionPackage.request.targetNodeId
+            } == true) ||
+            (recordCount != 1 && (recordCount != 0 ||
+                (state.acknowledgedHistory.isEmpty() && state.terminalHistory.isEmpty()))) ||
+            !terminalIsValid || !acknowledgedIsValid || !historyIsValid || !terminalHistoryIsValid
         ) {
             persistence.write(null)
             return null
@@ -350,23 +386,27 @@ class WatchSessionPackageStore(
     private suspend fun persistPackage(
         sessionPackage: WatchSessionPackage,
         history: List<AcknowledgedQuickStartRecord>,
+        terminalHistory: List<TerminalQuickStartRecord>,
     ) {
         persistence.write(json.encodeToString(PersistedQuickStartPackage(
             sessionPackage = sessionPackage, acknowledgedHistory = history,
+            terminalHistory = terminalHistory,
         )))
     }
 
     private suspend fun persistTerminal(
         terminal: TerminalQuickStartRecord,
         history: List<AcknowledgedQuickStartRecord>,
+        terminalHistory: List<TerminalQuickStartRecord>,
     ) {
         persistence.write(json.encodeToString(PersistedQuickStartPackage(
             terminal = terminal, acknowledgedHistory = history,
+            terminalHistory = terminalHistory,
         )))
     }
 
     private suspend fun persistOrClear(state: PersistedQuickStartPackage) {
-        if (state.acknowledgedHistory.isEmpty() && state.sessionPackage == null &&
+        if (state.acknowledgedHistory.isEmpty() && state.terminalHistory.isEmpty() && state.sessionPackage == null &&
             state.terminal == null && state.acknowledged == null
         ) persistence.write(null) else persistence.write(json.encodeToString(state))
     }

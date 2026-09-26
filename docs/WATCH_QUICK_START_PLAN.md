@@ -1,10 +1,10 @@
 # Watch Quick Start Plan
 
-Status: **Phase 0 in progress — foundations implemented; end-to-end flow not started**
+Status: **Phase 0 headless foundations complete; Phase 1 phone feature in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 15 — shared result/receipt contracts (included in this commit)**
-Previous checkpoint: `7596256 PST01: Freeze and retain ended quick start results`
+Latest checkpoint: **Iteration 16 — Phase 0 cue and protocol decisions (included in this commit)**
+Previous checkpoint: `61edf55 PST01: Share quick start result and receipt contracts`
 Last updated: **2026-09-26**
 
 ## Goal
@@ -146,6 +146,38 @@ Data Item removal, capability publication and paired delivery remain unimplement
 Transport receipt paths must use the guarded payload entry point; direct typed
 receipt operations are for previously validated records and headless fixtures.
 
+#### Ownership, cancellation and cleanup decision — 2026-09-26
+
+The watch stores the observed offer sender as `sourcePhoneNodeId` alongside the
+independent transient package. A duplicate from a different phone node cannot
+claim that package. Finalization must address the saved phone owner when one
+was recorded. Older ownerless local records remain readable; native delivery
+must always provide the observed node. The Android phone retains the permanent
+request/import record, while the watch retains one active package/result until
+its exact persisted-import receipt; no date-keyed download entry is created.
+
+Request, watch acknowledgement and cancellation use the request-scoped paths
+`/quick-start/request/{requestId}`, `/quick-start/ack/{requestId}`, and
+`/quick-start/cancel/{requestId}`. Cancel/Dismiss uses request revision + 1.
+The watch serializes it with Start: a READY cancellation writes a terminal
+tombstone; STARTING wins against cancellation and cannot be erased. Same-ID
+retries return the terminal decision. Recent dismissed/cancelled requests are
+kept through the request's possible replay window even after a newer offer;
+new requests are refused if the 64-record history is full. An expired READY
+offer can be cleared, but STARTING remains for explicit recovery and results.
+The phone may remove its request Data Item after the matching terminal watch
+acknowledgement has been persisted locally; the watch/phone may remove a result
+Data Item only after the phone persists import and the watch stores its exact
+receipt. Neither transport acceptance nor local timeout proves import.
+
+Native delivery must bind every inbound message to the observed Data Layer
+node, the selected node/capability and its exact request path. Schema 1 is
+supported now. Future schema 2 peers advertise it only after both codecs and
+stored-record migration exist; 1+2 peers fall back to 1 with a 1-only peer,
+and 2-only/1-only peers refuse. No older app is assumed compatible from its
+package ID alone. Headless rules and migration fixtures are present; native
+publication, listeners, Data Item deletion and paired-device proof remain open.
+
 ### Out of scope for the first release
 
 - Starting a workout silently without confirmation on the watch.
@@ -237,6 +269,47 @@ new transfer path.
 - Keep speech concise and sanitize user-entered exercise names. Cap the optional
   spoken brief so a cue cannot monopolize the session.
 - TTS is never required to start, rest, complete, persist, or sync a workout.
+
+#### Phase 0 cue contract — 2026-09-26
+
+The persisted preference defaults to voice off. When the user opts in, all four
+categories default to on and can then be disabled separately. System TTS voice
+and language are used; if that locale, engine, output route, or audio focus is
+unavailable, skip speech while retaining the visual state and haptic. TalkBack
+owns speech when active, so the cue adapter suppresses simultaneous TTS and
+provides the same concise accessibility label. The adapter must discover TTS
+services, initialize asynchronously, cancel obsolete utterances on route or
+focus change, and shut down on leaving the foreground session. These Android
+adapter behaviors remain Phase 2 implementation/device checks.
+
+`WatchCueScripts` fixes the first-version wording: a sanitized, 140-character
+maximum briefing of **“<exercise>. <sets> set(s) of <prescription> [at <load>].”**;
+**“Rest for <duration>. [Up next: <exercise>, <target>.]”** above ten seconds;
+**“Next: <exercise>.”** at six through ten seconds only if its estimated speech
+fits before the final five; no rest/preview speech at zero through five;
+**“Starting in five seconds.”**; **“Go.”**, **“Go. Set <n>.”**, or
+**“Go. <exercise>.”**; **“Exercise complete.”**; and
+**“Workout complete. Great work.”** Control characters and invisible format
+characters are removed. Unknown user prescriptions remain bounded plain text;
+the adapter uses the system language and does not invent coaching instructions.
+
+Cue IDs include the session, transition revision, exercise/set index, kind and
+deadline threshold. Terminal success outranks Go, Go outranks the warning, and
+informational speech is lowest. The cue controller owns one active utterance;
+pause, start now, restart, end, skip and navigation cancel obsolete speech.
+The success cue ledger records a key with the session transition before speech
+and retains it through recovery, then prunes only after result acknowledgement.
+The pure ledger and priority rules are tested; runtime atomic persistence and
+TTS wiring remain Phase 2 work.
+
+`RestCountdownLock` stores an interval ID, deadline and irreversible
+`finalCountdownStarted` flag. A new rest creates a new unlocked interval. At
+more than 5,000 ms left, an extension may move the deadline. At 5,000 ms or
+less the lock latches before a warning; no later extension changes the
+deadline. Pause/resume retains the lock, including after serialization and
+recovery. Start now and natural zero cancel the warning and finish once.
+The pure boundary/race fixture passes; `SessionViewModel` and UI enforcement
+remain in Phase 2's explicit checklist item.
 
 ### Start sequence
 
@@ -678,15 +751,15 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-26, Iteration 15
+### Progress audit — 2026-09-26, Iteration 16
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **23/97 items (24%) overall**:
+stands at **31/97 items (32%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
-| Phase 0 — foundations | **23/31 (74%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, completed-result receipts, recovery decisions, and focused fixtures exist |
+| Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **0/10 (0%)** | Not started |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
@@ -694,33 +767,30 @@ stands at **23/97 items (24%) overall**:
 
 The latest committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
-Iteration 15 adds a shared result/receipt wire-contract checklist item in this
-audited checkpoint. Phase 0's
-74% must not be reported as feature
+Iteration 15's shared result/receipt wire contract is committed in `61edf55`.
+Iteration 16 closes eight Phase 0 decisions with cue/rest boundary fixtures,
+observed phone ownership, and terminal replay history. Phase 0's
+100% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
 
 Preparation order for the next parts:
 
-1. Close the remaining Phase 0 cue decisions and fixtures, including the
-   final-countdown lock.
-2. Finish origin-node ownership, cancellation/transport cleanup and migration
-   decisions before Phase 1 transport wiring.
-3. Build the isolated Phase 1 phone bridge and React sheet.
-4. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
+1. Build the isolated Phase 1 phone bridge and React sheet.
+2. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
    UI using the persisted reducer output.
-5. Complete Phase 3 recovery/regression wiring before Phase 4 physical-device,
+3. Complete Phase 3 recovery/regression wiring before Phase 4 physical-device,
    Play internal-track, audio-routing, and battery acceptance.
 
 ### Phase 0 — Domain, persistence, decisions, and contract fixtures
 
-Status: **In progress — contract, store, gate, cancellation, summary, reducer, outcome persistence, capability, and completed-result retention slices passed**
+Status: **Headless code/contract foundations complete; native wiring and device proof belong to later phases**
 
 - [x] Confirm entry points: single exercise, current Library playlist, explicit
       Library multi-select, and Today row.
 - [x] Confirm the existing 24-item maximum and all-or-nothing rejection policy.
 - [x] Confirm pending-offer policy: reject a second request with
       `pending_request` in the first release.
-- [ ] Define `WatchSessionPackage`, phone ownership, transient watch retention,
+- [x] Define `WatchSessionPackage`, phone ownership, transient watch retention,
       result acknowledgement, and removal independently of the date-keyed store.
 - [x] Implement isolated one-package Wear persistence with local received-time
       expiry, malformed/stale cleanup, duplicate idempotency, and pending-request
@@ -738,15 +808,15 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
 - [x] Persist and serialize the package's atomic `READY` to `STARTING`
       transition across store recreation; navigation behavior remains open.
 - [x] Confirm five-minute request expiry with 30 seconds of clock-skew tolerance.
-- [ ] Confirm voice defaults: explicit opt-in, all four cue categories enabled
+- [x] Confirm voice defaults: explicit opt-in, all four cue categories enabled
       after opt-in, and system TTS language.
-- [ ] Confirm the exact start/rest/exercise-success/workout-success scripts and
+- [x] Confirm the exact start/rest/exercise-success/workout-success scripts and
       maximum spoken-brief length.
-- [ ] Define cue-event keys, priority, cancellation, and recovery behavior.
-- [ ] Confirm the final-countdown lock: extensions allowed above five seconds,
+- [x] Define cue-event keys, priority, cancellation, and recovery behavior.
+- [x] Confirm the final-countdown lock: extensions allowed above five seconds,
       atomically disabled at five seconds, lock retained through pause/recovery.
 - [x] Define request/ack models and non-regressing revision-based state ordering.
-- [ ] Define cancellation races, revisions, node binding, Data Item paths and
+- [x] Define cancellation races, revisions, node binding, Data Item paths and
       cleanup, clock-skew tolerance, capability handshake, and schema migration.
 - [x] Implement revisioned local Dismiss/Cancel persistence: `READY` becomes a
       replay-safe terminal tombstone, `STARTING` wins over termination, and
@@ -778,7 +848,7 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
       sender, target node, request/plan, path and revision validation. Preserve
       legacy disk records and immutable compacted receipt replay; native phone
       import, origin-node persistence and transport wiring remain open.
-- [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
+- [x] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
 - [x] Add the first shared request/acknowledgement validation, transient-package
@@ -792,7 +862,7 @@ Exit checks:
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
 - [x] Shared capability negotiation and mixed phone/watch-version fixtures
       pass, including schema-1 fallback and incompatible schema refusal.
-- [ ] Contract fields and chosen decisions are recorded in this document.
+- [x] Contract fields and chosen decisions are recorded in this document.
 
 ### Phase 1 — Phone bridge and React feature shell
 
@@ -1016,15 +1086,13 @@ final records, exact phone receipts, offline recovery, and guarded cleanup exist
 but native sender/receiver and UI do not. Iteration 12 adds a shared capability
 envelope and schema-1 negotiation with mixed-version fixtures. Iteration 15 adds
 shared final-result/receipt codecs and a guarded Wear payload entry point. All 73 shared
-and 87 Wear tests and the Wear debug build pass. Physical-device acceptance
+and 100 Wear tests and the Wear debug build pass. Physical-device acceptance
 remains open.
-**Current phase:** Phase 0 — Domain, persistence, decisions, and contract
-fixtures.
-**Exact next action:** settle the remaining Phase 0 cue scripts, event keys,
-priority/cancellation and recovery rules, then implement the pure cue ledger and
-five-second rest-extension lock with boundary tests before native adapters/UI.
-**Do not start with UI code:** stabilize the shared request/acknowledgement
-contract and state ordering first.
+**Current phase:** Phase 1 — Phone bridge and React feature shell.
+**Exact next action:** build the isolated Phase 1 phone bridge, request/receipt
+store and React sheet with capability gating and mocked status fixtures.
+Keep Send gated until native discovery confirms a reachable, compatible watch;
+transport acceptance cannot display Ready on watch.
 
 At the end of every future session, update this marker, the relevant phase
 checkboxes, and `IMPLEMENTATION_PROGRESS.md` with commands/results and the exact

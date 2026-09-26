@@ -23,6 +23,18 @@ import org.junit.Test
 
 class QuickStartResultRetentionTest {
     @Test
+    fun `final result cannot change the observed offer phone owner`() = runTest {
+        val fixture = fixture()
+        fixture.outcomes.apply(REQUEST_ID,
+            WorkoutOutcomeTransition(1, "item", WorkoutOutcomeTransitionType.SET_COMPLETED))
+        assertEquals(
+            SaveCompletedQuickStartResult.OutcomeMismatch,
+            fixture.coordinator.saveFinal(fixture.syntheticResult().copy(phoneNodeId = "other-phone"), NOW),
+        )
+        assertNull(fixture.outcomes.frozenResult())
+        assertNull(fixture.results.pendingResult())
+    }
+    @Test
     fun `transport acceptance leaves result and progress until exact phone receipt`() = runTest {
         val fixture = fixture()
         val result = fixture.finishAndSave()
@@ -381,7 +393,7 @@ class QuickStartResultRetentionTest {
         )
 
         suspend fun setup(start: Boolean = true) {
-            packages.accept(request, NOW)
+            packages.accept(request, NOW, PHONE_NODE)
             if (start) packages.markStarting(REQUEST_ID, 1, NOW)
             outcomes.initialize(REQUEST_ID, "Workout", listOf(WorkoutExerciseOutcomePlan("item", "exercise", "Squat", 1)))
         }

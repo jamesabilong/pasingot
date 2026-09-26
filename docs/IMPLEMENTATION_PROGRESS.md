@@ -847,3 +847,48 @@ import transactions, transport cleanup, UI/runtime integration and physical
 acceptance. Next action: finalize Phase 0 cue scripts/event keys/priority and
 recovery rules, then implement the pure cue ledger and five-second extension
 lock with boundary tests before native cue adapters or UI.
+
+## Iteration 16 — 2026-09-26 — Stage 19 Phase 0 cue and protocol foundations
+
+Status: **Headless Phase 0 complete and included in this audited checkpoint; native/device acceptance open**.
+
+Starting checkpoint: `61edf55 PST01: Share quick start result and receipt contracts`.
+The tree was clean when this iteration began. The local origin tracking ref
+matched HEAD at the start; no fetch or push has been made in this iteration.
+
+Audit findings: ownerless package data could let a duplicate from another phone
+node be treated as the same offer. Dismissed/cancelled tombstones were lost when
+a later offer was accepted, allowing an old request replay during its valid
+window. The five-second rest threshold needs a persisted latch so pause/recovery
+cannot enable extensions or replay a stale warning.
+
+Implemented:
+
+- Added optional observed `sourcePhoneNodeId` to the transient package. New
+  accepted offers bind to the actual Data Layer sender; a different sender
+  cannot claim a duplicate, and finalization checks the saved owner. Existing
+  ownerless stored records remain readable for migration.
+- Retained bounded dismissed/cancelled history through the replay horizon.
+  When 64 records are still live, the store refuses a new offer rather than
+  evicting replay protection. STARTING and exact result receipt cleanup remain
+  separate from the date-keyed download repository.
+- Added opt-in cue preferences, bounded deterministic scripts, short-rest
+  suppression, event priority/identity, a serializable success ledger, and a
+  serializable rest countdown lock. The lock allows extension above five seconds,
+  rejects it at/below five, survives pause/recovery, and terminates on Start now.
+  These are Phase 0 rules; SessionViewModel, Compose and TTS adapter wiring stay
+  in Phase 2.
+- Recorded phone ownership, cancellation/cleanup, capability migration,
+  TalkBack/audio fallback and TTS lifecycle decisions in the Watch Quick Start
+  plan. Eight Phase 0 decisions/checks are closed after headless evidence.
+
+Validation: `gradlew.bat :shared:test :wear:testDebugUnitTest :wear:assembleDebug
+:app:testDebugUnitTest --no-daemon --quiet` passed with 73 shared, 100 Wear, and
+one phone test. Boundary fixtures cover six-second extension, five-second
+refusal, pause recovery, short rests and 64 terminal replay records. The Wear
+debug build and `git diff --check` passed. Phase 0 is **31/31 (100%)**; Stage 19
+is **31/97 (32%)**. These are code/decision checks, not end-to-end or physical
+watch acceptance.
+
+Next action: build the isolated Phase 1 Android phone bridge and React feature
+shell; keep the browser send control gated on a reachable compatible watch.
