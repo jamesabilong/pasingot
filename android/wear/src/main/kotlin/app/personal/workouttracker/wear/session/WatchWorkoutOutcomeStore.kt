@@ -2,6 +2,8 @@ package app.personal.workouttracker.wear.session
 
 import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.quickstart.ConfirmedQuickStartResult
+import app.personal.workouttracker.wear.quickstart.FinalQuickStartResult
+import app.personal.workouttracker.wear.quickstart.isValid
 import app.personal.workouttracker.wear.quickstart.QuickStartResultReceipt
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,6 +22,8 @@ interface WorkoutOutcomePersistence {
 
 interface WorkoutOutcomeStore {
     suspend fun current(): WorkoutOutcomeState?
+    suspend fun frozenResult(): FinalQuickStartResult?
+    suspend fun freeze(result: FinalQuickStartResult): FreezeWorkoutOutcomeResult
     suspend fun initialize(
         sessionId: String,
         title: String?,
@@ -34,6 +38,13 @@ interface WorkoutOutcomeStore {
 
 enum class ClearAcknowledgedOutcomeResult { CLEARED, ALREADY_CLEARED, MISMATCH }
 
+sealed interface FreezeWorkoutOutcomeResult {
+    data class Frozen(val result: FinalQuickStartResult) : FreezeWorkoutOutcomeResult
+    data class Existing(val result: FinalQuickStartResult) : FreezeWorkoutOutcomeResult
+    data class Conflict(val result: FinalQuickStartResult) : FreezeWorkoutOutcomeResult
+    data object OutcomeMismatch : FreezeWorkoutOutcomeResult
+}
+
 sealed interface InitializeWorkoutOutcomeResult {
     data class Initialized(val state: WorkoutOutcomeState) : InitializeWorkoutOutcomeResult
     data class Existing(val state: WorkoutOutcomeState) : InitializeWorkoutOutcomeResult
@@ -45,9 +56,10 @@ sealed interface ApplyWorkoutOutcomeResult {
     data class Reduced(val result: WorkoutOutcomeTransitionResult) : ApplyWorkoutOutcomeResult
     data object Missing : ApplyWorkoutOutcomeResult
     data object SessionMismatch : ApplyWorkoutOutcomeResult
+    data class Finalized(val result: FinalQuickStartResult) : ApplyWorkoutOutcomeResult
 }
 
-private const val OUTCOME_STATE_SCHEMA_VERSION = 1
+private const val OUTCOME_STATE_SCHEMA_VERSION = 2
 
 @Serializable
 private data class PersistedWorkoutOutcome(
@@ -56,6 +68,7 @@ private data class PersistedWorkoutOutcome(
     val state: WorkoutOutcomeState? = null,
     val clearedReceipt: QuickStartResultReceipt? = null,
     val clearedSessionId: String? = null,
+    val frozenResult: FinalQuickStartResult? = null,
 )
 
 /**
@@ -80,12 +93,32 @@ class WatchWorkoutOutcomeStore(
         loadState()
     }
 
+    override suspend fun frozenResult(): FinalQuickStartResult? = processMutex.withLock {
+        loadRecord()?.frozenResult
+    }
+
+    /** Persist exact terminal metadata with the outcomes before enqueueing a final result. */
+    override suspend fun freeze(result: FinalQuickStartResult): FreezeWorkoutOutcomeResult = processMutex.withLock {
+        require(result.isValid()) { "Invalid final Quick Start result" }
+        val record = loadRecord() ?: return@withLock FreezeWorkoutOutcomeResult.OutcomeMismatch
+        record.frozenResult?.let { existing ->
+            return@withLock if (existing == result) FreezeWorkoutOutcomeResult.Existing(existing)
+            else FreezeWorkoutOutcomeResult.Conflict(existing)
+        }
+        val state = record.state ?: return@withLock FreezeWorkoutOutcomeResult.OutcomeMismatch
+        if (!state.matches(result)) return@withLock FreezeWorkoutOutcomeResult.OutcomeMismatch
+        persistence.write(json.encodeToString(record.copy(
+            schemaVersion = OUTCOME_STATE_SCHEMA_VERSION, frozenResult = result,
+        )))
+        FreezeWorkoutOutcomeResult.Frozen(result)
+    }
+
     override suspend fun initialize(
         sessionId: String,
         title: String?,
         exercises: List<WorkoutExerciseOutcomePlan>,
     ): InitializeWorkoutOutcomeResult = processMutex.withLock {
-        // Validate before touching storage, including before corrupt-state cleanup.
+        // Validate before touching storage; unreadable records fail closed.
         val initial = newWorkoutOutcomeState(sessionId, title, exercises)
         val record = loadRecord()
         if (record?.clearedSessionId == sessionId && record.clearedReceipt != null) {
@@ -113,8 +146,10 @@ class WatchWorkoutOutcomeStore(
         sessionId: String,
         transition: WorkoutOutcomeTransition,
     ): ApplyWorkoutOutcomeResult = processMutex.withLock {
-        val state = loadState() ?: return@withLock ApplyWorkoutOutcomeResult.Missing
+        val record = loadRecord()
+        val state = record?.state ?: return@withLock ApplyWorkoutOutcomeResult.Missing
         if (state.sessionId != sessionId) return@withLock ApplyWorkoutOutcomeResult.SessionMismatch
+        record.frozenResult?.let { return@withLock ApplyWorkoutOutcomeResult.Finalized(it) }
         val result = reduceWorkoutOutcome(state, transition)
         if (result.code == WorkoutOutcomeTransitionResultCode.APPLIED) {
             persist(result.state)
@@ -131,14 +166,9 @@ class WatchWorkoutOutcomeStore(
         }
         val state = persisted?.state ?: return@withLock ClearAcknowledgedOutcomeResult.ALREADY_CLEARED
         val result = confirmed.result
-        if (
-            state.sessionId != result.summary.snapshot.sessionId ||
-            state.lastAppliedRevision != result.outcomeRevision ||
-            state.toProgressSnapshot(
-                elapsedActiveSeconds = result.summary.snapshot.elapsedActiveSeconds,
-                estimatedDurationSeconds = result.summary.snapshot.estimatedDurationSeconds,
-            ) != result.summary.snapshot
-        ) return@withLock ClearAcknowledgedOutcomeResult.MISMATCH
+        if (!state.matches(result) || (persisted.frozenResult != null && persisted.frozenResult != result)) {
+            return@withLock ClearAcknowledgedOutcomeResult.MISMATCH
+        }
         persistence.write(json.encodeToString(PersistedWorkoutOutcome(
             OUTCOME_STATE_SCHEMA_VERSION, clearedReceipt = confirmed.receipt, clearedSessionId = state.sessionId,
         )))
@@ -158,24 +188,31 @@ class WatchWorkoutOutcomeStore(
             null
         }
         if (
-            persisted == null || persisted.schemaVersion != OUTCOME_STATE_SCHEMA_VERSION ||
+            persisted == null || persisted.schemaVersion !in 1..OUTCOME_STATE_SCHEMA_VERSION ||
             (persisted.state == null && persisted.clearedReceipt == null) ||
             ((persisted.clearedReceipt == null) != (persisted.clearedSessionId == null)) ||
             (persisted.state != null && !persisted.state.isValidPersistedOutcome())
         ) {
-            persistence.write(null)
-            return null
+            // Even undecodable bytes may hold the only copy of frozen final metadata.
+            throw IllegalStateException("Stored workout outcomes are unreadable")
         }
+        if (persisted.frozenResult != null &&
+            (!persisted.frozenResult.isValid() || persisted.state?.matches(persisted.frozenResult) != true)
+        ) throw IllegalStateException("Stored final outcomes are inconsistent")
         return persisted
     }
 
     private suspend fun persist(state: WorkoutOutcomeState) {
         val prior = loadRecord()
         persistence.write(json.encodeToString(PersistedWorkoutOutcome(
-            OUTCOME_STATE_SCHEMA_VERSION, state, prior?.clearedReceipt, prior?.clearedSessionId,
+            OUTCOME_STATE_SCHEMA_VERSION, state, prior?.clearedReceipt, prior?.clearedSessionId, prior?.frozenResult,
         )))
     }
 }
+
+private fun WorkoutOutcomeState.matches(result: FinalQuickStartResult): Boolean =
+    sessionId == result.snapshot.sessionId && lastAppliedRevision == result.outcomeRevision &&
+        toProgressSnapshot(result.snapshot.elapsedActiveSeconds, result.snapshot.estimatedDurationSeconds) == result.snapshot
 
 private fun WorkoutOutcomeState.isValidPersistedOutcome(): Boolean {
     try {

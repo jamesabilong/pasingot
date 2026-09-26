@@ -66,6 +66,7 @@ enum class WorkoutSummaryValidationCode {
     INVALID_SET_COUNTS,
     INVALID_DURATION,
     PENDING_COMPLETION,
+    NO_PENDING_END,
     INVALID_COMPLETION_TIME,
 }
 

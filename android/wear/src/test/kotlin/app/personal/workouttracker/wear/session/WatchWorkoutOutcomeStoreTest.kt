@@ -15,7 +15,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -101,7 +100,7 @@ class WatchWorkoutOutcomeStoreTest {
     }
 
     @Test
-    fun `malformed unsupported and inconsistent records are cleared before recovery`() = runTest {
+    fun `malformed unsupported and inconsistent records are retained and block replacement`() = runTest {
         val initial = newWorkoutOutcomeState(SESSION_ID, null, plan())
         val partial = reduceWorkoutOutcome(initial, set(1)).state
         val invalid = listOf(
@@ -123,12 +122,10 @@ class WatchWorkoutOutcomeStoreTest {
         invalid.forEach { raw ->
             val persistence = MemoryPersistence(raw)
             val store = WatchWorkoutOutcomeStore(persistence)
-            assertNull("Expected cleanup for $raw", store.current())
-            assertNull(persistence.raw)
-            assertEquals(1, persistence.writes)
-            assertNull(store.current())
-            assertEquals(1, persistence.writes)
-            assertTrue(store.initialize(SESSION_ID, null, plan()) is InitializeWorkoutOutcomeResult.Initialized)
+            expectFailure<IllegalStateException> { store.current() }
+            expectFailure<IllegalStateException> { store.initialize(SESSION_ID, null, plan()) }
+            assertEquals(raw, persistence.raw)
+            assertEquals(0, persistence.writes)
         }
     }
 
@@ -220,7 +217,7 @@ class WatchWorkoutOutcomeStoreTest {
     }
 
     @Test
-    fun `read failures cancellation and failed cleanup do not silently erase state`() = runTest {
+    fun `read failures cancellation and malformed storage do not silently erase state`() = runTest {
         val persistence = MemoryPersistence(record(newWorkoutOutcomeState(SESSION_ID, null, plan())))
         val store = WatchWorkoutOutcomeStore(persistence)
         val before = persistence.raw
@@ -232,11 +229,13 @@ class WatchWorkoutOutcomeStoreTest {
         assertEquals(0, persistence.writes)
         persistence.readFailure = null
         persistence.raw = "corrupt"
-        persistence.beforeWrite = { throw IOException("cannot clear") }
-        expectFailure<IOException> { store.current() }
+        persistence.beforeWrite = { throw IOException("writes must not occur") }
+        expectFailure<IllegalStateException> { store.current() }
         assertEquals("corrupt", persistence.raw)
+        assertEquals(0, persistence.writes)
         persistence.beforeWrite = {}
-        assertNull(store.current())
+        expectFailure<IllegalStateException> { store.current() }
+        assertEquals("corrupt", persistence.raw)
     }
 
     @Test

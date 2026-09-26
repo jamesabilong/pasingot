@@ -20,8 +20,8 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest local committed checkpoint: `0e7dee1 PST01: Define watch quick start
-  capability`. It includes Stage 19 Iteration 12 and has not been pushed in
+- Latest local committed checkpoint: `bffe396 PST01: Retain quick start results
+  until phone receipt`. It includes Stage 19 Iteration 13 and has not been pushed in
   this task. The earlier `92ef2cb` checkpoint matched the local `origin/PST01`
   tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
   earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
@@ -48,7 +48,8 @@ Update that log during every implementation iteration, not only at handoff.
 - Stage 19's reducer/progress-presentation slice is committed in `92ef2cb`.
   Iteration 11's outcome persistence adapter is committed in `341a1f9`;
   Iteration 12's shared capability negotiation is committed in `0e7dee1`.
-  Iteration 13's completed-result retention is included in this audited
+  Iteration 13's completed-result retention is committed in `bffe396`.
+  Iteration 14 adds ended-result retention and durable finalization in this
   checkpoint. See `IMPLEMENTATION_PROGRESS.md` for recovery/failure evidence.
 - 2026-09-03 audit: a full code-review pass over everything since `bce661a`
   (Stages 10-17) found and fixed 10 issues, including a build-breaking
@@ -72,7 +73,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **21/96 checklist items (22%) overall**; Phase 0 foundations are **21/30 (70%)**. Contracts, transient storage, arbitration, cancellation, summaries, persisted outcomes, capability negotiation, and a guarded completed-result receipt/cleanup path exist; 48 shared and 71 Wear tests plus the Wear debug build pass | Next small slice: ended-result retention and shared phone receipt payload; then remaining Phase 0 cue decisions before phone/watch UI. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **22/96 checklist items (23%) overall**; Phase 0 foundations are **22/30 (73%)**. Contracts, transient storage, arbitration, cancellation, summaries, persisted outcomes, capability negotiation, and a guarded completed-result receipt/cleanup path exist; 54 shared and 81 Wear tests plus the Wear debug build pass | Next small slice: shared final-result and phone receipt payloads; then remaining Phase 0 cue decisions before phone/watch UI. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 transport, phone/Watch UI, session integration, cues/success, result acknowledgement, and device acceptance; Phase 0 contract/store foundations are partial | Follow the plan's isolated feature modules and resumable phase checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |

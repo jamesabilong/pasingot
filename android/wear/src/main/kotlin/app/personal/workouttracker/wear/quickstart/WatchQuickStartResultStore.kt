@@ -1,6 +1,9 @@
 package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.session.WorkoutCompletionSummary
+import app.personal.workouttracker.shared.session.WorkoutEndedSummary
+import app.personal.workouttracker.shared.session.WorkoutProgressSnapshot
+import app.personal.workouttracker.shared.session.validateWorkoutEndedSummary
 import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.shared.session.validateWorkoutCompletionSummary
 import kotlinx.coroutines.sync.Mutex
@@ -23,8 +26,11 @@ data class FinalQuickStartResult(
     val resultId: String,
     val outcomeRevision: Long,
     val phoneNodeId: String,
-    val summary: WorkoutCompletionSummary,
-)
+    val summary: WorkoutCompletionSummary? = null,
+    val endedSummary: WorkoutEndedSummary? = null,
+) {
+    val snapshot: WorkoutProgressSnapshot get() = summary?.snapshot ?: requireNotNull(endedSummary).snapshot
+}
 
 /** The importing phone must echo the exact result identity and outcome revision. */
 @Serializable
@@ -74,10 +80,9 @@ private data class PersistedQuickStartResult(
 )
 
 /**
- * One durable final completion result plus its phone receipt. Transport
+ * One durable final completed or ended result plus its phone receipt. Transport
  * acceptance never changes this record. Compaction retains a small receipt
  * tombstone so a replayed completion cannot recreate an acknowledged result.
- * An ended-before-completion result shape remains for a later contract slice.
  */
 class WatchQuickStartResultStore(private val persistence: QuickStartResultPersistence) {
     private companion object {
@@ -88,6 +93,8 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
         load()?.takeIf { it.receipt == null }?.finalResult
     }
 
+    suspend fun storedReceipt(): QuickStartResultReceipt? = processMutex.withLock { load()?.receipt }
+
     suspend fun confirmed(): ConfirmedQuickStartResult? = processMutex.withLock {
         val state = load() ?: return@withLock null
         val result = state.finalResult ?: return@withLock null
@@ -95,20 +102,30 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
         ConfirmedQuickStartResult(result, receipt)
     }
 
+    /** Read before freezing outcomes; legacy saved results may not yet have a freeze marker. */
+    suspend fun existingFor(result: FinalQuickStartResult): SaveQuickStartResult? = processMutex.withLock {
+        existingFor(load(), result)
+    }
+
     suspend fun save(result: FinalQuickStartResult): SaveQuickStartResult = processMutex.withLock {
         require(result.isValid()) { "Invalid final Quick Start result" }
         val state = load()
+        existingFor(state, result)?.let { return@withLock it }
+        persist(PersistedQuickStartResult(RESULT_STORE_SCHEMA, finalResult = result))
+        SaveQuickStartResult.Saved(result)
+    }
+
+    private fun existingFor(state: PersistedQuickStartResult?, result: FinalQuickStartResult): SaveQuickStartResult? {
         state?.finalResult?.let { existing ->
-            return@withLock if (existing == result) SaveQuickStartResult.Existing(existing)
+            return if (existing == result) SaveQuickStartResult.Existing(existing)
             else SaveQuickStartResult.Conflict(existing)
         }
         state?.receipt?.let { receipt ->
             if (receipt.requestId == result.requestId || receipt.resultId == result.resultId) {
-                return@withLock SaveQuickStartResult.AlreadyAcknowledged(receipt)
+                return SaveQuickStartResult.AlreadyAcknowledged(receipt)
             }
         }
-        persist(PersistedQuickStartResult(RESULT_STORE_SCHEMA, finalResult = result))
-        SaveQuickStartResult.Saved(result)
+        return null
     }
 
     suspend fun acceptReceipt(
@@ -175,16 +192,18 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
     }
 }
 
-private fun FinalQuickStartResult.isValid(): Boolean =
+internal fun FinalQuickStartResult.isValid(): Boolean =
     requestId.isNotBlank() && requestId.length <= 128 &&
         resultId.isNotBlank() && resultId.length <= 128 &&
         phoneNodeId.isNotBlank() && phoneNodeId.length <= 256 &&
         listOf(requestId, resultId, phoneNodeId).none { value -> value.any(Char::isISOControl) } &&
         outcomeRevision >= 0 &&
-        outcomeRevision == summary.snapshot.exercises.sumOf {
+        ((summary == null) != (endedSummary == null)) &&
+        (summary == null || validateWorkoutCompletionSummary(summary) == null) &&
+        (endedSummary == null || validateWorkoutEndedSummary(endedSummary) == null) &&
+        outcomeRevision == snapshot.exercises.sumOf {
             it.completedSets.toLong() + if (it.status == ExerciseOutcomeStatus.SKIPPED) 1L else 0L
-        } &&
-        validateWorkoutCompletionSummary(summary) == null
+        }
 
 private fun QuickStartResultReceipt.isValid(): Boolean =
     requestId.isNotBlank() && resultId.isNotBlank() && phoneNodeId.isNotBlank() &&

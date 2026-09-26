@@ -7,7 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -45,8 +45,12 @@ class DataStoreWorkoutOutcomePersistenceTest {
             assertEquals(1, replay.result.state.exercises[0].completedSets)
 
             persistence.write("malformed")
-            assertNull(restored.current())
-            assertNull(persistence.read())
+            try {
+                restored.current()
+                fail("Unreadable outcomes must block recovery")
+            } catch (_: IllegalStateException) {
+                assertEquals("malformed", persistence.read())
+            }
         } finally {
             secondJob.cancelAndJoin()
         }

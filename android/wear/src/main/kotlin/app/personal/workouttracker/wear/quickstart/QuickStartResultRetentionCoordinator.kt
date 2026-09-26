@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.wear.session.ClearAcknowledgedOutcomeResult
+import app.personal.workouttracker.wear.session.FreezeWorkoutOutcomeResult
 import app.personal.workouttracker.wear.session.WorkoutOutcomeStore
 import app.personal.workouttracker.wear.session.toProgressSnapshot
 import kotlinx.coroutines.sync.Mutex
@@ -12,6 +13,7 @@ sealed interface SaveCompletedQuickStartResult {
     data object MissingPackage : SaveCompletedQuickStartResult
     data object NotStarting : SaveCompletedQuickStartResult
     data object OutcomeMismatch : SaveCompletedQuickStartResult
+    data class FinalizedConflict(val result: FinalQuickStartResult) : SaveCompletedQuickStartResult
 }
 
 enum class AcknowledgeQuickStartCompletionResult {
@@ -42,7 +44,21 @@ class QuickStartResultRetentionCoordinator(
     suspend fun saveCompleted(
         result: FinalQuickStartResult,
         nowEpochMillis: Long,
+    ): SaveCompletedQuickStartResult {
+        require(result.summary != null && result.endedSummary == null) { "Expected a completed result" }
+        return saveFinal(result, nowEpochMillis)
+    }
+
+    suspend fun saveFinal(
+        result: FinalQuickStartResult,
+        nowEpochMillis: Long,
     ): SaveCompletedQuickStartResult = processMutex.withLock {
+        require(result.isValid()) { "Invalid final Quick Start result" }
+        results.existingFor(result)?.let { existing ->
+            if (existing !is SaveQuickStartResult.Existing) {
+                return@withLock SaveCompletedQuickStartResult.Stored(existing)
+            }
+        }
         val sessionPackage = packages.current(nowEpochMillis)
             ?: return@withLock SaveCompletedQuickStartResult.MissingPackage
         if (sessionPackage.request.requestId != result.requestId) {
@@ -52,7 +68,7 @@ class QuickStartResultRetentionCoordinator(
             return@withLock SaveCompletedQuickStartResult.NotStarting
         }
         val state = outcomes.current() ?: return@withLock SaveCompletedQuickStartResult.OutcomeMismatch
-        val snapshot = result.summary.snapshot
+        val snapshot = result.snapshot
         if (
             snapshot.sessionId != result.requestId ||
             sessionPackage.request.exercises.map { listOf(it.itemId, it.exerciseId, it.exerciseName, it.sets) } !=
@@ -60,8 +76,21 @@ class QuickStartResultRetentionCoordinator(
             state.sessionId != snapshot.sessionId || state.lastAppliedRevision != result.outcomeRevision ||
             state.toProgressSnapshot(snapshot.elapsedActiveSeconds, snapshot.estimatedDurationSeconds) != snapshot
         ) return@withLock SaveCompletedQuickStartResult.OutcomeMismatch
-        SaveCompletedQuickStartResult.Stored(results.save(result))
+        when (val frozen = outcomes.freeze(result)) {
+            is FreezeWorkoutOutcomeResult.Frozen, is FreezeWorkoutOutcomeResult.Existing ->
+                SaveCompletedQuickStartResult.Stored(results.save(result))
+            is FreezeWorkoutOutcomeResult.Conflict -> SaveCompletedQuickStartResult.FinalizedConflict(frozen.result)
+            FreezeWorkoutOutcomeResult.OutcomeMismatch -> SaveCompletedQuickStartResult.OutcomeMismatch
+        }
     }
+
+    /** Recovery uses the saved IDs/timestamp instead of constructing another terminal result. */
+    suspend fun resumeFinalization(nowEpochMillis: Long): SaveCompletedQuickStartResult? =
+        outcomes.frozenResult()?.let { saveFinal(it, nowEpochMillis) }
+
+    /** The stored receipt already passed sender validation; no reconnect is needed for cleanup. */
+    suspend fun resumeAcknowledgedCleanup(): AcknowledgeQuickStartCompletionResult? =
+        results.storedReceipt()?.let { acknowledgeAndPrune(it, it.phoneNodeId) }
 
     suspend fun acknowledgeAndPrune(
         receipt: QuickStartResultReceipt,

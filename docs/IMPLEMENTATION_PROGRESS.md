@@ -759,3 +759,46 @@ Wear debug APK build passes, and whitespace checks pass. Five new regressions
 cover delayed compaction, newer outcomes, acknowledged history, package-plan
 binding, and acknowledged-session resurrection. Independent audit found no
 further blocking issue in this checkpoint. No native/device claim is added.
+
+## Iteration 14 — 2026-09-26 — Stage 19 ended results and terminal outcome freeze
+
+Status: **Completed locally and included in this audited checkpoint — shared/Wear
+tests and Wear debug build pass. Native/device validation remains open**.
+
+Starting checkpoint: `bffe396 PST01: Retain quick start results until phone receipt`.
+That audited checkpoint passed 48 shared/71 Wear tests and the Wear debug build.
+No remote fetch or push occurred.
+
+Finding: a completed result cannot describe a workout ended with pending
+exercises. Saving a separate ended snapshot without freezing the outcome store
+would permit later set/skip events to change the revision and strand receipt
+cleanup. Final metadata must survive a failure before result enqueue.
+
+Implemented:
+
+- Shared ended-summary variant preserves pending counts, supports zero sets,
+  and distinguishes ending from completion. Existing completion JSON remains
+  readable; exactly one terminal summary is required.
+- The outcome store atomically freezes the exact final result with its current
+  snapshot/revision. Frozen sessions reject subsequent transitions, and recovery
+  reuses the original ID, timestamp, node and summary after a failed enqueue.
+- Outcome envelope schema 2 records terminal state; valid schema-1 outcomes are
+  still readable and upgrade on write. Invalid/future bytes now fail closed and
+  remain untouched. This supersedes Iteration 11's destructive invalid-state
+  cleanup, because the record can now contain the only saved terminal metadata.
+
+Audit corrections: preflight existing results before freezing so regenerated
+metadata cannot strand a legacy completion; expose persisted receipt recovery
+so cleanup can finish offline after compaction succeeds but package release
+fails. No further blocking finding remained after independent review.
+
+Validation: `gradlew.bat :shared:test :wear:testDebugUnitTest :wear:assembleDebug
+--no-daemon --quiet` passed: 54 shared and 81 Wear tests. Six new shared tests
+cover ended-summary invariants; ten Wear cases cover zero/partial endings,
+concurrent transitions/freeze, failure before/after writes, exact metadata
+recovery, legacy completion upgrades/conflicts, and offline cleanup. Whitespace
+checks passed. Stage 19 is 22/96 (23%); Phase 0 is 22/30 (73%).
+
+Remaining: native session integration and device validation. Forward migration
+is verified; downgrading to older builds that erase unsupported records is not
+supported. Next checkpoint: shared result/receipt codec and sender-node binding.
