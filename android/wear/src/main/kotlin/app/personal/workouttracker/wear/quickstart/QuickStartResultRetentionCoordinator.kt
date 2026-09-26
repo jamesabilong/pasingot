@@ -1,6 +1,7 @@
 package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
+import app.personal.workouttracker.shared.quickstart.isValidQuickStartResultForWire
 import app.personal.workouttracker.wear.session.ClearAcknowledgedOutcomeResult
 import app.personal.workouttracker.wear.session.FreezeWorkoutOutcomeResult
 import app.personal.workouttracker.wear.session.WorkoutOutcomeStore
@@ -53,7 +54,7 @@ class QuickStartResultRetentionCoordinator(
         result: FinalQuickStartResult,
         nowEpochMillis: Long,
     ): SaveCompletedQuickStartResult = processMutex.withLock {
-        require(result.isValid()) { "Invalid final Quick Start result" }
+        require(isValidQuickStartResultForWire(result)) { "Invalid final Quick Start wire result" }
         results.existingFor(result)?.let { existing ->
             if (existing !is SaveQuickStartResult.Existing) {
                 return@withLock SaveCompletedQuickStartResult.Stored(existing)
@@ -70,7 +71,9 @@ class QuickStartResultRetentionCoordinator(
         val state = outcomes.current() ?: return@withLock SaveCompletedQuickStartResult.OutcomeMismatch
         val snapshot = result.snapshot
         if (
+            result.phoneNodeId == sessionPackage.request.targetNodeId ||
             snapshot.sessionId != result.requestId ||
+            (sessionPackage.request.title != null && sessionPackage.request.title != snapshot.title) ||
             sessionPackage.request.exercises.map { listOf(it.itemId, it.exerciseId, it.exerciseName, it.sets) } !=
                 snapshot.exercises.map { listOf(it.itemId, it.exerciseId, it.exerciseName, it.plannedSets) } ||
             state.sessionId != snapshot.sessionId || state.lastAppliedRevision != result.outcomeRevision ||
@@ -92,31 +95,46 @@ class QuickStartResultRetentionCoordinator(
     suspend fun resumeAcknowledgedCleanup(): AcknowledgeQuickStartCompletionResult? =
         results.storedReceipt()?.let { acknowledgeAndPrune(it, it.phoneNodeId) }
 
-    suspend fun acknowledgeAndPrune(
+    /** Typed entry point for local recovery and fixtures; native delivery uses the payload entry point. */
+    internal suspend fun acknowledgeAndPrune(
         receipt: QuickStartResultReceipt,
         observedPhoneNodeId: String,
     ): AcknowledgeQuickStartCompletionResult = processMutex.withLock {
-        val acknowledged = when (val result = results.acceptReceipt(receipt, observedPhoneNodeId)) {
+        prune(results.acceptReceipt(receipt, observedPhoneNodeId))
+    }
+
+    suspend fun acknowledgePayloadAndPrune(
+        payload: String,
+        path: String,
+        observedPhoneNodeId: String,
+        localWatchNodeId: String,
+    ): AcknowledgeQuickStartCompletionResult = processMutex.withLock {
+        prune(results.acceptReceiptPayload(payload, path, observedPhoneNodeId, localWatchNodeId))
+    }
+
+    private suspend fun prune(result: AcceptQuickStartResultReceipt): AcknowledgeQuickStartCompletionResult {
+        val acknowledged = when (result) {
             is AcceptQuickStartResultReceipt.Recorded -> result.confirmed
             is AcceptQuickStartResultReceipt.Existing -> result.confirmed
             is AcceptQuickStartResultReceipt.AlreadyAcknowledged ->
                 null
             AcceptQuickStartResultReceipt.Missing ->
-                return@withLock AcknowledgeQuickStartCompletionResult.MISSING_RESULT
+                return AcknowledgeQuickStartCompletionResult.MISSING_RESULT
             AcceptQuickStartResultReceipt.Mismatch ->
-                return@withLock AcknowledgeQuickStartCompletionResult.RECEIPT_MISMATCH
+                return AcknowledgeQuickStartCompletionResult.RECEIPT_MISMATCH
         }
+        val receipt = acknowledged?.receipt ?: (result as AcceptQuickStartResultReceipt.AlreadyAcknowledged).receipt
         if (acknowledged != null) {
             if (outcomes.clearAcknowledged(acknowledged) == ClearAcknowledgedOutcomeResult.MISMATCH) {
-                return@withLock AcknowledgeQuickStartCompletionResult.OUTCOME_MISMATCH
+                return AcknowledgeQuickStartCompletionResult.OUTCOME_MISMATCH
             }
             when (results.compact(acknowledged)) {
                 CompactQuickStartResult.Compacted, CompactQuickStartResult.AlreadyCompacted -> Unit
                 CompactQuickStartResult.MissingReceipt, CompactQuickStartResult.Mismatch ->
-                    return@withLock AcknowledgeQuickStartCompletionResult.RECEIPT_MISMATCH
+                    return AcknowledgeQuickStartCompletionResult.RECEIPT_MISMATCH
             }
         }
-        when (packages.releaseAcknowledged(receipt)) {
+        return when (packages.releaseAcknowledged(receipt)) {
             is ReleaseAcknowledgedQuickStartResult.Released -> AcknowledgeQuickStartCompletionResult.PRUNED
             is ReleaseAcknowledgedQuickStartResult.AlreadyReleased -> AcknowledgeQuickStartCompletionResult.ALREADY_PRUNED
             ReleaseAcknowledgedQuickStartResult.Missing,

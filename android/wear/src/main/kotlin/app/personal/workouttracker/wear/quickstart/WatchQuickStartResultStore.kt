@@ -1,11 +1,10 @@
 package app.personal.workouttracker.wear.quickstart
 
-import app.personal.workouttracker.shared.session.WorkoutCompletionSummary
-import app.personal.workouttracker.shared.session.WorkoutEndedSummary
-import app.personal.workouttracker.shared.session.WorkoutProgressSnapshot
-import app.personal.workouttracker.shared.session.validateWorkoutEndedSummary
-import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
-import app.personal.workouttracker.shared.session.validateWorkoutCompletionSummary
+import app.personal.workouttracker.shared.quickstart.QuickStartResultDecodeResult
+import app.personal.workouttracker.shared.quickstart.decodeQuickStartResultReceipt
+import app.personal.workouttracker.shared.quickstart.isValidFinalQuickStartResult
+import app.personal.workouttracker.shared.quickstart.isValidQuickStartResultReceipt
+import app.personal.workouttracker.shared.quickstart.receiptMatchesQuickStartResult
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -20,27 +19,8 @@ interface QuickStartResultPersistence {
     suspend fun write(raw: String?)
 }
 
-@Serializable
-data class FinalQuickStartResult(
-    val requestId: String,
-    val resultId: String,
-    val outcomeRevision: Long,
-    val phoneNodeId: String,
-    val summary: WorkoutCompletionSummary? = null,
-    val endedSummary: WorkoutEndedSummary? = null,
-) {
-    val snapshot: WorkoutProgressSnapshot get() = summary?.snapshot ?: requireNotNull(endedSummary).snapshot
-}
-
-/** The importing phone must echo the exact result identity and outcome revision. */
-@Serializable
-data class QuickStartResultReceipt(
-    val requestId: String,
-    val resultId: String,
-    val outcomeRevision: Long,
-    val phoneNodeId: String,
-    val receivedAtMillis: Long,
-)
+typealias FinalQuickStartResult = app.personal.workouttracker.shared.quickstart.FinalQuickStartResult
+typealias QuickStartResultReceipt = app.personal.workouttracker.shared.quickstart.QuickStartResultReceipt
 
 data class ConfirmedQuickStartResult(
     val result: FinalQuickStartResult,
@@ -128,12 +108,40 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
         return null
     }
 
-    suspend fun acceptReceipt(
+    /** For typed receipts already validated by the caller; transport uses acceptReceiptPayload. */
+    internal suspend fun acceptReceipt(
         receipt: QuickStartResultReceipt,
         observedPhoneNodeId: String,
     ): AcceptQuickStartResultReceipt = processMutex.withLock {
         val state = load() ?: return@withLock AcceptQuickStartResultReceipt.Missing
-        val result = state.finalResult ?: return@withLock if (
+        acceptReceipt(state, receipt, observedPhoneNodeId)
+    }
+
+    /** Native callers supply the observed Data Layer node and path, never values from the payload. */
+    suspend fun acceptReceiptPayload(
+        payload: String,
+        path: String,
+        observedPhoneNodeId: String,
+        localWatchNodeId: String,
+    ): AcceptQuickStartResultReceipt = processMutex.withLock {
+        val state = load() ?: return@withLock AcceptQuickStartResultReceipt.Missing
+        val decoded = if (state.finalResult != null) {
+            decodeQuickStartResultReceipt(payload, path, observedPhoneNodeId, state.finalResult, localWatchNodeId)
+        } else {
+            decodeQuickStartResultReceipt(payload, path, observedPhoneNodeId, requireNotNull(state.receipt), localWatchNodeId)
+        }
+        when (decoded) {
+            is QuickStartResultDecodeResult.Accepted -> acceptReceipt(state, decoded.value, observedPhoneNodeId)
+            is QuickStartResultDecodeResult.Rejected -> AcceptQuickStartResultReceipt.Mismatch
+        }
+    }
+
+    private suspend fun acceptReceipt(
+        state: PersistedQuickStartResult,
+        receipt: QuickStartResultReceipt,
+        observedPhoneNodeId: String,
+    ): AcceptQuickStartResultReceipt {
+        val result = state.finalResult ?: return if (
             state.receipt == receipt && receipt.isValid() && observedPhoneNodeId == receipt.phoneNodeId
         ) {
             AcceptQuickStartResultReceipt.AlreadyAcknowledged(receipt)
@@ -141,16 +149,16 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
             AcceptQuickStartResultReceipt.Missing
         }
         if (!receipt.matches(result, observedPhoneNodeId)) {
-            return@withLock AcceptQuickStartResultReceipt.Mismatch
+            return AcceptQuickStartResultReceipt.Mismatch
         }
         val confirmed = ConfirmedQuickStartResult(result, receipt)
         val prior = state.receipt
         if (prior != null) {
-            return@withLock if (prior == receipt) AcceptQuickStartResultReceipt.Existing(confirmed)
+            return if (prior == receipt) AcceptQuickStartResultReceipt.Existing(confirmed)
             else AcceptQuickStartResultReceipt.Mismatch
         }
         persist(state.copy(receipt = receipt))
-        AcceptQuickStartResultReceipt.Recorded(confirmed)
+        return AcceptQuickStartResultReceipt.Recorded(confirmed)
     }
 
     suspend fun compact(confirmed: ConfirmedQuickStartResult): CompactQuickStartResult =
@@ -192,29 +200,9 @@ class WatchQuickStartResultStore(private val persistence: QuickStartResultPersis
     }
 }
 
-internal fun FinalQuickStartResult.isValid(): Boolean =
-    requestId.isNotBlank() && requestId.length <= 128 &&
-        resultId.isNotBlank() && resultId.length <= 128 &&
-        phoneNodeId.isNotBlank() && phoneNodeId.length <= 256 &&
-        listOf(requestId, resultId, phoneNodeId).none { value -> value.any(Char::isISOControl) } &&
-        outcomeRevision >= 0 &&
-        ((summary == null) != (endedSummary == null)) &&
-        (summary == null || validateWorkoutCompletionSummary(summary) == null) &&
-        (endedSummary == null || validateWorkoutEndedSummary(endedSummary) == null) &&
-        outcomeRevision == snapshot.exercises.sumOf {
-            it.completedSets.toLong() + if (it.status == ExerciseOutcomeStatus.SKIPPED) 1L else 0L
-        }
+internal fun FinalQuickStartResult.isValid(): Boolean = isValidFinalQuickStartResult(this)
 
-private fun QuickStartResultReceipt.isValid(): Boolean =
-    requestId.isNotBlank() && resultId.isNotBlank() && phoneNodeId.isNotBlank() &&
-        requestId.length <= 128 && resultId.length <= 128 && phoneNodeId.length <= 256 &&
-        listOf(requestId, resultId, phoneNodeId).none { value -> value.any(Char::isISOControl) } &&
-        outcomeRevision >= 0 && receivedAtMillis >= 0
+private fun QuickStartResultReceipt.isValid(): Boolean = isValidQuickStartResultReceipt(this)
 
-private fun QuickStartResultReceipt.matches(
-    result: FinalQuickStartResult,
-    observedPhoneNodeId: String,
-): Boolean = isValid() &&
-    requestId == result.requestId && resultId == result.resultId &&
-    outcomeRevision == result.outcomeRevision && phoneNodeId == result.phoneNodeId &&
-    observedPhoneNodeId == result.phoneNodeId
+private fun QuickStartResultReceipt.matches(result: FinalQuickStartResult, observedPhoneNodeId: String): Boolean =
+    receiptMatchesQuickStartResult(this, result, observedPhoneNodeId)

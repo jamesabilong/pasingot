@@ -13,6 +13,8 @@ object QuickStartDataLayerPaths {
     const val ACKNOWLEDGEMENT_PREFIX = "/quick-start/ack/"
     const val CANCELLATION_PREFIX = "/quick-start/cancel/"
     const val CAPABILITY = "/quick-start/capability"
+    const val RESULT_PREFIX = "/quick-start/result/"
+    const val RESULT_RECEIPT_PREFIX = "/quick-start/result-receipt/"
 }
 
 @Serializable

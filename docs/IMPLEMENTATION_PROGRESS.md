@@ -802,3 +802,48 @@ checks passed. Stage 19 is 22/96 (23%); Phase 0 is 22/30 (73%).
 Remaining: native session integration and device validation. Forward migration
 is verified; downgrading to older builds that erase unsupported records is not
 supported. Next checkpoint: shared result/receipt codec and sender-node binding.
+
+## Iteration 15 — 2026-09-26 — Stage 19 shared result and persisted-receipt wire contract
+
+Status: **Completed locally and included in this audited checkpoint — shared,
+Wear and phone tests plus Wear debug build pass. Native/device validation is open**.
+
+Starting checkpoint: `7596256 PST01: Freeze and retain ended quick start results`.
+It passed 54 shared/81 Wear tests and the Wear debug build. No fetch or push.
+
+Finding: result/receipt models lived only in Wear, so the phone had no shared
+codec or rules to bind a result to its selected watch/request, or a receipt to
+its observed phone sender. A raw transport-success signal must never authorize
+cleanup. Compact receipt tombstones must still validate duplicate wire receipts.
+
+Implemented: moved the stored models unchanged into shared contracts; added
+required-version result/receipt envelopes, request/result-scoped paths, strict
+payload and observed-node validation, and a persisted-only receipt status.
+Connected the Wear receipt entry point to this decoder before any storage write.
+Preserved existing local records and offline finalization/cleanup behavior.
+
+Audit corrections: enforce path-safe wire identities for newly finalized
+results before freezing, while keeping legacy disk readers compatible; reject
+a phone identity equal to the target watch and bind explicit request titles.
+The phone must persist the import receipt once and replay the same timestamp.
+Independent review found no further blocking decode/binding issue.
+
+Validation: `gradlew.bat :shared:test :wear:testDebugUnitTest :wear:assembleDebug
+:app:testDebugUnitTest --no-daemon --quiet` passed. Reports show 73 shared,
+87 Wear and one phone test, all without failures. Nineteen new shared tests
+cover both terminal types, required versions/status, optional fields, sender/
+target/path/identity binding, ordered plans, revision checks, legacy JSON,
+delayed imports and payload limits. Six grouped Wear cases prove invalid wire
+receipts perform no writes, exact replay before/after compaction, offline
+recovery, and finalization guards. The final APK and whitespace checks passed.
+
+Stage 19 is **23/97 items (24%)**; Phase 0 is **23/31 (74%)**. The new shared
+wire-contract item adds one to both completed and total counts. No Phase 1–4
+item is closed by these headless checks. Iterations 13 and 14 are committed as
+`bffe396` and `7596256`; Iteration 15 is this checkpoint.
+
+Remaining: native Data Layer listeners, observed origin-node persistence, phone
+import transactions, transport cleanup, UI/runtime integration and physical
+acceptance. Next action: finalize Phase 0 cue scripts/event keys/priority and
+recovery rules, then implement the pure cue ledger and five-second extension
+lock with boundary tests before native cue adapters or UI.

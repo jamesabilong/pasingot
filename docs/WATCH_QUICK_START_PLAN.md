@@ -3,7 +3,8 @@
 Status: **Phase 0 in progress — foundations implemented; end-to-end flow not started**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest committed checkpoint: `bffe396 PST01: Retain quick start results until phone receipt`
+Latest checkpoint: **Iteration 15 — shared result/receipt contracts (included in this commit)**
+Previous checkpoint: `7596256 PST01: Freeze and retain ended quick start results`
 Last updated: **2026-09-26**
 
 ## Goal
@@ -111,6 +112,39 @@ Today-row requests retain their source row identity so the phone can reconcile
 schedule/quest progress. Ad-hoc exercise and playlist requests receive a new
 session identity and appear in phone History under their transmitted title and
 source after result import.
+
+### Shared result and phone receipt wire decision — 2026-09-26
+
+| Message | Required envelope | Data Layer path |
+|---|---|---|
+| Final result | `schemaVersion: 1`, `watchNodeId`, `result` | `/quick-start/result/{requestId}/{resultId}` |
+| Import receipt | `schemaVersion: 1`, `watchNodeId`, `status: "persisted"`, `receipt` | `/quick-start/result-receipt/{requestId}/{resultId}` |
+
+The shared result retains request/result IDs, final outcome revision, expected
+phone node and exactly one completion/ended summary. The receipt echoes those
+IDs/revision/phone node plus `receivedAtMillis`. The phone must atomically import
+the result and save its receipt before publishing `persisted`, then resend that
+same receipt and timestamp on retries. Codec acceptance is not proof of import.
+
+The phone decoder compares the actual Data Layer sender to its saved request's
+watch node, the envelope watch node, the receiving phone, session/request
+identity, ordered exercise plan and explicit title. A null request title allows
+a validated local display title. Offer expiry does not discard an offline final
+result. The future receiver must preserve the originating phone identity from
+the observed offer sender and use it when creating the final record.
+
+The Wear decoder binds the observed phone sender, local watch node, exact path,
+result identity and revision before any receipt write. After compaction it
+requires the exact saved receipt, including its timestamp. Wire request IDs are
+canonical UUIDs; result IDs are 1–128 ASCII letters/digits/underscores/hyphens.
+Both codecs reject malformed/oversized payloads (131,072-character bound), missing
+required version/status, unknown schemas and unknown receipt statuses, while
+allowing additive optional fields. Existing stored result JSON remains readable.
+
+Native listener registration, origin-node persistence, permanent phone import,
+Data Item removal, capability publication and paired delivery remain unimplemented.
+Transport receipt paths must use the guarded payload entry point; direct typed
+receipt operations are for previously validated records and headless fixtures.
 
 ### Out of scope for the first release
 
@@ -644,33 +678,33 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-26, Iteration 14
+### Progress audit — 2026-09-26, Iteration 15
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **22/96 items (23%) overall**:
+stands at **23/97 items (24%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
-| Phase 0 — foundations | **22/30 (73%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, completed-result receipts, recovery decisions, and focused fixtures exist |
+| Phase 0 — foundations | **23/31 (74%)** | In progress; contracts, transient storage, arbitration, cancellation, summaries, persisted reducer outcomes, capability negotiation, completed-result receipts, recovery decisions, and focused fixtures exist |
 | Phase 1 — phone feature | **0/10 (0%)** | Not started |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
-The latest committed checkpoint, `bffe396`, represents **21/96 items (22%)**.
-Iteration 13's earlier uncommitted status is superseded by that commit.
-Iteration 14 adds ended-result retention and closes the persisted final-outcome
-decision in this audited checkpoint. Phase 0's
-73% must not be reported as feature
+The latest committed checkpoint, `7596256`, represents **22/96 items (23%)**.
+Iteration 14's earlier uncommitted status is superseded by that commit.
+Iteration 15 adds a shared result/receipt wire-contract checklist item in this
+audited checkpoint. Phase 0's
+74% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
 
 Preparation order for the next parts:
 
-1. Define the shared final-result/phone-receipt wire payload and sender-node
-   validation before native transport wiring.
-2. Close the remaining Phase 0 cue decisions and fixtures, including the
+1. Close the remaining Phase 0 cue decisions and fixtures, including the
    final-countdown lock.
+2. Finish origin-node ownership, cancellation/transport cleanup and migration
+   decisions before Phase 1 transport wiring.
 3. Build the isolated Phase 1 phone bridge and React sheet.
 4. Build the Phase 2 watch receiver, ready prompt, cue controller, and success
    UI using the persisted reducer output.
@@ -740,6 +774,10 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
       receipt; prune package/outcome/result in a restart-safe sequence and
       retain bounded replay tombstones. Headless real-file and write-failure
       fixtures pass. Native transport remains open.
+- [x] Share final-result and persisted-receipt models/codecs with exact observed
+      sender, target node, request/plan, path and revision validation. Preserve
+      legacy disk records and immutable compacted receipt replay; native phone
+      import, origin-node persistence and transport wiring remain open.
 - [ ] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -748,7 +786,7 @@ Status: **In progress — contract, store, gate, cancellation, summary, reducer,
 
 Exit checks:
 
-- [x] `:shared:test` passes (54 tests: 15 Quick Start, 10 capability, 13 terminal/progress summary, and
+- [x] `:shared:test` passes (73 tests: 15 Quick Start, 19 result/receipt, 10 capability, 13 terminal/progress summary, and
       16 existing).
 - [x] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
@@ -976,14 +1014,15 @@ recovery and failure behavior. It is not yet connected to the runtime session
 engine or rendered by UI. Completed and ended outcomes are frozen and retained;
 final records, exact phone receipts, offline recovery, and guarded cleanup exist,
 but native sender/receiver and UI do not. Iteration 12 adds a shared capability
-envelope and schema-1 negotiation with mixed-version fixtures. All 54 shared
-and 81 Wear tests and the Wear debug build pass. Physical-device acceptance
+envelope and schema-1 negotiation with mixed-version fixtures. Iteration 15 adds
+shared final-result/receipt codecs and a guarded Wear payload entry point. All 73 shared
+and 87 Wear tests and the Wear debug build pass. Physical-device acceptance
 remains open.
 **Current phase:** Phase 0 — Domain, persistence, decisions, and contract
 fixtures.
-**Exact next action:** specify the shared final-result and phone-receipt wire
-payloads with exact identity, path and observed sender-node validation. Cover
-both terminal types and invalid peers before native transport or UI.
+**Exact next action:** settle the remaining Phase 0 cue scripts, event keys,
+priority/cancellation and recovery rules, then implement the pure cue ledger and
+five-second rest-extension lock with boundary tests before native adapters/UI.
 **Do not start with UI code:** stabilize the shared request/acknowledgement
 contract and state ordering first.
 
