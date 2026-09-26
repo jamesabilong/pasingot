@@ -892,3 +892,41 @@ watch acceptance.
 
 Next action: build the isolated Phase 1 Android phone bridge and React feature
 shell; keep the browser send control gated on a reachable compatible watch.
+
+## Iteration 17 — 2026-09-26 — Stage 19 native phone bridge
+
+Status: **Native phone slice verified and included in this audited checkpoint; React, watch runtime, and device acceptance open**.
+
+Starting checkpoint: `085e39e PST01: Complete quick start foundation decisions`.
+Git was clean at the start. That checkpoint passed 73 shared, 100 Wear and one
+phone tests plus the Wear debug build. No fetch or push occurred.
+
+Finding: a Data Layer `putDataItem` result confirms transport acceptance, not
+that the watch is ready. A phone process can die between offer send and a watch
+acknowledgement, so the original request and the latest valid acknowledgement
+must survive independently. A different watch node must not confirm the offer.
+
+Implemented a registered `WatchQuickStart` Capacitor plugin, phone Data Layer
+client, and isolated DataStore-backed request/acknowledgement history. Sending
+requires one connected watch whose published schema-1 capability negotiates
+with the phone and matches the request target. The phone saves the validated
+offer before sending and records transport acceptance separately. A listener
+validates acknowledgement path, observed watch node, revision and state before
+the durable write; the plugin exposes availability, send, status lookup, and a
+live status hint. History is bounded at 64 and fails closed rather than evicting
+unacknowledged requests. Audit correction: malformed decoded plugin arguments
+also resolve as an error instead of escaping the bridge.
+
+Validation: `gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon
+--quiet` passed with six phone tests and no failures. Fixtures cover transport
+versus Ready, node/path/revision rejection, terminal non-regression, interrupted
+writes, bounded history, and corrupt/future-state preservation. Kotlin compile,
+APK assembly and `git diff --check` passed. Stage 19 is **32/97 (33%)** and
+Phase 1 is **1/10 (10%)**. The watch does not yet publish the capability, so
+the feature correctly remains unavailable end to end; no device delivery is
+claimed.
+
+Remaining: React sheet and entry points, mocked status fixture, watch receiver
+and runtime wiring, final-result import, transport cleanup, and paired-device
+acceptance. Next action: implement the isolated React feature hook/sheet and
+browser-safe capability gating, then run TypeScript and browser fixtures.

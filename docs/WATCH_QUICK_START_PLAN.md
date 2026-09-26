@@ -755,20 +755,20 @@ is recorded separately from code completion.
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **31/97 items (32%) overall**:
+stands at **32/97 items (33%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
-| Phase 1 — phone feature | **0/10 (0%)** | Not started |
+| Phase 1 — phone feature | **1/10 (10%)** | Native bridge and durable request/ack store verified; React work open |
 | Phase 2 — watch feature | **0/17 (0%)** | Not started |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
-The latest committed checkpoint, `7596256`, represents **22/96 items (23%)**.
+The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
 Iteration 15's shared result/receipt wire contract is committed in `61edf55`.
-Iteration 16 closes eight Phase 0 decisions with cue/rest boundary fixtures,
+Iteration 16 is committed in `085e39e` and closes eight Phase 0 decisions with cue/rest boundary fixtures,
 observed phone ownership, and terminal replay history. Phase 0's
 100% must not be reported as feature
 completion: there is no usable phone-to-watch Quick Start path yet.
@@ -866,12 +866,14 @@ Exit checks:
 
 ### Phase 1 — Phone bridge and React feature shell
 
-Status: **Not started**
+Status: **Native phone bridge verified; React feature shell open**
 
 - [ ] Create the isolated React feature directory.
 - [ ] Add the Quick Start sheet with one-or-many item editing, ordering, and
       prescription validation.
-- [ ] Create the separate Capacitor plugin/client/receipt store.
+- [x] Create the separate Capacitor plugin/client/receipt store. The phone
+      persists requests and watch acknowledgements; final-result import remains
+      in Phase 3.
 - [ ] Add platform/plugin gating without changing browser-to-watch claims.
 - [ ] Add mocked bridge tests for every phone-visible status.
 - [ ] Integrate Library and Today through narrow props/callbacks.
@@ -1071,10 +1073,12 @@ The feature is done only when:
 
 ## Resume marker
 
-**Current checkpoint:** Phase 0 shared contract slice implemented and verified;
-the isolated Wear transient store is also implemented and verified. Phone,
-transport, UI, session integration, native result acknowledgement, and cues are
-unchanged. The pure global start gate is implemented but not yet wired into
+**Current checkpoint:** Phase 0 is complete with headless evidence. The Android
+phone now has a registered Quick Start Capacitor bridge, capability-gated Data
+Layer sender, and durable request/watch-acknowledgement store. Its six unit tests
+and debug APK build pass. Watch capability publication/receiver, React UI,
+session integration, native final-result acknowledgement, and cues remain open.
+The pure global start gate is implemented but not yet wired into
 production navigation/session creation. Revisioned Dismiss/Cancel and terminal
 replay protection are implemented in the store but not wired to transport/UI.
 The shared progress/completion summary now includes explicit pending counts.
@@ -1089,8 +1093,8 @@ shared final-result/receipt codecs and a guarded Wear payload entry point. All 7
 and 100 Wear tests and the Wear debug build pass. Physical-device acceptance
 remains open.
 **Current phase:** Phase 1 — Phone bridge and React feature shell.
-**Exact next action:** build the isolated Phase 1 phone bridge, request/receipt
-store and React sheet with capability gating and mocked status fixtures.
+**Exact next action:** build the isolated React Quick Start sheet and hook,
+connect Library/Today entry points, and add mocked bridge status fixtures.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

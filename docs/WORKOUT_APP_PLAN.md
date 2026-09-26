@@ -20,10 +20,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest audited checkpoint: Stage 19 Iteration 15, shared result/receipt
-  contracts, included in this commit. The previous checkpoint is `7596256
-  PST01: Freeze and retain ended quick start results`. These checkpoints have
-  not been pushed in this task. The earlier `92ef2cb` matched the local `origin/PST01`
+- Latest audited checkpoint: Stage 19 Iteration 17, native phone bridge and
+  durable request/acknowledgement store, included in this commit. Iteration 16
+  was committed as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
   tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
   earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
   Iteration 3's browser-to-watch feasibility and capability UX work after
@@ -75,9 +74,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **31/97 checklist items (32%) overall**; Phase 0 headless foundations are **31/31 (100%)**. Contracts, transient storage, arbitration, cancellation, summaries, persisted outcomes, capability negotiation, and guarded completed/ended-result wire receipts and cleanup exist; 73 shared and 100 Wear tests plus the Wear debug build pass | Next: Phase 1 phone bridge and React feature shell; native/watch integration remains open. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **32/97 checklist items (33%) overall**; Phase 0 headless foundations are **31/31 (100%)**. The native phone bridge stores offers/acks and gates sends by watch capability; six phone tests and its debug APK pass. Watch receiver, React UI, and paired-device acceptance remain open | Next: Phase 1 React feature shell and mocked browser fixtures. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 transport, phone/Watch UI, session integration, cues/success, result acknowledgement, and device acceptance; Phase 0 contract/store foundations are partial | Follow the plan's isolated feature modules and resumable phase checklist |
+| **Pending implementation** | Stage 19 watch transport, phone/Watch UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Follow the plan's isolated feature modules and resumable phase checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
