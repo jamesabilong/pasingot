@@ -6,7 +6,7 @@ import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-interface LegacySessionSnapshotSource {
+fun interface LegacySessionSnapshotSource {
     suspend fun entries(): List<DownloadedWorkoutEntry>
 }
 

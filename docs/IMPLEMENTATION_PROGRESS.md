@@ -1020,3 +1020,48 @@ checks close on visible evidence. Phase 1 completion covers phone code and
 browser validation only. Next action: implement Phase 2 watch capability
 publication and an observed-sender request listener, with invalid/duplicate
 receipt fixtures before building the ready prompt.
+
+## Iteration 20 — 2026-09-27 — Stage 19 watch request transport audit
+
+Status: **Native receive/persistence slice complete with Wear JVM/build evidence;
+watch prompt, capability publication, and paired-device validation remain open**.
+
+Starting checkpoint: `e0005d8 PST01: Complete quick start phone phase audit`.
+The working tree was clean and the branch was one commit ahead of its tracked
+remote. No fetch or push was made by this task.
+
+Audit finding: the phone has a capability-gated Data Layer sender and the watch
+already has a durable transient package store, but no native watch listener
+connected them. Publishing the capability before a Start/Dismiss prompt would
+expose an incomplete flow, so capability publication remains gated until that
+prompt is usable. The global start gate is pure code and is still not wired to
+the legacy session start path; an active-session snapshot check on receipt does
+not yet prove race-free arbitration.
+
+Implemented a manifest-registered request listener, a coordinator with strict
+request path/observed phone node/local watch target binding, and a Data Layer
+acknowledgement client. Accepted requests are written through the existing
+transient DataStore before Ready is sent; the permanent date-keyed workout
+repository is not written. Duplicate Ready delivery repeats its receipt without
+rewriting the package. Malformed, unsupported, expired, active-session, and
+pending requests have explicit outcomes where a safe request identity exists.
+Expiry advances the revision so it can supersede a persisted Ready receipt on
+the phone.
+Replays already marked STARTING do not emit a premature Started receipt, and a
+failed durable write emits no Ready receipt. Terminal replay uses the retained
+store outcome. The native receiver does not yet recover missed receipts from
+persisted items after a transport failure; that belongs to Phase 3.
+
+Validation: `gradlew.bat :wear:testDebugUnitTest :wear:assembleDebug --no-daemon
+--quiet` passed with **108 Wear tests**, including eight new coordinator tests,
+and produced a debug APK. A first test compile found a fixture SAM-construction
+issue; changing the existing single-method snapshot source to a fun interface
+resolved it, and the full rerun passed. `git diff --check` passed. No device
+delivery or visible prompt is claimed.
+
+Stage 19 is **42/97 (43%)** and Phase 2 is **1/17 (6%)**. Only the checklist
+item for transient persistence is closed. The listener/coordinator/receipt
+client/prompt item remains open until the prompt exists; active-session handling
+remains open until both legacy and Quick Start start paths share the gate.
+Next action: build the Ready prompt and Start/Dismiss flow, wire the global gate
+into both session starts, then publish capability and verify paired delivery.

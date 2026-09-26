@@ -20,9 +20,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest audited checkpoint: Stage 19 Iteration 19, phone recovery and strict
-  revision ordering, included in this commit. Iteration 18 was committed as
-  `4a62ae0`, Iteration 17 as `e178b74`, and Iteration 16 as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
+- Latest audited checkpoint: Stage 19 Iteration 20, observed-sender watch
+  request transport and durable Ready receipts, included in this commit.
+  Iteration 19 was committed as `e0005d8`, Iteration 18 as `4a62ae0`,
+  Iteration 17 as `e178b74`, and Iteration 16 as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
   tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
   earlier pre-Stage 19 checkpoint `23dd15c PST01: Finalize code` includes
   Iteration 3's browser-to-watch feasibility and capability UX work after
@@ -74,7 +75,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **41/97 checklist items (42%) overall**; Phase 0 is **31/31 (100%)** and Phase 1 is **10/10 (100%)** with phone code and browser checks complete. Latest-offer recovery, pending-send guards, and strict revision replay pass 74 shared/eight phone tests, TypeScript/Vite/Node checks, the 18-check browser fixture, and Android debug APK. Watch receiver and paired-device acceptance remain open | Next: Phase 2 capability publication and observed-sender watch request listener. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **42/97 checklist items (43%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **1/17 (6%)**. The observed-sender watch receiver stores a transient package before sending Ready, with 108 passing Wear tests and a debug APK. Capability publication, Ready prompt, session integration, and paired-device acceptance remain open | Next: build the Ready prompt and Start/Dismiss flow, then publish watch capability. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 watch transport/UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Follow the plan's Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
