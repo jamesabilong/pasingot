@@ -29,6 +29,7 @@ import app.personal.workouttracker.wear.quickstart.NoOpQuickStartLogSender
 import app.personal.workouttracker.wear.quickstart.DataStoreQuickStartRuntimePersistence
 import app.personal.workouttracker.wear.quickstart.QuickStartRuntimeStore
 import app.personal.workouttracker.wear.quickstart.QuickStartSessionStore
+import app.personal.workouttracker.wear.quickstart.DataLayerQuickStartResultClient
 import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
 import kotlinx.coroutines.CancellationException
@@ -591,7 +592,11 @@ class SessionViewModel(
             val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(appContext))
             return SessionViewModel(
                 entryId = requestId,
-                repository = QuickStartSessionStore(requestId, runtime),
+                repository = QuickStartSessionStore(
+                    requestId = requestId,
+                    runtimeStore = runtime,
+                    resultClient = DataLayerQuickStartResultClient(appContext.applicationContext),
+                ),
                 logSender = NoOpQuickStartLogSender,
                 legacyStartGate = null,
                 canAdjustSets = false,

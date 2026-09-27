@@ -4,10 +4,10 @@ import type { QuickStartReceipt } from './model';
 import { statusText, validateItems } from './model';
 import type { QuickStartAvailability } from './bridge';
 
-export function WatchQuickStartSheet({ draft, availability, availabilityMessage, checking, sending, receipt, error, onDraftChange, onSend, onClose }: {
+export function WatchQuickStartSheet({ draft, availability, availabilityMessage, checking, sending, cancelling, receipt, error, onDraftChange, onSend, onCancel, onClose }: {
   draft: QuickStartDraft | null; availability: QuickStartAvailability | null; availabilityMessage: string | null;
-  checking: boolean; sending: boolean; receipt: QuickStartReceipt | null; error: string | null;
-  onDraftChange: (draft: QuickStartDraft) => void; onSend: () => void; onClose: () => void;
+  checking: boolean; sending: boolean; cancelling: boolean; receipt: QuickStartReceipt | null; error: string | null;
+  onDraftChange: (draft: QuickStartDraft) => void; onSend: () => void; onCancel: () => void; onClose: () => void;
 }) {
   if (!draft) return null;
   const validation = validateItems(draft.items);
@@ -52,6 +52,10 @@ export function WatchQuickStartSheet({ draft, availability, availabilityMessage,
       <button type="button" className="primary-action mt-4 disabled:cursor-not-allowed disabled:opacity-50" disabled={!!validation || !availability?.available || checking || locked} onClick={onSend}>
         {sending ? 'Sending…' : receipt ? 'Sent to watch' : `Send ${draft.items.length} to watch`}
       </button>
+      {receipt && (!receipt.acknowledgement || receipt.acknowledgement.status === 'ready') &&
+        <button type="button" className="secondary-action mt-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={cancelling || !!receipt.cancellation} onClick={onCancel}>
+          {cancelling ? 'Cancelling…' : receipt.cancellation ? 'Cancellation sent' : 'Cancel request'}
+        </button>}
     </section>
   </div>;
 }

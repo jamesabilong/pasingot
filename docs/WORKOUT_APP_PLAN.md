@@ -9,13 +9,15 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
-- Iteration 24 wires the durable watch Ready prompt and Start/Dismiss actions
-  to the transient Quick Start runtime and existing session engine. Start now
-  persists the runtime before its receipt, and explicit session exit waits for
-  the pause commit before navigation. The 454x454 emulator rendered both the
-  unchanged saved-workout list and a seeded Ready prompt; paired Quick Start
-  delivery, cancellation, result transport, cues/TTS, and physical-device
-  acceptance remain open. Iteration 23 adds emulator-only runtime evidence: the API 35 Pixel 8 and
+- Iteration 25 completes the revisioned phone-cancellation race, native final-
+  result import/receipt cleanup, retry-safe terminal transport, and phone/watch
+  capability publication. The checkpoint passes 244 JVM tests, both debug APK
+  builds, TypeScript, the production PWA build, three Node fixtures, and the
+  19-check browser fixture. Paired Quick Start delivery/recovery was not run
+  because this iteration explicitly excluded the emulator; cues/TTS and
+  physical-device acceptance remain open. Iteration 24 wired the durable watch
+  Ready prompt and Start/Dismiss actions to the transient runtime. Iteration 23
+  adds emulator-only runtime evidence: the API 35 Pixel 8 and
   454x454 Wear OS 7 AVDs paired successfully, both Data Layer nodes reported
   connected/enabled, and the watch downloaded the five-exercise `Foundation A`
   workout from the phone. This closes no Quick Start or physical-device
@@ -33,8 +35,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest audited checkpoint: Stage 19 Iteration 22, durable progress/history and
-  protocol replay corrections, included in this commit. Iteration 21 was
+- Latest implementation checkpoint: Stage 19 Iteration 25, cancellation,
+  final-result transport/cleanup, and capability publication. Iteration 24 was
+  committed as `2509782`. Iteration 22 contains durable progress/history and
+  protocol replay corrections. Iteration 21 was
   committed as `6a092d3`. Iteration 20 was
   committed as `fe6089d`, Iteration 19 as `e0005d8`, Iteration 18 as `4a62ae0`,
   Iteration 17 as `e178b74`, and Iteration 16 as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
@@ -89,9 +93,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **45/97 checklist items (46%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **4/17 (24%)**. The durable Ready prompt, Start/Dismiss actions, runtime session adapter, and awaited explicit exit pass 151 Wear tests and a debug APK build. Capability publication remains gated while cancellation and final-result transport are incomplete | Next: add revisioned phone cancellation and native final-result send/receipt cleanup, then publish capability and verify paired Quick Start delivery. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **46/97 checklist items (47%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **5/17 (29%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, and both peers publish the schema-1 capability. Automated code/build/browser checks pass; paired delivery remains unverified | Next: implement the isolated cue controller/TTS adapter/preferences/ledger and foreground five-second start state, then run paired delivery/recovery validation when a device session is allowed. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 watch transport/UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Follow the plan's Phase 2 watch checklist |
+| **Pending implementation** | Stage 19 cue/TTS controller, five-second start and rest cues/lock, success UI, notification fallback, and device acceptance | Follow the plan's remaining Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

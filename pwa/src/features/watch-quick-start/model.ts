@@ -13,12 +13,14 @@ export interface QuickStartRequest {
   }>;
 }
 export interface QuickStartAck { requestId: string; revision: number; targetNodeId: string; status: QuickStartStatus; reason?: string; watchUpdatedAtMillis: number }
-export interface QuickStartReceipt { requestId: string; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null; expiresAtMillis?: number }
-export interface PhoneQuickStartRecord { request: QuickStartRequest; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null }
+export interface QuickStartCancellation { requestId: string; revision: number; targetNodeId: string; phoneNodeId: string; requestedAtMillis: number }
+export interface QuickStartReceipt { requestId: string; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null; cancellation?: QuickStartCancellation | null; expiresAtMillis?: number }
+export interface PhoneQuickStartRecord { request: QuickStartRequest; transportAcceptedAtMillis: number | null; acknowledgement: QuickStartAck | null; cancellation?: QuickStartCancellation | null }
 
 export function receiptFromRecord(record: PhoneQuickStartRecord): QuickStartReceipt {
   return { requestId: record.request.requestId, transportAcceptedAtMillis: record.transportAcceptedAtMillis,
-    acknowledgement: record.acknowledgement, expiresAtMillis: record.request.expiresAtMillis };
+    acknowledgement: record.acknowledgement, cancellation: record.cancellation,
+    expiresAtMillis: record.request.expiresAtMillis };
 }
 export function itemsFromRequest(request: QuickStartRequest): QuickStartItem[] {
   return request.exercises.map((exercise) => ({ itemId: exercise.itemId,
@@ -79,6 +81,7 @@ export function statusText(receipt: QuickStartReceipt | null, sending = false, n
   if (!receipt) return 'Confirm the exercises before sending.';
   const ack = receipt.acknowledgement;
   if (receipt.expiresAtMillis && now > receipt.expiresAtMillis + 30_000 && (!ack || ack.status === 'ready')) return 'Request expired. Send a new one.';
+  if (receipt.cancellation && (!ack || ack.status === 'ready')) return 'Cancellation sent. Waiting for watch confirmation…';
   if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Delivery is unconfirmed. Waiting for watch confirmation…';
   switch (ack.status) {
     case 'ready': return 'Ready on watch. Tap Start there.';

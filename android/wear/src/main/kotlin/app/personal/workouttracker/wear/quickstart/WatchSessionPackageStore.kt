@@ -4,6 +4,7 @@ import app.personal.workouttracker.shared.quickstart.QUICK_START_SCHEMA_VERSION
 import app.personal.workouttracker.shared.quickstart.QUICK_START_CLOCK_SKEW_MILLIS
 import app.personal.workouttracker.shared.quickstart.QUICK_START_TTL_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
+import app.personal.workouttracker.shared.quickstart.QuickStartCancellation
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartRejectionReason
@@ -47,6 +48,11 @@ interface QuickStartPackageStore {
     suspend fun cancel(
         requestId: String,
         terminalRevision: Long,
+        nowEpochMillis: Long,
+    ): TerminateQuickStartResult
+    suspend fun cancelRemote(
+        cancellation: QuickStartCancellation,
+        observedPhoneNodeId: String,
         nowEpochMillis: Long,
     ): TerminateQuickStartResult
     /** Called only after the result store validates/persists the receipt and finishes cleanup. */
@@ -297,6 +303,46 @@ class WatchSessionPackageStore(
         nowEpochMillis = nowEpochMillis,
         status = QuickStartStatus.CANCELLED,
     )
+
+    override suspend fun cancelRemote(
+        cancellation: QuickStartCancellation,
+        observedPhoneNodeId: String,
+        nowEpochMillis: Long,
+    ): TerminateQuickStartResult = processMutex.withLock {
+        val state = loadState() ?: return@withLock TerminateQuickStartResult.Missing
+        (listOfNotNull(state.terminal) + state.terminalHistory)
+            .firstOrNull { it.requestId == cancellation.requestId }
+            ?.let { terminal ->
+                return@withLock if (terminal.revision == cancellation.revision &&
+                    terminal.targetNodeId == cancellation.targetNodeId &&
+                    terminal.sourcePhoneNodeId == observedPhoneNodeId
+                ) TerminateQuickStartResult.AlreadyTerminal(terminal)
+                else TerminateQuickStartResult.Missing
+            }
+        val current = state.sessionPackage ?: return@withLock TerminateQuickStartResult.Missing
+        if (current.request.requestId != cancellation.requestId ||
+            current.request.targetNodeId != cancellation.targetNodeId ||
+            current.sourcePhoneNodeId != observedPhoneNodeId
+        ) return@withLock TerminateQuickStartResult.Missing
+        val expectedRevision = current.request.revision + 1
+        if (cancellation.revision != expectedRevision) {
+            return@withLock TerminateQuickStartResult.RevisionMismatch(expectedRevision)
+        }
+        if (current.state == QuickStartPackageState.STARTING) {
+            return@withLock TerminateQuickStartResult.RefusedStarting(current)
+        }
+        val terminal = TerminalQuickStartRecord(
+            requestId = cancellation.requestId,
+            revision = cancellation.revision,
+            targetNodeId = cancellation.targetNodeId,
+            status = QuickStartStatus.CANCELLED,
+            recordedAtMillis = nowEpochMillis,
+            sourcePhoneNodeId = observedPhoneNodeId,
+            requestFingerprint = current.request.fingerprint(),
+        )
+        persistTerminal(terminal, state.acknowledgedHistory, state.terminalHistory)
+        TerminateQuickStartResult.Terminated(terminal)
+    }
 
     override suspend fun releaseAcknowledged(
         receipt: QuickStartResultReceipt,

@@ -36,6 +36,7 @@ class QuickStartOfferViewModel(
     private val runtimeStore: QuickStartRuntimeStore,
     private val startGate: GlobalSessionStartGate,
     private val receiptClient: QuickStartReceiptClient,
+    private val resultClient: QuickStartResultClient? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(QuickStartOfferUiState())
@@ -58,7 +59,10 @@ class QuickStartOfferViewModel(
                 if (sessionPackage?.state == QuickStartPackageState.STARTING) {
                     runtimeStore.current()?.takeIf {
                         it.sessionPackage.request.requestId == sessionPackage.request.requestId
-                    }?.let { retryStartedReceipt(it) }
+                    }?.let { runtime ->
+                        runtime.finalResult?.let { retryFinalResult(it) }
+                            ?: retryStartedReceipt(runtime)
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -160,6 +164,10 @@ class QuickStartOfferViewModel(
         try { receiptClient.send(runtime.startedAcknowledgement) } catch (_: Exception) { Unit }
     }
 
+    private suspend fun retryFinalResult(result: FinalQuickStartResult) {
+        try { resultClient?.send(result) } catch (_: Exception) { Unit }
+    }
+
     class Factory(
         private val context: Context,
         private val legacySessions: LegacySessionSnapshotSource,
@@ -172,6 +180,7 @@ class QuickStartOfferViewModel(
                 runtimeStore = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context)),
                 startGate = GlobalSessionStartGate(legacySessions, packageStore),
                 receiptClient = DataLayerQuickStartReceiptClient(context.applicationContext),
+                resultClient = DataLayerQuickStartResultClient(context.applicationContext),
             ) as T
         }
     }

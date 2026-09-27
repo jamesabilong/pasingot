@@ -28,6 +28,7 @@ import app.personal.workouttracker.wear.session.SessionScreen
 import app.personal.workouttracker.wear.session.SessionViewModel
 import app.personal.workouttracker.wear.quickstart.QuickStartOfferViewModel
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
+import app.personal.workouttracker.wear.quickstart.QuickStartCapabilityPublisher
 import app.personal.workouttracker.wear.ui.PasingotTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -63,6 +64,9 @@ class WearMainActivity : ComponentActivity() {
         LogFlushWorker.cancelPeriodic(applicationContext)
         lifecycleScope.launch {
             if (!logSyncManager.flushQueue()) LogFlushWorker.scheduleRetry(applicationContext)
+        }
+        lifecycleScope.launch {
+            runCatching { QuickStartCapabilityPublisher.publish(applicationContext) }
         }
 
         setContent {

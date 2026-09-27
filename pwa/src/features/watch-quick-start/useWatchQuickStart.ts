@@ -12,6 +12,7 @@ export function useWatchQuickStart() {
   const [availability, setAvailability] = useState<QuickStartAvailability | null>(null);
   const [checking, setChecking] = useState(false);
   const [sending, setSending] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [receipt, setReceipt] = useState<QuickStartReceipt | null>(null);
   const [latestRecord, setLatestRecord] = useState<PhoneQuickStartRecord | null>(null);
   const [, refreshExpiry] = useState(0);
@@ -67,7 +68,8 @@ export function useWatchQuickStart() {
       void bridge.getQuickStartStatus({ requestId }).then((next) => { if (mounted) {
         setReceipt((current) => ({ ...next, expiresAtMillis: current?.expiresAtMillis }));
         setLatestRecord((current) => current?.request.requestId === requestId ? { ...current,
-          transportAcceptedAtMillis: next.transportAcceptedAtMillis, acknowledgement: next.acknowledgement } : current);
+          transportAcceptedAtMillis: next.transportAcceptedAtMillis, acknowledgement: next.acknowledgement,
+          cancellation: next.cancellation } : current);
       } }).catch(() => {});
     } };
     const handle = bridge.addListener('quickStartStatus', (ack) => {
@@ -108,7 +110,38 @@ export function useWatchQuickStart() {
     } finally { setSending(false); }
   }, [availability, draft, receipt, sending]);
 
-  return { supported, draft, availability, checking, sending, receipt, error,
+  const cancel = useCallback(async () => {
+    const bridge = quickStartBridge();
+    if (!bridge || !receipt?.requestId || cancelling ||
+      (receipt.acknowledgement && receipt.acknowledgement.status !== 'ready')) return;
+    setCancelling(true); setError(null);
+    try {
+      const cancellation = await bridge.cancelQuickStart({ requestId: receipt.requestId });
+      setReceipt((current) => current ? { ...current, cancellation } : current);
+      const persisted = await bridge.getQuickStartStatus({ requestId: receipt.requestId });
+      setReceipt((current) => ({ ...persisted, expiresAtMillis: current?.expiresAtMillis }));
+      setLatestRecord((current) => current?.request.requestId === receipt.requestId ? {
+        ...current, acknowledgement: persisted.acknowledgement, cancellation: persisted.cancellation,
+      } : current);
+    } catch (cause) {
+      // Cancellation is persisted before transport. Reconcile an ambiguous
+      // bridge failure so reload/retry cannot accidentally create a new intent.
+      try {
+        const persisted = await bridge.getQuickStartStatus({ requestId: receipt.requestId });
+        setReceipt((current) => ({ ...persisted, expiresAtMillis: current?.expiresAtMillis }));
+        setLatestRecord((current) => current?.request.requestId === receipt.requestId ? {
+          ...current, acknowledgement: persisted.acknowledgement, cancellation: persisted.cancellation,
+        } : current);
+        if (!persisted.cancellation) {
+          setError(cause instanceof Error ? cause.message : 'Could not cancel Quick Start. Try again.');
+        }
+      } catch {
+        setError(cause instanceof Error ? cause.message : 'Could not cancel Quick Start. Try again.');
+      }
+    } finally { setCancelling(false); }
+  }, [cancelling, receipt]);
+
+  return { supported, draft, availability, checking, sending, cancelling, receipt, error,
     availabilityMessage: availability && !availability.available ? availabilityText(availability.reason) : null,
-    openSingle, openPlaylist, openSelection, openToday, openLatest, close, setDraft, send };
+    openSingle, openPlaylist, openSelection, openToday, openLatest, close, setDraft, send, cancel };
 }

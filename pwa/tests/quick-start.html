@@ -16,7 +16,7 @@ const item = { itemId: crypto.randomUUID(), sourceId: 4, name: 'Squat', sets: 3,
 const root = createRoot(document.getElementById('panel'));
 const render = (availability, receipt = null) => flushSync(() => root.render(React.createElement(WatchQuickStartSheet, {
   draft: { source: 'single', items: [item] }, availability, availabilityMessage: availability?.available ? null : 'Connect your watch.',
-  checking: false, sending: false, receipt, error: null, onDraftChange: () => {}, onSend: () => {}, onClose: () => {},
+  checking: false, sending: false, cancelling: false, receipt, error: null, onDraftChange: () => {}, onSend: () => {}, onCancel: () => {}, onClose: () => {},
 })));
 try {
   check(!quickStartSupported(), 'Browser does not expose the native Quick Start bridge');
@@ -29,6 +29,8 @@ try {
   check(request.exercises.map((exercise) => exercise.exerciseName).join(',') === 'Squat,Press', 'Explicit selection order survives conversion');
   const pending = { requestId: request.requestId, transportAcceptedAtMillis: 1100, acknowledgement: null };
   check(statusText(pending).includes('Waiting'), 'Transport acceptance is not Ready');
+  render({ available: true, watchNodeId: 'watch-1' }, pending);
+  check([...document.querySelectorAll('button')].some((button) => button.textContent?.includes('Cancel request')), 'Pending offer exposes explicit cancellation');
   const mockBridge = { getQuickStartStatus: async ({ requestId }) => ({ ...pending, requestId, acknowledgement: null }) };
   for (const [status, expected] of Object.entries({ ready: 'Ready on watch', started: 'started', dismissed: 'Dismissed', cancelled: 'Cancelled', expired: 'expired', rejected: 'rejected' })) {
     const receipt = { ...pending, acknowledgement: { requestId: request.requestId, revision: 1, targetNodeId: 'watch-1', status, reason: status === 'rejected' ? 'active_session' : undefined, watchUpdatedAtMillis: 1200 } };

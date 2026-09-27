@@ -1288,3 +1288,68 @@ action: implement the revisioned cancellation listener/race and native final-
 result send/receipt cleanup, then publish capability and perform paired Quick
 Start delivery/recovery validation. TTS remains a later Phase 2 cue-controller
 slice, not part of this checkpoint.
+
+## Iteration 25 — 2026-09-27 — Cancellation and terminal transport
+
+Status: **Code, automated checks, and browser UI validation complete; paired
+delivery/recovery and physical-device acceptance remain open.**
+
+Starting checkpoint: `2509782 PST01: Wire watch Quick Start sessions`, clean
+tree, with the branch one commit ahead of its tracked remote. The requested
+iteration continued the recorded terminal-transport action. No fetch, push, or
+emulator action occurred.
+
+The shared schema now has a bounded, request-scoped cancellation payload whose
+path, revision, selected watch, observed phone, and local watch identities are
+validated together. The phone persists that exact cancellation before
+transport, retries it after process reload while the watch is still pending,
+and exposes an explicit pending/Ready cancel action in the React sheet. The
+watch listener runs cancellation through the process-wide start mutex: READY
+becomes a replay-safe Cancelled tombstone, while STARTING/Started wins without
+being erased. A terminal acknowledgement is durable on the phone before its
+request/cancel/ack Data Items are removed; duplicate acknowledgements retry a
+previously interrupted cleanup.
+
+Terminal workout transitions already froze their result with runtime state.
+They now enqueue that exact result through Data Layer after the durable write.
+The phone validates it against the original request and both nodes, atomically
+stores the permanent result plus immutable receipt, and retries receipt delivery
+after reload. The watch validates the receipt against the live result or compact
+receipt tombstone, then clears runtime/package state in a restart-safe order and
+removes the transport items. Failed result transport cannot roll back a
+committed workout transition, and resume retries the retained result. Both phone
+and watch now publish their schema-1 Quick Start capability; publication was
+deliberately delayed until these terminal paths existed.
+
+Review added two recovery corrections before closure: persisted cancellations
+are retransmitted on phone-plugin load, and duplicate terminal acknowledgements
+can repeat Data Item cleanup. An ambiguous React cancellation call reconciles
+the durable native record instead of presenting a false retry state. No
+unrelated working-tree changes were present.
+
+Validation passed:
+
+- `gradlew.bat :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet`: **77 shared, 11
+  phone, and 156 Wear tests** (244 total), zero failures/errors, with both debug
+  APKs built.
+- `npx tsc --noEmit`, `node --experimental-strip-types
+  tests/quick-start.test.mjs` (3/3), and `npm run build` passed.
+- The visible local `tests/quick-start.html` fixture passed **19 checks**,
+  including the pending-offer cancellation action.
+- `git diff --check` passed; only the repository's existing LF/CRLF conversion
+  warnings were emitted.
+
+Per the user's instruction, the phone/Wear emulator was not opened. Therefore
+this checkpoint is code completion, not paired capability, cancellation,
+result-cleanup, reboot, or round-screen device proof. The last visual Wear
+evidence remains Iteration 24's 454x454 Ready prompt, and the last paired
+evidence remains Iteration 23's legacy schedule sync.
+
+The Start/Dismiss/Cancel checklist item closes. Stage 19 is now **46/97 (47%)**
+overall and Phase 2 is **5/17 (29%)**. Cues/TTS are still planned, not present.
+Exact next action: add `WatchCueController.kt` under the existing Wear `cues`
+package, the TTS adapter, persistent preferences/ledger, and focused failure/
+recovery tests; then wire the foreground-only five-second start state. Run
+paired capability/delivery/recovery validation separately when an emulator or
+physical device session is allowed.

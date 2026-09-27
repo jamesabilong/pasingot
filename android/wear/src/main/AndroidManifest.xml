@@ -67,5 +67,29 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".quickstart.QuickStartCancellationListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/quick-start/cancel/" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".quickstart.QuickStartResultReceiptListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/quick-start/result-receipt/" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>

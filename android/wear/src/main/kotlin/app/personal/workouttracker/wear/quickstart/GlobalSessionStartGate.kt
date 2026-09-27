@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.quickstart
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
+import app.personal.workouttracker.shared.quickstart.QuickStartCancellation
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationResult
@@ -102,6 +103,15 @@ class GlobalSessionStartGate(
             MarkQuickStartStartingResult.Missing -> QuickStartGateResult.Missing
             MarkQuickStartStartingResult.Expired -> QuickStartGateResult.Expired
         }
+    }
+
+    /** Serializes remote cancellation against the READY -> STARTING commit. */
+    suspend fun cancelQuickStart(
+        cancellation: QuickStartCancellation,
+        observedPhoneNodeId: String,
+        nowEpochMillis: Long,
+    ): TerminateQuickStartResult = processStartMutex.withLock {
+        quickStartPackages.cancelRemote(cancellation, observedPhoneNodeId, nowEpochMillis)
     }
 
     suspend fun startLegacy(

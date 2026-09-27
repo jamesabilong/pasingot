@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.wear.data.SessionOutcomeAction
 import app.personal.workouttracker.wear.data.SessionOutcomeActionType
+import app.personal.workouttracker.shared.SessionStatus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -50,5 +51,34 @@ class QuickStartSessionStoreTest {
             action = SessionOutcomeAction(SessionOutcomeActionType.SET_COMPLETED, 0),
         ))
         assertFalse(store.commitSession(entry, next))
+    }
+
+    @Test
+    fun `terminal commit is durable before result transport and survives transport failure`() = runTest {
+        val persistence = RuntimeMemoryPersistence()
+        val runtime = QuickStartRuntimeStore(persistence)
+        runtime.initialize(runtimePackage(), initialSession(), NOW)
+        var observed: FinalQuickStartResult? = null
+        val store = QuickStartSessionStore(
+            requestId = ID,
+            runtimeStore = runtime,
+            nowEpochMillis = { NOW + 1_000 },
+            resultClient = QuickStartResultClient { result ->
+                observed = requireNotNull(runtime.current()).finalResult
+                assertEquals(result, observed)
+                error("offline")
+            },
+        )
+        val entry = requireNotNull(store.getEntry(ID))
+        val ended = requireNotNull(entry.sessionState).copy(
+            status = SessionStatus.ENDED,
+            elapsedStartedAtEpochMillis = null,
+            accumulatedElapsedMillis = 1_000,
+            lastStopReason = "ended_by_user",
+        )
+
+        assertTrue(store.commitSession(entry, entry.copy(sessionState = ended)))
+        assertEquals(runtime.current()?.finalResult, observed)
+        assertEquals(SessionStatus.ENDED, runtime.current()?.session?.status)
     }
 }

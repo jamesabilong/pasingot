@@ -10,6 +10,8 @@ import app.personal.workouttracker.shared.quickstart.QuickStartValidationResult
 import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import app.personal.workouttracker.shared.quickstart.isValidQuickStartResultForWire
 import app.personal.workouttracker.shared.quickstart.isValidQuickStartResultReceipt
+import app.personal.workouttracker.shared.quickstart.QuickStartResultDecodeResult
+import app.personal.workouttracker.shared.quickstart.decodeQuickStartResultReceipt
 import app.personal.workouttracker.shared.quickstart.receiptMatchesQuickStartResult
 import app.personal.workouttracker.shared.quickstart.validateQuickStartAcknowledgement
 import app.personal.workouttracker.shared.quickstart.validateQuickStartRequest
@@ -74,6 +76,13 @@ sealed interface ApplyQuickStartRuntimeResult {
 }
 
 enum class ClearQuickStartRuntimeResult { CLEARED, ALREADY_CLEARED, MISSING, MISMATCH }
+
+sealed interface ClearQuickStartRuntimePayloadResult {
+    data class Cleared(val receipt: QuickStartResultReceipt) : ClearQuickStartRuntimePayloadResult
+    data class AlreadyCleared(val receipt: QuickStartResultReceipt) : ClearQuickStartRuntimePayloadResult
+    data object Missing : ClearQuickStartRuntimePayloadResult
+    data object Mismatch : ClearQuickStartRuntimePayloadResult
+}
 
 @Serializable
 private data class PersistedQuickStartRuntime(
@@ -213,16 +222,54 @@ class QuickStartRuntimeStore(private val persistence: QuickStartRuntimePersisten
         observedPhoneNodeId: String,
     ): ClearQuickStartRuntimeResult = processMutex.withLock {
         val record = load() ?: return@withLock ClearQuickStartRuntimeResult.MISSING
+        clearAcknowledged(record, receipt, observedPhoneNodeId)
+    }
+
+    suspend fun clearAcknowledgedPayload(
+        payload: String,
+        path: String,
+        observedPhoneNodeId: String,
+        localWatchNodeId: String,
+    ): ClearQuickStartRuntimePayloadResult = processMutex.withLock {
+        val record = load() ?: return@withLock ClearQuickStartRuntimePayloadResult.Missing
+        val decoded = record.runtime?.finalResult?.let { expected ->
+            decodeQuickStartResultReceipt(
+                payload, path, observedPhoneNodeId, expected, localWatchNodeId,
+            )
+        } ?: record.clearedReceipt?.let { expected ->
+            decodeQuickStartResultReceipt(
+                payload, path, observedPhoneNodeId, expected, localWatchNodeId,
+            )
+        } ?: return@withLock ClearQuickStartRuntimePayloadResult.Missing
+        val receipt = when (decoded) {
+            is QuickStartResultDecodeResult.Accepted -> decoded.value
+            is QuickStartResultDecodeResult.Rejected ->
+                return@withLock ClearQuickStartRuntimePayloadResult.Mismatch
+        }
+        when (clearAcknowledged(record, receipt, observedPhoneNodeId)) {
+            ClearQuickStartRuntimeResult.CLEARED -> ClearQuickStartRuntimePayloadResult.Cleared(receipt)
+            ClearQuickStartRuntimeResult.ALREADY_CLEARED ->
+                ClearQuickStartRuntimePayloadResult.AlreadyCleared(receipt)
+            ClearQuickStartRuntimeResult.MISSING -> ClearQuickStartRuntimePayloadResult.Missing
+            ClearQuickStartRuntimeResult.MISMATCH -> ClearQuickStartRuntimePayloadResult.Mismatch
+        }
+    }
+
+    private suspend fun clearAcknowledged(
+        record: PersistedQuickStartRuntime,
+        receipt: QuickStartResultReceipt,
+        observedPhoneNodeId: String,
+    ): ClearQuickStartRuntimeResult {
         if (record.clearedReceipt == receipt && observedPhoneNodeId == receipt.phoneNodeId) {
-            return@withLock ClearQuickStartRuntimeResult.ALREADY_CLEARED
+            return ClearQuickStartRuntimeResult.ALREADY_CLEARED
         }
         val finalResult = record.runtime?.finalResult
-            ?: return@withLock ClearQuickStartRuntimeResult.MISMATCH
+            ?: return ClearQuickStartRuntimeResult.MISMATCH
         if (!receiptMatchesQuickStartResult(receipt, finalResult, observedPhoneNodeId)) {
-            return@withLock ClearQuickStartRuntimeResult.MISMATCH
+            return ClearQuickStartRuntimeResult.MISMATCH
         }
         persist(PersistedQuickStartRuntime(SCHEMA_VERSION, clearedReceipt = receipt))
-        ClearQuickStartRuntimeResult.CLEARED
+        return ClearQuickStartRuntimeResult.CLEARED
     }
 
     private suspend fun load(): PersistedQuickStartRuntime? {

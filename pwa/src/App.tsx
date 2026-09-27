@@ -870,10 +870,12 @@ export default function App() {
         availabilityMessage={quickStart.availabilityMessage}
         checking={quickStart.checking}
         sending={quickStart.sending}
+        cancelling={quickStart.cancelling}
         receipt={quickStart.receipt}
         error={quickStart.error}
         onDraftChange={quickStart.setDraft}
         onSend={() => void quickStart.send()}
+        onCancel={() => void quickStart.cancel()}
         onClose={quickStart.close}
       />
     </AppShell>

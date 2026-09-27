@@ -3,16 +3,17 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch transport in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 24 — Ready/Start/Dismiss runtime integration**
-Previous checkpoint: `6a092d3 PST01: Serialize watch workout admission`
+Latest checkpoint: **Iteration 25 — cancellation and terminal transport**
+Previous checkpoint: `2509782 PST01: Wire watch Quick Start sessions`
 Last updated: **2026-09-27**
 
-**Current closure:** Iteration 24 passes 151 Wear JVM tests and the debug APK
-build. The checklist is 45/97 (46%); Phase 2 now has a durable in-app Ready
-prompt, Start/Dismiss actions, and a Quick Start adapter for the existing
-session engine. Cancellation, native final-result transport/cleanup, cues/TTS,
-capability publication, and paired/physical acceptance remain open. See
-`IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
+**Current closure:** Iteration 25 passes 77 shared, 11 phone, and 156 Wear JVM
+tests plus both debug APK builds. The checklist is 46/97 (47%); Phase 2 now has
+serialized Start/Dismiss/Cancel, replay-safe native final-result transport and
+receipt cleanup, and schema-1 capability publication on both peers. The local
+browser fixture passes 19 checks. Paired delivery/recovery was intentionally
+not run in this no-emulator iteration; cues/TTS and physical acceptance remain
+open. See `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
 ## Goal
 
@@ -139,7 +140,7 @@ identity, ordered exercise plan and explicit title. A null request title allows
 a validated local display title. Offer expiry does not discard an offline final
 result. The request receiver preserves the originating phone identity from
 the observed offer sender. The runtime store uses it in its frozen final record;
-native final-result delivery remains open.
+Iteration 25 wires native final-result delivery and permanent phone import.
 
 The Wear decoder binds the observed phone sender, local watch node, exact path,
 result identity and revision before any receipt write. After compaction it
@@ -149,9 +150,11 @@ Both codecs reject malformed/oversized payloads (131,072-character bound), missi
 required version/status, unknown schemas and unknown receipt statuses, while
 allowing additive optional fields. Existing stored result JSON remains readable.
 
-The request listener and origin-node persistence are implemented. Native final-
-result/receipt listeners, permanent phone import, Data Item removal, capability
-publication and paired delivery remain unimplemented.
+At the Iteration 15 checkpoint, the request listener and origin-node persistence
+were implemented while native final-result/receipt listeners, permanent phone
+import, Data Item removal, capability publication and paired delivery remained
+open. **Superseded by Iteration 25:** the native transport/import/cleanup and
+capability publication are now implemented; paired delivery remains unverified.
 Transport receipt paths must use the guarded payload entry point; direct typed
 receipt operations are for previously validated records and headless fixtures.
 
@@ -184,8 +187,9 @@ node, the selected node/capability and its exact request path. Schema 1 is
 supported now. Future schema 2 peers advertise it only after both codecs and
 stored-record migration exist; 1+2 peers fall back to 1 with a 1-only peer,
 and 2-only/1-only peers refuse. No older app is assumed compatible from its
-package ID alone. Headless rules and migration fixtures are present; native
-publication, listeners, Data Item deletion and paired-device proof remain open.
+package ID alone. Headless rules and migration fixtures are present. Iteration
+25 supplies native publication, listeners, and guarded Data Item deletion;
+paired-device proof remains open.
 
 ### Out of scope for the first release
 
@@ -760,17 +764,17 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-27, Iteration 19
+### Progress audit — 2026-09-27, Iteration 25
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **44/97 items (45%) overall**:
+stands at **46/97 items (47%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **4/17 (24%)** | Ready/Start/Dismiss and runtime session integration are wired; cancellation, final-result transport, cues and capability publication remain open |
+| Phase 2 — watch feature | **5/17 (29%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, and capability publication are wired; cues and paired validation remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -850,25 +854,28 @@ Status: **Headless code/contract foundations complete; native wiring and device 
       result persistence now exists; UI saved/synced integration remains open.
 - [x] Add the pure Wear outcome reducer and derived compact
       **completed/total** presentation (for example `2/5`) with descriptive
-      TalkBack text. Runtime session wiring and UI rendering remain open.
+      TalkBack text. Runtime session wiring is complete; dedicated success UI
+      rendering remains open.
 - [x] Persist ordered reducer outcomes and revision atomically in an isolated
       Wear store; verify restart/replay, invalid-state preservation, identity/plan
       conflicts, concurrent transitions, and storage failures. A real
       Preferences DataStore file recovery test passes. Runtime wiring and
-      native final-result/receipt integration remains open.
+      native final-result/receipt integration are complete; device recovery
+      validation remains open.
 - [x] Define a shared v1 capability envelope and pure schema negotiation with
       reachable-node/role binding. The current helper includes only implemented
       request schema 1. Missing, malformed, unsupported, and mixed-version
-      fixtures pass; publication and UI gating remain open.
+      fixtures pass; both peers now publish it, while paired mixed-version
+      validation remains open.
 - [x] Persist completed and ended Quick Start summaries until an exact phone
       receipt; prune package/outcome/result in a restart-safe sequence and
       retain bounded replay tombstones. Headless real-file and write-failure
-      fixtures pass. Native transport remains open.
+      fixtures pass. Native transport is wired; paired recovery remains open.
 - [x] Share final-result and persisted-receipt models/codecs with exact observed
       sender, target node, request/plan, path and revision validation. Preserve
       legacy disk records and immutable compacted receipt replay; native phone
-      import and final-result transport wiring remain open. The request receiver
-      now persists the observed originating phone node.
+      import and final-result transport wiring are complete. The request
+      receiver persists the observed originating phone node.
 - [x] Define short-rest cue scripts, TalkBack/audio-output behavior, TTS
       lifecycle, manifest discovery, and deterministic spoken formatting.
 - [x] Record the battery/runtime budget and headless-versus-device test split.
@@ -877,8 +884,7 @@ Status: **Headless code/contract foundations complete; native wiring and device 
 
 Exit checks:
 
-- [x] `:shared:test` passes (73 tests: 15 Quick Start, 19 result/receipt, 10 capability, 13 terminal/progress summary, and
-      16 existing).
+- [x] `:shared:test` passes (77 tests at Iteration 25).
 - [x] Empty, oversized, partially invalid, reordered, expired, clock-skewed,
       duplicate, cancelled, out-of-order, and unsupported-schema fixtures pass.
 - [x] Shared capability negotiation and mixed phone/watch-version fixtures
@@ -893,8 +899,8 @@ Status: **Code, headless checks, and browser UI checks complete; paired-device d
 - [x] Add the Quick Start sheet with one-or-many item editing, ordering, and
       prescription validation.
 - [x] Create the separate Capacitor plugin/client/receipt store. The phone
-      persists requests and watch acknowledgements; final-result import remains
-      in Phase 3.
+      persists requests/watch acknowledgements and now atomically imports final
+      results with their immutable receipt; paired recovery remains in Phase 3.
 - [x] Add platform/plugin gating without changing browser-to-watch claims.
 - [x] Add mocked bridge tests for every phone-visible status.
 - [x] Integrate Library and Today through narrow props/callbacks.
@@ -902,20 +908,21 @@ Status: **Code, headless checks, and browser UI checks complete; paired-device d
 Exit checks:
 
 - [x] `npx tsc --noEmit` passes.
-- [x] Focused browser fixture passes (18 checks on 2026-09-27).
+- [x] Focused browser fixture passes (19 checks on 2026-09-27, including the
+      explicit pending/Ready cancellation action).
 - [x] Browser UI never offers a non-functional send action (Library and a
       scheduled Today row inspected at 390px).
 - [x] `App.tsx` does not acquire feature-specific effects or handlers.
 
 ### Phase 2 — Watch receiver and ready prompt
 
-Status: **In progress — Ready/Start/Dismiss and runtime session integration pass JVM tests; capability remains unpublished**
+Status: **In progress — terminal transport is wired and capability is published; cues and paired validation remain open**
 
 - [x] Implement listener, coordinator, receipt client, and prompt.
 - [x] Persist accepted requests through the transient package store, leaving the
       permanent date-keyed download store unchanged.
 - [x] Handle active-session, invalid, expired, and duplicate requests.
-- [ ] Add Start, Dismiss, and Cancel acknowledgements and serialized races.
+- [x] Add Start, Dismiss, and Cancel acknowledgements and serialized races.
 - [ ] Add the isolated cue controller, TTS adapter, preferences, and cue ledger.
 - [ ] Add the foreground-only five-second start state and cancellation path.
 - [ ] Add rest-duration, five-second, and Go cue events without changing the
@@ -1123,25 +1130,31 @@ The global start gate is wired into production offer admission and downloaded
 session creation. Iteration 24 adds the durable Ready prompt, wires Start and
 Dismiss receipts, and adapts the existing session engine to the transient
 runtime without copying the offer into the date-keyed download store. Explicit
-session exit now awaits its pause write. Revisioned phone Cancel, native final-
-result transport/receipt cleanup, and capability publication remain open.
+session exit now awaits its pause write. Iteration 25 adds revisioned phone
+Cancel, native final-result transport/import/receipt cleanup, retry after
+ambiguous transport, and phone/watch capability publication.
 The shared progress/completion summary now includes explicit pending counts.
 A pure Wear reducer produces it and derives compact **completed/total** text,
 and Iteration 11 persists its ordered outcomes/revision atomically with tested
-recovery and failure behavior. It is not yet connected to the runtime session
-engine or rendered by UI. Completed and ended outcomes are frozen and retained;
-final records, exact phone receipts, offline recovery, and guarded cleanup exist,
-but native sender/receiver and UI do not. Iteration 12 adds a shared capability
-envelope and schema-1 negotiation with mixed-version fixtures. Iteration 15 adds
-shared final-result/receipt codecs and a guarded Wear payload entry point. The
-latest Wear suite has 151 passing tests and a passing debug build. The
+recovery and failure behavior. Iteration 24 connects those outcomes to the
+runtime session engine; dedicated success presentation is still open. Completed
+and ended outcomes are frozen and retained, and Iteration 25 wires their native
+sender/receiver, permanent phone import, exact receipt, and guarded cleanup.
+Iteration 12 adds a shared capability envelope and schema-1 negotiation with
+mixed-version fixtures; Iteration 25 publishes it from both peers. The latest
+suites have 77 shared, 11 phone, and 156 Wear passing tests plus both debug APK
+builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
-delivery and physical-device acceptance remain open.
+delivery and physical-device acceptance remain open. No emulator was opened for
+Iteration 25, so the published capability and complete terminal path still need
+paired recovery validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** add the revisioned phone-cancellation listener/race and
-native final-result send/receipt cleanup. Keep capability unpublished until
-those terminal paths are replay-safe, then publish it and verify paired delivery.
+**Exact next action:** add `WatchCueController.kt`, the TTS adapter, persistent
+cue preferences/ledger, and their failure/recovery tests, then wire the
+foreground-only five-second start state without changing the persisted rest
+deadline. When a device session is allowed, separately verify capability-gated
+paired delivery, cancellation races, reboot recovery, and Data Item cleanup.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

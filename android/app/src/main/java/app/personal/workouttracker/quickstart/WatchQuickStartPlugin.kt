@@ -6,6 +6,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +30,18 @@ class WatchQuickStartPlugin : Plugin() {
             scope.launch {
                 val acknowledgement = store.current(requestId)?.acknowledgement ?: return@launch
                 notifyListeners("quickStartStatus", JSObject(json.encodeToString(acknowledgement)))
+            }
+        }
+        // A prior listener may have committed the import before receipt transport failed.
+        scope.launch {
+            runCatching { client.publishCapability() }
+            store.recordsWithPendingCancellations().forEach { record ->
+                runCatching { client.sendCancellation(requireNotNull(record.cancellation)) }
+            }
+            store.recordsWithResultReceipts().forEach { record ->
+                runCatching {
+                    client.sendResultReceipt(requireNotNull(record.resultReceipt), record.request.targetNodeId)
+                }
             }
         }
     }
@@ -84,8 +97,28 @@ class WatchQuickStartPlugin : Plugin() {
                     put("requestId", requestId)
                     put("transportAcceptedAtMillis", record.transportAcceptedAtMillis)
                     put("acknowledgement", record.acknowledgement?.let { JSObject(json.encodeToString(it)) })
+                    put("cancellation", record.cancellation?.let { JSObject(json.encodeToString(it)) })
+                    put("finalResult", record.finalResult?.let { JSObject(json.encodeToString(it)) })
+                    put("resultReceipt", record.resultReceipt?.let { JSObject(json.encodeToString(it)) })
                 })
             } catch (error: Exception) { call.reject(error.message ?: "Could not load status", error) }
+        }
+    }
+
+    @PluginMethod fun cancelQuickStart(call: PluginCall) {
+        val requestId = call.getString("requestId") ?: run { call.reject("Missing request ID"); return }
+        scope.launch {
+            try {
+                val localNodeId = com.google.android.gms.wearable.Wearable
+                    .getNodeClient(context).localNode.await().id
+                val cancellation = store.prepareCancellation(
+                    requestId, localNodeId, System.currentTimeMillis(),
+                )
+                client.sendCancellation(cancellation)
+                call.resolve(JSObject(json.encodeToString(cancellation)))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "Could not cancel Quick Start", error)
+            }
         }
     }
 

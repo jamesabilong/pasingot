@@ -19,6 +19,8 @@ test('mocked bridge restoration distinguishes transport and every watch status',
   let stored = pending;
   const bridge = { getQuickStartStatus: async () => stored };
   assert.match(statusText(await bridge.getQuickStartStatus()), /Waiting for watch/);
+  assert.match(statusText({ ...pending, cancellation: { requestId, revision: 2,
+    targetNodeId: 'watch-1', phoneNodeId: 'phone-1', requestedAtMillis: 1150 } }), /Cancellation sent/);
   const cases = [
     ['ready', undefined, /Ready on watch/],
     ['started', undefined, /started on watch/],

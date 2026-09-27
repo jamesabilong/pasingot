@@ -6,6 +6,16 @@ import app.personal.workouttracker.shared.quickstart.QuickStartExercise
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartSource
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
+import app.personal.workouttracker.shared.quickstart.FinalQuickStartResult
+import app.personal.workouttracker.shared.quickstart.QuickStartResultEnvelope
+import app.personal.workouttracker.shared.quickstart.QUICK_START_RESULT_SCHEMA_VERSION
+import app.personal.workouttracker.shared.quickstart.encodeQuickStartResultEnvelope
+import app.personal.workouttracker.shared.quickstart.quickStartResultPath
+import app.personal.workouttracker.shared.session.ExerciseOutcome
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
+import app.personal.workouttracker.shared.session.ExerciseProgressCounts
+import app.personal.workouttracker.shared.session.WorkoutCompletionSummary
+import app.personal.workouttracker.shared.session.WorkoutProgressSnapshot
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -170,4 +180,75 @@ class QuickStartPhoneStoreTest {
             catch (_: IllegalStateException) { assertEquals(raw, persistence.raw); assertEquals(0, persistence.writes) }
         }
     }
+
+    @Test fun `cancellation is durable before transport and cannot follow Started`() = runTest {
+        val persistence = MemoryPersistence()
+        val store = QuickStartPhoneStore(persistence)
+        store.saveRequest(request(), now)
+        val cancellation = store.prepareCancellation(requestId, "phone-1", now + 1)
+        assertEquals(2L, cancellation.revision)
+        assertEquals(cancellation,
+            QuickStartPhoneStore(persistence).prepareCancellation(requestId, "phone-1", now + 2))
+        assertEquals(cancellation,
+            QuickStartPhoneStore(persistence).recordsWithPendingCancellations().single().cancellation)
+        store.acceptAcknowledgement(
+            Json.encodeToString(ack(QuickStartStatus.STARTED, 2)), path, "watch-1",
+        )
+        assertTrue(store.recordsWithPendingCancellations().isEmpty())
+
+        val startedPersistence = MemoryPersistence()
+        val startedStore = QuickStartPhoneStore(startedPersistence)
+        startedStore.saveRequest(request(), now)
+        startedStore.acceptAcknowledgement(
+            Json.encodeToString(ack(QuickStartStatus.STARTED, 2)), path, "watch-1",
+        )
+        try {
+            startedStore.prepareCancellation(requestId, "phone-1", now + 2)
+            fail("Expected Started cancellation refusal")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("started"))
+        }
+    }
+
+    @Test fun `final result import persists exact receipt atomically and replays idempotently`() = runTest {
+        val persistence = MemoryPersistence()
+        val store = QuickStartPhoneStore(persistence)
+        store.saveRequest(request(), now)
+        val result = completedResult()
+        val resultPath = quickStartResultPath(requestId, result.resultId)
+        val payload = encodeQuickStartResultEnvelope(QuickStartResultEnvelope(
+            QUICK_START_RESULT_SCHEMA_VERSION, "watch-1", result,
+        ))
+
+        val imported = store.importResult(payload, resultPath, "watch-1", "phone-1", now + 10)
+            as PhoneQuickStartResultImport.Imported
+        assertEquals(result, imported.record.finalResult)
+        assertEquals(now + 10, imported.record.resultReceipt?.receivedAtMillis)
+        assertTrue(store.importResult(payload, resultPath, "watch-1", "phone-1", now + 99)
+            is PhoneQuickStartResultImport.Duplicate)
+        assertTrue(store.importResult(payload, resultPath, "other-watch", "phone-1", now + 99)
+            is PhoneQuickStartResultImport.Invalid)
+        assertEquals(imported.record.resultReceipt,
+            QuickStartPhoneStore(persistence).recordsWithResultReceipts().single().resultReceipt)
+    }
+
+    private fun completedResult() = FinalQuickStartResult(
+        requestId = requestId,
+        resultId = "result-1",
+        outcomeRevision = 3,
+        phoneNodeId = "phone-1",
+        summary = WorkoutCompletionSummary(
+            completedAtEpochMillis = now + 5,
+            snapshot = WorkoutProgressSnapshot(
+                sessionId = requestId,
+                progress = ExerciseProgressCounts(1, 1, 0, 0),
+                completedSets = 3,
+                plannedSets = 3,
+                elapsedActiveSeconds = 30,
+                exercises = listOf(ExerciseOutcome(
+                    "item", "exercise", "Squat", ExerciseOutcomeStatus.COMPLETED, 3, 3,
+                )),
+            ),
+        ),
+    )
 }

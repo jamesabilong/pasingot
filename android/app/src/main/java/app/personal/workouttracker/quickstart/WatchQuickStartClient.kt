@@ -1,13 +1,24 @@
 package app.personal.workouttracker.quickstart
 
 import android.content.Context
+import android.net.Uri
 import app.personal.workouttracker.shared.quickstart.QuickStartCapabilityDecision
+import app.personal.workouttracker.shared.quickstart.QUICK_START_RESULT_SCHEMA_VERSION
+import app.personal.workouttracker.shared.quickstart.QuickStartCancellation
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
 import app.personal.workouttracker.shared.quickstart.QuickStartNodeRole
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
+import app.personal.workouttracker.shared.quickstart.QuickStartResultReceipt
+import app.personal.workouttracker.shared.quickstart.QuickStartResultReceiptEnvelope
+import app.personal.workouttracker.shared.quickstart.QuickStartResultReceiptStatus
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationResult
+import app.personal.workouttracker.shared.quickstart.encodeQuickStartCancellation
+import app.personal.workouttracker.shared.quickstart.encodeQuickStartResultReceiptEnvelope
 import app.personal.workouttracker.shared.quickstart.localQuickStartCapability
 import app.personal.workouttracker.shared.quickstart.negotiateQuickStartCapability
+import app.personal.workouttracker.shared.quickstart.encodeQuickStartCapability
+import app.personal.workouttracker.shared.quickstart.quickStartCancellationPath
+import app.personal.workouttracker.shared.quickstart.quickStartResultReceiptPath
 import app.personal.workouttracker.shared.quickstart.validateQuickStartRequest
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -54,6 +65,16 @@ class WatchQuickStartClient(private val context: Context) {
         }
     }
 
+    suspend fun publishCapability() {
+        val local = Wearable.getNodeClient(context).localNode.await()
+        val item = PutDataMapRequest.create(QuickStartDataLayerPaths.CAPABILITY).apply {
+            dataMap.putString("payload", encodeQuickStartCapability(
+                localQuickStartCapability(local.id, QuickStartNodeRole.PHONE),
+            ))
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(item).await()
+    }
+
     /** Returns only when DataClient accepts the item; Ready requires a later watch ack. */
     suspend fun send(request: QuickStartRequest) {
         val available = availability() as? WatchQuickStartAvailability.Available
@@ -65,5 +86,44 @@ class WatchQuickStartClient(private val context: Context) {
             dataMap.putString("payload", json.encodeToString(request))
         }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(item).await()
+    }
+
+    /** Cancellation is durable/offline-capable and remains bound to the original nodes. */
+    suspend fun sendCancellation(cancellation: QuickStartCancellation) {
+        val local = Wearable.getNodeClient(context).localNode.await()
+        require(cancellation.phoneNodeId == local.id) { "Phone identity changed" }
+        val item = PutDataMapRequest.create(quickStartCancellationPath(cancellation.requestId)).apply {
+            dataMap.putString("payload", encodeQuickStartCancellation(cancellation))
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(item).await()
+    }
+
+    suspend fun sendResultReceipt(receipt: QuickStartResultReceipt, watchNodeId: String) {
+        val local = Wearable.getNodeClient(context).localNode.await()
+        require(receipt.phoneNodeId == local.id) { "Phone identity changed" }
+        val payload = encodeQuickStartResultReceiptEnvelope(QuickStartResultReceiptEnvelope(
+            schemaVersion = QUICK_START_RESULT_SCHEMA_VERSION,
+            watchNodeId = watchNodeId,
+            status = QuickStartResultReceiptStatus.PERSISTED,
+            receipt = receipt,
+        ))
+        val item = PutDataMapRequest.create(
+            quickStartResultReceiptPath(receipt.requestId, receipt.resultId),
+        ).apply { dataMap.putString("payload", payload) }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(item).await()
+    }
+
+    /** Safe only after a matching terminal acknowledgement is durable on the phone. */
+    suspend fun cleanupTerminalOffer(requestId: String, watchNodeId: String) {
+        val localNodeId = Wearable.getNodeClient(context).localNode.await().id
+        val client = Wearable.getDataClient(context)
+        val paths = listOf(
+            localNodeId to (QuickStartDataLayerPaths.REQUEST_PREFIX + requestId),
+            localNodeId to quickStartCancellationPath(requestId),
+            watchNodeId to (QuickStartDataLayerPaths.ACKNOWLEDGEMENT_PREFIX + requestId),
+        )
+        for ((nodeId, path) in paths) {
+            client.deleteDataItems(Uri.parse("wear://$nodeId$path")).await()
+        }
     }
 }

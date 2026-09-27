@@ -10,12 +10,14 @@ import app.personal.workouttracker.wear.data.SessionOutcomeActionType
 import app.personal.workouttracker.wear.data.WorkoutSessionEffects
 import app.personal.workouttracker.wear.data.WorkoutSessionStore
 import app.personal.workouttracker.wear.session.WorkoutOutcomeTransitionType
+import kotlinx.coroutines.CancellationException
 
 /** Adapts the existing session engine to the transient Quick Start runtime. */
 class QuickStartSessionStore(
     private val requestId: String,
     private val runtimeStore: QuickStartRuntimeStore,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val resultClient: QuickStartResultClient? = null,
 ) : WorkoutSessionStore {
     override suspend fun getEntry(entryId: String): DownloadedWorkoutEntry? =
         runtimeStore.current()?.takeIf { it.sessionPackage.request.requestId == entryId }?.toEntry()
@@ -40,7 +42,7 @@ class QuickStartSessionStore(
                 exerciseIndex = it.exerciseIndex,
             )
         }
-        return when (runtimeStore.transition(
+        return when (val result = runtimeStore.transition(
             requestId = requestId,
             expectedRevision = current.runtimeRevision,
             expectedSession = current.session,
@@ -48,7 +50,14 @@ class QuickStartSessionStore(
             action = runtimeAction,
             nowEpochMillis = nowEpochMillis(),
         )) {
-            is ApplyQuickStartRuntimeResult.Applied,
+            is ApplyQuickStartRuntimeResult.Applied -> {
+                result.state.finalResult?.let { finalResult ->
+                    try { resultClient?.send(finalResult) }
+                    catch (error: CancellationException) { throw error }
+                    catch (_: Exception) { Unit }
+                }
+                true
+            }
             is ApplyQuickStartRuntimeResult.Unchanged -> true
             else -> false
         }
