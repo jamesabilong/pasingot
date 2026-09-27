@@ -105,6 +105,7 @@ class QuickStartContractTest {
             QuickStartValidationCode.UNSUPPORTED_SCHEMA,
         )
         assertInvalid(request().copy(revision = 0), QuickStartValidationCode.INVALID_REVISION)
+        assertInvalid(request().copy(revision = Long.MAX_VALUE), QuickStartValidationCode.INVALID_REVISION)
         assertInvalid(
             request().copy(requestId = "1-1-1-1-1"),
             QuickStartValidationCode.INVALID_REQUEST_ID,
@@ -203,6 +204,20 @@ class QuickStartContractTest {
 
         assertEquals(started, advanced)
         assertSame(advanced, reconcileQuickStartAcknowledgement(advanced, olderReady))
+    }
+
+    @Test
+    fun rejectsClockArithmeticOverflowAndPreservesLastSafeBoundary() {
+        assertInvalid(request(), QuickStartValidationCode.INVALID_TIME_WINDOW, receivedAtMillis = -1)
+        assertInvalid(request(), QuickStartValidationCode.INVALID_TIME_WINDOW, receivedAtMillis = Long.MAX_VALUE)
+        val lastSafeArrival = Long.MAX_VALUE - QUICK_START_TTL_MILLIS - 2 * QUICK_START_CLOCK_SKEW_MILLIS
+        val boundary = request().copy(createdAtMillis = lastSafeArrival,
+            expiresAtMillis = lastSafeArrival + QUICK_START_TTL_MILLIS)
+        val valid = validateQuickStartRequest(boundary, lastSafeArrival) as QuickStartValidationResult.Valid
+        assertEquals(Long.MAX_VALUE - 2 * QUICK_START_CLOCK_SKEW_MILLIS, valid.sessionPackage.expiresLocallyAtMillis)
+        assertInvalid(boundary, QuickStartValidationCode.INVALID_TIME_WINDOW, lastSafeArrival + 1)
+        assertInvalid(boundary.copy(createdAtMillis = Long.MAX_VALUE - 1, expiresAtMillis = Long.MAX_VALUE),
+            QuickStartValidationCode.INVALID_TIME_WINDOW, lastSafeArrival)
     }
 
     @Test

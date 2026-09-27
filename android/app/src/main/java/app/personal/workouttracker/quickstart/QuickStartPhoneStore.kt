@@ -79,10 +79,13 @@ class QuickStartPhoneStore(private val persistence: QuickStartPhonePersistence) 
             val liveOffer = state.records.any { record ->
                 nowEpochMillis <= record.request.expiresAtMillis + QUICK_START_CLOCK_SKEW_MILLIS &&
                     (record.acknowledgement?.status == QuickStartStatus.READY ||
-                        (record.transportAcceptedAtMillis != null && record.acknowledgement == null))
+                        record.acknowledgement == null)
             }
             require(!liveOffer) { "A Quick Start request is already pending on the watch" }
             require(state.records.size < MAX_REQUESTS) { "Quick Start request history is full" }
+            // The durable request reserves the slot before transmission. A
+            // missing transport response cannot prove the watch did not receive
+            // it, so failures retain this reservation until terminal/expiry.
             val record = PhoneQuickStartRecord(request)
             persist(state.copy(records = state.records + record))
             record

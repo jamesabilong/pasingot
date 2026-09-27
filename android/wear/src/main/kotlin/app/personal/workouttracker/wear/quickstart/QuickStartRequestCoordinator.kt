@@ -9,6 +9,8 @@ import app.personal.workouttracker.shared.quickstart.QuickStartStatus
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationCode
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
 fun interface QuickStartReceiptClient {
@@ -23,8 +25,22 @@ class QuickStartRequestCoordinator(
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     private val gate = GlobalSessionStartGate(legacySessions, packages)
+    private companion object {
+        val processReceiptMutex = Mutex()
+        const val MAX_REQUEST_PAYLOAD_CHARS = 32_768
+    }
 
     suspend fun receive(
+        payload: String,
+        path: String,
+        observedPhoneNodeId: String,
+        localWatchNodeId: String,
+        nowEpochMillis: Long,
+    ): QuickStartAcknowledgement? = processReceiptMutex.withLock {
+        receiveSerialized(payload, path, observedPhoneNodeId, localWatchNodeId, nowEpochMillis)
+    }
+
+    private suspend fun receiveSerialized(
         payload: String,
         path: String,
         observedPhoneNodeId: String,
@@ -33,24 +49,25 @@ class QuickStartRequestCoordinator(
     ): QuickStartAcknowledgement? {
         val pathId = path.removePrefix(QuickStartDataLayerPaths.REQUEST_PREFIX)
         if (!path.startsWith(QuickStartDataLayerPaths.REQUEST_PREFIX) ||
-            pathId != runCatching { UUID.fromString(pathId).toString() }.getOrNull() ||
+            !pathId.equals(runCatching { UUID.fromString(pathId).toString() }.getOrNull(), ignoreCase = true) ||
             observedPhoneNodeId.isBlank() || observedPhoneNodeId.length > 256 ||
             observedPhoneNodeId.any(Char::isISOControl) ||
             localWatchNodeId.isBlank() || localWatchNodeId.length > 256 ||
             localWatchNodeId.any(Char::isISOControl) ||
-            observedPhoneNodeId == localWatchNodeId
+            observedPhoneNodeId == localWatchNodeId || payload.length > MAX_REQUEST_PAYLOAD_CHARS
         ) return null
 
-        // The path is the only safe request identity when JSON cannot be decoded.
+        // Without a decoded target/identity there is no safe terminal decision
+        // to persist. Ignore malformed/oversized traffic instead of consuming
+        // bounded replay slots or overwriting a known request's receipt.
         val request = try { json.decodeFromString<QuickStartRequest>(payload) }
-        catch (_: Exception) { return reject(pathId, 1, localWatchNodeId,
-            QuickStartRejectionReason.INVALID_PAYLOAD, nowEpochMillis) }
+        catch (_: Exception) { return null }
         if (request.requestId != pathId || request.targetNodeId != localWatchNodeId) return null
 
         val admission = gate.acceptQuickStart(request, observedPhoneNodeId, nowEpochMillis)
         if (admission is QuickStartOfferGateResult.BlockedByLegacy) {
-            return reject(pathId, request.revision.coerceAtLeast(1), localWatchNodeId,
-                QuickStartRejectionReason.ACTIVE_SESSION, nowEpochMillis)
+            return persistRefusal(request, observedPhoneNodeId, rejectValue(pathId, request.revision,
+                localWatchNodeId, QuickStartRejectionReason.ACTIVE_SESSION, nowEpochMillis))
         }
         val acknowledgement = when (val result = (admission as QuickStartOfferGateResult.Processed).result) {
             is AcceptQuickStartResult.Accepted -> ready(result.sessionPackage.request, localWatchNodeId, nowEpochMillis)
@@ -74,10 +91,14 @@ class QuickStartRequestCoordinator(
             }
             is AcceptQuickStartResult.PreviouslyTerminated -> QuickStartAcknowledgement(
                 pathId, result.terminal.revision, localWatchNodeId, result.terminal.status,
-                watchUpdatedAtMillis = result.terminal.recordedAtMillis)
-            is AcceptQuickStartResult.PreviouslyAcknowledged -> return null
+                reason = result.terminal.reason, watchUpdatedAtMillis = result.terminal.recordedAtMillis)
+            is AcceptQuickStartResult.PreviouslyAcknowledged, AcceptQuickStartResult.IdentityMismatch -> return null
             AcceptQuickStartResult.ReplayHistoryFull -> rejectValue(pathId, request.revision,
                 localWatchNodeId, QuickStartRejectionReason.STORAGE_ERROR, nowEpochMillis)
+        }
+        if (acknowledgement.status == QuickStartStatus.REJECTED ||
+            acknowledgement.status == QuickStartStatus.EXPIRED) {
+            return persistRefusal(request, observedPhoneNodeId, acknowledgement)
         }
         receipts.send(acknowledgement)
         return acknowledgement
@@ -92,7 +113,10 @@ class QuickStartRequestCoordinator(
         QuickStartAcknowledgement(id, revision.coerceAtLeast(1), node, QuickStartStatus.REJECTED,
             reason, now)
 
-    private suspend fun reject(id: String, revision: Long, node: String,
-                               reason: QuickStartRejectionReason, now: Long): QuickStartAcknowledgement =
-        rejectValue(id, revision, node, reason, now).also { receipts.send(it) }
+    private suspend fun persistRefusal(request: QuickStartRequest, observedPhoneNodeId: String,
+                                       acknowledgement: QuickStartAcknowledgement): QuickStartAcknowledgement? {
+        val terminal = packages.recordRefusal(request, acknowledgement, observedPhoneNodeId) ?: return null
+        return QuickStartAcknowledgement(terminal.requestId, terminal.revision, terminal.targetNodeId,
+            terminal.status, terminal.reason, terminal.recordedAtMillis).also { receipts.send(it) }
+    }
 }

@@ -47,7 +47,7 @@ class SessionEventQueueRepository(private val context: Context) {
     suspend fun enqueue(entry: WorkoutSessionEvent) {
         context.sessionEventQueueDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: SessionEventQueueState()
-            prefs[key] = json.encodeToString(current.copy(entries = current.entries + entry))
+            prefs[key] = json.encodeToString(current.copy(entries = (current.entries + entry).distinct()))
         }
     }
 

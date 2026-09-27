@@ -1108,3 +1108,94 @@ close. Ready prompt, Start/Dismiss/Cancel, runtime session creation, capability
 publication, and paired delivery remain open. Next action: render the persisted
 Ready offer in-app and connect Start/Dismiss to the runtime session engine; only
 then advertise capability to the phone.
+
+## Iteration 22 — 2026-09-27 — Full audit and reliability checkpoint
+
+Status: **Resumed and closed with integrated automated validation. Runtime UI
+and device acceptance remain open.** The interrupted-work record below is
+historical and superseded by the resumed closure at the end of this iteration.
+
+Starting checkpoint: `6a092d3 PST01: Serialize watch workout admission`, clean
+tree, three commits ahead of the tracked remote. The requested audit covered
+PWA session/backup/watch-sync/Health Connect workflows, Android phone bridge and
+stores, shared protocol validation, Wear request/package/result/outcome stores,
+session admission, the runtime engine, roadmap claims, and validation tooling.
+No fetch or push occurred.
+
+Baseline before edits passed: `npx tsc --noEmit`, `npm run build`, the three
+Quick Start Node fixtures, and `gradlew.bat :shared:test :app:testDebugUnitTest
+:wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+--quiet`. This baseline evidence does not validate the later edits below.
+
+Confirmed audit findings: offer TTL was checked before persisted STARTING and
+terminal replay, expired Ready could gain a second local TTL, unreadable/future
+package data was erased, phone requests did not reserve the pending slot until
+transport returned, rejected outcomes were not durable, and revision/time
+arithmetic needed overflow bounds. PWA completion wrote history and progress
+separately, prior-day recovery deleted sessions without an ended event, and
+Health Connect mutation responses overwrote granular permission state. Wear
+transitions published UI/history before durable progress and lacked compare-and-
+set protection against a reset/deleted/stale entry. The earlier checklist
+completion claims are qualified by these newly found reliability gaps.
+
+Uncommitted work now includes protocol replay/reservation/fail-closed fixes and
+tests; durable rejected-outcome/source binding work (interrupted during audit);
+a PWA session hook with atomic IndexedDB compare-and-commit, prior-day closure,
+Health Connect status refresh and ambiguous-offer restoration; a Wear CAS
+session commit with an atomic history outbox, stable replay payloads, serialized
+commands and write-error UI; and a new transient Quick Start runtime store that
+co-persists session progress, outcomes, exact Started receipt and frozen final
+result. Runtime adapters, Ready/Start UI, capability publication and native final
+result transport are still missing. New runtime fixtures and the new browser
+`workout-session-integrity.html` fixture have been written but not yet validated
+as an integrated checkpoint.
+
+The user requested stopping at 10% remaining in the five-hour account window.
+The live meter reported 97% remaining at the first check and 0% at the next;
+parallel implementation was interrupted immediately when the threshold crossing
+was observed. No further implementation or commit was attempted. The final
+whitespace check passed; integrated compilation, all new tests and browser
+validation remain open. The last committed progress ratio remains 44/97 (45%),
+not a claim of end-to-end completeness.
+
+Exact next action on explicit resume: inspect all WIP diffs and finish the
+interrupted rejected-outcome audit; compile the new Wear session/store interfaces
+and runtime fixtures; run the full JVM/APK baseline again; run TypeScript, Node,
+Vite and all isolated browser fixtures (including the new session-integrity
+fixture); audit failure/replay cases and then create logical validated commits.
+Reconcile stale plan text claiming the global gate is not production-wired, and
+distinguish request source-node persistence from still-missing final-result
+transport. Do not publish capability until the runtime/terminal save path is
+usable. No emulator was running; available Wear AVD is 454x454, so historical
+480x480 evidence must not be reused as current proof.
+
+### Resumed closure — 2026-09-27
+
+The user explicitly requested finalization and commit. Tracking had caught up
+with `6a092d3`; no fetch or push occurred. Repaired interrupted terminal fields
+and Kotlin cross-module smart casts. Durable rejections retain sender, payload,
+reason and expiry bounds; blocker removal cannot revive a rejected request.
+Cross-bucket identity conflicts fail closed. Download-list errors now show
+feedback while preserving unreadable storage. All WIP described above is now
+validated. The runtime remains an independent foundation, not a wired UI.
+
+Validation passed: TypeScript, production Vite build, three Node tests, and
+**108 isolated browser checks** (watch sync 22, data integrity 35, custom quests
+10, elapsed session 6, Quick Start 18, session integrity 17). The isolated App
+passed a 390x844 smoke covering two-set progression, rest extension, pause/resume,
+Start now and final logging without horizontal overflow. No personal DB was
+modified. Integrated Gradle tests/builds passed: **75 shared, 9 phone, 145 Wear
+tests**, zero failures/errors, and both debug APKs. This successful rerun
+supersedes the first resumed compile failure. Whitespace checks passed.
+
+Checklist remains **44/97 (45%)**. Request-source persistence and production
+gate roadmap claims were reconciled. No new Wear visual, physical Health Connect
+permission, paired-delivery or battery evidence is claimed. At 10% remaining
+five-hour allowance, new implementation stopped; only final validation and
+checkpoint recording continued. No next feature slice started.
+
+Next action: await the durable pause before Save & close navigation (immediate
+disposal can cancel the current ViewModel-scope exit write), then adapt the
+session engine to the runtime and implement Ready/Start/Dismiss plus exact
+terminal receipt cleanup. Keep capability unpublished until usable. Validate
+the error surface and session flow on the 454x454 Wear emulator separately.

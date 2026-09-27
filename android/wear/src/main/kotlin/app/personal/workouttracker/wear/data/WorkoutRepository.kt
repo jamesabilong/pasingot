@@ -9,29 +9,20 @@ import app.personal.workouttracker.shared.DownloadInsertPlan
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.WorkoutSetPayload
-import app.personal.workouttracker.shared.WorkoutExercise
-import app.personal.workouttracker.shared.displayStatus
 import app.personal.workouttracker.shared.planWorkoutDownloadInsert
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import app.personal.workouttracker.wear.download.LogFlushWorker
 
 private val Context.workoutDataStore by preferencesDataStore(name = "workout_downloads")
-
-/** Local persistence shape — not part of the cross-device contract in
- *  :shared, but stamped with the same schema version for the same reason:
- *  a future shape change must be detectable rather than silently misparsed. */
-@Serializable
-private data class WorkoutStoreState(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
-    val entries: List<DownloadedWorkoutEntry> = emptyList(),
-)
 
 /** Result of attempting to add a newly-downloaded workout set (Prompt 5 req 3). */
 sealed interface AddResult {
@@ -60,6 +51,7 @@ class WorkoutRepository(private val context: Context) : WorkoutSessionStore {
     // UI and listener service share one app process. Feedback is transient, not workout data.
     companion object {
         private val latestFeedback = MutableStateFlow<DownloadFeedback?>(null)
+        private val effectsMutex = Mutex()
     }
 
     val downloadFeedback = latestFeedback.asStateFlow()
@@ -73,12 +65,48 @@ class WorkoutRepository(private val context: Context) : WorkoutSessionStore {
 
     val entries: Flow<List<DownloadedWorkoutEntry>> = context.workoutDataStore.data.map { prefs ->
         val raw = prefs[key] ?: return@map emptyList()
-        val state = decodeState(raw) ?: return@map emptyList()
+        val state = decodeState(raw)
         state.entries
     }
 
     override suspend fun getEntry(entryId: String): DownloadedWorkoutEntry? =
         entries.first().find { it.id == entryId }
+
+    override suspend fun commitSession(
+        expected: DownloadedWorkoutEntry,
+        updated: DownloadedWorkoutEntry,
+        effects: WorkoutSessionEffects?,
+        action: SessionOutcomeAction?,
+    ): Boolean {
+        var committed = false
+        context.workoutDataStore.edit { prefs ->
+            val raw = prefs[key] ?: return@edit
+            val current = decodeState(raw)
+            val next = commitWorkoutSession(current, expected, updated, effects) ?: return@edit
+            prefs[key] = json.encodeToString(next)
+            committed = true
+        }
+        if (committed && effects != null) runCatching { LogFlushWorker.scheduleRetry(context) }
+        return committed
+    }
+
+    override suspend fun flushPendingEffects(sender: LogSender) = effectsMutex.withLock {
+        while (true) {
+            val prefs = context.workoutDataStore.data.first()
+            val raw = prefs[key] ?: return@withLock
+            val state = decodeState(raw)
+            val effect = state.pendingSessionEffects.firstOrNull() ?: return@withLock
+            effect.log?.let { sender.sendEntry(it) }
+            effect.event?.let { sender.sendSessionEvent(it) }
+            context.workoutDataStore.edit { currentPrefs ->
+                val currentRaw = currentPrefs[key] ?: return@edit
+                val current = decodeState(currentRaw)
+                currentPrefs[key] = json.encodeToString(current.copy(
+                    pendingSessionEffects = current.pendingSessionEffects.filterNot { it.id == effect.id },
+                ))
+            }
+        }
+    }
 
     /**
      * Adds a freshly-downloaded [WorkoutSetPayload] (from either the manual
@@ -113,31 +141,6 @@ class WorkoutRepository(private val context: Context) : WorkoutSessionStore {
         return result
     }
 
-    /** Prompt 4: persists progress for a specific entry — resume-in-place or
-     *  auto-save-as-paused on exit. */
-    override suspend fun updateSessionState(entryId: String, newState: SessionState) {
-        context.workoutDataStore.edit { prefs ->
-            val current = prefs[key]?.let { decodeState(it) } ?: return@edit
-            val updated = current.entries.map { if (it.id == entryId) it.copy(sessionState = newState) else it }
-            prefs[key] = json.encodeToString(current.copy(entries = updated))
-        }
-    }
-
-    /** Saves a watch-side prescription adjustment made from the active
-     * exercise screen. The scheduled-row identity and quest metadata remain
-     * attached because [newExercise] is copied from the downloaded row. */
-    override suspend fun updateExercise(entryId: String, exerciseIndex: Int, newExercise: WorkoutExercise) {
-        context.workoutDataStore.edit { prefs ->
-            val current = prefs[key]?.let { decodeState(it) } ?: return@edit
-            val updatedEntries = current.entries.map { entry ->
-                if (entry.id != entryId || exerciseIndex !in entry.exercises.indices) return@map entry
-                val exercises = entry.exercises.toMutableList().apply { this[exerciseIndex] = newExercise }
-                entry.copy(exercises = exercises)
-            }
-            prefs[key] = json.encodeToString(current.copy(entries = updatedEntries))
-        }
-    }
-
     /** Prompt 5 secondary action: clears SessionState only — the cached
      *  exercise data stays. Reset never writes a log entry (Prompt 8). */
     suspend fun resetEntry(entryId: String) {
@@ -157,13 +160,11 @@ class WorkoutRepository(private val context: Context) : WorkoutSessionStore {
         }
     }
 
-    /** Null on a JSON parse failure OR a schema-version mismatch — callers
-     *  treat both the same as "nothing usable cached" rather than guessing
-     *  at a malformed/old shape (Prompt 5 req 5). */
-    private fun decodeState(raw: String): WorkoutStoreState? = try {
+    /** Preserve unreadable/future bytes and fail closed instead of releasing session ownership. */
+    private fun decodeState(raw: String): WorkoutStoreState {
         val state = json.decodeFromString<WorkoutStoreState>(raw)
-        if (state.schemaVersion != CURRENT_SCHEMA_VERSION) null else state
-    } catch (e: Exception) {
-        null
+        check(state.schemaVersion == CURRENT_SCHEMA_VERSION) { "Unsupported workout store" }
+        check(state.entries.map { it.id }.distinct().size == state.entries.size) { "Duplicate workout identity" }
+        return state
     }
 }

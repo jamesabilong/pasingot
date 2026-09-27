@@ -73,23 +73,30 @@ class QuickStartRequestCoordinatorTest {
     }
 
     @Test
-    fun `invalid schema expired and malformed payload yield bounded receipts`() = runTest {
+    fun `invalid schema and expired decisions are durable while malformed traffic is ignored`() = runTest {
         val persistence = MemoryPersistence()
         val receipts = mutableListOf<QuickStartAcknowledgement>()
         val coordinator = coordinator(persistence) { receipts += it }
 
         val schema = coordinator.receive(json.encodeToString(request().copy(schemaVersion = 99)),
             path(), "phone-node", "watch-node", now)
-        val expired = coordinator.receive(json.encodeToString(request()), path(),
+        val expiredId = "123e4567-e89b-12d3-a456-426614174099"
+        val expired = coordinator.receive(json.encodeToString(request().copy(requestId = expiredId)),
+            QuickStartDataLayerPaths.REQUEST_PREFIX + expiredId,
             "phone-node", "watch-node", now + QUICK_START_TTL_MILLIS + 30_001)
         val malformed = coordinator.receive("{bad", path(), "phone-node", "watch-node", now)
 
         assertEquals(QuickStartRejectionReason.UNSUPPORTED_SCHEMA, schema?.reason)
         assertEquals(QuickStartStatus.EXPIRED, expired?.status)
         assertEquals(2L, expired?.revision)
-        assertEquals(QuickStartRejectionReason.INVALID_PAYLOAD, malformed?.reason)
-        assertEquals(3, receipts.size)
-        assertEquals(0, persistence.writes)
+        assertNull(malformed)
+        assertEquals(2, receipts.size)
+        assertEquals(2, persistence.writes)
+        val replay = coordinator(persistence) { }.receive(
+            json.encodeToString(request().copy(schemaVersion = 99)), path(), "phone-node", "watch-node", now + 1)
+        assertEquals(schema, replay)
+        assertNull(coordinator.receive(json.encodeToString(request()), path(), "phone-node", "watch-node", now + 2))
+        assertEquals(2, persistence.writes)
     }
 
     @Test
@@ -107,21 +114,137 @@ class QuickStartRequestCoordinatorTest {
     }
 
     @Test
-    fun `active legacy session rejects offer before persistence`() = runTest {
+    fun `active legacy rejection is durable before receipt and survives blocker clearing`() = runTest {
         val persistence = MemoryPersistence()
         val receipts = mutableListOf<QuickStartAcknowledgement>()
         val active = DownloadedWorkoutEntry("legacy", "2026-09-27", "Legacy",
             listOf(WorkoutExercise("Squat", "10", sets = 3, rest = 60)),
             sessionState = SessionState("legacy", 0, 1, SessionStatus.ACTIVE))
+        var activeEntries = listOf(active)
         val coordinator = QuickStartRequestCoordinator(WatchSessionPackageStore(persistence),
-            LegacySessionSnapshotSource { listOf(active) }, QuickStartReceiptClient { receipts += it })
+            LegacySessionSnapshotSource { activeEntries }, QuickStartReceiptClient {
+                val restored = WatchSessionPackageStore(persistence).replay(request(), now, "phone-node")
+                assertEquals(it.status, (restored as AcceptQuickStartResult.PreviouslyTerminated).terminal.status)
+                receipts += it
+            })
 
         val result = coordinator.receive(json.encodeToString(request()), path(),
             "phone-node", "watch-node", now)
 
         assertEquals(QuickStartRejectionReason.ACTIVE_SESSION, result?.reason)
         assertEquals(listOf(result), receipts)
-        assertEquals(0, persistence.writes)
+        assertEquals(1, persistence.writes)
+        activeEntries = emptyList()
+        val replay = coordinator(persistence) { receipts += it }.receive(json.encodeToString(request()),
+            path(), "phone-node", "watch-node", now + 1)
+        assertEquals(result, replay)
+        assertEquals(1, persistence.writes)
+        assertNull(WatchSessionPackageStore(persistence).current(now + 1))
+    }
+
+    @Test
+    fun `pending rejection survives dismissing its blocker and store restart`() = runTest {
+        val persistence = MemoryPersistence()
+        val coordinator = coordinator(persistence) { }
+        coordinator.receive(json.encodeToString(request()), path(), "phone-node", "watch-node", now)
+        val otherId = "123e4567-e89b-12d3-a456-426614174099"
+        val other = request().copy(requestId = otherId)
+        val otherPath = QuickStartDataLayerPaths.REQUEST_PREFIX + otherId
+        val rejected = coordinator.receive(json.encodeToString(other), otherPath,
+            "phone-node", "watch-node", now + 1)
+        WatchSessionPackageStore(persistence).dismiss(REQUEST_ID, 2, now + 2)
+        val writes = persistence.writes
+
+        val replay = coordinator(persistence) { }.receive(json.encodeToString(other), otherPath,
+            "phone-node", "watch-node", now + 3)
+
+        assertEquals(QuickStartRejectionReason.PENDING_REQUEST, rejected?.reason)
+        assertEquals(rejected, replay)
+        assertEquals(writes, persistence.writes)
+        assertNull(WatchSessionPackageStore(persistence).current(now + 3))
+    }
+
+    @Test
+    fun `future offer refusal survives history pruning until its arrival window closes`() = runTest {
+        val persistence = MemoryPersistence()
+        val coordinator = coordinator(persistence) { }
+        val future = request().copy(createdAtMillis = now + 600_000, expiresAtMillis = now + 900_000)
+        val rejected = coordinator.receive(json.encodeToString(future), path(), "phone-node", "watch-node", now)
+        val otherId = "123e4567-e89b-12d3-a456-426614174099"
+        val later = now + 360_001
+        val other = request().copy(requestId = otherId, createdAtMillis = later,
+            expiresAtMillis = later + QUICK_START_TTL_MILLIS)
+        assertEquals(QuickStartStatus.READY, coordinator.receive(json.encodeToString(other),
+            QuickStartDataLayerPaths.REQUEST_PREFIX + otherId, "phone-node", "watch-node", later)?.status)
+        WatchSessionPackageStore(persistence).dismiss(otherId, 2, later + 1)
+
+        val replay = coordinator(persistence) { }.receive(json.encodeToString(future), path(),
+            "phone-node", "watch-node", now + 600_000)
+
+        assertEquals(QuickStartRejectionReason.INVALID_PAYLOAD, rejected?.reason)
+        assertEquals(rejected, replay)
+        assertNull(WatchSessionPackageStore(persistence).current(now + 600_000))
+    }
+
+    @Test
+    fun `terminal receipt binds original sender and exact offer`() = runTest {
+        for (reject in listOf(false, true)) {
+            val persistence = MemoryPersistence()
+            val receipts = mutableListOf<QuickStartAcknowledgement>()
+            val coordinator = coordinator(persistence) { receipts += it }
+            val offer = if (reject) request().copy(schemaVersion = 99) else request()
+            val payload = json.encodeToString(offer)
+            coordinator.receive(payload, path(), "phone-node", "watch-node", now)
+            if (!reject) WatchSessionPackageStore(persistence).dismiss(REQUEST_ID, 2, now + 1)
+            val raw = persistence.raw
+            val writes = persistence.writes
+            val sent = receipts.size
+
+            assertNull(coordinator.receive(payload, path(), "another-phone", "watch-node", now + 2))
+            assertNull(coordinator.receive(json.encodeToString(offer.copy(title = "Changed")),
+                path(), "phone-node", "watch-node", now + 2))
+            assertEquals(raw, persistence.raw)
+            assertEquals(writes, persistence.writes)
+            assertEquals(sent, receipts.size)
+            val replay = coordinator.receive(payload, path(), "phone-node", "watch-node", now + 3)
+            assertEquals(if (reject) QuickStartStatus.REJECTED else QuickStartStatus.DISMISSED, replay?.status)
+        }
+    }
+
+    @Test
+    fun `malformed oversized and altered traffic cannot overwrite a ready decision`() = runTest {
+        val persistence = MemoryPersistence()
+        val receipts = mutableListOf<QuickStartAcknowledgement>()
+        val coordinator = coordinator(persistence) { receipts += it }
+        coordinator.receive(json.encodeToString(request()), path(), "phone-node", "watch-node", now)
+        val raw = persistence.raw
+
+        for (payload in listOf("{broken", "x".repeat(32_769), json.encodeToString(request().copy(exercises = emptyList())))) {
+            assertNull(coordinator.receive(payload, path(), "phone-node", "watch-node", now + 1))
+        }
+
+        assertEquals(raw, persistence.raw)
+        assertEquals(1, persistence.writes)
+        assertEquals(1, receipts.size)
+    }
+
+    @Test
+    fun `failed refusal persistence and corrupt storage never publish a receipt`() = runTest {
+        for (raw in listOf(null, "corrupt", "{\"schemaVersion\":99}")) {
+            val persistence = MemoryPersistence(failWrites = raw == null).apply { this.raw = raw }
+            val receipts = mutableListOf<QuickStartAcknowledgement>()
+            val coordinator = coordinator(persistence) { receipts += it }
+
+            try {
+                coordinator.receive(json.encodeToString(request().copy(schemaVersion = 99)),
+                    path(), "phone-node", "watch-node", now)
+                fail("Expected storage failure")
+            } catch (_: IllegalStateException) { }
+
+            assertTrue(receipts.isEmpty())
+            assertEquals(raw, persistence.raw)
+            assertEquals(0, persistence.writes)
+        }
     }
 
     @Test
@@ -147,10 +270,26 @@ class QuickStartRequestCoordinatorTest {
         coordinator.receive(payload, path(), "phone-node", "watch-node", now)
         WatchSessionPackageStore(persistence).markStarting(REQUEST_ID, 1, now + 1)
 
-        val replay = coordinator.receive(payload, path(), "phone-node", "watch-node", now + 2)
-
-        assertNull(replay)
+        assertNull(coordinator.receive(payload, path(), "phone-node", "watch-node", now + 2))
+        assertNull(coordinator.receive(payload, path(), "phone-node", "watch-node", now + 900_000))
         assertEquals(1, receipts.size)
+    }
+
+    @Test
+    fun `expired ready and dismissed replay keep their persisted terminal receipt`() = runTest {
+        for (dismiss in listOf(false, true)) {
+            val persistence = MemoryPersistence()
+            val coordinator = coordinator(persistence) { }
+            val payload = json.encodeToString(request())
+            coordinator.receive(payload, path(), "phone-node", "watch-node", now)
+            val store = WatchSessionPackageStore(persistence)
+            if (dismiss) store.dismiss(REQUEST_ID, 2, now + 1)
+            val first = coordinator.receive(payload, path(), "phone-node", "watch-node", now + 300_001)
+            val replay = coordinator.receive(payload, path(), "phone-node", "watch-node", now + 900_000)
+            assertEquals(if (dismiss) QuickStartStatus.DISMISSED else QuickStartStatus.EXPIRED, first?.status)
+            assertEquals(first, replay)
+            assertNull(store.current(now + 900_000))
+        }
     }
 
     private fun coordinator(persistence: MemoryPersistence, send: suspend (QuickStartAcknowledgement) -> Unit) =

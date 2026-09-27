@@ -39,7 +39,7 @@ class LogQueueRepository(private val context: Context) {
     suspend fun enqueue(entry: LogEntry) {
         context.logQueueDataStore.edit { prefs ->
             val current = prefs[key]?.let { decodeState(it) } ?: LogQueueState()
-            prefs[key] = json.encodeToString(current.copy(entries = current.entries + entry))
+            prefs[key] = json.encodeToString(current.copy(entries = (current.entries + entry).distinct()))
         }
     }
 

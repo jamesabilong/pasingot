@@ -51,5 +51,7 @@ test('process recovery restores the exact offer and pending state', () => {
   assert.equal(activeOffer({ ...record, acknowledgement: { requestId: request.requestId,
     targetNodeId: 'watch-1', revision: 2, status: 'started', watchUpdatedAtMillis: 1200 } }, 1200), false);
   assert.match(statusText({ requestId: request.requestId, transportAcceptedAtMillis: null,
-    acknowledgement: null }), /interrupted/);
+    acknowledgement: null }), /unconfirmed/);
+  assert.equal(activeOffer({ ...record, transportAcceptedAtMillis: null }, 1200), true);
+  assert.equal(activeOffer({ ...record, transportAcceptedAtMillis: null }, request.expiresAtMillis + 30_001), false);
 });

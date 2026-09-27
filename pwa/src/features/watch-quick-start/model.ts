@@ -29,8 +29,7 @@ export function itemsFromRequest(request: QuickStartRequest): QuickStartItem[] {
 }
 export function activeOffer(record: PhoneQuickStartRecord, now = Date.now()): boolean {
   if (now > record.request.expiresAtMillis + 30_000) return false;
-  return record.acknowledgement?.status === 'ready' ||
-    (record.transportAcceptedAtMillis != null && record.acknowledgement == null);
+  return record.acknowledgement?.status === 'ready' || record.acknowledgement == null;
 }
 
 export function fromCatalog(item: ExerciseCatalogItem, prescription: Omit<PlaylistItem, 'sourceId' | 'name'>): QuickStartItem {
@@ -80,7 +79,7 @@ export function statusText(receipt: QuickStartReceipt | null, sending = false, n
   if (!receipt) return 'Confirm the exercises before sending.';
   const ack = receipt.acknowledgement;
   if (receipt.expiresAtMillis && now > receipt.expiresAtMillis + 30_000 && (!ack || ack.status === 'ready')) return 'Request expired. Send a new one.';
-  if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Send was interrupted. Try a new request.';
+  if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Delivery is unconfirmed. Waiting for watch confirmation…';
   switch (ack.status) {
     case 'ready': return 'Ready on watch. Tap Start there.';
     case 'started': return 'Workout started on watch.';

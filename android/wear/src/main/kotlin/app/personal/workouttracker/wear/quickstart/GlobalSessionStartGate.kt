@@ -4,6 +4,7 @@ import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
+import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationResult
 import app.personal.workouttracker.shared.quickstart.validateQuickStartRequest
 import kotlinx.coroutines.sync.Mutex
@@ -56,6 +57,17 @@ class GlobalSessionStartGate(
         observedPhoneNodeId: String,
         nowEpochMillis: Long,
     ): QuickStartOfferGateResult = processStartMutex.withLock {
+        // A durable decision outlives the offer TTL. In particular, a STARTING
+        // package must never be replaced by an Expired receipt on redelivery.
+        val replay = quickStartPackages.replay(request, nowEpochMillis, observedPhoneNodeId)
+        if (replay != null) {
+            if (replay is AcceptQuickStartResult.Duplicate &&
+                replay.sessionPackage.state == QuickStartPackageState.READY) {
+                val blocking = legacySessions.entries().blockingSessions()
+                if (blocking.isNotEmpty()) return@withLock QuickStartOfferGateResult.BlockedByLegacy(blocking)
+            }
+            return@withLock QuickStartOfferGateResult.Processed(replay)
+        }
         val validated = validateQuickStartRequest(request, nowEpochMillis)
         if (validated is QuickStartValidationResult.Invalid) {
             return@withLock QuickStartOfferGateResult.Processed(

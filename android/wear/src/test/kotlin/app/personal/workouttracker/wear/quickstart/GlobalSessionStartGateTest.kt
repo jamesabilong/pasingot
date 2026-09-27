@@ -178,6 +178,19 @@ class GlobalSessionStartGateTest {
     }
 
     @Test
+    fun `terminal replay wins over later legacy blocker and expired offer`() = runTest {
+        val store = WatchSessionPackageStore(InMemoryPersistence())
+        store.accept(request(), now, "phone-node")
+        val dismissed = store.dismiss(REQUEST_ID, 2, now + 1) as TerminateQuickStartResult.Terminated
+        val source = MutableLegacySessions(listOf(entry("legacy", SessionStatus.ACTIVE)))
+
+        val result = GlobalSessionStartGate(source, store)
+            .acceptQuickStart(request(), "phone-node", now + 900_000) as QuickStartOfferGateResult.Processed
+
+        assertEquals(dismissed.terminal, (result.result as AcceptQuickStartResult.PreviouslyTerminated).terminal)
+    }
+
+    @Test
     fun `wrong Quick Start identity does not alter ready package`() = runTest {
         val fixture = fixture()
 

@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.session
 import androidx.lifecycle.ViewModelStore
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.LogStatus
+import app.personal.workouttracker.shared.LogEntry
 import app.personal.workouttracker.shared.SessionEventType
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.SessionStatus
@@ -11,6 +12,8 @@ import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.WorkoutSessionStore
+import app.personal.workouttracker.wear.data.WorkoutSessionEffects
+import app.personal.workouttracker.wear.data.SessionOutcomeAction
 import app.personal.workouttracker.shared.quickstart.QUICK_START_TTL_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartExercise
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
@@ -245,6 +248,52 @@ class SessionViewModelTest {
         assertEquals(listOf(SessionStatus.ACTIVE, SessionStatus.COMPLETED), sender.snapshots.map { it.status })
     }
 
+    @Test fun `failed transition leaves progress and history unchanged`() = runSessionTest {
+        val viewModel = createSession()
+        runCurrent()
+        val before = viewModel.uiState.value.session
+        repository.failWrites = true
+
+        viewModel.onSkip()
+        runCurrent()
+
+        assertEquals(before, viewModel.uiState.value.session)
+        assertEquals(before, repository.entry.sessionState)
+        assertTrue(sender.logs.isEmpty())
+        assertTrue(sender.events.isEmpty())
+        assertEquals(1, sender.snapshots.size)
+        assertEquals("Disk unavailable", viewModel.uiState.value.error)
+    }
+
+    @Test fun `double completion cannot consume two zero-rest sets`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Squat", "10", sets = 3, rest = 0)))
+        val viewModel = createSession()
+        runCurrent()
+
+        viewModel.onCompleteSet()
+        viewModel.onCompleteSet()
+        runCurrent()
+
+        assertEquals(2, viewModel.uiState.value.session?.currentSet)
+        assertEquals(2, repository.sessionWrites)
+        assertTrue(sender.logs.isEmpty())
+    }
+
+    @Test fun `stale view cannot restore deleted workout or send its completion`() = runSessionTest {
+        val viewModel = createSession()
+        runCurrent()
+        repository.available = false
+
+        viewModel.onSkip()
+        runCurrent()
+
+        assertEquals(SessionStatus.ACTIVE, viewModel.uiState.value.session?.status)
+        assertTrue(sender.logs.isEmpty())
+        assertTrue(sender.events.isEmpty())
+        assertEquals(1, repository.sessionWrites)
+        assertTrue(viewModel.uiState.value.error != null)
+    }
+
     private class FakeSessionStore : WorkoutSessionStore {
         var available = true
         var entry = DownloadedWorkoutEntry(
@@ -254,16 +303,28 @@ class SessionViewModelTest {
             exercises = listOf(WorkoutExercise("Squat", "10", sets = 2, rest = 30)),
         )
         var sessionWrites = 0
+        var failWrites = false
+        val pendingEffects = mutableListOf<WorkoutSessionEffects>()
 
         override suspend fun getEntry(entryId: String) = entry.takeIf { available && it.id == entryId }
 
-        override suspend fun updateSessionState(entryId: String, newState: SessionState) {
-            entry = entry.copy(sessionState = newState)
+        override suspend fun commitSession(expected: DownloadedWorkoutEntry,
+            updated: DownloadedWorkoutEntry, effects: WorkoutSessionEffects?, action: SessionOutcomeAction?): Boolean {
+            if (failWrites) error("Disk unavailable")
+            if (!available || entry != expected) return false
+            entry = updated
             sessionWrites += 1
+            effects?.let { pendingEffects += it }
+            return true
         }
 
-        override suspend fun updateExercise(entryId: String, exerciseIndex: Int, newExercise: WorkoutExercise) {
-            entry = entry.copy(exercises = entry.exercises.toMutableList().apply { this[exerciseIndex] = newExercise })
+        override suspend fun flushPendingEffects(sender: LogSender) {
+            while (pendingEffects.isNotEmpty()) {
+                val effect = pendingEffects.first()
+                effect.log?.let { sender.sendEntry(it) }
+                effect.event?.let { sender.sendSessionEvent(it) }
+                pendingEffects.remove(effect)
+            }
         }
     }
 
@@ -275,6 +336,8 @@ class SessionViewModelTest {
         override suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?) {
             logs += status
         }
+
+        override suspend fun sendEntry(entry: LogEntry) { logs += entry.status }
 
         override suspend fun sendSessionSnapshot(snapshot: WatchSessionSnapshot) { snapshots += snapshot }
 

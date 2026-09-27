@@ -37,11 +37,11 @@ export function defaultSetInput(row: WorkoutRow): WorkoutSetInput {
   };
 }
 
-export function normalizeActiveWorkoutSession(session: ActiveWorkoutSession): ActiveWorkoutSession {
+export function normalizeActiveWorkoutSession(session: ActiveWorkoutSession, now = Date.now()): ActiveWorkoutSession {
   return {
     ...session,
     setInputs: session.setInputs ?? {},
-    lastInteractionAtEpochMillis: session.lastInteractionAtEpochMillis ?? session.elapsedStartedAtEpochMillis ?? Date.now(),
+    lastInteractionAtEpochMillis: session.lastInteractionAtEpochMillis ?? session.elapsedStartedAtEpochMillis ?? now,
     lastRestCueKey: session.lastRestCueKey ?? null,
   };
 }

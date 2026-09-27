@@ -10,10 +10,13 @@ import app.personal.workouttracker.shared.quickstart.QuickStartValidationCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class WatchSessionPackageStoreTest {
@@ -25,7 +28,7 @@ class WatchSessionPackageStoreTest {
         assertTrue(first.accept(request, now, "phone-1") is AcceptQuickStartResult.Accepted)
         val restored = WatchSessionPackageStore(persistence)
         assertEquals("phone-1", restored.current(now)?.sourcePhoneNodeId)
-        assertTrue(restored.accept(request, now + 1, "phone-2") is AcceptQuickStartResult.RejectedPending)
+        assertEquals(AcceptQuickStartResult.IdentityMismatch, restored.accept(request, now + 1, "phone-2"))
         assertTrue(restored.accept(request, now + 1, "phone-1") is AcceptQuickStartResult.Duplicate)
         assertTrue(restored.accept(request.copy(requestId = "123e4567-e89b-12d3-a456-426614174099"), now + 1, request.targetNodeId)
             is AcceptQuickStartResult.RejectedInvalid)
@@ -191,11 +194,82 @@ class WatchSessionPackageStoreTest {
     }
 
     @Test
-    fun `malformed persisted state is cleared safely`() = runTest {
-        val persistence = InMemoryPersistence(raw = "not-json")
+    fun `malformed and future persisted state fail closed without erasing ownership`() = runTest {
+        for (raw in listOf("not-json", "{\"schemaVersion\":99}")) {
+            val persistence = InMemoryPersistence(raw = raw)
+            val store = WatchSessionPackageStore(persistence)
+            try { store.current(now); fail("Expected unreadable store") }
+            catch (_: IllegalStateException) { }
+            try { store.accept(request(), now); fail("Expected unreadable store") }
+            catch (_: IllegalStateException) { }
+            assertEquals(raw, persistence.raw)
+            assertEquals(0, persistence.writeCount)
+        }
+    }
 
-        assertNull(WatchSessionPackageStore(persistence).current(now))
-        assertNull(persistence.raw)
+    @Test
+    fun `conflicting current and terminal identities fail closed without a write`() = runTest {
+        val original = InMemoryPersistence()
+        val store = WatchSessionPackageStore(original)
+        store.accept(request(), now, "phone-1")
+        val sessionPackage = store.current(now)!!
+        val terminal = (store.dismiss(REQUEST_ID, 2, now + 1) as TerminateQuickStartResult.Terminated).terminal
+        val raw = "{\"sessionPackage\":${Json.encodeToString(sessionPackage)}," +
+            "\"terminalHistory\":[${Json.encodeToString(terminal)}]}"
+        val damaged = InMemoryPersistence(raw)
+
+        try { WatchSessionPackageStore(damaged).current(now + 2); fail("Expected conflicting records") }
+        catch (_: IllegalStateException) { }
+
+        assertEquals(raw, damaged.raw)
+        assertEquals(0, damaged.writeCount)
+    }
+
+    @Test
+    fun `expired ready replay cannot reset its local lifetime inside clock skew`() = runTest {
+        for (pruneFirst in listOf(false, true)) {
+            val persistence = InMemoryPersistence()
+            val store = WatchSessionPackageStore(persistence)
+            store.accept(request(), now, "phone-1")
+            val expiredAt = now + QUICK_START_TTL_MILLIS + 1
+            if (pruneFirst) assertNull(store.current(expiredAt))
+            val result = WatchSessionPackageStore(persistence).accept(request(), expiredAt, "phone-1")
+            assertEquals(QuickStartStatus.EXPIRED,
+                (result as AcceptQuickStartResult.PreviouslyTerminated).terminal.status)
+            assertEquals(2L, result.terminal.revision)
+            assertNull(store.current(expiredAt))
+        }
+    }
+
+    @Test
+    fun `starting and terminal replays retain original decision after offer expiry`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        store.accept(request(), now, "phone-1")
+        store.markStarting(REQUEST_ID, 1, now + 1)
+        val replay = WatchSessionPackageStore(persistence).accept(request(), now + 900_000, "phone-1")
+        assertEquals(QuickStartPackageState.STARTING,
+            (replay as AcceptQuickStartResult.Duplicate).sessionPackage.state)
+
+        val terminalStore = WatchSessionPackageStore(InMemoryPersistence())
+        terminalStore.accept(request(), now, "phone-1")
+        val cancelled = terminalStore.cancel(REQUEST_ID, 2, now + 1) as TerminateQuickStartResult.Terminated
+        val terminalReplay = terminalStore.accept(request(), now + 900_000, "phone-1")
+        assertEquals(cancelled.terminal, (terminalReplay as AcceptQuickStartResult.PreviouslyTerminated).terminal)
+    }
+
+    @Test
+    fun `new request retains expired offer tombstone through clock skew replay window`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        store.accept(request(), now, "phone-1")
+        val later = now + QUICK_START_TTL_MILLIS + 1
+        val next = request("123e4567-e89b-12d3-a456-426614174099").copy(
+            createdAtMillis = later, expiresAtMillis = later + QUICK_START_TTL_MILLIS)
+        assertTrue(store.accept(next, later, "phone-1") is AcceptQuickStartResult.Accepted)
+        val replay = WatchSessionPackageStore(persistence).accept(request(), later + 1, "phone-1")
+        assertEquals(QuickStartStatus.EXPIRED, (replay as AcceptQuickStartResult.PreviouslyTerminated).terminal.status)
+        assertEquals(next.requestId, store.current(later + 1)?.request?.requestId)
     }
 
     @Test
@@ -282,15 +356,33 @@ class WatchSessionPackageStoreTest {
     }
 
     @Test
-    fun `invalid persisted terminal status is cleared safely`() = runTest {
+    fun `invalid persisted terminal status is preserved and blocks replacement`() = runTest {
         val persistence = InMemoryPersistence()
         val store = WatchSessionPackageStore(persistence)
         store.accept(request(), now)
         store.cancel(REQUEST_ID, 2, now + 1_000)
         persistence.raw = persistence.raw?.replace("\"cancelled\"", "\"started\"")
+        val raw = persistence.raw
+        val writes = persistence.writeCount
+        try { WatchSessionPackageStore(persistence).current(now + 2_000); fail("Expected invalid store") }
+        catch (_: IllegalStateException) { }
+        assertEquals(raw, persistence.raw)
+        assertEquals(writes, persistence.writeCount)
+    }
 
-        assertNull(WatchSessionPackageStore(persistence).current(now + 2_000))
-        assertNull(persistence.raw)
+    @Test
+    fun `damaged package fields fail closed without erasing a starting package`() = runTest {
+        val persistence = InMemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        store.accept(request(), now)
+        store.markStarting(REQUEST_ID, 1, now + 1)
+        persistence.raw = persistence.raw?.replace("\"sets\":3", "\"sets\":0")
+        val raw = persistence.raw
+        val writes = persistence.writeCount
+        try { WatchSessionPackageStore(persistence).current(now + 2); fail("Expected invalid package") }
+        catch (_: IllegalStateException) { }
+        assertEquals(raw, persistence.raw)
+        assertEquals(writes, persistence.writeCount)
     }
 
     private fun request(requestId: String = REQUEST_ID) = QuickStartRequest(

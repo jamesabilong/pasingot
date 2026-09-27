@@ -62,7 +62,8 @@ fun validateQuickStartRequest(
     if (!request.requestId.isUuid()) {
         return invalid(QuickStartValidationCode.INVALID_REQUEST_ID, field = "requestId")
     }
-    if (request.revision <= 0) {
+    // Start/Cancel/Expiry must be able to advance the offer revision once.
+    if (request.revision <= 0 || request.revision == Long.MAX_VALUE) {
         return invalid(QuickStartValidationCode.INVALID_REVISION, field = "revision")
     }
     if (!request.targetNodeId.isBoundedText(MAX_NODE_ID_LENGTH)) {
@@ -72,6 +73,9 @@ fun validateQuickStartRequest(
     if (
         request.createdAtMillis < 0 ||
         request.expiresAtMillis < 0 ||
+        request.expiresAtMillis > Long.MAX_VALUE - QUICK_START_CLOCK_SKEW_MILLIS ||
+        receivedAtMillis < 0 ||
+        receivedAtMillis > Long.MAX_VALUE - QUICK_START_TTL_MILLIS - 2 * QUICK_START_CLOCK_SKEW_MILLIS ||
         ttl <= 0 ||
         ttl > QUICK_START_TTL_MILLIS ||
         request.createdAtMillis > receivedAtMillis + QUICK_START_CLOCK_SKEW_MILLIS

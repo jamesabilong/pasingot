@@ -13,13 +13,13 @@ import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickStartSheet';
 import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
-import { type WorkoutSetInput } from './components/WorkoutPlayer';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useLocalDate } from './hooks/useLocalDate';
 import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
 import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
+import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { backupFileName, buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from './lib/backup';
 import { parseCatalogCsv } from './lib/catalog';
 import {
@@ -71,24 +71,6 @@ import {
   workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
-  ACTIVE_SESSION_IDLE_TIMEOUT_MS,
-  ACTIVE_WORKOUT_SESSION_KEY,
-  currentSetInput,
-  defaultSetInput,
-  elapsedSecondsForSession,
-  finishElapsedSession,
-  newPwaSession,
-  normalizeActiveWorkoutSession,
-  restCueKey,
-  restOrActive,
-  restSecondsForSession,
-  setInputKey,
-  startElapsedSession,
-  stopElapsedSession,
-  touchSession,
-  type ActiveWorkoutSession,
-} from './lib/workout-session';
-import {
   SCHEMA_VERSION,
   type CustomExercise,
   type CustomQuestCollection,
@@ -132,9 +114,6 @@ export default function App() {
   const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
   const [watchSession, setWatchSession] = useState<WatchSessionSnapshot | null>(null);
   const [setLogEntries, setSetLogEntries] = useState<WorkoutSetLog[]>([]);
-  const [activeWorkoutSession, setActiveWorkoutSession] = useState<ActiveWorkoutSession | null>(null);
-  const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
-  const [workoutRestRemainingSeconds, setWorkoutRestRemainingSeconds] = useState(0);
   const [catalog, setCatalog] = useState<ExerciseCatalogItem[]>([]);
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
   const [builtInQuestTemplates, setBuiltInQuestTemplates] = useState<QuestTemplate[]>([]);
@@ -190,11 +169,18 @@ export default function App() {
   const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
   const refreshSetLogs = useCallback(async () => setSetLogEntries(await getAll<WorkoutSetLog>(STORES.setLogs)), []);
   const refreshCustomExercises = useCallback(async () => setCustomExercises(await getAll<CustomExercise>(STORES.customExercises)), []);
-  const saveActiveWorkoutSession = useCallback(async (next: ActiveWorkoutSession | null) => {
-    setActiveWorkoutSession(next);
-    if (next) await putRecord(STORES.appState, next);
-    else await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
-  }, []);
+  const refreshWorkoutHistory = useCallback(async () => {
+    await Promise.all([refreshLogs(), refreshSessionEvents(), refreshSetLogs()]);
+  }, [refreshLogs, refreshSessionEvents, refreshSetLogs]);
+  const {
+    session: activeWorkoutSession, rows: activeWorkoutRows, row: activeWorkoutRow,
+    setInput: activeSetInput, elapsedSeconds: workoutElapsedSeconds, restRemainingSeconds: workoutRestRemainingSeconds,
+    restore: restoreWorkoutSession, clear: clearActiveWorkoutSession, start: startTodayWorkoutPlayer,
+    completeSet: completePwaSet, skip: skipPwaExercise, updateInput: updatePwaSetInput,
+    pause: pausePwaWorkout, resume: resumePwaWorkout, restart: restartPwaWorkout, end: endPwaWorkout,
+    startRestNow: startPwaRestNow, addRestSeconds: addPwaRestSeconds,
+  } = useWorkoutSession({ workouts, logs, onHistoryChanged: refreshWorkoutHistory,
+    onCompleted: writeHealthConnectSession, playCue: playWorkoutCue, addToast });
   const saveDraft = useCallback(async (next: PlaylistDraft) => {
     setDraft(next);
     await putRecord(STORES.appState, { key: PLAYLIST_DRAFT_KEY, schemaVersion: SCHEMA_VERSION, ...next });
@@ -284,12 +270,7 @@ export default function App() {
       if (!disposed) setQuestHistory(storedQuestHistory?.entries ?? []);
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
       if (!disposed) loadWorkoutCueSettings(storedCueSettings);
-      const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
-      if (!disposed && storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()) {
-        setActiveWorkoutSession(normalizeActiveWorkoutSession(storedWorkoutSession));
-      } else if (storedWorkoutSession) {
-        await deleteRecord(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
-      }
+      if (!disposed) await restoreWorkoutSession();
       if (!disposed) await refreshWatchData();
       const healthConnectDrained = await drainPendingHealthConnectWrites();
       if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
@@ -300,7 +281,7 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, retryPendingSyncs]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs]);
 
   useScheduleNotifications(workouts, addToast);
 
@@ -316,74 +297,6 @@ export default function App() {
 
   const todayStatuses = useMemo(() => workoutStatusesOnDate(logs, localToday), [logs, localToday]);
   const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
-  const activeWorkoutRows = useMemo(() => {
-    if (!activeWorkoutSession) return [];
-    return activeWorkoutSession.rowIds
-      .map((id) => workouts.find((row) => row.id === id))
-      .filter((row): row is WorkoutRow => Boolean(row));
-  }, [activeWorkoutSession, workouts]);
-
-  useEffect(() => {
-    if (!activeWorkoutSession) {
-      setWorkoutElapsedSeconds(0);
-      setWorkoutRestRemainingSeconds(0);
-      return undefined;
-    }
-
-    const syncTimers = () => {
-      const now = Date.now();
-      if (activeWorkoutSession.planDate !== todayDateKey()) {
-        const ended = finishElapsedSession(activeWorkoutSession, 'ended', 'stale_next_day', now);
-        void recordLocalSessionEvent(ended, 'ended', 'stale_next_day', activeWorkoutRows)
-          .then(() => saveActiveWorkoutSession(null))
-          .then(() => addToast('Previous workout was closed because the day changed.'));
-        return;
-      }
-      if (
-        (activeWorkoutSession.status === 'active' || activeWorkoutSession.status === 'resting')
-        && now - activeWorkoutSession.lastInteractionAtEpochMillis > ACTIVE_SESSION_IDLE_TIMEOUT_MS
-      ) {
-        const pausedRestSeconds = activeWorkoutSession.status === 'resting' ? Math.max(1, restSecondsForSession(activeWorkoutSession, now)) : null;
-        void saveActiveWorkoutSession({
-          ...stopElapsedSession(activeWorkoutSession, 'inactive_timeout', now),
-          status: 'paused',
-          restUntilEpochMillis: null,
-          pausedRestRemainingSeconds: pausedRestSeconds,
-        }).then(() => addToast('Workout paused after 45 minutes without activity.'));
-        return;
-      }
-      const restSeconds = restSecondsForSession(activeWorkoutSession, now);
-      setWorkoutElapsedSeconds(elapsedSecondsForSession(activeWorkoutSession, now));
-      setWorkoutRestRemainingSeconds(restSeconds);
-      if (activeWorkoutSession.status === 'resting' && restSeconds <= 0) {
-        const cueKey = restCueKey(activeWorkoutSession);
-        if (activeWorkoutSession.lastRestCueKey !== cueKey) playWorkoutCue(activeWorkoutRows[activeWorkoutSession.exerciseIndex]);
-        void saveActiveWorkoutSession(touchSession(startElapsedSession({
-          ...activeWorkoutSession,
-          status: 'active',
-          restUntilEpochMillis: null,
-          pausedRestRemainingSeconds: null,
-          lastRestCueKey: cueKey,
-        }, now), now));
-      }
-    };
-
-    syncTimers();
-    if (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting') return undefined;
-    const timer = window.setInterval(syncTimers, 1000);
-    return () => window.clearInterval(timer);
-  }, [activeWorkoutRows, activeWorkoutSession, addToast, playWorkoutCue, saveActiveWorkoutSession]);
-
-  const activeWorkoutRow = activeWorkoutSession ? activeWorkoutRows[activeWorkoutSession.exerciseIndex] : undefined;
-  const activeSetInput = activeWorkoutSession && activeWorkoutRow ? currentSetInput(activeWorkoutSession, activeWorkoutRow) : defaultSetInput({
-    schemaVersion: SCHEMA_VERSION,
-    day: todayName(),
-    time: '00:00',
-    exercise: '',
-    sets: 1,
-    reps: '',
-    rest: 0,
-  });
   const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => localDateKey(entry.date) === localToday).length, [setLogEntries, localToday]);
 
   const categories = useMemo(() => [...new Set(catalog.map((item) => item.category))].sort(), [catalog]);
@@ -454,171 +367,6 @@ export default function App() {
     setLogs(latestLogs);
   }
 
-  async function updatePwaSetInput(updates: Partial<WorkoutSetInput>) {
-    if (!activeWorkoutSession) return;
-    const row = activeWorkoutRows[activeWorkoutSession.exerciseIndex];
-    if (!row) return;
-    const key = setInputKey(row, activeWorkoutSession.currentSet);
-    await saveActiveWorkoutSession({
-      ...touchSession(activeWorkoutSession),
-      setInputs: {
-        ...activeWorkoutSession.setInputs,
-        [key]: { ...currentSetInput(activeWorkoutSession, row), ...updates },
-      },
-    });
-  }
-
-  async function recordWorkoutSet(row: WorkoutRow, setNumber: number, input: WorkoutSetInput) {
-    const actualReps = input.actualReps.trim() || row.reps;
-    const loadWeight = validLoadWeight(input.loadWeight);
-    const loadUnit = loadWeight != null ? input.loadUnit : null;
-    await addRecord(STORES.setLogs, {
-      schemaVersion: SCHEMA_VERSION,
-      date: new Date().toISOString(),
-      workoutRowId: row.id ?? null,
-      exercise: row.exercise,
-      exerciseSourceId: row.exerciseSourceId ?? null,
-      setNumber,
-      plannedReps: row.reps,
-      actualReps,
-      loadWeight,
-      loadUnit,
-    } satisfies WorkoutSetLog);
-    await refreshSetLogs();
-  }
-
-  async function recordLocalSessionEvent(session: ActiveWorkoutSession, eventType: WorkoutSessionEvent['eventType'], stopReason: string, rows: WorkoutRow[]) {
-    const row = rows[session.exerciseIndex];
-    const estimatedDurationSeconds = estimateWorkoutDurationSeconds(rows, estimateLevelFor(rows));
-    const event = {
-      schemaVersion: SCHEMA_VERSION,
-      workoutEntryId: `pwa:${session.planDate}`,
-      workoutDate: session.planDate,
-      eventType,
-      stopReason,
-      timestamp: new Date().toISOString(),
-      elapsedSeconds: elapsedSecondsForSession(session),
-      estimatedDurationSeconds,
-      exerciseIndex: session.exerciseIndex,
-      currentSet: session.currentSet,
-      totalExercises: rows.length,
-      currentExercise: row?.exercise ?? null,
-    } satisfies WorkoutSessionEvent;
-    await addRecord(STORES.sessionEvents, event);
-    writeHealthConnectSession(event, rows);
-    await refreshSessionEvents();
-  }
-
-  async function startTodayWorkoutPlayer() {
-    const playableRows = todayWorkouts.filter((row) => row.id != null);
-    if (!playableRows.length) return addToast('Add a workout to today before starting the player.');
-    const firstPendingIndex = playableRows.findIndex((row) => row.id != null && !todayStatuses.has(row.id));
-    if (firstPendingIndex < 0) return addToast('Today’s plan is already handled.');
-    await saveActiveWorkoutSession(newPwaSession(playableRows, firstPendingIndex));
-  }
-
-  async function completePwaSet() {
-    if (!activeWorkoutSession || activeWorkoutSession.status !== 'active') return;
-    const rows = activeWorkoutRows;
-    const row = rows[activeWorkoutSession.exerciseIndex];
-    if (!row) return;
-    const touchedSession = touchSession(activeWorkoutSession);
-    await recordWorkoutSet(row, touchedSession.currentSet, currentSetInput(touchedSession, row));
-
-    if (touchedSession.currentSet < row.sets) {
-      await saveActiveWorkoutSession(restOrActive({ ...touchedSession, currentSet: touchedSession.currentSet + 1 }, row.rest));
-      return;
-    }
-
-    await logExercise(row, 'done');
-    const nextIndex = touchedSession.exerciseIndex + 1;
-    if (nextIndex >= rows.length) {
-      const completed = finishElapsedSession(touchedSession, 'completed', 'completed');
-      await saveActiveWorkoutSession(completed);
-      await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
-      return;
-    }
-    await saveActiveWorkoutSession(restOrActive({ ...touchedSession, exerciseIndex: nextIndex, currentSet: 1 }, row.rest));
-  }
-
-  async function skipPwaExercise() {
-    if (!activeWorkoutSession || activeWorkoutSession.status !== 'active') return;
-    const rows = activeWorkoutRows;
-    const row = rows[activeWorkoutSession.exerciseIndex];
-    if (!row) return;
-    const touchedSession = touchSession(activeWorkoutSession);
-
-    await logExercise(row, 'skipped');
-    const nextIndex = touchedSession.exerciseIndex + 1;
-    if (nextIndex >= rows.length) {
-      const completed = finishElapsedSession(touchedSession, 'completed', 'completed');
-      await saveActiveWorkoutSession(completed);
-      await recordLocalSessionEvent(completed, 'completed', 'completed', rows);
-      return;
-    }
-    await saveActiveWorkoutSession({ ...touchedSession, exerciseIndex: nextIndex, currentSet: 1 });
-  }
-
-  async function pausePwaWorkout() {
-    if (!activeWorkoutSession || (activeWorkoutSession.status !== 'active' && activeWorkoutSession.status !== 'resting')) return;
-    const pausedRestSeconds = activeWorkoutSession.status === 'resting' ? Math.max(1, restSecondsForSession(activeWorkoutSession)) : null;
-    await saveActiveWorkoutSession({
-      ...stopElapsedSession(activeWorkoutSession, 'paused_by_user'),
-      status: 'paused',
-      restUntilEpochMillis: null,
-      pausedRestRemainingSeconds: pausedRestSeconds,
-      lastInteractionAtEpochMillis: Date.now(),
-    });
-  }
-
-  async function resumePwaWorkout() {
-    if (!activeWorkoutSession || activeWorkoutSession.status !== 'paused') return;
-    const now = Date.now();
-    const resumed = activeWorkoutSession.pausedRestRemainingSeconds != null ? {
-      ...activeWorkoutSession,
-      status: 'resting' as const,
-      restUntilEpochMillis: now + activeWorkoutSession.pausedRestRemainingSeconds * 1000,
-      pausedRestRemainingSeconds: null,
-      elapsedStartedAtEpochMillis: now,
-      lastStopReason: null,
-      lastInteractionAtEpochMillis: now,
-    } : touchSession(startElapsedSession({ ...activeWorkoutSession, status: 'active' }, now), now);
-    await saveActiveWorkoutSession(resumed);
-  }
-
-  async function restartPwaWorkout() {
-    const rows = activeWorkoutRows.length ? activeWorkoutRows : todayWorkouts.filter((row) => row.id != null);
-    if (!rows.length) return;
-    await saveActiveWorkoutSession(newPwaSession(rows));
-  }
-
-  async function endPwaWorkout() {
-    if (!activeWorkoutSession || activeWorkoutSession.status === 'ended' || activeWorkoutSession.status === 'completed') return;
-    const rows = activeWorkoutRows;
-    const ended = finishElapsedSession(touchSession(activeWorkoutSession), 'ended', 'ended_by_user');
-    await saveActiveWorkoutSession(ended);
-    await recordLocalSessionEvent(ended, 'ended', 'ended_by_user', rows);
-  }
-
-  async function startPwaRestNow() {
-    if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting') return;
-    await saveActiveWorkoutSession(touchSession(startElapsedSession({
-      ...activeWorkoutSession,
-      status: 'active',
-      restUntilEpochMillis: null,
-      pausedRestRemainingSeconds: null,
-    })));
-  }
-
-  async function addPwaRestSeconds(seconds: number) {
-    if (!activeWorkoutSession || activeWorkoutSession.status !== 'resting' || seconds <= 0) return;
-    const now = Date.now();
-    await saveActiveWorkoutSession({
-      ...touchSession(activeWorkoutSession, now),
-      restUntilEpochMillis: Math.max(activeWorkoutSession.restUntilEpochMillis ?? now, now) + seconds * 1000,
-    });
-  }
-
   async function importCsv(file: File) {
     try {
       if (activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)) {
@@ -632,7 +380,7 @@ export default function App() {
       const skipped = parsed.data.length - valid.length;
       if (!window.confirm(`Replace the current schedule with ${valid.length} exercise rows${skipped ? `, skipping ${skipped} invalid rows` : ''}? Workout history will be kept.`)) return;
       await clearAndBulkInsert(STORES.workouts, valid);
-      await saveActiveWorkoutSession(null);
+      await clearActiveWorkoutSession();
       const saved = await getAll<WorkoutRow>(STORES.workouts);
       await pushScheduleToNative(saved);
       setWorkouts(saved);
@@ -693,10 +441,7 @@ export default function App() {
       setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
       loadWorkoutCueSettings(storedCueSettings);
-      const storedWorkoutSession = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
-      setActiveWorkoutSession(storedWorkoutSession?.schemaVersion === SCHEMA_VERSION && storedWorkoutSession.planDate === todayDateKey()
-        ? normalizeActiveWorkoutSession(storedWorkoutSession)
-        : null);
+      await restoreWorkoutSession();
       setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
       setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body metrics, ${summary.customExercises} custom exercises.` });
     } catch (error) {
@@ -884,7 +629,7 @@ export default function App() {
     if (!window.confirm(action)) return;
     await archiveQuest(questState, activeQuestTemplate);
     setQuestState(null);
-    if (activeWorkoutSession?.rowIds.some((id) => questRowIds.has(id))) await saveActiveWorkoutSession(null);
+    if (activeWorkoutSession?.rowIds.some((id) => questRowIds.has(id))) await clearActiveWorkoutSession();
     await refreshUserData();
     await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
     setQuestResult(null);
@@ -1016,7 +761,7 @@ export default function App() {
         onEnd={() => void endPwaWorkout()}
         onStartNow={() => void startPwaRestNow()}
         onAddRestSeconds={(seconds) => void addPwaRestSeconds(seconds)}
-        onClosePlayer={() => void saveActiveWorkoutSession(null)}
+        onClosePlayer={() => void clearActiveWorkoutSession()}
         onLogExercise={(row, status) => void logExercise(row, status)}
         onQuickStartRow={quickStart.supported ? (row) => quickStart.openToday(row, localToday) : undefined}
         quickStartReceipt={quickStart.supported ? quickStart.receipt : null}

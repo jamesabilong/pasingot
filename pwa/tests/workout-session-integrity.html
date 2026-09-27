@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone workout integrity checks</title><style>pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
+<h1>Phone workout integrity checks</h1><pre id="result">Running…</pre><div id="panel"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { todayDateKey } from '/src/lib/history-stats.ts';
+import { newPwaSession, normalizeActiveWorkoutSession } from '/src/lib/workout-session.ts';
+import { closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
+import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
+import { useHealthConnectSync } from '/src/hooks/useHealthConnectSync.ts';
+
+const factory = window.indexedDB;
+const database = `pasingot-session-integrity-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), { once: true });
+const originalCapacitor = window.Capacitor;
+const checks = [];
+const check = (condition, label) => { if (!condition) throw Error(label); checks.push(`PASS: ${label}`); };
+const rejects = async (operation) => { try { await operation(); return false; } catch { return true; } };
+const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const row = { id: 1, schemaVersion: 1, day: new Date().toLocaleDateString('en-US', { weekday: 'long' }), time: '07:00', exercise: 'Test squat', sets: 1, reps: '8', rest: 0 };
+const root = createRoot(document.getElementById('panel'));
+let controller, health, healthWrites = 0, historyRefreshes = 0;
+const rows = [{ ...row, sets: 2 }];
+const options = { workouts: rows, logs: [], onHistoryChanged: async () => { historyRefreshes++; },
+  onCompleted: () => { healthWrites++; }, playCue: () => {}, addToast: () => {} };
+function Harness() { controller = useWorkoutSession(options); return React.createElement('p', null, controller.session?.status ?? 'idle'); }
+function HealthHarness() { health = useHealthConnectSync(() => {}); return React.createElement('p', null, JSON.stringify(health.status)); }
+try {
+  await putRecord(STORES.workouts, row);
+  const session = newPwaSession([row]);
+  await putRecord(STORES.appState, session);
+  const finalStep = workoutStepTransition(session, [row], 'complete');
+  await putRecord(STORES.setLogs, { ...finalStep.setLog, id: 88 });
+  check(await rejects(() => commitWorkoutSessionTransition(session, { ...finalStep, setLog: { ...finalStep.setLog, id: 88 } })), 'A history write failure aborts the transition');
+  check((await getRecord(STORES.appState, session.key)).status === 'active' && !(await getAll(STORES.logs)).length && !(await getAll(STORES.sessionEvents)).length, 'Rollback preserves the session and leaves no partial exercise/session log');
+  await replaceStores({ setLogs: [] });
+  const winners = await Promise.all([commitWorkoutSessionTransition(session, finalStep), commitWorkoutSessionTransition(session, finalStep)]);
+  check(winners.filter(Boolean).length === 1, 'Overlapping completion attempts admit one durable transition');
+  check((await getAll(STORES.setLogs)).length === 1 && (await getAll(STORES.logs)).length === 1 && (await getAll(STORES.sessionEvents)).length === 1, 'The final set, exercise and completed event commit exactly once');
+  check(!await commitWorkoutSessionTransition(session, finalStep), 'Replaying the prior active cursor cannot log the final set again');
+
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const stale = { ...newPwaSession([row]), planDate: `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`, status: 'paused', elapsedStartedAtEpochMillis: null, accumulatedElapsedMillis: 123000 };
+  await putRecord(STORES.appState, stale);
+  const closure = closeStaleWorkoutSession(stale, [row], todayDateKey());
+  check(closure.event.stopReason === 'stale_next_day' && closure.event.elapsedSeconds === 123, 'Prior-day recovery preserves elapsed time and the stale closure reason');
+  check(await commitWorkoutSessionTransition(stale, closure) && !await getRecord(STORES.appState, stale.key), 'Prior-day event and removal commit together');
+  check(!await commitWorkoutSessionTransition(stale, closure), 'Repeating prior-day recovery cannot duplicate its ended event');
+  check(!closeStaleWorkoutSession({ ...stale, status: 'completed' }, [row], todayDateKey()).event, 'Old terminal sessions clear without another ended event');
+
+  const legacy = { ...newPwaSession(rows), status: 'paused', elapsedStartedAtEpochMillis: null };
+  delete legacy.setInputs; delete legacy.lastInteractionAtEpochMillis; delete legacy.lastRestCueKey;
+  await putRecord(STORES.appState, legacy);
+  check(await commitWorkoutSessionTransition(normalizeActiveWorkoutSession(legacy, 123), { session: null }), 'Normalized legacy sessions still match their durable state');
+
+  await replaceStores({ logs: [], setLogs: [], sessionEvents: [], appState: [], workouts: rows });
+  await putRecord(STORES.appState, newPwaSession(rows));
+  flushSync(() => root.render(React.createElement(Harness)));
+  await controller.restore(); await settle();
+  await Promise.all([controller.updateInput({ actualReps: '11' }), controller.updateInput({ loadWeight: '9', loadUnit: 'kg' })]);
+  await Promise.all([controller.completeSet(), controller.completeSet()]); await settle();
+  const sets = await getAll(STORES.setLogs);
+  check(sets.length === 1 && sets[0].actualReps === '11' && sets[0].loadWeight === 9 && controller.session.currentSet === 2, 'Rapid completion logs once and keeps ordered input edits');
+  await Promise.all([controller.pause(), controller.completeSet()]); await settle();
+  check(controller.session.status === 'paused' && (await getAll(STORES.setLogs)).length === 1, 'Pause and completion cannot race into another logged set');
+  await Promise.all([controller.end(), controller.end()]); await settle();
+  check(controller.session.status === 'ended' && (await getAll(STORES.sessionEvents)).length === 1, 'Rapid end records one terminal event');
+  check(healthWrites === 1 && historyRefreshes === 2, 'Post-commit callbacks only run for accepted transitions');
+  await putRecord(STORES.appState, stale);
+  await controller.restore(); await controller.restore(); await settle();
+  check(controller.session === null && (await getAll(STORES.sessionEvents)).filter((event) => event.stopReason === 'stale_next_day').length === 1, 'Reload recovery closes yesterday’s session exactly once');
+
+  window.Capacitor = { Plugins: { HealthConnectBridge: {
+    getStatus: async () => ({ availability: 'available', permissionGranted: false, workoutPermissionGranted: false, bodyWeightPermissionGranted: true }),
+    writeBodyWeight: async () => ({ availability: 'available', permissionGranted: true, written: true }),
+    deleteBodyWeight: async () => ({ availability: 'available', permissionGranted: true, deleted: true }),
+  } } };
+  flushSync(() => root.render(React.createElement(HealthHarness)));
+  await health.setSyncEnabled(true); await settle();
+  health.writeBodyMetric({ id: 2, schemaVersion: 1, date: todayDateKey(), weight: 70, unit: 'kg' });
+  for (let i = 0; i < 10; i++) await settle();
+  check(health.status.workoutPermissionGranted === false && health.status.bodyWeightPermissionGranted === true, 'Successful body-weight write preserves granular permission status');
+  health.deleteBodyMetric({ id: 2, schemaVersion: 1, date: todayDateKey(), weight: 70, unit: 'kg' });
+  for (let i = 0; i < 10; i++) await settle();
+  check(health.status.workoutPermissionGranted === false && health.status.bodyWeightPermissionGranted === true, 'Successful body-weight deletion preserves granular permission status');
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack || error}`;
+  throw error;
+} finally { window.Capacitor = originalCapacitor; }
+</script></html>

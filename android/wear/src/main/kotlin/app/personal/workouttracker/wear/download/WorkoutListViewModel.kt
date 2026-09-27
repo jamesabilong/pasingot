@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 /** Backs the Manage Downloads list screen (Prompt 5). */
@@ -29,7 +30,10 @@ class WorkoutListViewModel(
     private val repository: WorkoutRepository,
 ) : ViewModel() {
 
-    val entries: StateFlow<List<DownloadedWorkoutEntry>> = repository.entries.stateIn(
+    val entries: StateFlow<List<DownloadedWorkoutEntry>> = repository.entries.catch {
+        _feedback.value = DownloadFeedback("Could not read saved workouts. Reopen the app to retry.", error = true)
+        emit(emptyList())
+    }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )
 
@@ -76,12 +80,24 @@ class WorkoutListViewModel(
 
     /** Prompt 5 secondary action: clears progress only, keeps cached data. */
     fun reset(entryId: String) {
-        viewModelScope.launch { repository.resetEntry(entryId) }
+        changeEntry { repository.resetEntry(entryId) }
     }
 
     /** Prompt 5 secondary action: removes the entry entirely. */
     fun delete(entryId: String) {
-        viewModelScope.launch { repository.deleteEntry(entryId) }
+        changeEntry { repository.deleteEntry(entryId) }
+    }
+
+    private fun changeEntry(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                _feedback.value = DownloadFeedback("Could not update saved workout. Try again.", error = true)
+            }
+        }
     }
 
     class Factory(

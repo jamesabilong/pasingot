@@ -33,6 +33,10 @@ class LogSyncManager(private val context: Context) : LogSender {
             timestamp = Instant.now().toString(),
             workoutRowId = workoutRowId,
         )
+        sendEntry(entry)
+    }
+
+    override suspend fun sendEntry(entry: LogEntry) {
         deliveryMutex.withLock {
             queue.enqueue(entry)
             LogFlushWorker.scheduleRetry(context)
@@ -57,7 +61,12 @@ class LogSyncManager(private val context: Context) : LogSender {
     }
 
     /** False keeps the one-time retry worker alive; an empty queue makes no radio calls. */
-    suspend fun flushQueue(): Boolean = deliveryMutex.withLock { flushLocked() }
+    suspend fun flushQueue(): Boolean {
+        // Transfer committed session history before draining transport queues.
+        // This must be outside deliveryMutex: sendEntry/sendSessionEvent take it.
+        WorkoutRepository(context).flushPendingEffects(this)
+        return deliveryMutex.withLock { flushLocked() }
+    }
 
     private suspend fun flushLocked(): Boolean {
         // Live state uses a persistent DataItem, so Play services handles disconnected peers.

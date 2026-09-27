@@ -84,8 +84,10 @@ export function useWatchQuickStart() {
     const validation = validateItems(draft.items);
     if (validation) { setError(validation); return; }
     setSending(true); setError(null);
+    let attemptedRequestId: string | null = null;
     try {
       const request = buildRequest(draft.items, draft.source, availability.watchNodeId);
+      attemptedRequestId = request.requestId;
       const accepted = await bridge.sendQuickStart({ request });
       setLatestRecord({ request, transportAcceptedAtMillis: accepted.transportAcceptedAtMillis, acknowledgement: null });
       setReceipt({ ...accepted, acknowledgement: null, expiresAtMillis: request.expiresAtMillis });
@@ -94,6 +96,15 @@ export function useWatchQuickStart() {
       setLatestRecord({ request, transportAcceptedAtMillis: persisted.transportAcceptedAtMillis, acknowledgement: persisted.acknowledgement });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not send to watch. Try again.');
+      // A failed bridge call can still have persisted or delivered the offer.
+      // Retain its identity so the UI follows the native reservation until expiry.
+      try {
+        const { record } = await bridge.getLatestQuickStart();
+        if (record && record.request.requestId === attemptedRequestId) {
+          setLatestRecord(record);
+          setReceipt(receiptFromRecord(record));
+        }
+      } catch { /* The persisted offer is retried on the next app launch. */ }
     } finally { setSending(false); }
   }, [availability, draft, receipt, sending]);
 

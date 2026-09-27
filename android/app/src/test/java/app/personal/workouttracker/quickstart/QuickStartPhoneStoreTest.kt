@@ -128,11 +128,30 @@ class QuickStartPhoneStoreTest {
         assertEquals(now + 1, QuickStartPhoneStore(persistence).current(requestId)?.transportAcceptedAtMillis)
     }
 
+    @Test fun `persisted offer reserves slot before transport and across ambiguous failure`() = runTest {
+        val persistence = MemoryPersistence()
+        val store = QuickStartPhoneStore(persistence)
+        store.saveRequest(request(), now)
+        val other = request("123e4567-e89b-12d3-a456-426614174001")
+        // The first send is still waiting for DataClient, or its response was
+        // lost. A second plugin/store instance must not start another offer.
+        val restored = QuickStartPhoneStore(persistence)
+        try { restored.saveRequest(other, now + 1); fail("Expected pending reservation") }
+        catch (error: IllegalArgumentException) { assertTrue(error.message!!.contains("pending")) }
+        assertEquals(request(), restored.saveRequest(request(), now + 2).request)
+        assertEquals(requestId, restored.latest()?.request?.requestId)
+        assertNull(restored.current(requestId)?.transportAcceptedAtMillis)
+    }
+
     @Test fun `history preserves earlier requests and rejects full queue`() = runTest {
         val persistence = MemoryPersistence()
         val store = QuickStartPhoneStore(persistence)
         repeat(64) { index ->
-            store.saveRequest(request("123e4567-e89b-12d3-a456-${(index + 1).toString().padStart(12, '0')}"), now)
+            val saved = request("123e4567-e89b-12d3-a456-${(index + 1).toString().padStart(12, '0')}")
+            store.saveRequest(saved, now)
+            store.acceptAcknowledgement(Json.encodeToString(ack(QuickStartStatus.STARTED, 2)
+                .copy(requestId = saved.requestId)),
+                QuickStartDataLayerPaths.ACKNOWLEDGEMENT_PREFIX + saved.requestId, "watch-1")
         }
         val raw = persistence.raw
         try {

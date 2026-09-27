@@ -78,6 +78,16 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
 
     if (state.loading) return // brief DataStore read; nothing meaningful to render yet
 
+    state.error?.let { error ->
+        WatchPage {
+            item { WatchHeading("PROGRESS", "Could not save") }
+            item { WatchNote(error) }
+            item { WatchAction("Back to workout", viewModel::clearError, primary = true) }
+            item { WatchAction("Close workout", onCancel) }
+        }
+        return
+    }
+
     val exercise = state.currentExercise
     val session = state.session
 

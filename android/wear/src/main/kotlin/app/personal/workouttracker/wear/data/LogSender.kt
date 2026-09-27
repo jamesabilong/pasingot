@@ -4,6 +4,7 @@ import app.personal.workouttracker.shared.LogStatus
 import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.shared.WatchSessionSnapshot
+import app.personal.workouttracker.shared.LogEntry
 
 /**
  * Thin seam between the session screen (Prompt 4) and log delivery
@@ -15,6 +16,9 @@ import app.personal.workouttracker.shared.WatchSessionSnapshot
 interface LogSender {
     /** [status] should be [LogStatus.DONE] or [LogStatus.SKIPPED]. */
     suspend fun send(exercise: WorkoutExercise, status: String, workoutRowId: Long?)
+
+    /** Preserve the timestamp from the committed transition across retries. */
+    suspend fun sendEntry(entry: LogEntry)
 
     /** Sends a workout-level session event, such as completed or manually ended. */
     suspend fun sendSessionEvent(event: WorkoutSessionEvent) = Unit

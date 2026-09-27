@@ -9,6 +9,11 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 22 closes the audit with 108 browser checks, 229 JVM tests,
+  TypeScript/Vite and both debug APK builds passing. Quick Start runtime UI and
+  device acceptance remain open. New implementation stopped at 10% remaining
+  usage; see `IMPLEMENTATION_PROGRESS.md` for the next action.
+
 - Branch: `PST01`
 - Node toolchain: Node 22 for Capacitor/Android commands; `.nvmrc` tracks this.
 - Stage 1: complete and committed with the React migration branch history.
@@ -20,8 +25,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest audited checkpoint: Stage 19 Iteration 21, serialized watch offer and
-  downloaded-session admission, included in this commit. Iteration 20 was
+- Latest audited checkpoint: Stage 19 Iteration 22, durable progress/history and
+  protocol replay corrections, included in this commit. Iteration 21 was
+  committed as `6a092d3`. Iteration 20 was
   committed as `fe6089d`, Iteration 19 as `e0005d8`, Iteration 18 as `4a62ae0`,
   Iteration 17 as `e178b74`, and Iteration 16 as `085e39e`. The earlier `92ef2cb` matched the local `origin/PST01`
   tracking ref at the start of the 2026-09-26 audit (no remote fetch). The
