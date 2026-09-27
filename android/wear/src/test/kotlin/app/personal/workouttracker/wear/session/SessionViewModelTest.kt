@@ -23,6 +23,7 @@ import app.personal.workouttracker.wear.quickstart.LegacySessionSnapshotSource
 import app.personal.workouttracker.wear.quickstart.QuickStartPackagePersistence
 import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -33,6 +34,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -294,6 +296,29 @@ class SessionViewModelTest {
         assertTrue(viewModel.uiState.value.error != null)
     }
 
+    @Test fun `close callback waits for durable pause commit`() = runSessionTest {
+        val viewModel = createSession()
+        runCurrent()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        repository.beforeCommit = {
+            entered.complete(Unit)
+            release.await()
+        }
+        var closed = false
+
+        viewModel.onCancel { closed = true }
+        runCurrent()
+        entered.await()
+
+        assertFalse(closed)
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        release.complete(Unit)
+        runCurrent()
+        assertTrue(closed)
+        assertEquals(SessionStatus.PAUSED, repository.entry.sessionState?.status)
+    }
+
     private class FakeSessionStore : WorkoutSessionStore {
         var available = true
         var entry = DownloadedWorkoutEntry(
@@ -304,6 +329,7 @@ class SessionViewModelTest {
         )
         var sessionWrites = 0
         var failWrites = false
+        var beforeCommit: suspend () -> Unit = {}
         val pendingEffects = mutableListOf<WorkoutSessionEffects>()
 
         override suspend fun getEntry(entryId: String) = entry.takeIf { available && it.id == entryId }
@@ -311,6 +337,7 @@ class SessionViewModelTest {
         override suspend fun commitSession(expected: DownloadedWorkoutEntry,
             updated: DownloadedWorkoutEntry, effects: WorkoutSessionEffects?, action: SessionOutcomeAction?): Boolean {
             if (failWrites) error("Disk unavailable")
+            beforeCommit()
             if (!available || entry != expected) return false
             entry = updated
             sessionWrites += 1

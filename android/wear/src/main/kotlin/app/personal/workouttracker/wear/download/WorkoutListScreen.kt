@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +32,8 @@ import app.personal.workouttracker.wear.ui.WatchAction
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
 import app.personal.workouttracker.wear.ui.WatchPage
+import app.personal.workouttracker.wear.quickstart.QuickStartOfferViewModel
+import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -37,12 +43,24 @@ private enum class WorkoutConfirmation { RESET, DELETE }
 @Composable
 fun WorkoutListScreen(
     viewModel: WorkoutListViewModel,
+    quickStartViewModel: QuickStartOfferViewModel,
     onOpenEntry: (String) -> Unit,
+    onOpenQuickStart: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     val syncing by viewModel.syncing.collectAsStateWithLifecycle()
+    val quickStart by quickStartViewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, quickStartViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) quickStartViewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     WatchPage {
         item {
@@ -51,6 +69,47 @@ fun WorkoutListScreen(
                 title = "Workouts",
                 detail = if (entries.isEmpty()) "Your next session starts here" else "${entries.size} saved on watch",
             )
+        }
+        quickStart.sessionPackage?.let { sessionPackage ->
+            item {
+                val request = sessionPackage.request
+                WatchHeading(
+                    eyebrow = "QUICK START",
+                    title = request.title ?: "Phone workout",
+                    detail = "${request.exercises.size} exercises",
+                )
+            }
+            item {
+                WatchAction(
+                    label = when {
+                        quickStart.busy -> "Starting…"
+                        sessionPackage.state == QuickStartPackageState.STARTING -> "Resume"
+                        else -> "Start"
+                    },
+                    onClick = { quickStartViewModel.start(onOpenQuickStart) },
+                    primary = true,
+                    enabled = !quickStart.busy,
+                )
+            }
+            if (sessionPackage.state == QuickStartPackageState.READY) {
+                item {
+                    WatchAction(
+                        label = if (quickStart.busy) "Please wait…" else "Dismiss",
+                        onClick = quickStartViewModel::dismiss,
+                        enabled = !quickStart.busy,
+                    )
+                }
+            }
+        }
+        quickStart.error?.let { error ->
+            item {
+                Text(
+                    text = error,
+                    color = MaterialTheme.colors.error,
+                    style = MaterialTheme.typography.caption2,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         item {
             WatchAction(

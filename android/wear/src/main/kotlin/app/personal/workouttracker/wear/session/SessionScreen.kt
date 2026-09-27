@@ -53,9 +53,8 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     // Exiting without an explicit unfinished state behaves like Pause, so
     // progress is never lost by accident — covers both the system back
     // gesture and the app being backgrounded/closed outright.
-    BackHandler(enabled = true) {
-        viewModel.onCancel()
-        onCancel()
+    BackHandler(enabled = !state.saving) {
+        viewModel.onCancel(onCancel)
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -160,21 +159,23 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
             item { WatchNote(label) }
         }
         item { WatchAction("Skip exercise", { cueAction(viewModel::onSkip) }) }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                CompactChip(
-                    onClick = { cueAction(viewModel::onDowngrade) },
-                    label = { Text("− Set") },
-                    modifier = Modifier.weight(1f),
-                )
-                CompactChip(
-                    onClick = { cueAction(viewModel::onUpgrade) },
-                    label = { Text("+ Set") },
-                    modifier = Modifier.weight(1f),
-                )
+        if (state.canAdjustSets) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    CompactChip(
+                        onClick = { cueAction(viewModel::onDowngrade) },
+                        label = { Text("− Set") },
+                        modifier = Modifier.weight(1f),
+                    )
+                    CompactChip(
+                        onClick = { cueAction(viewModel::onUpgrade) },
+                        label = { Text("+ Set") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
         item { WatchAction("Save & close", { cueAction { cancelSession(viewModel, onCancel) } }) }
@@ -192,10 +193,8 @@ private fun rememberCueAction(): (() -> Unit) -> Unit {
     }
 }
 
-private fun cancelSession(viewModel: SessionViewModel, onCancel: () -> Unit) {
-    viewModel.onCancel()
-    onCancel()
-}
+private fun cancelSession(viewModel: SessionViewModel, onCancel: () -> Unit) =
+    viewModel.onCancel(onCancel)
 
 @Composable
 private fun RestingView(
@@ -293,7 +292,9 @@ private fun PausedView(
                 item { WatchNote("${formatRestSeconds(seconds)} rest remaining") }
             }
             item { WatchAction("Save & close", onCancel) }
-            item { WatchAction("Restart", { confirmation = SessionConfirmation.RESTART }) }
+            if (state.canRestart) {
+                item { WatchAction("Restart", { confirmation = SessionConfirmation.RESTART }) }
+            }
             item { WatchAction("End workout", { confirmation = SessionConfirmation.END }) }
             session.lastStopReason?.let { reason ->
                 item { WatchNote(formatStopReason(reason)) }

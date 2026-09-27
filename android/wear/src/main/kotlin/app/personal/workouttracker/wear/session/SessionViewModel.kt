@@ -25,6 +25,10 @@ import app.personal.workouttracker.wear.data.SessionOutcomeActionType
 import app.personal.workouttracker.wear.quickstart.DataStoreQuickStartPackagePersistence
 import app.personal.workouttracker.wear.quickstart.GlobalSessionStartGate
 import app.personal.workouttracker.wear.quickstart.LegacySessionGateResult
+import app.personal.workouttracker.wear.quickstart.NoOpQuickStartLogSender
+import app.personal.workouttracker.wear.quickstart.DataStoreQuickStartRuntimePersistence
+import app.personal.workouttracker.wear.quickstart.QuickStartRuntimeStore
+import app.personal.workouttracker.wear.quickstart.QuickStartSessionStore
 import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
 import kotlinx.coroutines.CancellationException
@@ -48,6 +52,8 @@ data class SessionUiState(
     val blockedReason: String? = null,
     val saving: Boolean = false,
     val error: String? = null,
+    val canAdjustSets: Boolean = true,
+    val canRestart: Boolean = true,
 ) {
     val currentExercise get() = entry?.exercises?.getOrNull(session?.exerciseIndex ?: 0)
     val totalExercises get() = entry?.exercises?.size ?: 0
@@ -65,13 +71,16 @@ class SessionViewModel(
     private val repository: WorkoutSessionStore,
     private val logSender: LogSender,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
-    private val legacyStartGate: GlobalSessionStartGate,
+    private val legacyStartGate: GlobalSessionStartGate?,
+    private val canAdjustSets: Boolean = true,
+    private val canRestart: Boolean = true,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
     private var restTimerJob: Job? = null
     private var screenVisible = false
+    private var exitPending = false
     private val transitionMutex = Mutex()
 
     init {
@@ -82,7 +91,7 @@ class SessionViewModel(
                 // fresh at exerciseIndex = 0 (Prompt 4 req 3).
                 val storedSession = entry?.sessionState
                 val session = entry?.let { storedSession ?: newSession() }
-                if (entry != null && session != null && session.status != SessionStatus.COMPLETED &&
+                if (legacyStartGate != null && entry != null && session != null && session.status != SessionStatus.COMPLETED &&
                     session.status != SessionStatus.ENDED) {
                     val result = legacyStartGate.startLegacy(entryId, nowEpochMillis()) {
                         check(repository.commitSession(entry, entry.copy(sessionState = session))) {
@@ -106,6 +115,8 @@ class SessionViewModel(
                     session = session,
                     elapsedSeconds = session?.let(::elapsedSeconds) ?: 0,
                     loading = false,
+                    canAdjustSets = canAdjustSets,
+                    canRestart = canRestart,
                 )
                 if (entry != null && session != null) sendSessionSnapshot(entry, session)
                 flushPendingHistory()
@@ -212,6 +223,16 @@ class SessionViewModel(
     /** Cancels the active view without completing or skipping the exercise. */
     fun onCancel() = persistPaused()
 
+    /** Navigate only after the pause is durably committed. */
+    fun onCancel(afterSaved: () -> Unit) {
+        if (exitPending) return
+        exitPending = true
+        persistPaused { committed ->
+            exitPending = false
+            if (committed) afterSaved()
+        }
+    }
+
     fun onUpgrade() = adjustSets(1)
 
     fun onDowngrade() = adjustSets(-1)
@@ -240,7 +261,7 @@ class SessionViewModel(
         super.onCleared()
     }
 
-    private fun persistPaused() = mutate { _, session ->
+    private fun persistPaused(onCommitted: ((Boolean) -> Unit)? = null) = mutate(onCommitted = onCommitted) { _, session ->
         when (session.status) {
             SessionStatus.ACTIVE -> SessionChange(pauseSession(session, SessionStopReason.APP_CLOSED))
             SessionStatus.PAUSED,
@@ -258,6 +279,7 @@ class SessionViewModel(
     ): SessionState = advanceExerciseIndex(entry, session, restAfterCurrent)
 
     private fun adjustSets(delta: Int) = mutate { entry, session ->
+        if (!canAdjustSets) return@mutate null
         if (session.status != SessionStatus.ACTIVE) return@mutate null
         val index = session.exerciseIndex
         val exercise = entry.exercises.getOrNull(index) ?: return@mutate null
@@ -479,19 +501,32 @@ class SessionViewModel(
     private fun mutate(
         expected: SessionState? = null,
         restarting: Boolean = false,
+        onCommitted: ((Boolean) -> Unit)? = null,
         transform: (DownloadedWorkoutEntry, SessionState) -> SessionChange?,
     ) {
-        if (_uiState.value.session == null) return
+        if (_uiState.value.session == null) {
+            onCommitted?.invoke(true)
+            return
+        }
         viewModelScope.launch {
             transitionMutex.withLock {
                 val state = _uiState.value
-                val entry = state.entry ?: return@withLock
-                val session = state.session ?: return@withLock
-                if (expected != null && expected != session) return@withLock
-                val change = transform(entry, session) ?: return@withLock
+                val entry = state.entry ?: run { onCommitted?.invoke(true); return@withLock }
+                val session = state.session ?: run { onCommitted?.invoke(true); return@withLock }
+                if (expected != null && expected != session) {
+                    onCommitted?.invoke(false)
+                    return@withLock
+                }
+                val change = transform(entry, session) ?: run {
+                    onCommitted?.invoke(true)
+                    return@withLock
+                }
                 val updated = entry.copy(sessionState = change.session,
                     exercises = change.exercises ?: entry.exercises)
-                if (updated == entry && change.effects == null && change.action == null) return@withLock
+                if (updated == entry && change.effects == null && change.action == null) {
+                    onCommitted?.invoke(true)
+                    return@withLock
+                }
                 _uiState.value = state.copy(saving = true, error = null)
                 try {
                     suspend fun commit() {
@@ -499,7 +534,7 @@ class SessionViewModel(
                             "Workout changed. Close and reopen it."
                         }
                     }
-                    if (restarting) {
+                    if (restarting && legacyStartGate != null) {
                         check(legacyStartGate.startLegacy(entryId, nowEpochMillis(), ::commit) ==
                             LegacySessionGateResult.Started) { "Another workout owns the session" }
                     } else commit()
@@ -508,11 +543,13 @@ class SessionViewModel(
                     sendSessionSnapshot(updated, change.session)
                     flushPendingHistory()
                     synchronizeRestTimer()
+                    onCommitted?.invoke(true)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
                     _uiState.value = _uiState.value.copy(saving = false,
                         error = error.message ?: "Could not save progress. Try again.")
+                    onCommitted?.invoke(false)
                 }
             }
         }
@@ -543,5 +580,23 @@ class SessionViewModel(
                     WorkoutRepositorySessionSnapshotSource(repository),
                     WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(appContext)),
                 )) as T
+    }
+
+    class QuickStartFactory(
+        private val requestId: String,
+        private val appContext: Context,
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(appContext))
+            return SessionViewModel(
+                entryId = requestId,
+                repository = QuickStartSessionStore(requestId, runtime),
+                logSender = NoOpQuickStartLogSender,
+                legacyStartGate = null,
+                canAdjustSets = false,
+                canRestart = false,
+            ) as T
+        }
     }
 }

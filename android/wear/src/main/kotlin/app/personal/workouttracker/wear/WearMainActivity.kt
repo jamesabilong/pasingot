@@ -26,6 +26,8 @@ import app.personal.workouttracker.wear.download.WorkoutListScreen
 import app.personal.workouttracker.wear.download.WorkoutListViewModel
 import app.personal.workouttracker.wear.session.SessionScreen
 import app.personal.workouttracker.wear.session.SessionViewModel
+import app.personal.workouttracker.wear.quickstart.QuickStartOfferViewModel
+import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
 import app.personal.workouttracker.wear.ui.PasingotTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -72,9 +74,19 @@ class WearMainActivity : ComponentActivity() {
                         val viewModel: WorkoutListViewModel = viewModel(
                             factory = WorkoutListViewModel.Factory(applicationContext, repository)
                         )
+                        val quickStartViewModel: QuickStartOfferViewModel = viewModel(
+                            factory = QuickStartOfferViewModel.Factory(
+                                applicationContext,
+                                WorkoutRepositorySessionSnapshotSource(repository),
+                            )
+                        )
                         WorkoutListScreen(
                             viewModel = viewModel,
+                            quickStartViewModel = quickStartViewModel,
                             onOpenEntry = { entryId -> navController.navigate("session/$entryId") },
+                            onOpenQuickStart = { requestId ->
+                                navController.navigate("quick-start/$requestId")
+                            },
                             onOpenSettings = { navController.navigate("settings") },
                         )
                     }
@@ -92,6 +104,19 @@ class WearMainActivity : ComponentActivity() {
                         val viewModel: SessionViewModel = viewModel(
                             factory = SessionViewModel.Factory(entryId, repository, logSyncManager,
                                 applicationContext)
+                        )
+                        SessionScreen(
+                            viewModel = viewModel,
+                            onCancel = { navController.popBackStack() },
+                        )
+                    }
+                    composable(
+                        route = "quick-start/{requestId}",
+                        arguments = listOf(navArgument("requestId") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val requestId = backStackEntry.arguments?.getString("requestId") ?: return@composable
+                        val viewModel: SessionViewModel = viewModel(
+                            factory = SessionViewModel.QuickStartFactory(requestId, applicationContext)
                         )
                         SessionScreen(
                             viewModel = viewModel,

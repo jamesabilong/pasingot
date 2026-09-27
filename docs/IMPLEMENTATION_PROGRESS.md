@@ -1199,3 +1199,92 @@ disposal can cancel the current ViewModel-scope exit write), then adapt the
 session engine to the runtime and implement Ready/Start/Dismiss plus exact
 terminal receipt cleanup. Keep capability unpublished until usable. Validate
 the error surface and session flow on the 454x454 Wear emulator separately.
+
+## Iteration 23 — 2026-09-27 — Paired emulator runtime validation
+
+Status: **Phone-to-watch emulator pairing and legacy workout delivery passed;
+Quick Start and physical-device acceptance remain open.**
+
+Starting checkpoint: `PST01` matched its local `origin/PST01` tracking ref and
+the working tree was clean. No fetch, push, build, or implementation change was
+made. The existing phone and Wear debug APKs from Iteration 22 were used.
+
+Launched the API 35 Google Play Pixel 8 AVD and the 454x454 Wear OS 7 AVD. The
+official emulator-pairing flow initially waited because its ADB bridge had not
+been established. Reproduced Android Studio's installed pairing-assistant
+bridge (`phone tcp:5602 -> tcp:5601`, watch reverse `tcp:5601 -> tcp:5602`) and
+restarted the companion emulator activity. Both Google Play Services pairing
+status broadcasts then reported the reciprocal nodes connected and enabled:
+phone `3710eec` to watch `cc1f21d2`, and watch `cc1f21d2` to phone `3710eec`.
+Optional Google diagnostics, location, and watch notification permission were
+left disabled.
+
+Installed and opened the current Wear debug APK, then selected **Sync from
+phone**. The watch displayed `Received 5 exercises from phone.`, stored one
+workout, and rendered `Foundation A` as `Not Started · 5 exercises` with a
+41-minute estimate. This is direct emulator Data Layer delivery evidence for
+the existing manual schedule-sync flow. It does not validate the still-gated
+Quick Start capability/request UI, final result transport, physical Bluetooth
+pairing, background behavior after process/device restart, or battery impact.
+The ADB bridge is session-scoped and must be recreated after emulator restart
+unless Android Studio's Pair Wearable assistant restores it.
+
+Checklist remains **44/97 (45%)** because no Stage 19 Quick Start acceptance
+item is satisfied by the legacy sync result. Next implementation action remains
+the Iteration 22 action: await durable pause before Save & close, adapt the
+session engine to the runtime, and implement Ready/Start/Dismiss plus exact
+terminal receipt cleanup before capability publication.
+
+## Iteration 24 — 2026-09-27 — Watch Ready prompt and runtime session bridge
+
+Status: **Code and 454x454 emulator UI validation complete; paired Quick Start,
+cancellation, final-result transport, cues/TTS, and physical acceptance remain
+open.**
+
+Starting checkpoint: `051e228 PST01: Finalize session durability and replay
+audit`; the uncommitted Iteration 23 emulator evidence was preserved. The
+requested slice followed Iteration 22/23's recorded next action. No fetch or
+push occurred.
+
+Added a lifecycle-refreshed in-app Quick Start card over the durable transient
+package. A listener-process event refreshes an already visible list without
+polling. Ready offers show explicit Start and Dismiss actions; a STARTING offer
+shows Resume. Start reuses the global admission gate, persists the independent
+runtime and immutable Started receipt before best-effort transport, and can
+recover a STARTING package whose first initialization was interrupted. Dismiss
+persists its terminal record before sending its receipt.
+
+Added `QuickStartSessionStore`, which maps the immutable phone exercise package
+to the existing session engine while committing each cursor/outcome transition
+through `QuickStartRuntimeStore`'s revisioned atomic write. Quick Start does not
+enter the permanent date-keyed download store, publish legacy logs/snapshots,
+or permit plan edits/restart that the immutable runtime contract cannot accept.
+The shared session UI is reached through a request-scoped navigation route.
+
+Fixed the documented explicit-exit race: system Back and Save & close now wait
+for the pause commit before popping the navigation stack. Duplicate close taps
+are serialized, failed writes retain the screen and existing error surface, and
+lifecycle stop remains a best-effort fallback. A regression test holds the
+write open and proves the close callback cannot fire early.
+
+Validation passed: `gradlew.bat :wear:testDebugUnitTest :wear:assembleDebug
+--no-daemon --quiet` with **151 tests, 0 failures, 0 errors**, plus the debug
+APK. New tests cover Start persistence/receipt/navigation ordering, interrupted
+STARTING recovery, Dismiss persistence, atomic engine/outcome advancement,
+stale and plan-edit rejection, and awaited close persistence. `git diff
+--check` passed.
+On the 454x454 Wear OS 7 emulator the unchanged saved-workout list remained
+readable, and a temporary instrumentation-only persisted offer rendered
+**QUICK START / Upper Body Express / 2 exercises / Start / Dismiss** without
+horizontal clipping. The temporary seed and screenshots were removed and are
+not part of the checkpoint. The prior emulator pair did not reconnect after
+cold boot, so this is local persisted-state UI evidence, not paired Quick Start
+transport evidence; Iteration 23 remains the paired legacy-sync evidence.
+
+The Phase 2 prompt item closes. Checklist is now **45/97 (46%)** overall and
+Phase 2 is **4/17 (24%)**. Start/Dismiss/Cancel stays open because phone Cancel
+is not yet wired. Capability remains intentionally unpublished. Exact next
+action: implement the revisioned cancellation listener/race and native final-
+result send/receipt cleanup, then publish capability and perform paired Quick
+Start delivery/recovery validation. TTS remains a later Phase 2 cue-controller
+slice, not part of this checkpoint.

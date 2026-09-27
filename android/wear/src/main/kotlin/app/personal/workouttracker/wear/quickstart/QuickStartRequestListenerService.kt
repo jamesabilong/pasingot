@@ -1,5 +1,6 @@
 package app.personal.workouttracker.wear.quickstart
 
+import android.content.Context
 import android.util.Log
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
@@ -43,6 +44,7 @@ class QuickStartRequestListenerService : WearableListenerService() {
                         withTimeout(10_000) {
                             val localNode = Wearable.getNodeClient(context).localNode.await().id
                             coordinator.receive(payload, path, sender, localNode, System.currentTimeMillis())
+                            QuickStartOfferEvents.notifyChanged()
                         }
                     }
                 } catch (error: Exception) {
@@ -58,7 +60,7 @@ class QuickStartRequestListenerService : WearableListenerService() {
     private companion object { const val TAG = "QuickStartRequest" }
 }
 
-class DataLayerQuickStartReceiptClient(private val service: WearableListenerService) : QuickStartReceiptClient {
+class DataLayerQuickStartReceiptClient(private val context: Context) : QuickStartReceiptClient {
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun send(acknowledgement: QuickStartAcknowledgement) {
@@ -67,6 +69,6 @@ class DataLayerQuickStartReceiptClient(private val service: WearableListenerServ
         ).apply {
             dataMap.putString("payload", json.encodeToString(acknowledgement))
         }.asPutDataRequest().setUrgent()
-        Wearable.getDataClient(service).putDataItem(item).await()
+        Wearable.getDataClient(context).putDataItem(item).await()
     }
 }

@@ -9,10 +9,18 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
-- Iteration 22 closes the audit with 108 browser checks, 229 JVM tests,
-  TypeScript/Vite and both debug APK builds passing. Quick Start runtime UI and
-  device acceptance remain open. New implementation stopped at 10% remaining
-  usage; see `IMPLEMENTATION_PROGRESS.md` for the next action.
+- Iteration 24 wires the durable watch Ready prompt and Start/Dismiss actions
+  to the transient Quick Start runtime and existing session engine. Start now
+  persists the runtime before its receipt, and explicit session exit waits for
+  the pause commit before navigation. The 454x454 emulator rendered both the
+  unchanged saved-workout list and a seeded Ready prompt; paired Quick Start
+  delivery, cancellation, result transport, cues/TTS, and physical-device
+  acceptance remain open. Iteration 23 adds emulator-only runtime evidence: the API 35 Pixel 8 and
+  454x454 Wear OS 7 AVDs paired successfully, both Data Layer nodes reported
+  connected/enabled, and the watch downloaded the five-exercise `Foundation A`
+  workout from the phone. This closes no Quick Start or physical-device
+  acceptance item. Iteration 22's automated baseline remains current; see
+  `IMPLEMENTATION_PROGRESS.md` for the next implementation action.
 
 - Branch: `PST01`
 - Node toolchain: Node 22 for Capacitor/Android commands; `.nvmrc` tracks this.
@@ -81,7 +89,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **44/97 checklist items (45%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **3/17 (18%)**. Watch request acceptance and downloaded-session starts now share one admission gate; 113 Wear tests and the debug APK pass. Capability publication, Ready prompt, Quick Start runtime integration, and paired-device acceptance remain open | Next: build the Ready prompt and Start/Dismiss flow, then publish watch capability. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **45/97 checklist items (46%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **4/17 (24%)**. The durable Ready prompt, Start/Dismiss actions, runtime session adapter, and awaited explicit exit pass 151 Wear tests and a debug APK build. Capability publication remains gated while cancellation and final-result transport are incomplete | Next: add revisioned phone cancellation and native final-result send/receipt cleanup, then publish capability and verify paired Quick Start delivery. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 watch transport/UI, session integration, cues/success, final-result acknowledgement, and device acceptance | Follow the plan's Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
