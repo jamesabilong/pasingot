@@ -1413,3 +1413,63 @@ path into Ready/Start navigation, then emit briefing/warning/Go events through
 this controller without delaying the visual countdown. The settings surface,
 rest events/final-countdown lock, success presentations, and device audio
 validation remain separate open items.
+
+## Iteration 27 — 2026-09-28 — Foreground Quick Start countdown
+
+Status: **Foreground countdown and zero-boundary start complete with JVM/build
+evidence; round-screen and device audio validation remain open.**
+
+Starting checkpoint: `f1beaa0 PST01: Add Wear cue controller foundation`, clean
+tree, one commit ahead of the local `origin/PST01` tracking ref. No fetch, push,
+emulator, or physical-device action occurred.
+
+Changed the Ready action so it opens a dedicated foreground countdown without
+mutating the durable offer. The full-screen round layout shows a green perimeter
+ring, `5` through `1`, the first exercise and target, then `GO`. Back or lifecycle
+pause before zero cancels cue output, shuts down TTS, returns to the list, and
+leaves the package `READY` with no runtime or Started receipt. A `STARTING`
+package still exposes explicit Resume and does not replay the countdown.
+
+At zero, a new start coordinator rechecks expiry and the global legacy-session
+gate, durably commits `READY -> STARTING`, creates the active runtime, and only
+then publishes the Started receipt. The controller emits the bounded briefing,
+five-second warning, and Go events with attempt-specific keys. GO is shown while
+optional speech finishes, so TTS cannot delay the timer or durable start.
+Leaving the foreground after zero cancels/closes audio without rolling back the
+started session. TalkBack receives one merged countdown/exercise/target label.
+
+Audit corrections:
+
+- Coroutine cancellation is now rethrown by `WatchCueController` instead of
+  being converted to a haptic-only result, allowing navigation to stop obsolete
+  speech promptly.
+- Cue attempt identity uses an epoch deadline rather than the monotonic timer,
+  avoiding key reuse after reboot while the visual timer remains monotonic.
+- The lifecycle boundary moved to `ON_PAUSE`; a second zero-boundary guard
+  prevents back/background races from cancelling a committed start.
+- The first APK assembly found duplicate stale incremental Compose dex output.
+  `:wear:clean` removed the generated duplicate; the clean rebuild passed with
+  no source workaround.
+
+Validation:
+
+- `./gradlew :wear:clean :wear:testDebugUnitTest :wear:assembleDebug --no-daemon
+  --quiet` passed on the clean tree.
+- `./gradlew :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet` passed with **77
+  shared, 11 phone, and 168 Wear tests**, zero failures/errors, and both debug
+  APKs.
+- Five new tests cover Ready remaining unchanged on Start, zero-boundary durable
+  ordering, cancel-before-zero, expiry recheck, foreground loss after zero, and
+  exact briefing/warning/Go scripts with replay suppression.
+- `git diff --check` passed before documentation closure.
+
+No round-screen emulator or physical watch was used, so countdown sizing,
+actual TTS timing/routing, haptic feel, ambient behavior, and paired Started
+delivery remain open device evidence.
+
+The foreground-only five-second state/cancellation checklist item closes. Stage
+19 is now **48/97 (49%)** overall and Phase 2 is **7/17 (41%)**. Exact next
+action: wire rest-duration/five-second/Go cue events and the persisted final-
+countdown lock into `SessionViewModel`, keeping the existing rest deadline
+authoritative and rejecting `+5`, `+10`, and `+30` at five seconds or below.

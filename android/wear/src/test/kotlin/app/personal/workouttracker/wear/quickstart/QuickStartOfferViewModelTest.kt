@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.quickstart
 
 import androidx.lifecycle.ViewModelStore
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
+import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,20 +31,21 @@ class QuickStartOfferViewModelTest {
         Dispatchers.resetMain()
     }
 
-    @Test fun `Start initializes runtime before publishing receipt and navigation`() = runTest(dispatcher) {
+    @Test fun `Start opens countdown without changing the durable Ready offer`() = runTest(dispatcher) {
         val fixture = fixture()
         val viewModel = fixture.viewModel().also { viewModels.put("start", it) }
         runCurrent()
+        var countdown: String? = null
         var opened: String? = null
 
-        viewModel.start { opened = it }
+        viewModel.continueOffer({ countdown = it }, { opened = it })
         runCurrent()
 
-        val runtime = fixture.runtime.current()
-        assertNotNull(runtime)
-        assertEquals(ID, opened)
-        assertEquals(QuickStartStatus.STARTED, fixture.receipts.single().status)
-        assertEquals(runtime!!.startedAcknowledgement, fixture.receipts.single())
+        assertEquals(ID, countdown)
+        assertNull(opened)
+        assertNull(fixture.runtime.current())
+        assertEquals(QuickStartPackageState.READY, fixture.packages.current(NOW)?.state)
+        assertTrue(fixture.receipts.isEmpty())
     }
 
     @Test fun `Start recovers a package interrupted after STARTING was persisted`() = runTest(dispatcher) {
@@ -53,7 +55,7 @@ class QuickStartOfferViewModelTest {
         runCurrent()
         var opened: String? = null
 
-        viewModel.start { opened = it }
+        viewModel.continueOffer({}, { opened = it })
         runCurrent()
 
         assertEquals(ID, opened)
@@ -94,7 +96,9 @@ class QuickStartOfferViewModelTest {
         fun viewModel() = QuickStartOfferViewModel(
             packageStore = packages,
             runtimeStore = runtime,
-            startGate = gate,
+            startCoordinator = QuickStartStartCoordinator(
+                gate, runtime, QuickStartReceiptClient { receipts += it }, { NOW },
+            ),
             receiptClient = QuickStartReceiptClient { receipts += it },
             nowEpochMillis = { NOW },
         )

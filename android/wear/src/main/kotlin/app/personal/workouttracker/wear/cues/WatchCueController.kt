@@ -1,5 +1,6 @@
 package app.personal.workouttracker.wear.cues
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -52,9 +53,14 @@ class WatchCueController(
             mutex.withLock { if (active == event) active = null }
             return WatchCueResult.HAPTIC_ONLY
         }
-        val spoken = runCatching {
+        val spoken = try {
             withTimeoutOrNull(MAX_SPEECH_MILLIS) { output.speak(event.key, script) } ?: false
-        }.getOrDefault(false)
+        } catch (error: CancellationException) {
+            mutex.withLock { if (active == event) active = null }
+            throw error
+        } catch (_: Exception) {
+            false
+        }
         mutex.withLock { if (active == event) active = null }
         return if (spoken) WatchCueResult.SPOKEN else WatchCueResult.HAPTIC_ONLY
     }

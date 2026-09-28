@@ -27,6 +27,8 @@ import app.personal.workouttracker.wear.download.WorkoutListViewModel
 import app.personal.workouttracker.wear.session.SessionScreen
 import app.personal.workouttracker.wear.session.SessionViewModel
 import app.personal.workouttracker.wear.quickstart.QuickStartOfferViewModel
+import app.personal.workouttracker.wear.quickstart.QuickStartCountdownScreen
+import app.personal.workouttracker.wear.quickstart.QuickStartCountdownViewModel
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
 import app.personal.workouttracker.wear.quickstart.QuickStartCapabilityPublisher
 import app.personal.workouttracker.wear.ui.PasingotTheme
@@ -88,6 +90,9 @@ class WearMainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             quickStartViewModel = quickStartViewModel,
                             onOpenEntry = { entryId -> navController.navigate("session/$entryId") },
+                            onOpenQuickStartCountdown = { requestId ->
+                                navController.navigate("quick-start-countdown/$requestId")
+                            },
                             onOpenQuickStart = { requestId ->
                                 navController.navigate("quick-start/$requestId")
                             },
@@ -111,6 +116,28 @@ class WearMainActivity : ComponentActivity() {
                         )
                         SessionScreen(
                             viewModel = viewModel,
+                            onCancel = { navController.popBackStack() },
+                        )
+                    }
+                    composable(
+                        route = "quick-start-countdown/{requestId}",
+                        arguments = listOf(navArgument("requestId") { type = NavType.StringType }),
+                    ) { backStackEntry ->
+                        val requestId = backStackEntry.arguments?.getString("requestId") ?: return@composable
+                        val viewModel: QuickStartCountdownViewModel = viewModel(
+                            factory = QuickStartCountdownViewModel.Factory(
+                                requestId,
+                                applicationContext,
+                                WorkoutRepositorySessionSnapshotSource(repository),
+                            )
+                        )
+                        QuickStartCountdownScreen(
+                            viewModel = viewModel,
+                            onStarted = { startedRequestId ->
+                                navController.navigate("quick-start/$startedRequestId") {
+                                    popUpTo("quick-start-countdown/{requestId}") { inclusive = true }
+                                }
+                            },
                             onCancel = { navController.popBackStack() },
                         )
                     }

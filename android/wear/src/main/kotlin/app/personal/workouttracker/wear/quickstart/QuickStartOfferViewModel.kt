@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import app.personal.workouttracker.shared.SessionState
-import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
@@ -34,7 +32,7 @@ data class QuickStartOfferUiState(
 class QuickStartOfferViewModel(
     private val packageStore: QuickStartPackageStore,
     private val runtimeStore: QuickStartRuntimeStore,
-    private val startGate: GlobalSessionStartGate,
+    private val startCoordinator: QuickStartStartCoordinator,
     private val receiptClient: QuickStartReceiptClient,
     private val resultClient: QuickStartResultClient? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
@@ -73,47 +71,24 @@ class QuickStartOfferViewModel(
         }
     }
 
-    fun start(onStarted: (String) -> Unit) {
+    fun continueOffer(onCountdown: (String) -> Unit, onStarted: (String) -> Unit) {
         val offered = _uiState.value.sessionPackage ?: return
         if (_uiState.value.busy) return
+        if (offered.state == QuickStartPackageState.READY) {
+            onCountdown(offered.request.requestId)
+            return
+        }
         _uiState.value = _uiState.value.copy(busy = true, error = null)
         viewModelScope.launch {
             try {
-                val gated = startGate.startQuickStart(
-                    offered.request.requestId,
-                    offered.request.revision,
-                    nowEpochMillis(),
+                val runtime = startCoordinator.start(
+                    offered.request.requestId, offered.request.revision,
                 )
-                val starting = when (gated) {
-                    is QuickStartGateResult.Started -> gated.sessionPackage
-                    is QuickStartGateResult.AlreadyStarting -> gated.sessionPackage
-                    is QuickStartGateResult.BlockedByLegacy -> error("Finish your current workout first")
-                    QuickStartGateResult.Expired -> error("Quick Start expired. Send it again from your phone.")
-                    QuickStartGateResult.Missing -> error("Quick Start is no longer available")
-                }
-                val startedAt = nowEpochMillis()
-                val initialized = runtimeStore.initialize(
-                    starting,
-                    SessionState(
-                        workoutEntryId = starting.request.requestId,
-                        exerciseIndex = 0,
-                        currentSet = 1,
-                        status = SessionStatus.ACTIVE,
-                        elapsedStartedAtEpochMillis = startedAt,
-                    ),
-                    startedAt,
+                _uiState.value = _uiState.value.copy(
+                    sessionPackage = runtime.sessionPackage,
+                    busy = false,
                 )
-                val runtime = when (initialized) {
-                    is InitializeQuickStartRuntimeResult.Initialized -> initialized.state
-                    is InitializeQuickStartRuntimeResult.Existing -> initialized.state
-                    is InitializeQuickStartRuntimeResult.Conflict -> error("Another Quick Start is already active")
-                    is InitializeQuickStartRuntimeResult.AlreadyAcknowledged -> error("Quick Start already finished")
-                    is InitializeQuickStartRuntimeResult.Invalid -> error(initialized.reason)
-                }
-                _uiState.value = _uiState.value.copy(sessionPackage = starting, busy = false)
-                // Runtime persistence is the commit point; a transport failure is retryable.
-                try { receiptClient.send(runtime.startedAcknowledgement) } catch (_: Exception) { Unit }
-                onStarted(starting.request.requestId)
+                onStarted(runtime.sessionPackage.request.requestId)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -175,10 +150,15 @@ class QuickStartOfferViewModel(
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val packageStore = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+            val runtimeStore = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
             return QuickStartOfferViewModel(
                 packageStore = packageStore,
-                runtimeStore = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context)),
-                startGate = GlobalSessionStartGate(legacySessions, packageStore),
+                runtimeStore = runtimeStore,
+                startCoordinator = QuickStartStartCoordinator(
+                    GlobalSessionStartGate(legacySessions, packageStore),
+                    runtimeStore,
+                    DataLayerQuickStartReceiptClient(context.applicationContext),
+                ),
                 receiptClient = DataLayerQuickStartReceiptClient(context.applicationContext),
                 resultClient = DataLayerQuickStartResultClient(context.applicationContext),
             ) as T

@@ -45,6 +45,7 @@ fun WorkoutListScreen(
     viewModel: WorkoutListViewModel,
     quickStartViewModel: QuickStartOfferViewModel,
     onOpenEntry: (String) -> Unit,
+    onOpenQuickStartCountdown: (String) -> Unit,
     onOpenQuickStart: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -86,7 +87,12 @@ fun WorkoutListScreen(
                         sessionPackage.state == QuickStartPackageState.STARTING -> "Resume"
                         else -> "Start"
                     },
-                    onClick = { quickStartViewModel.start(onOpenQuickStart) },
+                    onClick = {
+                        quickStartViewModel.continueOffer(
+                            onOpenQuickStartCountdown,
+                            onOpenQuickStart,
+                        )
+                    },
                     primary = true,
                     enabled = !quickStart.busy,
                 )

@@ -3,17 +3,18 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 26 — Wear cue controller foundation**
-Previous checkpoint: `fcf5c62 PST01: Complete Quick Start terminal transport`
+Latest checkpoint: **Iteration 27 — foreground Quick Start countdown**
+Previous checkpoint: `f1beaa0 PST01: Add Wear cue controller foundation`
 Last updated: **2026-09-28**
 
-**Current closure:** Iteration 26 passes 163 Wear JVM tests and its debug APK
-build; Iteration 25 remains the latest full shared/phone/browser baseline. The
-checklist is 47/97 (48%); Phase 2 now has serialized Start/Dismiss/Cancel,
+**Current closure:** Iteration 27 passes 77 shared, 11 phone, and 168 Wear JVM
+tests plus both debug APK builds. Iteration 25 remains the latest browser
+baseline. The checklist is 48/97 (49%); Phase 2 now has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
-foundation. The local browser fixture passes 19 checks. Paired delivery,
-session-event cue wiring, and physical acceptance remain open. See
+foundation plus the foreground five-second start/Go flow. The local browser
+fixture passes 19 checks. Paired delivery, rest/success cue wiring, and physical
+acceptance remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
 ## Goal
@@ -765,17 +766,17 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-28, Iteration 26
+### Progress audit — 2026-09-28, Iteration 27
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **47/97 items (48%) overall**:
+stands at **48/97 items (49%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **6/17 (35%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, and the isolated cue/TTS/persistence foundation are wired; session cue events and paired validation remain open |
+| Phase 2 — watch feature | **7/17 (41%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence, and the foreground countdown are wired; rest/success cues and paired validation remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -925,7 +926,7 @@ Status: **In progress — terminal transport is wired and capability is publishe
 - [x] Handle active-session, invalid, expired, and duplicate requests.
 - [x] Add Start, Dismiss, and Cancel acknowledgements and serialized races.
 - [x] Add the isolated cue controller, TTS adapter, preferences, and cue ledger.
-- [ ] Add the foreground-only five-second start state and cancellation path.
+- [x] Add the foreground-only five-second start state and cancellation path.
 - [ ] Add rest-duration, five-second, and Go cue events without changing the
       persisted rest deadline.
 - [ ] Add the persisted final-countdown lock and enforce it in both UI and
@@ -1143,7 +1144,7 @@ and ended outcomes are frozen and retained, and Iteration 25 wires their native
 sender/receiver, permanent phone import, exact receipt, and guarded cleanup.
 Iteration 12 adds a shared capability envelope and schema-1 negotiation with
 mixed-version fixtures; Iteration 25 publishes it from both peers. The latest
-suites have 77 shared, 11 phone, and 156 Wear passing tests plus both debug APK
+suites have 77 shared, 11 phone, and 168 Wear passing tests plus both debug APK
 builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
@@ -1151,10 +1152,10 @@ delivery and physical-device acceptance remain open. No emulator was opened for
 Iteration 25, so the published capability and complete terminal path still need
 paired recovery validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** wire the foreground-only persisted five-second start
-state and cancellation path into Ready/Start navigation, then emit briefing,
-warning, and Go through the isolated cue controller without delaying the visual
-countdown or changing the persisted rest deadline. When a device session is allowed, separately verify capability-gated
+**Exact next action:** wire rest-duration, five-second, and Go cue events plus
+the persisted final-countdown lock into `SessionViewModel`, keeping the existing
+rest deadline authoritative and rejecting rest extensions at five seconds or
+below. When a device session is allowed, separately verify capability-gated
 paired delivery, cancellation races, reboot recovery, and Data Item cleanup.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
