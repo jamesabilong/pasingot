@@ -1353,3 +1353,63 @@ package, the TTS adapter, persistent preferences/ledger, and focused failure/
 recovery tests; then wire the foreground-only five-second start state. Run
 paired capability/delivery/recovery validation separately when an emulator or
 physical device session is allowed.
+
+## Iteration 26 — 2026-09-28 — Wear cue controller foundation
+
+Status: **Isolated cue foundation complete with Wear JVM/build evidence;
+session-event wiring, settings UI, and device audio validation remain open.**
+
+Starting checkpoint: `fcf5c62 PST01: Complete Quick Start terminal transport`,
+clean tree matching the local `origin/PST01` tracking ref. No fetch, push, or
+emulator action occurred.
+
+Added an isolated `WatchCueController` that serializes cue admission, persists
+the event before output, applies the existing priority rules, supports explicit
+pause/start-now/restart/end/skip/navigation cancellation, suppresses TTS while
+TalkBack owns speech, and bounds each speech attempt to five seconds. Visual
+state remains outside the controller. Haptics continue when voice is disabled,
+TalkBack is active, TTS initialization/output fails, or speech times out.
+
+Added one atomic DataStore record for opt-in voice preferences and the
+request/session cue ledger. Preferences default to voice off; all categories
+default on after opt-in. The ledger survives process/store recreation, rejects
+duplicate cues, switches only when a different session is admitted, and is
+cleared only for the exact session after its final-result receipt is durable.
+Unreadable or future state fails closed to voice off.
+
+Added the foreground-only Android system-TTS adapter with service discovery,
+system locale, accessibility speech usage, transient audio focus, route/focus
+loss cancellation, TalkBack detection, distinct cue haptics, and explicit
+shutdown. The manifest now declares the Android 11+ TTS service query; no
+network speech service, wake lock, microphone, or background service was added.
+
+Audit correction: the first draft gated the entire cue on voice preferences,
+which would also have removed the required haptic fallback. Reservation and
+exactly-once persistence are now independent of speech preference. A bounded
+timeout and TTS `onStop` handling were also added so cancelled/stalled speech
+cannot retain the caller indefinitely.
+
+Validation:
+
+- `./gradlew :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet` passed with 77
+  shared, 11 phone, and the then-current 162 Wear tests plus both debug APKs.
+- `./gradlew :wear:testDebugUnitTest :wear:assembleDebug --no-daemon --quiet`
+  then passed on the final manifest/test tree with **163 Wear tests**, zero
+  failures/errors, and a fresh debug APK. Seven new tests cover opt-in/fallback
+  behavior, durable pre-output
+  reservation, failed/stalled TTS without replay, TalkBack suppression,
+  priority and explicit cancellation, exact-session ledger cleanup, and
+  recovery from a separate DataStore scope.
+- `git diff --check` passed before documentation closure.
+- No emulator or physical watch was used. TTS engine discovery, speaker/
+  Bluetooth routing, actual haptic patterns, TalkBack, and battery behavior are
+  therefore code-complete foundations, not device acceptance.
+
+The cue-controller/preferences/TTS/ledger checklist item closes. Stage 19 is
+now **47/97 (48%)** overall and Phase 2 is **6/17 (35%)**. Exact next action:
+wire the foreground-only persisted five-second start state and cancellation
+path into Ready/Start navigation, then emit briefing/warning/Go events through
+this controller without delaying the visual countdown. The settings surface,
+rest events/final-countdown lock, success presentations, and device audio
+validation remain separate open items.
