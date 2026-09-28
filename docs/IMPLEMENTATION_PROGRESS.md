@@ -1473,3 +1473,59 @@ The foreground-only five-second state/cancellation checklist item closes. Stage
 action: wire rest-duration/five-second/Go cue events and the persisted final-
 countdown lock into `SessionViewModel`, keeping the existing rest deadline
 authoritative and rejecting `+5`, `+10`, and `+30` at five seconds or below.
+
+## Iteration 28 — 2026-09-28 — Rest cues and durable final countdown
+
+Status: **Rest transition cues and the persisted final-five lock are complete
+with JVM/build evidence; round-screen and device audio validation remain open.**
+
+Starting checkpoint: `33d4076 PST01: Add Wear Quick Start countdown`, clean
+tree, two commits ahead of the local `origin/PST01` tracking ref. No fetch,
+push, emulator, or physical-device action occurred.
+
+Wired semantic rest-start, five-second, and Go events into the shared
+`SessionViewModel` path used by downloaded and Quick Start sessions. Rest
+announcements preserve the existing deadline and follow the short-rest rules;
+the five-second latch is durably committed before its cue; natural zero and
+**Start now** cancel obsolete warning audio before emitting Go. Pause, restart,
+end, skip, and navigation also cancel obsolete output. Clearing the session
+now disposes its owned TTS output.
+
+Added backward-compatible `SessionState` fields for a stable rest-interval ID
+and irreversible final-countdown latch. Existing active or paused rest records
+are migrated on open. Pause/resume retains the interval and latch; terminal or
+active transitions clear them. The `+5`, `+10`, and `+30` controls are disabled
+and labeled at five seconds or below, while `onAddRestSeconds` independently
+enforces the same exact millisecond boundary under the serialized transition
+mutex. No per-second persistence was introduced.
+
+Audit corrections:
+
+- The first compile exposed Kotlin cross-module smart-cast restrictions in the
+  recovery migration; stable local values now make the nullable checks valid.
+- Session-owned system TTS is explicitly disposed with the ViewModel so the
+  new production emitter cannot leak an engine after navigation.
+- Added explicit simultaneous extension/threshold ordering, legacy-state
+  migration, pause/resume retention, replay-safe cue ordering, and additive
+  serialization compatibility coverage.
+
+Validation:
+
+- `./gradlew :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet` passed with **78
+  shared, 11 phone, and 175 Wear tests**, zero failures/errors, and both debug
+  APKs.
+- Rest-boundary coverage verifies acceptance at six seconds, rejection at five,
+  simultaneous tap/threshold ordering, retained pause/recovery lock, one
+  **Start now** transition, and warning cancellation before Go. Cue coverage
+  verifies exact rest/warning/Go scripts, haptics, durable keys, and shutdown.
+- `git diff --check` passed before documentation closure.
+
+No round-screen emulator or physical watch was used, so layout legibility,
+actual TTS timing/routing, haptic feel, screen-off recovery, and paired delivery
+remain open device evidence.
+
+The rest-event, persisted-lock, and rest-boundary checklist items close. Stage
+19 is now **51/97 (53%)** overall and Phase 2 is **10/17 (59%)**. Exact next
+action: add persisted exercise-success and final workout-success presentations,
+including durable **Saved on watch** state before rendering the final summary.

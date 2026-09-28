@@ -22,6 +22,7 @@ import app.personal.workouttracker.wear.quickstart.GlobalSessionStartGate
 import app.personal.workouttracker.wear.quickstart.LegacySessionSnapshotSource
 import app.personal.workouttracker.wear.quickstart.QuickStartPackagePersistence
 import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
+import app.personal.workouttracker.wear.cues.WatchCueCancellation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,6 +46,8 @@ class SessionViewModelTest {
     private val viewModels = ViewModelStore()
     private val repository = FakeSessionStore()
     private val sender = RecordingLogSender()
+    private val cues = RecordingSessionCueEmitter()
+    private var restSequence = 0
 
     @Before fun setUp() { Dispatchers.setMain(dispatcher) }
 
@@ -63,6 +66,8 @@ class SessionViewModelTest {
         sender,
         nowEpochMillis = { 1_000_000L + dispatcher.scheduler.currentTime },
         legacyStartGate = gate,
+        cueEmitter = cues,
+        newRestIntervalId = { "rest-${++restSequence}" },
     ).also { viewModels.put("session", it) }
 
     private fun defaultGate(): GlobalSessionStartGate {
@@ -237,6 +242,139 @@ class SessionViewModelTest {
         assertEquals(SessionStatus.RESTING, viewModel.uiState.value.session?.status)
     }
 
+    @Test fun `rest extension is accepted at six seconds and locked at five`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+
+        advanceTimeBy(24_000)
+        runCurrent()
+        assertEquals(6, viewModel.uiState.value.restRemainingSeconds)
+        assertTrue(viewModel.uiState.value.canExtendRest)
+        viewModel.onAddRestSeconds(10)
+        runCurrent()
+        val extendedDeadline = viewModel.uiState.value.session?.restUntilEpochMillis
+        assertEquals(16, viewModel.uiState.value.restRemainingSeconds)
+
+        advanceTimeBy(11_000)
+        runCurrent()
+        assertEquals(5, viewModel.uiState.value.restRemainingSeconds)
+        assertTrue(viewModel.uiState.value.session?.restFinalCountdownStarted == true)
+        assertFalse(viewModel.uiState.value.canExtendRest)
+        val writesAtLock = repository.sessionWrites
+        viewModel.onAddRestSeconds(30)
+        runCurrent()
+        assertEquals(extendedDeadline, viewModel.uiState.value.session?.restUntilEpochMillis)
+        assertEquals(writesAtLock, repository.sessionWrites)
+    }
+
+    @Test fun `rest warning and Go follow durable lock and deadline transitions`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        assertEquals(listOf("rest:30"), cues.events)
+        assertTrue(repository.entry.sessionState?.restIntervalId != null)
+
+        advanceTimeBy(25_000)
+        runCurrent()
+        assertTrue(repository.entry.sessionState?.restFinalCountdownStarted == true)
+        assertEquals(listOf("rest:30", "five"), cues.events)
+
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertEquals(listOf("rest:30", "five", "cancel:START_NOW", "go"), cues.events)
+        assertEquals(null, repository.entry.sessionState?.restIntervalId)
+    }
+
+    @Test fun `threshold wins when extension tap and visible timer arrive together`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        val originalDeadline = repository.entry.sessionState?.restUntilEpochMillis
+
+        viewModel.onScreenVisibilityChanged(false)
+        runCurrent()
+        advanceTimeBy(25_000)
+        viewModel.onAddRestSeconds(30)
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+
+        assertEquals(originalDeadline, repository.entry.sessionState?.restUntilEpochMillis)
+        assertTrue(repository.entry.sessionState?.restFinalCountdownStarted == true)
+        assertFalse(viewModel.uiState.value.canExtendRest)
+        assertEquals(1, cues.events.count { it == "five" })
+    }
+
+    @Test fun `Start now cancels final warning and finishes one rest`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        advanceTimeBy(25_000)
+        runCurrent()
+
+        viewModel.onStartNow()
+        viewModel.onStartNow()
+        runCurrent()
+
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertEquals(listOf("rest:30", "five", "cancel:START_NOW", "go"), cues.events)
+    }
+
+    @Test fun `final countdown lock survives pause and resume`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        val intervalId = viewModel.uiState.value.session?.restIntervalId
+        advanceTimeBy(25_000)
+        runCurrent()
+
+        viewModel.onPause()
+        runCurrent()
+        assertEquals(intervalId, repository.entry.sessionState?.restIntervalId)
+        assertTrue(repository.entry.sessionState?.restFinalCountdownStarted == true)
+        assertEquals(5, repository.entry.sessionState?.pausedRestRemainingSeconds)
+
+        advanceTimeBy(60_000)
+        viewModel.onResume()
+        runCurrent()
+        assertEquals(intervalId, repository.entry.sessionState?.restIntervalId)
+        assertTrue(repository.entry.sessionState?.restFinalCountdownStarted == true)
+        assertFalse(viewModel.uiState.value.canExtendRest)
+        val deadline = repository.entry.sessionState?.restUntilEpochMillis
+        viewModel.onAddRestSeconds(30)
+        runCurrent()
+        assertEquals(deadline, repository.entry.sessionState?.restUntilEpochMillis)
+    }
+
+    @Test fun `legacy active rest is assigned and persists a lock identity`() = runSessionTest {
+        repository.entry = repository.entry.copy(sessionState = SessionState(
+            workoutEntryId = repository.entry.id,
+            exerciseIndex = 0,
+            currentSet = 2,
+            status = SessionStatus.RESTING,
+            restUntilEpochMillis = 1_030_000L,
+            elapsedStartedAtEpochMillis = 1_000_000L,
+        ))
+
+        val viewModel = createSession()
+        runCurrent()
+
+        assertEquals("rest-1", repository.entry.sessionState?.restIntervalId)
+        assertEquals("rest-1", viewModel.uiState.value.session?.restIntervalId)
+        assertFalse(repository.entry.sessionState?.restFinalCountdownStarted == true)
+    }
+
     @Test fun `final skip publishes completion once and preserves skipped exercise log`() = runSessionTest {
         val viewModel = createSession()
         runCurrent()
@@ -369,5 +507,23 @@ class SessionViewModelTest {
         override suspend fun sendSessionSnapshot(snapshot: WatchSessionSnapshot) { snapshots += snapshot }
 
         override suspend fun sendSessionEvent(event: WorkoutSessionEvent) { events += event }
+    }
+
+    private class RecordingSessionCueEmitter : SessionCueEmitter {
+        val events = mutableListOf<String>()
+        override suspend fun restStarted(entry: DownloadedWorkoutEntry, session: SessionState,
+            prescribedRestSeconds: Int, previousExerciseIndex: Int) {
+            events += "rest:$prescribedRestSeconds"
+        }
+        override suspend fun fiveSeconds(entry: DownloadedWorkoutEntry, session: SessionState) {
+            events += "five"
+        }
+        override suspend fun go(entry: DownloadedWorkoutEntry, session: SessionState,
+            restDeadlineMillis: Long) {
+            events += "cancel:START_NOW"
+            events += "go"
+        }
+        override suspend fun cancel(reason: WatchCueCancellation) { events += "cancel:$reason" }
+        override fun close() { events += "close" }
     }
 }

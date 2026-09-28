@@ -9,6 +9,10 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 28 wires rest-duration/five-second/Go cues into the existing session
+  engine and adds a backward-compatible persisted final-countdown lock. The
+  shared/phone/Wear suites pass 78/11/175 tests and both debug APKs build;
+  round-screen and physical audio validation remain open.
 - Iteration 27 completes the foreground-only five-second Quick Start countdown,
   cancellation-before-zero behavior, durable zero-boundary start, and briefing/
   warning/Go cue wiring with 168 passing Wear tests. Round-screen/device audio
@@ -42,8 +46,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 27, foreground Quick
-  Start countdown. Iteration 26 added the Wear cue-controller foundation, and
+- Latest implementation checkpoint: Stage 19 Iteration 28, rest cues and the
+  durable final-countdown lock. Iteration 27 added the foreground Quick Start
+  countdown, Iteration 26 added the Wear cue-controller foundation, and
   Iteration 25 completed cancellation,
   final-result transport/cleanup, and capability publication. Iteration 24 was
   committed as `2509782`. Iteration 22 contains durable progress/history and
@@ -102,9 +107,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **48/97 checklist items (49%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **7/17 (41%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and cue persistence plus the foreground five-second start flow are implemented. Automated code/build checks pass; rest/success cue wiring and paired delivery remain unverified | Next: wire rest-duration/five-second/Go events and the persisted final-countdown lock, then continue success cues and paired delivery/recovery validation. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **51/97 checklist items (53%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **10/17 (59%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and start/rest cues plus the persisted final-five lock are implemented. Automated code/build checks pass; success presentation and paired delivery remain unverified | Next: add persisted exercise-success and final workout-success presentations, then continue paired delivery/recovery validation. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 rest cues/lock, success UI, notification fallback, settings surface, and device acceptance | Follow the plan's remaining Phase 2 watch checklist |
+| **Pending implementation** | Stage 19 success UI, notification fallback, settings surface, and device acceptance | Follow the plan's remaining Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

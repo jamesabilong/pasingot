@@ -1,12 +1,36 @@
 package app.personal.workouttracker.shared
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DataModelsTest {
+
+    @Test
+    fun restCountdownLockFieldsRoundTripAndRemainBackwardCompatible() {
+        val json = Json { encodeDefaults = true }
+        val locked = SessionState(
+            workoutEntryId = "workout",
+            exerciseIndex = 1,
+            currentSet = 2,
+            status = SessionStatus.RESTING,
+            restUntilEpochMillis = 10_000L,
+            restIntervalId = "rest-1",
+            restFinalCountdownStarted = true,
+        )
+
+        assertEquals(locked, json.decodeFromString<SessionState>(json.encodeToString(locked)))
+        val legacy = json.decodeFromString<SessionState>(
+            """{"workoutEntryId":"workout","exerciseIndex":0,"currentSet":1,"status":"resting"}""",
+        )
+        assertNull(legacy.restIntervalId)
+        assertFalse(legacy.restFinalCountdownStarted)
+    }
 
     @Test
     fun legacyCustomExerciseNamesHideGeneratedIdsWithoutChangingOrdinaryNames() {

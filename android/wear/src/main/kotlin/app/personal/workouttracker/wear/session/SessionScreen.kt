@@ -238,10 +238,13 @@ private fun RestingView(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    RestExtensionChip(5, onAddRestSeconds, Modifier.weight(1f))
-                    RestExtensionChip(10, onAddRestSeconds, Modifier.weight(1f))
-                    RestExtensionChip(30, onAddRestSeconds, Modifier.weight(1f))
+                    RestExtensionChip(5, onAddRestSeconds, state.canExtendRest, Modifier.weight(1f))
+                    RestExtensionChip(10, onAddRestSeconds, state.canExtendRest, Modifier.weight(1f))
+                    RestExtensionChip(30, onAddRestSeconds, state.canExtendRest, Modifier.weight(1f))
                 }
+            }
+            if (!state.canExtendRest) {
+                item { WatchNote("Rest extension unavailable during final countdown") }
             }
             item { WatchNote("Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}") }
             item { WatchAction("Save & close", onCancel) }
@@ -307,10 +310,12 @@ private fun PausedView(
 private fun RestExtensionChip(
     seconds: Int,
     onAddRestSeconds: (Int) -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     CompactChip(
         onClick = { onAddRestSeconds(seconds) },
+        enabled = enabled,
         label = { Text("+${seconds}s") },
         colors = ChipDefaults.secondaryChipColors(),
         modifier = modifier,

@@ -32,6 +32,15 @@ import app.personal.workouttracker.wear.quickstart.QuickStartSessionStore
 import app.personal.workouttracker.wear.quickstart.DataLayerQuickStartResultClient
 import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
+import app.personal.workouttracker.wear.cues.RestCountdownChange
+import app.personal.workouttracker.wear.cues.RestCountdownLock
+import app.personal.workouttracker.wear.cues.AndroidTtsCueOutput
+import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
+import app.personal.workouttracker.wear.cues.WatchCueController
+import app.personal.workouttracker.wear.cues.WatchCueStore
+import app.personal.workouttracker.wear.cues.WatchCueCancellation
+import app.personal.workouttracker.wear.cues.extend
+import app.personal.workouttracker.wear.cues.tick
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,6 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
+import java.util.UUID
 
 /** Everything [SessionScreen] needs to render one frame. */
 data class SessionUiState(
@@ -55,6 +65,7 @@ data class SessionUiState(
     val error: String? = null,
     val canAdjustSets: Boolean = true,
     val canRestart: Boolean = true,
+    val canExtendRest: Boolean = false,
 ) {
     val currentExercise get() = entry?.exercises?.getOrNull(session?.exerciseIndex ?: 0)
     val totalExercises get() = entry?.exercises?.size ?: 0
@@ -75,6 +86,8 @@ class SessionViewModel(
     private val legacyStartGate: GlobalSessionStartGate?,
     private val canAdjustSets: Boolean = true,
     private val canRestart: Boolean = true,
+    private val cueEmitter: SessionCueEmitter = NoOpSessionCueEmitter,
+    private val newRestIntervalId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SessionUiState())
@@ -91,7 +104,7 @@ class SessionViewModel(
                 // Resume in place if a SessionState already exists, else start
                 // fresh at exerciseIndex = 0 (Prompt 4 req 3).
                 val storedSession = entry?.sessionState
-                val session = entry?.let { storedSession ?: newSession() }
+                val session = entry?.let { ensureRestLock(storedSession ?: newSession()) }
                 if (legacyStartGate != null && entry != null && session != null && session.status != SessionStatus.COMPLETED &&
                     session.status != SessionStatus.ENDED) {
                     val result = legacyStartGate.startLegacy(entryId, nowEpochMillis()) {
@@ -110,6 +123,10 @@ class SessionViewModel(
                         _uiState.value = SessionUiState(loading = false, blockedReason = blocked)
                         return@launch
                     }
+                } else if (entry != null && storedSession != null && session != storedSession) {
+                    check(repository.commitSession(entry, entry.copy(sessionState = session))) {
+                        "Workout changed while recovering rest"
+                    }
                 }
                 _uiState.value = SessionUiState(
                     entry = entry?.copy(sessionState = session),
@@ -118,6 +135,7 @@ class SessionViewModel(
                     loading = false,
                     canAdjustSets = canAdjustSets,
                     canRestart = canRestart,
+                    canExtendRest = session?.let(::canExtendRest) ?: false,
                 )
                 if (entry != null && session != null) sendSessionSnapshot(entry, session)
                 flushPendingHistory()
@@ -144,12 +162,18 @@ class SessionViewModel(
         } else {
             advanceExercise(entry, session)
         }
+        val restSeconds = exercise.rest
         SessionChange(next, effects = if (finalSet) WorkoutSessionEffects(
             log = LogEntry(exercise = exercise.exercise, status = LogStatus.DONE,
                 timestamp = Instant.ofEpochMilli(nowEpochMillis()).toString(), workoutRowId = exercise.workoutRowId),
             event = if (next.status == SessionStatus.COMPLETED)
                 sessionEvent(entry, next, SessionEventType.COMPLETED, SessionStopReason.COMPLETED) else null,
-        ) else null, action = SessionOutcomeAction(SessionOutcomeActionType.SET_COMPLETED, session.exerciseIndex))
+        ) else null, action = SessionOutcomeAction(SessionOutcomeActionType.SET_COMPLETED, session.exerciseIndex),
+            afterCommit = if (next.status == SessionStatus.RESTING) { committedEntry, committedSession ->
+                cueEmitter.restStarted(
+                    committedEntry, committedSession, restSeconds, session.exerciseIndex,
+                )
+            } else null)
     }
 
     /** Skips the active exercise immediately and advances to the next row. */
@@ -162,18 +186,25 @@ class SessionViewModel(
                 timestamp = Instant.ofEpochMilli(nowEpochMillis()).toString(), workoutRowId = exercise.workoutRowId),
             event = if (nextSession.status == SessionStatus.COMPLETED)
                 sessionEvent(entry, nextSession, SessionEventType.COMPLETED, SessionStopReason.COMPLETED) else null,
-        ), action = SessionOutcomeAction(SessionOutcomeActionType.EXERCISE_SKIPPED, session.exerciseIndex))
+        ), action = SessionOutcomeAction(SessionOutcomeActionType.EXERCISE_SKIPPED, session.exerciseIndex),
+            afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.SKIP) })
     }
 
     /** Ends the current rest early and starts the next planned set/exercise. */
     fun onStartNow() = mutate { _, session ->
-        if (session.status == SessionStatus.RESTING) SessionChange(activeAfterRest(session)) else null
+        val deadline = session.restUntilEpochMillis
+        if (session.status == SessionStatus.RESTING && deadline != null) {
+            SessionChange(activeAfterRest(session), afterCommit = { entry, active ->
+                cueEmitter.go(entry, active, deadline)
+            })
+        } else null
     }
 
     /** Pauses the active set or freezes the current rest countdown. */
     fun onPause() = mutate { _, session ->
         if (session.status == SessionStatus.ACTIVE || session.status == SessionStatus.RESTING) {
-            SessionChange(pauseSession(session, SessionStopReason.PAUSED_BY_USER))
+            SessionChange(pauseSession(session, SessionStopReason.PAUSED_BY_USER),
+                afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.PAUSE) })
         } else null
     }
 
@@ -193,31 +224,45 @@ class SessionViewModel(
         } else {
             activeAfterRest(session).startElapsedSegment()
         }
-        SessionChange(resumed)
+        SessionChange(resumed, afterCommit = if (resumed.status == SessionStatus.RESTING) {
+            { entry, committed ->
+                cueEmitter.restStarted(entry, committed, pausedRestSeconds ?: 0,
+                    committed.exerciseIndex)
+            }
+        } else null)
     }
 
     /** Restarts the workout from the first exercise without emitting logs. */
     fun onRestartWorkout() = mutate(restarting = true) { _, session ->
-        if (session.status == SessionStatus.PAUSED) SessionChange(newSession()) else null
+        if (session.status == SessionStatus.PAUSED) SessionChange(newSession(),
+            afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.RESTART) }) else null
     }
 
     /** Ends the workout without sending completion logs for unfinished rows. */
     fun onEndWorkout() = mutate { entry, session ->
         if (session.status == SessionStatus.COMPLETED || session.status == SessionStatus.ENDED) return@mutate null
         val endedSession = stopElapsedSegment(session, SessionStopReason.ENDED_BY_USER).copy(
-            status = SessionStatus.ENDED, restUntilEpochMillis = null, pausedRestRemainingSeconds = null)
+            status = SessionStatus.ENDED, restUntilEpochMillis = null,
+            pausedRestRemainingSeconds = null, restIntervalId = null,
+            restFinalCountdownStarted = false)
         SessionChange(endedSession, effects = WorkoutSessionEffects(
-            event = sessionEvent(entry, endedSession, SessionEventType.ENDED, SessionStopReason.ENDED_BY_USER)))
+            event = sessionEvent(entry, endedSession, SessionEventType.ENDED, SessionStopReason.ENDED_BY_USER)),
+            afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.END) })
     }
 
     /** Extends the active rest countdown so users can recover before continuing. */
     fun onAddRestSeconds(seconds: Int) {
-        if (seconds <= 0) return
+        if (seconds !in setOf(5, 10, 30)) return
         mutate { _, session ->
             if (session.status != SessionStatus.RESTING) return@mutate null
-            val now = nowEpochMillis()
-            val currentUntil = session.restUntilEpochMillis ?: now
-            SessionChange(session.copy(restUntilEpochMillis = maxOf(currentUntil, now) + seconds * 1_000L))
+            val lock = session.restCountdownLock() ?: return@mutate null
+            when (val result = lock.extend(nowEpochMillis(), seconds)) {
+                is RestCountdownChange.Changed -> SessionChange(session.copy(
+                    restUntilEpochMillis = result.state.deadlineEpochMillis,
+                    restFinalCountdownStarted = result.state.finalCountdownStarted,
+                ))
+                is RestCountdownChange.Refused -> null
+            }
         }
     }
 
@@ -254,11 +299,13 @@ class SessionViewModel(
     fun onScreenVisibilityChanged(visible: Boolean) {
         if (screenVisible == visible) return
         screenVisible = visible
+        if (!visible) dispatchCue { cueEmitter.cancel(WatchCueCancellation.NAVIGATION) }
         synchronizeRestTimer()
     }
 
     override fun onCleared() {
         restTimerJob?.cancel()
+        cueEmitter.close()
         super.onCleared()
     }
 
@@ -305,6 +352,8 @@ class SessionViewModel(
                 status = SessionStatus.COMPLETED,
                 restUntilEpochMillis = null,
                 pausedRestRemainingSeconds = null,
+                restIntervalId = null,
+                restFinalCountdownStarted = false,
             )
         } else {
             val exercise = entry.exercises.getOrNull(session.exerciseIndex)
@@ -323,11 +372,15 @@ class SessionViewModel(
                 status = SessionStatus.RESTING,
                 restUntilEpochMillis = nowEpochMillis() + restSeconds * 1_000L,
                 pausedRestRemainingSeconds = null,
+                restIntervalId = newRestIntervalId(),
+                restFinalCountdownStarted = false,
             )
         }
 
     private fun activeAfterRest(session: SessionState): SessionState =
-        session.copy(status = SessionStatus.ACTIVE, restUntilEpochMillis = null, pausedRestRemainingSeconds = null)
+        session.copy(status = SessionStatus.ACTIVE, restUntilEpochMillis = null,
+            pausedRestRemainingSeconds = null, restIntervalId = null,
+            restFinalCountdownStarted = false)
 
     private fun newSession(): SessionState = SessionState(
         workoutEntryId = entryId,
@@ -344,6 +397,25 @@ class SessionViewModel(
             copy(lastStopReason = null)
         }
 
+    private fun ensureRestLock(session: SessionState): SessionState {
+        if (session.restIntervalId != null) return session
+        val restDeadline = session.restUntilEpochMillis
+        val pausedRestSeconds = session.pausedRestRemainingSeconds
+        return when {
+            session.status == SessionStatus.RESTING && restDeadline != null -> session.copy(
+                restIntervalId = newRestIntervalId(),
+                restFinalCountdownStarted = session.restFinalCountdownStarted ||
+                    restDeadline - nowEpochMillis() <= 5_000L,
+            )
+            session.status == SessionStatus.PAUSED && pausedRestSeconds != null -> session.copy(
+                restIntervalId = newRestIntervalId(),
+                restFinalCountdownStarted = session.restFinalCountdownStarted ||
+                    pausedRestSeconds <= 5,
+            )
+            else -> session
+        }
+    }
+
     private fun pauseSession(session: SessionState, reason: String): SessionState {
         val pausedRestSeconds = if (session.status == SessionStatus.RESTING) {
             remainingRestSeconds(session).coerceAtLeast(1)
@@ -354,6 +426,8 @@ class SessionViewModel(
             status = SessionStatus.PAUSED,
             restUntilEpochMillis = null,
             pausedRestRemainingSeconds = pausedRestSeconds,
+            restFinalCountdownStarted = session.restFinalCountdownStarted ||
+                ((session.restUntilEpochMillis ?: Long.MAX_VALUE) - nowEpochMillis() <= 5_000L),
         )
     }
 
@@ -411,6 +485,22 @@ class SessionViewModel(
         return ((until - nowEpochMillis() + 999L) / 1_000L).toInt().coerceAtLeast(0)
     }
 
+    private fun canExtendRest(session: SessionState): Boolean {
+        val deadline = session.restUntilEpochMillis ?: return false
+        return session.status == SessionStatus.RESTING &&
+            !session.restFinalCountdownStarted && deadline - nowEpochMillis() > 5_000L
+    }
+
+    private fun SessionState.restCountdownLock(): RestCountdownLock? {
+        val intervalId = restIntervalId?.takeIf(String::isNotBlank) ?: return null
+        val deadline = restUntilEpochMillis ?: return null
+        return RestCountdownLock(
+            intervalId = intervalId,
+            deadlineEpochMillis = deadline,
+            finalCountdownStarted = restFinalCountdownStarted,
+        )
+    }
+
     private fun sendSessionSnapshot(entry: DownloadedWorkoutEntry, session: SessionState) {
         val snapshot = WatchSessionSnapshot(
             workoutEntryId = entry.id,
@@ -437,6 +527,7 @@ class SessionViewModel(
             _uiState.value = _uiState.value.copy(
                 restRemainingSeconds = pausedRestRemainingSeconds,
                 elapsedSeconds = elapsedSeconds(session),
+                canExtendRest = false,
             )
             return
         }
@@ -444,40 +535,61 @@ class SessionViewModel(
             _uiState.value = _uiState.value.copy(
                 restRemainingSeconds = 0,
                 elapsedSeconds = elapsedSeconds(session),
+                canExtendRest = false,
             )
             if (session.status == SessionStatus.ACTIVE) startElapsedTicker()
             return
         }
 
         val remaining = remainingRestSeconds(session)
-        if (remaining <= 0) {
-            setSession(activeAfterRest(session))
+        val lockChange = session.restCountdownLock()?.tick(nowEpochMillis())
+        if (lockChange is RestCountdownChange.Changed) {
+            if (lockChange.state.finished) finishRest(session)
+            else latchFinalCountdown(session, lockChange.state)
             return
         }
 
-        _uiState.value = _uiState.value.copy(restRemainingSeconds = remaining, elapsedSeconds = elapsedSeconds(session))
+        _uiState.value = _uiState.value.copy(restRemainingSeconds = remaining,
+            elapsedSeconds = elapsedSeconds(session), canExtendRest = canExtendRest(session))
         restTimerJob = viewModelScope.launch {
             while (true) {
                 val current = _uiState.value.session ?: return@launch
                 if (current.status != SessionStatus.RESTING) return@launch
 
-                val seconds = remainingRestSeconds(current)
-                if (seconds <= 0) {
-                    setSession(activeAfterRest(current))
+                val change = current.restCountdownLock()?.tick(nowEpochMillis())
+                if (change is RestCountdownChange.Changed) {
+                    if (change.state.finished) finishRest(current)
+                    else latchFinalCountdown(current, change.state)
                     return@launch
                 }
 
+                val seconds = remainingRestSeconds(current)
                 _uiState.value = _uiState.value.copy(
                     restRemainingSeconds = seconds,
                     elapsedSeconds = elapsedSeconds(current),
+                    canExtendRest = canExtendRest(current),
                 )
                 delay(1_000L)
             }
         }
     }
 
-    private fun setSession(newSession: SessionState) {
-        mutate(expected = _uiState.value.session) { _, _ -> SessionChange(newSession) }
+    private fun latchFinalCountdown(expected: SessionState, lock: RestCountdownLock) {
+        mutate(expected = expected) { _, current ->
+            SessionChange(current.copy(restFinalCountdownStarted = lock.finalCountdownStarted),
+                afterCommit = if (lock.finalCountdownStarted) { entry, committed ->
+                    cueEmitter.fiveSeconds(entry, committed)
+                } else null)
+        }
+    }
+
+    private fun finishRest(expected: SessionState) {
+        val deadline = expected.restUntilEpochMillis ?: nowEpochMillis()
+        mutate(expected = expected) { _, current ->
+            SessionChange(activeAfterRest(current), afterCommit = { entry, active ->
+                cueEmitter.go(entry, active, deadline)
+            })
+        }
     }
 
     private fun startElapsedTicker() {
@@ -496,6 +608,7 @@ class SessionViewModel(
         val exercises: List<WorkoutExercise>? = null,
         val effects: WorkoutSessionEffects? = null,
         val action: SessionOutcomeAction? = null,
+        val afterCommit: (suspend (DownloadedWorkoutEntry, SessionState) -> Unit)? = null,
     )
 
     /** Serialize commands, persist progress/history atomically, then expose the result. */
@@ -540,10 +653,14 @@ class SessionViewModel(
                             LegacySessionGateResult.Started) { "Another workout owns the session" }
                     } else commit()
                     _uiState.value = _uiState.value.copy(entry = updated, session = change.session,
-                        elapsedSeconds = elapsedSeconds(change.session), saving = false, error = null)
+                        elapsedSeconds = elapsedSeconds(change.session), saving = false, error = null,
+                        canExtendRest = canExtendRest(change.session))
                     sendSessionSnapshot(updated, change.session)
                     flushPendingHistory()
                     synchronizeRestTimer()
+                    change.afterCommit?.let { effect ->
+                        dispatchCue { effect(updated, change.session) }
+                    }
                     onCommitted?.invoke(true)
                 } catch (error: CancellationException) {
                     throw error
@@ -568,6 +685,14 @@ class SessionViewModel(
         }
     }
 
+    private fun dispatchCue(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { block() }
+            catch (error: CancellationException) { throw error }
+            catch (_: Exception) { Unit }
+        }
+    }
+
     class Factory(
         private val entryId: String,
         private val repository: WorkoutRepository,
@@ -580,7 +705,7 @@ class SessionViewModel(
                 legacyStartGate = GlobalSessionStartGate(
                     WorkoutRepositorySessionSnapshotSource(repository),
                     WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(appContext)),
-                )) as T
+                ), cueEmitter = createProductionSessionCueEmitter(appContext)) as T
     }
 
     class QuickStartFactory(
@@ -601,7 +726,14 @@ class SessionViewModel(
                 legacyStartGate = null,
                 canAdjustSets = false,
                 canRestart = false,
+                cueEmitter = createProductionSessionCueEmitter(appContext),
             ) as T
         }
     }
 }
+
+private fun createProductionSessionCueEmitter(context: Context): SessionCueEmitter =
+    ControllerSessionCueEmitter(WatchCueController(
+        WatchCueStore(DataStoreWatchCuePersistence(context)),
+        AndroidTtsCueOutput(context.applicationContext),
+    ))

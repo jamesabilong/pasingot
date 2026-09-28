@@ -75,6 +75,12 @@ class WatchCueController(
         output.close()
     }
 
+    /** Lifecycle teardown after the owner has cancelled its coroutine scope. */
+    fun dispose() {
+        active = null
+        output.close()
+    }
+
     private companion object {
         const val MAX_SPEECH_MILLIS = 5_000L
     }

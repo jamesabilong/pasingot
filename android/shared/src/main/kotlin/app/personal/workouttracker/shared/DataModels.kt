@@ -130,6 +130,10 @@ data class SessionState(
     val status: String, // SessionStatus.ACTIVE | RESTING | PAUSED | COMPLETED | ENDED
     val restUntilEpochMillis: Long? = null,
     val pausedRestRemainingSeconds: Int? = null,
+    /** Stable identity for one rest interval, retained through pause/resume. */
+    val restIntervalId: String? = null,
+    /** Irreversible latch: extensions stay blocked once five seconds is reached. */
+    val restFinalCountdownStarted: Boolean = false,
     val accumulatedElapsedMillis: Long = 0,
     val elapsedStartedAtEpochMillis: Long? = null,
     val lastStopReason: String? = null,
