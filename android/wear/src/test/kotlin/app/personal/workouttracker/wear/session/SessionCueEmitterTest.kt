@@ -4,6 +4,7 @@ import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.cues.WatchCueCancellation
 import app.personal.workouttracker.wear.cues.WatchCueController
 import app.personal.workouttracker.wear.cues.WatchCueKind
@@ -65,6 +66,56 @@ class SessionCueEmitterTest {
         assertEquals(listOf(WatchCueCancellation.START_NOW), output.cancellations)
         emitter.close()
         assertEquals(true, output.closed)
+    }
+
+    @Test fun `success cues merge rest context and remain exactly once`() = runTest {
+        val store = WatchCueStore(SessionCueMemoryPersistence())
+        store.setPreferences(WatchCuePreferences(voiceEnabled = true))
+        val output = RecordingSessionCueOutput()
+        val emitter = ControllerSessionCueEmitter(WatchCueController(store, output))
+        val entry = DownloadedWorkoutEntry(
+            id = "session-success",
+            date = "2026-09-28",
+            label = "Workout",
+            exercises = listOf(
+                WorkoutExercise("Squat", "10 reps", 1, 60),
+                WorkoutExercise("Row", "8 reps", 1, 0),
+            ),
+        )
+        val progress = app.personal.workouttracker.shared.SessionProgressState(
+            exerciseStatuses = listOf(ExerciseOutcomeStatus.COMPLETED, ExerciseOutcomeStatus.PENDING),
+            completedSets = listOf(1, 0),
+            successExerciseIndex = 0,
+        )
+        val resting = SessionState(
+            workoutEntryId = entry.id,
+            exerciseIndex = 1,
+            currentSet = 1,
+            status = SessionStatus.RESTING,
+            restUntilEpochMillis = 60_000,
+            restIntervalId = "rest-success",
+            progress = progress,
+        )
+
+        emitter.exerciseSuccess(entry, resting, 60, 0)
+        emitter.exerciseSuccess(entry, resting, 60, 0)
+        emitter.workoutSuccess(entry, resting.copy(
+            status = SessionStatus.COMPLETED,
+            restUntilEpochMillis = null,
+            restIntervalId = null,
+            progress = progress.copy(
+                exerciseStatuses = listOf(ExerciseOutcomeStatus.COMPLETED, ExerciseOutcomeStatus.COMPLETED),
+                completedSets = listOf(1, 1),
+                successExerciseIndex = null,
+            ),
+            resultSaved = true,
+        ))
+
+        assertEquals(listOf(
+            "Exercise complete. Rest for 1 minute. Up next: Row, 8 reps.",
+            "Workout complete. Great work.",
+        ), output.spoken)
+        assertEquals(listOf(WatchCueKind.EXERCISE_SUCCESS, WatchCueKind.WORKOUT_SUCCESS), output.haptics)
     }
 }
 

@@ -79,8 +79,12 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     }
 
     override fun haptic(kind: WatchCueKind) {
+        if (kind == WatchCueKind.WORKOUT_SUCCESS) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0L, 90L, 70L, 140L), -1))
+            return
+        }
         val duration = when (kind) {
-            WatchCueKind.GO, WatchCueKind.WORKOUT_SUCCESS -> 120L
+            WatchCueKind.GO -> 120L
             WatchCueKind.EXERCISE_SUCCESS -> 80L
             else -> 45L
         }

@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.session
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.exerciseDisplayName
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.cues.WatchCueCancellation
 import app.personal.workouttracker.wear.cues.WatchCueController
 import app.personal.workouttracker.wear.cues.WatchCueEvent
@@ -18,6 +19,13 @@ interface SessionCueEmitter {
     )
     suspend fun fiveSeconds(entry: DownloadedWorkoutEntry, session: SessionState)
     suspend fun go(entry: DownloadedWorkoutEntry, session: SessionState, restDeadlineMillis: Long)
+    suspend fun exerciseSuccess(
+        entry: DownloadedWorkoutEntry,
+        session: SessionState,
+        prescribedRestSeconds: Int,
+        previousExerciseIndex: Int,
+    )
+    suspend fun workoutSuccess(entry: DownloadedWorkoutEntry, session: SessionState)
     suspend fun cancel(reason: WatchCueCancellation)
     fun close()
 }
@@ -28,6 +36,9 @@ object NoOpSessionCueEmitter : SessionCueEmitter {
     override suspend fun fiveSeconds(entry: DownloadedWorkoutEntry, session: SessionState) = Unit
     override suspend fun go(entry: DownloadedWorkoutEntry, session: SessionState,
         restDeadlineMillis: Long) = Unit
+    override suspend fun exerciseSuccess(entry: DownloadedWorkoutEntry, session: SessionState,
+        prescribedRestSeconds: Int, previousExerciseIndex: Int) = Unit
+    override suspend fun workoutSuccess(entry: DownloadedWorkoutEntry, session: SessionState) = Unit
     override suspend fun cancel(reason: WatchCueCancellation) = Unit
     override fun close() = Unit
 }
@@ -80,6 +91,34 @@ class ControllerSessionCueEmitter(
         )
     }
 
+    override suspend fun exerciseSuccess(
+        entry: DownloadedWorkoutEntry,
+        session: SessionState,
+        prescribedRestSeconds: Int,
+        previousExerciseIndex: Int,
+    ) {
+        val deadline = session.restUntilEpochMillis
+        val restScript = if (deadline != null) {
+            val next = entry.exercises.getOrNull(session.exerciseIndex)
+            WatchCueScripts.rest(
+                prescribedRestSeconds,
+                next?.let { exerciseDisplayName(it.exercise) },
+                next?.reps,
+            )
+        } else null
+        controller.emit(
+            successEvent(entry, session, WatchCueKind.EXERCISE_SUCCESS, previousExerciseIndex),
+            listOfNotNull(WatchCueScripts.EXERCISE_SUCCESS, restScript).joinToString(" "),
+        )
+    }
+
+    override suspend fun workoutSuccess(entry: DownloadedWorkoutEntry, session: SessionState) {
+        controller.emit(
+            successEvent(entry, session, WatchCueKind.WORKOUT_SUCCESS, session.exerciseIndex),
+            WatchCueScripts.WORKOUT_SUCCESS,
+        )
+    }
+
     override suspend fun cancel(reason: WatchCueCancellation) = controller.cancel(reason)
 
     override fun close() = controller.dispose()
@@ -97,4 +136,23 @@ class ControllerSessionCueEmitter(
         kind = kind,
         thresholdMillis = deadline,
     )
+
+    private fun successEvent(
+        entry: DownloadedWorkoutEntry,
+        session: SessionState,
+        kind: WatchCueKind,
+        exerciseIndex: Int,
+    ): WatchCueEvent {
+        val progress = session.progress
+        val revision = if (progress == null) 0L else
+            progress.completedSets.sumOf(Int::toLong) +
+                progress.exerciseStatuses.count { it != ExerciseOutcomeStatus.PENDING }.toLong()
+        return WatchCueEvent(
+            sessionId = entry.id,
+            revision = revision,
+            exerciseIndex = exerciseIndex,
+            setIndex = session.currentSet,
+            kind = kind,
+        )
+    }
 }

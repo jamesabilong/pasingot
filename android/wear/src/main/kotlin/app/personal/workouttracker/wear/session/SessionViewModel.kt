@@ -9,9 +9,11 @@ import app.personal.workouttracker.shared.LogStatus
 import app.personal.workouttracker.shared.LogEntry
 import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.SessionState
+import app.personal.workouttracker.shared.SessionProgressState
 import app.personal.workouttracker.shared.SessionEventType
 import app.personal.workouttracker.shared.SessionStopReason
 import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.shared.WorkoutSessionEvent
 import app.personal.workouttracker.shared.WatchSessionSnapshot
 import app.personal.workouttracker.shared.estimatedDurationSeconds
@@ -66,11 +68,13 @@ data class SessionUiState(
     val canAdjustSets: Boolean = true,
     val canRestart: Boolean = true,
     val canExtendRest: Boolean = false,
+    val awaitingPhoneSync: Boolean = false,
 ) {
     val currentExercise get() = entry?.exercises?.getOrNull(session?.exerciseIndex ?: 0)
     val totalExercises get() = entry?.exercises?.size ?: 0
     val isResting get() = session?.status == SessionStatus.RESTING
     val isPaused get() = session?.status == SessionStatus.PAUSED
+    val progress get() = session?.progress
 }
 
 /**
@@ -86,6 +90,7 @@ class SessionViewModel(
     private val legacyStartGate: GlobalSessionStartGate?,
     private val canAdjustSets: Boolean = true,
     private val canRestart: Boolean = true,
+    private val awaitsPhoneReceipt: Boolean = false,
     private val cueEmitter: SessionCueEmitter = NoOpSessionCueEmitter,
     private val newRestIntervalId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
@@ -104,7 +109,9 @@ class SessionViewModel(
                 // Resume in place if a SessionState already exists, else start
                 // fresh at exerciseIndex = 0 (Prompt 4 req 3).
                 val storedSession = entry?.sessionState
-                val session = entry?.let { ensureRestLock(storedSession ?: newSession()) }
+                val session = entry?.let {
+                    ensureSessionPresentation(it, ensureRestLock(storedSession ?: newSession(it)))
+                }
                 if (legacyStartGate != null && entry != null && session != null && session.status != SessionStatus.COMPLETED &&
                     session.status != SessionStatus.ENDED) {
                     val result = legacyStartGate.startLegacy(entryId, nowEpochMillis()) {
@@ -136,6 +143,7 @@ class SessionViewModel(
                     canAdjustSets = canAdjustSets,
                     canRestart = canRestart,
                     canExtendRest = session?.let(::canExtendRest) ?: false,
+                    awaitingPhoneSync = awaitsPhoneReceipt,
                 )
                 if (entry != null && session != null) sendSessionSnapshot(entry, session)
                 flushPendingHistory()
@@ -154,7 +162,7 @@ class SessionViewModel(
         if (session.status != SessionStatus.ACTIVE) return@mutate null
         val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate null
         val finalSet = session.currentSet >= exercise.sets
-        val next = if (!finalSet) {
+        val advanced = if (!finalSet) {
             startRestOrAdvance(
                 session = session.copy(currentSet = session.currentSet + 1),
                 restSeconds = exercise.rest,
@@ -162,6 +170,7 @@ class SessionViewModel(
         } else {
             advanceExercise(entry, session)
         }
+        val next = recordSetCompletion(advanced, session.exerciseIndex, finalSet)
         val restSeconds = exercise.rest
         SessionChange(next, effects = if (finalSet) WorkoutSessionEffects(
             log = LogEntry(exercise = exercise.exercise, status = LogStatus.DONE,
@@ -169,25 +178,40 @@ class SessionViewModel(
             event = if (next.status == SessionStatus.COMPLETED)
                 sessionEvent(entry, next, SessionEventType.COMPLETED, SessionStopReason.COMPLETED) else null,
         ) else null, action = SessionOutcomeAction(SessionOutcomeActionType.SET_COMPLETED, session.exerciseIndex),
-            afterCommit = if (next.status == SessionStatus.RESTING) { committedEntry, committedSession ->
-                cueEmitter.restStarted(
-                    committedEntry, committedSession, restSeconds, session.exerciseIndex,
-                )
-            } else null)
+            afterCommit = { committedEntry, committedSession ->
+                when {
+                    committedSession.status == SessionStatus.COMPLETED ->
+                        cueEmitter.workoutSuccess(committedEntry, committedSession)
+                    finalSet -> cueEmitter.exerciseSuccess(
+                        committedEntry, committedSession, restSeconds, session.exerciseIndex,
+                    )
+                    committedSession.status == SessionStatus.RESTING -> cueEmitter.restStarted(
+                        committedEntry, committedSession, restSeconds, session.exerciseIndex,
+                    )
+                }
+            })
     }
 
     /** Skips the active exercise immediately and advances to the next row. */
     fun onSkip() = mutate(expected = _uiState.value.session) { entry, session ->
         if (session.status != SessionStatus.ACTIVE) return@mutate null
         val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate null
-        val nextSession = advanceExercise(entry, session, restAfterCurrent = false)
+        val nextSession = recordSkip(
+            advanceExercise(entry, session, restAfterCurrent = false),
+            session.exerciseIndex,
+        )
         SessionChange(nextSession, effects = WorkoutSessionEffects(
             log = LogEntry(exercise = exercise.exercise, status = LogStatus.SKIPPED,
                 timestamp = Instant.ofEpochMilli(nowEpochMillis()).toString(), workoutRowId = exercise.workoutRowId),
             event = if (nextSession.status == SessionStatus.COMPLETED)
                 sessionEvent(entry, nextSession, SessionEventType.COMPLETED, SessionStopReason.COMPLETED) else null,
         ), action = SessionOutcomeAction(SessionOutcomeActionType.EXERCISE_SKIPPED, session.exerciseIndex),
-            afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.SKIP) })
+            afterCommit = { committedEntry, committedSession ->
+                cueEmitter.cancel(WatchCueCancellation.SKIP)
+                if (committedSession.status == SessionStatus.COMPLETED) {
+                    cueEmitter.workoutSuccess(committedEntry, committedSession)
+                }
+            })
     }
 
     /** Ends the current rest early and starts the next planned set/exercise. */
@@ -233,8 +257,8 @@ class SessionViewModel(
     }
 
     /** Restarts the workout from the first exercise without emitting logs. */
-    fun onRestartWorkout() = mutate(restarting = true) { _, session ->
-        if (session.status == SessionStatus.PAUSED) SessionChange(newSession(),
+    fun onRestartWorkout() = mutate(restarting = true) { entry, session ->
+        if (session.status == SessionStatus.PAUSED) SessionChange(newSession(entry),
             afterCommit = { _, _ -> cueEmitter.cancel(WatchCueCancellation.RESTART) }) else null
     }
 
@@ -382,13 +406,97 @@ class SessionViewModel(
             pausedRestRemainingSeconds = null, restIntervalId = null,
             restFinalCountdownStarted = false)
 
-    private fun newSession(): SessionState = SessionState(
+    private fun newSession(entry: DownloadedWorkoutEntry): SessionState = SessionState(
         workoutEntryId = entryId,
         exerciseIndex = 0,
         currentSet = 1,
         status = SessionStatus.ACTIVE,
         elapsedStartedAtEpochMillis = nowEpochMillis(),
+        progress = initialProgress(entry),
     )
+
+    private fun initialProgress(entry: DownloadedWorkoutEntry) = SessionProgressState(
+        exerciseStatuses = List(entry.exercises.size) { ExerciseOutcomeStatus.PENDING },
+        completedSets = List(entry.exercises.size) { 0 },
+    )
+
+    private fun ensureSessionPresentation(
+        entry: DownloadedWorkoutEntry,
+        session: SessionState,
+    ): SessionState {
+        val progress = session.progress
+        val successExerciseIndex = progress?.successExerciseIndex
+        val valid = progress != null &&
+            progress.exerciseStatuses.size == entry.exercises.size &&
+            progress.completedSets.size == entry.exercises.size &&
+            progress.exerciseStatuses.indices.all { index ->
+                val completedSets = progress.completedSets[index]
+                val plannedSets = entry.exercises[index].sets
+                completedSets in 0..plannedSets && when (progress.exerciseStatuses[index]) {
+                    ExerciseOutcomeStatus.COMPLETED -> completedSets == plannedSets
+                    ExerciseOutcomeStatus.PENDING, ExerciseOutcomeStatus.SKIPPED -> completedSets < plannedSets
+                }
+            } &&
+            (successExerciseIndex == null ||
+                successExerciseIndex in entry.exercises.indices &&
+                progress.exerciseStatuses[successExerciseIndex] == ExerciseOutcomeStatus.COMPLETED)
+        if (valid) return if (session.status in setOf(SessionStatus.COMPLETED, SessionStatus.ENDED) &&
+            !session.resultSaved) session.copy(resultSaved = true) else session
+
+        val statuses = List(entry.exercises.size) { index ->
+            when {
+                session.status == SessionStatus.COMPLETED -> ExerciseOutcomeStatus.COMPLETED
+                index < session.exerciseIndex -> ExerciseOutcomeStatus.COMPLETED
+                else -> ExerciseOutcomeStatus.PENDING
+            }
+        }
+        val completedSets = entry.exercises.mapIndexed { index, exercise ->
+            when {
+                statuses[index] == ExerciseOutcomeStatus.COMPLETED -> exercise.sets
+                index == session.exerciseIndex -> (session.currentSet - 1).coerceIn(0, exercise.sets)
+                else -> 0
+            }
+        }
+        return session.copy(
+            progress = SessionProgressState(statuses, completedSets),
+            resultSaved = session.status == SessionStatus.COMPLETED || session.status == SessionStatus.ENDED,
+        )
+    }
+
+    private fun recordSetCompletion(
+        session: SessionState,
+        exerciseIndex: Int,
+        finalSet: Boolean,
+    ): SessionState {
+        val progress = session.progress ?: return session
+        val statuses = progress.exerciseStatuses.toMutableList()
+        val completedSets = progress.completedSets.toMutableList()
+        completedSets[exerciseIndex] = (completedSets[exerciseIndex] + 1).coerceAtMost(
+            _uiState.value.entry?.exercises?.getOrNull(exerciseIndex)?.sets ?: Int.MAX_VALUE,
+        )
+        if (finalSet) statuses[exerciseIndex] = ExerciseOutcomeStatus.COMPLETED
+        return session.copy(
+            progress = progress.copy(
+                exerciseStatuses = statuses,
+                completedSets = completedSets,
+                successExerciseIndex = exerciseIndex.takeIf {
+                    finalSet && session.status != SessionStatus.COMPLETED
+                },
+            ),
+            resultSaved = session.status == SessionStatus.COMPLETED,
+        )
+    }
+
+    private fun recordSkip(session: SessionState, exerciseIndex: Int): SessionState {
+        val progress = session.progress ?: return session
+        val statuses = progress.exerciseStatuses.toMutableList().apply {
+            this[exerciseIndex] = ExerciseOutcomeStatus.SKIPPED
+        }
+        return session.copy(
+            progress = progress.copy(exerciseStatuses = statuses, successExerciseIndex = null),
+            resultSaved = session.status == SessionStatus.COMPLETED,
+        )
+    }
 
     private fun SessionState.startElapsedSegment(): SessionState =
         if (elapsedStartedAtEpochMillis == null) {
@@ -726,6 +834,7 @@ class SessionViewModel(
                 legacyStartGate = null,
                 canAdjustSets = false,
                 canRestart = false,
+                awaitsPhoneReceipt = true,
                 cueEmitter = createProductionSessionCueEmitter(appContext),
             ) as T
         }

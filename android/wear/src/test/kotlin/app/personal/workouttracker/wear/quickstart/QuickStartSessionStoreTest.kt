@@ -80,5 +80,6 @@ class QuickStartSessionStoreTest {
         assertTrue(store.commitSession(entry, entry.copy(sessionState = ended)))
         assertEquals(runtime.current()?.finalResult, observed)
         assertEquals(SessionStatus.ENDED, runtime.current()?.session?.status)
+        assertTrue(requireNotNull(requireNotNull(store.getEntry(ID)).sessionState).resultSaved)
     }
 }

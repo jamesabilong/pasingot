@@ -1,5 +1,6 @@
 package app.personal.workouttracker.shared
 
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -22,6 +23,12 @@ class DataModelsTest {
             restUntilEpochMillis = 10_000L,
             restIntervalId = "rest-1",
             restFinalCountdownStarted = true,
+            progress = SessionProgressState(
+                exerciseStatuses = listOf(ExerciseOutcomeStatus.COMPLETED, ExerciseOutcomeStatus.PENDING),
+                completedSets = listOf(2, 0),
+                successExerciseIndex = 0,
+            ),
+            resultSaved = true,
         )
 
         assertEquals(locked, json.decodeFromString<SessionState>(json.encodeToString(locked)))
@@ -30,6 +37,8 @@ class DataModelsTest {
         )
         assertNull(legacy.restIntervalId)
         assertFalse(legacy.restFinalCountdownStarted)
+        assertNull(legacy.progress)
+        assertFalse(legacy.resultSaved)
     }
 
     @Test

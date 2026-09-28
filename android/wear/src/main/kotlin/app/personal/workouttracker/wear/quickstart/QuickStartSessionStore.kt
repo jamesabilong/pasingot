@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.quickstart
 import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.LogEntry
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.shared.SessionProgressState
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.wear.data.LogSender
 import app.personal.workouttracker.wear.data.SessionOutcomeAction
@@ -66,7 +67,14 @@ class QuickStartSessionStore(
     override suspend fun flushPendingEffects(sender: LogSender) = Unit
 
     private fun QuickStartRuntimeState.toEntry(): DownloadedWorkoutEntry =
-        sessionPackage.request.toEntry(session)
+        sessionPackage.request.toEntry(session.copy(
+            progress = SessionProgressState(
+                exerciseStatuses = outcomes.exercises.map { it.status },
+                completedSets = outcomes.exercises.map { it.completedSets },
+                successExerciseIndex = session.progress?.successExerciseIndex,
+            ),
+            resultSaved = finalResult != null,
+        ))
 
     private fun QuickStartRequest.toEntry(session: app.personal.workouttracker.shared.SessionState) =
         DownloadedWorkoutEntry(

@@ -18,6 +18,7 @@ import app.personal.workouttracker.shared.quickstart.QUICK_START_TTL_MILLIS
 import app.personal.workouttracker.shared.quickstart.QuickStartExercise
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartSource
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.quickstart.GlobalSessionStartGate
 import app.personal.workouttracker.wear.quickstart.LegacySessionSnapshotSource
 import app.personal.workouttracker.wear.quickstart.QuickStartPackagePersistence
@@ -386,6 +387,49 @@ class SessionViewModelTest {
         assertEquals(listOf(LogStatus.SKIPPED), sender.logs)
         assertEquals(SessionEventType.COMPLETED, sender.events.single().eventType)
         assertEquals(listOf(SessionStatus.ACTIVE, SessionStatus.COMPLETED), sender.snapshots.map { it.status })
+        assertTrue(viewModel.uiState.value.session?.resultSaved == true)
+        assertEquals(listOf("cancel:SKIP", "workout-success"), cues.events)
+    }
+
+    @Test fun `exercise success is persisted with exact outcome counts and survives recreation`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(
+            WorkoutExercise("Squat", "10", sets = 1, rest = 60),
+            WorkoutExercise("Row", "8", sets = 2, rest = 0),
+        ))
+        val viewModel = createSession()
+        runCurrent()
+
+        viewModel.onCompleteSet()
+        runCurrent()
+
+        val persisted = repository.entry.sessionState
+        assertEquals(listOf(ExerciseOutcomeStatus.COMPLETED, ExerciseOutcomeStatus.PENDING),
+            persisted?.progress?.exerciseStatuses)
+        assertEquals(listOf(1, 0), persisted?.progress?.completedSets)
+        assertEquals(0, persisted?.progress?.successExerciseIndex)
+        assertEquals(listOf("exercise-success"), cues.events)
+
+        viewModels.clear()
+        val recovered = createSession()
+        runCurrent()
+        assertEquals(0, recovered.uiState.value.progress?.successExerciseIndex)
+        assertEquals(listOf("exercise-success", "close"), cues.events)
+    }
+
+    @Test fun `failed final write never exposes saved terminal state or completion cue`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(
+            WorkoutExercise("Squat", "10", sets = 1, rest = 0),
+        ))
+        val viewModel = createSession()
+        runCurrent()
+        repository.failWrites = true
+
+        viewModel.onCompleteSet()
+        runCurrent()
+
+        assertEquals(SessionStatus.ACTIVE, viewModel.uiState.value.session?.status)
+        assertFalse(viewModel.uiState.value.session?.resultSaved == true)
+        assertTrue(cues.events.isEmpty())
     }
 
     @Test fun `failed transition leaves progress and history unchanged`() = runSessionTest {
@@ -522,6 +566,13 @@ class SessionViewModelTest {
             restDeadlineMillis: Long) {
             events += "cancel:START_NOW"
             events += "go"
+        }
+        override suspend fun exerciseSuccess(entry: DownloadedWorkoutEntry, session: SessionState,
+            prescribedRestSeconds: Int, previousExerciseIndex: Int) {
+            events += "exercise-success"
+        }
+        override suspend fun workoutSuccess(entry: DownloadedWorkoutEntry, session: SessionState) {
+            events += "workout-success"
         }
         override suspend fun cancel(reason: WatchCueCancellation) { events += "cancel:$reason" }
         override fun close() { events += "close" }

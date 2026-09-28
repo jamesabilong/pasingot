@@ -1,5 +1,7 @@
 package app.personal.workouttracker.shared
 
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
+
 import kotlinx.serialization.Serializable
 
 // =============================================================================
@@ -137,7 +139,19 @@ data class SessionState(
     val accumulatedElapsedMillis: Long = 0,
     val elapsedStartedAtEpochMillis: Long? = null,
     val lastStopReason: String? = null,
+    /** Persisted outcome presentation; null only for records written before this field existed. */
+    val progress: SessionProgressState? = null,
+    /** Set in the same durable terminal write as the local history/result record. */
+    val resultSaved: Boolean = false,
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+)
+
+@Serializable
+data class SessionProgressState(
+    val exerciseStatuses: List<ExerciseOutcomeStatus>,
+    val completedSets: List<Int>,
+    /** The just-completed non-final exercise shown by the recoverable success treatment. */
+    val successExerciseIndex: Int? = null,
 )
 
 /**

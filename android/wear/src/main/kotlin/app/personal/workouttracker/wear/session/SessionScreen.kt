@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,8 @@ import androidx.wear.compose.material.Text
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.shared.exerciseDisplayName
 import app.personal.workouttracker.shared.WorkoutExercise
+import app.personal.workouttracker.shared.estimatedDurationSeconds
+import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.ui.WatchAction
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
@@ -96,7 +100,7 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     }
 
     if (session.status == SessionStatus.COMPLETED) {
-        CompletedView("Workout complete", onCancel)
+        WorkoutSuccessView(state, onCancel)
         return
     }
 
@@ -133,6 +137,10 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     }
 
     WatchPage {
+        state.progress?.successExerciseIndex?.let { completedIndex ->
+            val completedName = state.entry?.exercises?.getOrNull(completedIndex)?.exercise
+            item { ExerciseSuccessHeader(state, completedName?.let(::exerciseDisplayName)) }
+        }
         item {
             WatchHeading(
                 eyebrow = "SET ${session.currentSet} / ${exercise.sets}",
@@ -215,6 +223,10 @@ private fun RestingView(
             strokeWidth = 3.dp,
         )
         WatchPage {
+            state.progress?.successExerciseIndex?.let { completedIndex ->
+                val completedName = state.entry?.exercises?.getOrNull(completedIndex)?.exercise
+                item { ExerciseSuccessHeader(state, completedName?.let(::exerciseDisplayName)) }
+            }
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     WatchNote("REST · SET ${session.currentSet} / ${exercise.sets}")
@@ -250,6 +262,71 @@ private fun RestingView(
             item { WatchAction("Save & close", onCancel) }
         }
     }
+}
+
+@Composable
+private fun ExerciseSuccessHeader(state: SessionUiState, exerciseName: String?) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.semantics { contentDescription = progressAccessibilityLabel(state) },
+    ) {
+        Text("✓", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primary)
+        WatchHeading(
+            eyebrow = "EXERCISE COMPLETE",
+            title = exerciseName ?: "Exercise complete",
+            detail = progressLabel(state),
+        )
+        ProgressCounts(state)
+    }
+}
+
+@Composable
+private fun WorkoutSuccessView(state: SessionUiState, onClose: () -> Unit) {
+    val progress = state.progress
+    val completedSets = progress?.completedSets?.sum() ?: 0
+    val plannedSets = state.entry?.exercises?.sumOf { it.sets } ?: 0
+    WatchPage {
+        item {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                CircularProgressIndicator(progress = 1f, modifier = Modifier.padding(4.dp), strokeWidth = 4.dp)
+                Text("✓", fontSize = 38.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primary)
+            }
+        }
+        item { WatchHeading("PASINGOT", "Workout complete", progressLabel(state)) }
+        item { ProgressCounts(state) }
+        item { WatchNote("Sets $completedSets / $plannedSets") }
+        item { WatchNote("Elapsed ${formatElapsedSeconds(state.elapsedSeconds)}") }
+        state.entry?.estimatedDurationSeconds()?.takeIf { it > 0 }?.let { estimate ->
+            item { WatchNote("Estimated ${formatElapsedSeconds(estimate)}") }
+        }
+        item {
+            WatchNote(if (state.session?.resultSaved == true) "Saved on watch" else "Saving on watch…")
+        }
+        if (state.awaitingPhoneSync) item { WatchNote("Waiting to sync") }
+        item { WatchAction("Back to workouts", onClose, primary = true) }
+    }
+}
+
+@Composable
+private fun ProgressCounts(state: SessionUiState) {
+    val statuses = state.progress?.exerciseStatuses.orEmpty()
+    val completed = statuses.count { it == ExerciseOutcomeStatus.COMPLETED }
+    val skipped = statuses.count { it == ExerciseOutcomeStatus.SKIPPED }
+    val pending = statuses.count { it == ExerciseOutcomeStatus.PENDING }
+    WatchNote("Completed $completed · Skipped $skipped · Pending $pending")
+}
+
+private fun progressLabel(state: SessionUiState): String {
+    val statuses = state.progress?.exerciseStatuses.orEmpty()
+    val completed = statuses.count { it == ExerciseOutcomeStatus.COMPLETED }
+    return "$completed/${statuses.size.coerceAtLeast(state.totalExercises)} completed"
+}
+
+private fun progressAccessibilityLabel(state: SessionUiState): String {
+    val statuses = state.progress?.exerciseStatuses.orEmpty()
+    val completed = statuses.count { it == ExerciseOutcomeStatus.COMPLETED }
+    val total = statuses.size.coerceAtLeast(state.totalExercises)
+    return "$completed of $total exercises completed"
 }
 
 @Composable

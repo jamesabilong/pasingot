@@ -1529,3 +1529,71 @@ The rest-event, persisted-lock, and rest-boundary checklist items close. Stage
 19 is now **51/97 (53%)** overall and Phase 2 is **10/17 (59%)**. Exact next
 action: add persisted exercise-success and final workout-success presentations,
 including durable **Saved on watch** state before rendering the final summary.
+
+## Iteration 29 — 2026-09-28 — Persisted success presentations
+
+Status: **Exercise/final success presentation and completion cues are complete
+with JVM/build evidence; round-screen and physical audio validation remain
+open.**
+
+Starting checkpoint: `72e1e4e PST01: Add durable rest cues`, clean tree matching
+the local `origin/PST01` tracking ref. No fetch, push, emulator, or physical-
+device action occurred.
+
+Added an additive persisted session-progress record containing ordered exercise
+outcomes, per-exercise completed-set counts, and the currently presented
+non-final exercise success. New and Quick Start sessions write these outcomes
+with the existing atomic session transition; legacy records are migrated on
+open. The Quick Start adapter projects its canonical reducer outcomes back into
+the session presentation so recovered screens cannot drift from the immutable
+result.
+
+After a non-final exercise completes, active and rest screens now show a green
+success mark, completed exercise name, compact completed/total progress,
+explicit Completed/Skipped/Pending counts, and a TalkBack description. Rest
+controls remain available. The semantic completion cue is reserved only after
+the transition persists; when rest follows, its speech is merged into one
+exercise-success/rest/next-exercise script. Recomposition and ViewModel
+recreation do not replay it.
+
+The former minimal completion page is replaced by a workout-success summary
+with completed/skipped/pending exercise counts, completed/planned sets, elapsed
+time, estimated time, and the navigation action. `resultSaved` becomes true in
+the same successful terminal write that journals legacy history or freezes the
+Quick Start final result. The screen therefore renders **Saved on watch** only
+after that durable boundary; Quick Start separately shows **Waiting to sync**
+without blocking exit. A distinct two-pulse workout-success haptic and the
+persisted exactly-once completion script are emitted after commit.
+
+Audit corrections:
+
+- Replaced free-form persisted status strings with the shared serialized
+  `ExerciseOutcomeStatus` enum and added structural/count validation before a
+  stored presentation is accepted.
+- Projected `resultSaved` from an existing Quick Start `finalResult` during
+  recovery, so a process restart cannot regress a durably queued result to a
+  false saving state.
+- Added a failed-terminal-write test proving neither the saved state nor the
+  completion cue becomes visible before persistence succeeds.
+
+Validation:
+
+- `./gradlew :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet` passed with **78
+  shared, 11 phone, and 178 Wear tests**, zero failures/errors, and both debug
+  APKs.
+- New tests cover persisted exercise outcomes and recovery without cue replay,
+  terminal write failure, merged exercise-success/rest wording, duplicate cue
+  suppression, final success output, and Quick Start saved-state recovery.
+- `git diff --check` passed; only the repository's existing LF/CRLF conversion
+  warnings were emitted.
+
+No round-screen emulator or physical watch was used, so success-screen sizing,
+animation/reduced-motion behavior, TalkBack traversal, actual TTS timing, and
+haptic feel remain device evidence rather than code closure.
+
+The exercise-success/final-success and durable local-summary checklist items
+close. Stage 19 is now **53/97 (55%)** overall and Phase 2 is **12/17 (71%)**.
+Exact next action: implement notification permission/fallback behavior without
+making notification permission a requirement for the in-app Ready prompt, then
+complete TTS/settings/device behavior and paired recovery validation.

@@ -3,17 +3,18 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 28 — rest cues and durable final countdown**
-Previous checkpoint: `33d4076 PST01: Add Wear Quick Start countdown`
+Latest checkpoint: **Iteration 29 — persisted success presentations**
+Previous checkpoint: `72e1e4e PST01: Add durable rest cues`
 Last updated: **2026-09-28**
 
-**Current closure:** Iteration 28 passes 78 shared, 11 phone, and 175 Wear JVM
+**Current closure:** Iteration 29 passes 78 shared, 11 phone, and 178 Wear JVM
 tests plus both debug APK builds. Iteration 25 remains the latest browser
-baseline. The checklist is 51/97 (53%); Phase 2 now has serialized Start/Dismiss/Cancel,
+baseline. The checklist is 53/97 (55%); Phase 2 now has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
-foundation plus foreground start and durable rest cue flows. The local browser
-fixture passes 19 checks. Paired delivery, success presentation, and physical
+foundation plus foreground start, durable rest cues, and persisted exercise/
+workout success presentations. The local browser fixture passes 19 checks.
+Paired delivery, round-screen review, notification fallback, and physical
 acceptance remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
@@ -766,17 +767,17 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-28, Iteration 28
+### Progress audit — 2026-09-28, Iteration 29
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **51/97 items (53%) overall**:
+stands at **53/97 items (55%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **10/17 (59%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence, foreground countdown, rest cues, and the durable final-five lock are wired; success UI and paired validation remain open |
+| Phase 2 — watch feature | **12/17 (71%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence, foreground countdown, rest cues, the durable final-five lock, and persisted exercise/final-success presentations are wired; notification/device behavior and paired validation remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -931,10 +932,10 @@ Status: **In progress — terminal transport is wired and capability is publishe
       persisted rest deadline.
 - [x] Add the persisted final-countdown lock and enforce it in both UI and
       `SessionViewModel.onAddRestSeconds`.
-- [ ] Add exercise-success and final workout-success presentations.
+- [x] Add exercise-success and final workout-success presentations.
 - [ ] Add notification permission/fallback behavior without making notification
       permission a requirement for opening the in-app ready prompt.
-- [ ] Add immutable final summary and await durable local result enqueue before
+- [x] Add immutable final summary and await durable local result enqueue before
       rendering **Saved on watch**.
 - [ ] Add TTS discovery/lifecycle, audio-output/focus, TalkBack, ambient, and
       reduced-motion handling.
@@ -1139,23 +1140,25 @@ The shared progress/completion summary now includes explicit pending counts.
 A pure Wear reducer produces it and derives compact **completed/total** text,
 and Iteration 11 persists its ordered outcomes/revision atomically with tested
 recovery and failure behavior. Iteration 24 connects those outcomes to the
-runtime session engine; dedicated success presentation is still open. Completed
+runtime session engine; Iteration 29 adds the recoverable exercise-success and
+final workout-success presentations. Completed
 and ended outcomes are frozen and retained, and Iteration 25 wires their native
 sender/receiver, permanent phone import, exact receipt, and guarded cleanup.
 Iteration 12 adds a shared capability envelope and schema-1 negotiation with
 mixed-version fixtures; Iteration 25 publishes it from both peers. Iteration 28
-wires the rest transition cues and durable final-five lock. The latest suites
-have 78 shared, 11 phone, and 175 Wear passing tests plus both debug APK
+wires the rest transition cues and durable final-five lock. Iteration 29 adds
+persisted success presentations, completion cues, and the durable **Saved on
+watch** boundary. The latest suites have 78 shared, 11 phone, and 178 Wear passing tests plus both debug APK
 builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
 delivery and physical-device acceptance remain open. No emulator was opened for
-Iteration 28, so the published capability and complete terminal path still need
+Iteration 29, so the published capability and complete terminal path still need
 paired recovery validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** add persisted exercise-success and final workout-success
-presentations, including the durable **Saved on watch** state before rendering
-the final summary. When a device session is allowed, separately verify capability-gated
+**Exact next action:** implement notification permission/fallback behavior
+without making permission a requirement for the in-app Ready prompt, then
+complete settings/device behavior. When a device session is allowed, separately verify capability-gated
 paired delivery, cancellation races, reboot recovery, and Data Item cleanup.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
