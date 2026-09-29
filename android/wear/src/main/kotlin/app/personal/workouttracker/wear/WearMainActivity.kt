@@ -86,9 +86,13 @@ class WearMainActivity : ComponentActivity() {
                                 WorkoutRepositorySessionSnapshotSource(repository),
                             )
                         )
+                        val settingsViewModel: SettingsViewModel = viewModel(
+                            factory = SettingsViewModel.Factory(applicationContext, settingsRepository)
+                        )
                         WorkoutListScreen(
                             viewModel = viewModel,
                             quickStartViewModel = quickStartViewModel,
+                            settingsViewModel = settingsViewModel,
                             onOpenEntry = { entryId -> navController.navigate("session/$entryId") },
                             onOpenQuickStartCountdown = { requestId ->
                                 navController.navigate("quick-start-countdown/$requestId")

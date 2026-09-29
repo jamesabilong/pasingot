@@ -1652,3 +1652,63 @@ The Phase 2 notification/fallback checklist item closes. Stage 19 is now
 the watch voice-cue settings and non-blocking availability state, then audit the
 remaining TTS/audio-focus, TalkBack, ambient, reduced-motion, and round-screen
 device behavior without claiming physical acceptance from automated checks.
+
+## Iteration 31 — 2026-09-29 — Voice cue settings and test audit
+
+Status: **Persisted voice opt-in/category settings and engine discovery are
+complete with JVM/build evidence; runtime/device behavior remains open.**
+
+Starting checkpoint: `298a5e8 PST01: Add Quick Start notification fallback`,
+clean tree, one commit ahead of the local `origin/PST01` tracking ref. No fetch,
+push, emulator, or physical-device action occurred.
+
+Added the one-time **Use voice workout cues?** card to the watch workout list.
+Voice remains off until **Enable** is chosen; **Not now** resolves the prompt
+without enabling speech. The existing Settings screen now exposes the persisted
+Voice cues master switch plus Start briefing, Rest announcements, Countdown cue,
+and Completion cue controls. Enabling from the prompt turns on all categories;
+later master changes preserve individual choices.
+
+Added lightweight system-TTS service discovery using the manifest-visible
+engine query. Settings shows a quiet **Voice unavailable** state while retaining
+complete visual and haptic behavior. The prompt-resolution field is additive,
+so existing cue records remain voice-off and receive the one-time choice.
+Failed settings writes roll the visible selection back and surface a non-
+blocking save error.
+
+Audit corrections:
+
+- Settings and session cue controllers use separate `WatchCueStore` instances.
+  Their read-modify-write mutex is now process-wide so a preference update
+  cannot race and erase an exactly-once ledger reservation, or vice versa.
+- TTS discovery queries all declared engine services rather than only default-
+  category services, avoiding a false unavailable result for valid engines.
+- The first aggregate APK run encountered the repository's known stale
+  incremental `" 2.dex"` duplicates. `:wear:clean` removed generated output;
+  the clean source rebuild passed without a workaround or source rollback.
+
+Validation:
+
+- `./gradlew :wear:clean :shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+  --quiet` passed with **78 shared, 12 phone, and 183 Wear tests**, zero
+  failures/errors, and both debug APKs.
+- New tests cover opt-in defaults, **Not now**, category persistence and
+  recreation, unavailable-engine state, failed-write rollback, additive legacy
+  preference decoding, and concurrent preference/ledger preservation.
+- Checklist audit confirms Wear JVM coverage for Ready, Started, Dismissed,
+  Cancelled, Rejected, Expired, and duplicate delivery. Cue coverage includes
+  exact scripts, thresholds, priority, cancellation, pause/resume, failure,
+  process recovery, and exactly-once completion.
+- `git diff --check` passed before documentation closure.
+
+No emulator or physical watch was used. TTS initialization/locale/audio-route
+reporting, actual audio focus, TalkBack behavior, ambient/reduced-motion UI,
+round-screen layout, and haptic feel remain open device-sensitive evidence.
+
+The two automated Phase 2 exit checks for receipt and cue coverage close. The
+broader TTS/device-behavior implementation item remains open. Stage 19 is now
+**56/97 (58%)** overall and Phase 2 is **15/17 (88%)**. Exact next action: wire
+runtime TTS initialization/locale/audio-route availability back into Settings,
+add explicit ambient/reduced-motion policies, then perform the round-screen
+emulator review without claiming physical audio acceptance.

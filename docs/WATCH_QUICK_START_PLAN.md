@@ -3,19 +3,20 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 30 — Quick Start notification fallback**
-Previous checkpoint: `daffebd PST01: Add Wear success presentations`
+Latest checkpoint: **Iteration 31 — voice cue settings and test audit**
+Previous checkpoint: `298a5e8 PST01: Add Quick Start notification fallback`
 Last updated: **2026-09-29**
 
-**Current closure:** Iteration 30 passes 78 shared, 11 phone, and 179 Wear JVM
+**Current closure:** Iteration 31 passes 78 shared, 12 phone, and 183 Wear JVM
 tests plus both debug APK builds. Iteration 25 remains the latest browser
-baseline. The checklist is 54/97 (56%); Phase 2 now has serialized Start/Dismiss/Cancel,
+baseline. The checklist is 56/97 (58%); Phase 2 now has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
 foundation plus foreground start, durable rest cues, persisted exercise/
-workout success presentations, and notification-independent Ready fallback.
+workout success presentations, notification-independent Ready fallback, and
+the persisted voice opt-in/category settings.
 The local browser fixture passes 19 checks. Paired delivery, round-screen
-review, voice settings/device behavior, and physical
+review, runtime audio/accessibility/ambient behavior, and physical
 acceptance remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
@@ -768,17 +769,17 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-29, Iteration 30
+### Progress audit — 2026-09-29, Iteration 31
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **54/97 items (56%) overall**:
+stands at **56/97 items (58%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **13/17 (76%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; settings/device behavior and paired validation remain open |
+| Phase 2 — watch feature | **15/17 (88%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence and settings, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; runtime device behavior and round-screen validation remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -943,8 +944,8 @@ Status: **In progress — terminal transport is wired and capability is publishe
 
 Exit checks:
 
-- [ ] Wear JVM tests cover all receipt outcomes and duplicate delivery.
-- [ ] Cue tests cover exact scripts, threshold crossing, priority, cancellation,
+- [x] Wear JVM tests cover all receipt outcomes and duplicate delivery.
+- [x] Cue tests cover exact scripts, threshold crossing, priority, cancellation,
       pause/resume, TTS failure, process recovery, and exactly-once completion.
 - [x] Rest-boundary tests cover extension accepted at six seconds, rejected at
       five seconds, simultaneous tap/threshold ordering, Start now cancellation,
@@ -1150,16 +1151,19 @@ mixed-version fixtures; Iteration 25 publishes it from both peers. Iteration 28
 wires the rest transition cues and durable final-five lock. Iteration 29 adds
 persisted success presentations, completion cues, and the durable **Saved on
 watch** boundary. Iteration 30 adds the permission-aware Ready notification and
-durable in-app fallback. The latest suites have 78 shared, 11 phone, and 179
+durable in-app fallback. Iteration 31 adds persisted voice-cue preferences, a
+one-time opt-in prompt, per-category settings, non-blocking TTS-service
+availability reporting, failed-write rollback, and process-wide cue-store write
+serialization. The latest clean suites have 78 shared, 12 phone, and 183
 Wear passing tests plus both debug APK builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
 delivery and physical-device acceptance remain open. No emulator was opened for
-Iteration 30, so the published capability and complete terminal path still need
-paired recovery validation.
+Iteration 31, so the voice settings, published capability, and complete terminal
+path still need device validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** add the watch voice-cue settings and non-blocking
-availability state, then audit remaining TTS/audio-focus, TalkBack, ambient,
+**Exact next action:** wire runtime TTS initialization, locale and audio-route
+reporting into the settings availability state, then audit TalkBack, ambient,
 reduced-motion, and round-screen behavior. When a device session is allowed,
 separately verify capability-gated
 paired delivery, cancellation races, reboot recovery, and Data Item cleanup.

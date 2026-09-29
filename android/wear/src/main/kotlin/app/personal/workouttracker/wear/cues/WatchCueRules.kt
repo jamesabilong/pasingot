@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class WatchCuePreferences(
     val voiceEnabled: Boolean = false,
+    val voicePromptResolved: Boolean = false,
     val startBriefing: Boolean = true,
     val restAnnouncements: Boolean = true,
     val countdown: Boolean = true,

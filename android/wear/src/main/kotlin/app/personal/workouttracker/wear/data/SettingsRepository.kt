@@ -15,20 +15,25 @@ data class ScheduledDownloadTime(val hour: Int, val minute: Int) {
     }
 }
 
+interface ScheduledDownloadSettings {
+    val scheduledTime: Flow<ScheduledDownloadTime>
+    suspend fun setScheduledTime(time: ScheduledDownloadTime)
+}
+
 /** Backs the "auto-download at HH:MM daily" setting (Prompt 5 req 2). */
-class SettingsRepository(private val context: Context) {
+class SettingsRepository(private val context: Context) : ScheduledDownloadSettings {
 
     private val hourKey = intPreferencesKey("scheduled_download_hour")
     private val minuteKey = intPreferencesKey("scheduled_download_minute")
 
-    val scheduledTime: Flow<ScheduledDownloadTime> = context.settingsDataStore.data.map { prefs ->
+    override val scheduledTime: Flow<ScheduledDownloadTime> = context.settingsDataStore.data.map { prefs ->
         ScheduledDownloadTime(
             hour = prefs[hourKey] ?: ScheduledDownloadTime.DEFAULT.hour,
             minute = prefs[minuteKey] ?: ScheduledDownloadTime.DEFAULT.minute,
         )
     }
 
-    suspend fun setScheduledTime(time: ScheduledDownloadTime) {
+    override suspend fun setScheduledTime(time: ScheduledDownloadTime) {
         context.settingsDataStore.edit { prefs ->
             prefs[hourKey] = time.hour
             prefs[minuteKey] = time.minute

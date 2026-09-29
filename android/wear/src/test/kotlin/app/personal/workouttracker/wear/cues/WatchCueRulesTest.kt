@@ -19,6 +19,9 @@ class WatchCueRulesTest {
         assertFalse(enabled.copy(countdown = false).allows(events[2]))
         assertFalse(enabled.copy(completion = false).allows(events[4]))
         assertEquals(enabled, Json.decodeFromString<WatchCuePreferences>(Json.encodeToString(enabled)))
+        assertFalse(Json.decodeFromString<WatchCuePreferences>(
+            """{"voiceEnabled":false}""",
+        ).voicePromptResolved)
     }
 
     @Test fun `scripts sanitize user text and cap the spoken brief`() {

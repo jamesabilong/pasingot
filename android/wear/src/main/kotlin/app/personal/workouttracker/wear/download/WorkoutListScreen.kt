@@ -44,6 +44,7 @@ private enum class WorkoutConfirmation { RESET, DELETE }
 fun WorkoutListScreen(
     viewModel: WorkoutListViewModel,
     quickStartViewModel: QuickStartOfferViewModel,
+    settingsViewModel: SettingsViewModel,
     onOpenEntry: (String) -> Unit,
     onOpenQuickStartCountdown: (String) -> Unit,
     onOpenQuickStart: (String) -> Unit,
@@ -53,6 +54,7 @@ fun WorkoutListScreen(
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     val syncing by viewModel.syncing.collectAsStateWithLifecycle()
     val quickStart by quickStartViewModel.uiState.collectAsStateWithLifecycle()
+    val voice by settingsViewModel.voice.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, quickStartViewModel) {
@@ -115,6 +117,25 @@ fun WorkoutListScreen(
                     style = MaterialTheme.typography.caption2,
                     textAlign = TextAlign.Center,
                 )
+            }
+        }
+        if (!voice.loading && !voice.preferences.voicePromptResolved) {
+            item {
+                WatchHeading(
+                    eyebrow = "VOICE CUES",
+                    title = "Use voice workout cues?",
+                    detail = "Visual cues and haptics always stay active",
+                )
+            }
+            item {
+                WatchAction(
+                    label = "Enable",
+                    onClick = settingsViewModel::enableVoiceFromPrompt,
+                    primary = true,
+                )
+            }
+            item {
+                WatchAction("Not now", settingsViewModel::dismissVoicePrompt)
             }
         }
         item {

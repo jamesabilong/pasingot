@@ -50,12 +50,14 @@ class WatchCueStore(
     private val persistence: WatchCuePersistence,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
-    private val mutex = kotlinx.coroutines.sync.Mutex()
+    private companion object {
+        val processMutex = kotlinx.coroutines.sync.Mutex()
+    }
 
-    suspend fun state(): PersistedWatchCueState = mutex.withLock { readState() }
+    suspend fun state(): PersistedWatchCueState = processMutex.withLock { readState() }
 
     suspend fun setPreferences(preferences: WatchCuePreferences): PersistedWatchCueState =
-        mutex.withLock {
+        processMutex.withLock {
             val current = readState()
             val updated = current.copy(preferences = preferences)
             persistence.write(json.encodeToString(updated))
@@ -63,7 +65,7 @@ class WatchCueStore(
         }
 
     /** Records before output. Haptics are not gated by the voice preference. */
-    suspend fun reserve(event: WatchCueEvent): ReserveWatchCue = mutex.withLock {
+    suspend fun reserve(event: WatchCueEvent): ReserveWatchCue = processMutex.withLock {
         val current = readState()
         val ledger = if (current.ledgerSessionId == event.sessionId) current.ledger else WatchCueLedger()
         val recorded = ledger.record(event) ?: return@withLock ReserveWatchCue.Duplicate
@@ -75,7 +77,7 @@ class WatchCueStore(
     }
 
     /** Called only after the session's exact final-result receipt is durable. */
-    suspend fun clearAcknowledgedSession(sessionId: String) = mutex.withLock {
+    suspend fun clearAcknowledgedSession(sessionId: String) = processMutex.withLock {
         val current = readState()
         if (current.ledgerSessionId != sessionId) return@withLock
         persistence.write(json.encodeToString(current.copy(
