@@ -49,6 +49,7 @@ class QuickStartCountdownViewModelTest {
         assertNotNull(fixture.runtime.current())
         assertEquals(QuickStartStatus.STARTED, fixture.receipts.single().status)
         assertTrue(fixture.viewModel.uiState.value.starting)
+        assertEquals(1, fixture.notifier.cancels)
     }
 
     @Test fun `leaving before zero keeps Ready and creates no runtime`() = runTest(dispatcher) {
@@ -131,6 +132,7 @@ class QuickStartCountdownViewModelTest {
         packages.accept(runtimePackage().request, NOW, PHONE)
         val runtime = QuickStartRuntimeStore(RuntimeMemoryPersistence())
         val receipts = mutableListOf<QuickStartAcknowledgement>()
+        val notifier = CountdownOfferNotifier()
         val viewModel = QuickStartCountdownViewModel(
             requestId = ID,
             packageStore = packages,
@@ -139,13 +141,14 @@ class QuickStartCountdownViewModelTest {
                 runtime,
                 QuickStartReceiptClient { receipts += it },
                 now,
+                notifier,
             ),
             cues = cues,
             nowEpochMillis = now,
             elapsedRealtimeMillis = elapsed,
             countdownDelay = QuickStartCountdownDelay { delay() },
         ).also { viewModels.put("countdown", it) }
-        return Fixture(viewModel, packages, runtime, receipts, cues)
+        return Fixture(viewModel, packages, runtime, receipts, cues, notifier)
     }
 
     private data class Fixture(
@@ -154,7 +157,14 @@ class QuickStartCountdownViewModelTest {
         val runtime: QuickStartRuntimeStore,
         val receipts: MutableList<QuickStartAcknowledgement>,
         val cues: FakeCountdownCues,
+        val notifier: CountdownOfferNotifier,
     )
+}
+
+private class CountdownOfferNotifier : QuickStartOfferNotifier {
+    var cancels = 0
+    override fun showReady(sessionPackage: WatchSessionPackage) = QuickStartOfferNotificationResult.SHOWN
+    override fun cancel() { cancels++ }
 }
 
 private class FakeCountdownCues(

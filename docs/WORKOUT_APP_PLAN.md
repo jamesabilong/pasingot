@@ -9,6 +9,11 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 30 adds the permission-aware Quick Start Ready notification and
+  durable in-app fallback. Notification denial/failure cannot suppress the
+  offer or receipt, and terminal transitions clear stale alerts. The shared/
+  phone/Wear suites pass 78/11/179 tests and both debug APKs build; device
+  notification validation remains open.
 - Iteration 29 adds persisted per-exercise success state, recoverable exercise
   and workout-success presentations, exactly-once completion cues, and a
   durable **Saved on watch** boundary before the final summary renders. The
@@ -48,8 +53,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 29, persisted success
-  presentations and completion cues. Iteration 28 added rest cues and the
+- Latest implementation checkpoint: Stage 19 Iteration 30, notification-aware
+  Ready offer fallback. Iteration 29 added persisted success presentations and
+  completion cues. Iteration 28 added rest cues and the
   durable final-countdown lock. Iteration 27 added the foreground Quick Start
   countdown, Iteration 26 added the Wear cue-controller foundation, and
   Iteration 25 completed cancellation,
@@ -105,14 +111,14 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-28
+## Delivery board — reviewed 2026-09-29
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **53/97 checklist items (55%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **12/17 (71%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and start/rest/success cues plus persisted success and final-five state are implemented. Automated code/build checks pass; notification fallback, settings/device behavior, round-screen review, and paired delivery remain unverified | Next: implement notification permission/fallback behavior without gating the in-app Ready prompt, then continue paired delivery/recovery validation. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **54/97 checklist items (56%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **13/17 (76%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and start/rest/success cues, persisted success/final-five state, and notification-independent Ready fallback are implemented. Automated code/build checks pass; settings/device behavior, round-screen review, and paired delivery remain unverified | Next: add watch voice-cue settings and availability state, then audit remaining TTS/audio, accessibility, ambient, and reduced-motion behavior. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 notification fallback, settings surface, and remaining device behavior | Follow the plan's remaining Phase 2 watch checklist |
+| **Pending implementation** | Stage 19 voice settings surface and remaining device behavior | Follow the plan's remaining Phase 2 watch checklist |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

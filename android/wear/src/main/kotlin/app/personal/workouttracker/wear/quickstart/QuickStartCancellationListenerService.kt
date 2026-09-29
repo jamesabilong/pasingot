@@ -18,6 +18,7 @@ import kotlinx.coroutines.withTimeout
 class QuickStartCancellationCoordinator(
     private val gate: GlobalSessionStartGate,
     private val receiptClient: QuickStartReceiptClient,
+    private val offerNotifier: QuickStartOfferNotifier = NoOpQuickStartOfferNotifier,
 ) {
     suspend fun receive(
         payload: String,
@@ -49,6 +50,7 @@ class QuickStartCancellationCoordinator(
             reason = terminal.reason,
             watchUpdatedAtMillis = terminal.recordedAtMillis,
         )
+        runCatching { offerNotifier.cancel() }
         receiptClient.send(acknowledgement)
         return acknowledgement
     }
@@ -68,6 +70,7 @@ class QuickStartCancellationListenerService : WearableListenerService() {
                     packageStore,
                 ),
                 DataLayerQuickStartReceiptClient(context),
+                AndroidQuickStartOfferNotifier(context),
             )
             for (event in dataEvents) {
                 if (event.type != DataEvent.TYPE_CHANGED) continue

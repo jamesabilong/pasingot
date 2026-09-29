@@ -3,6 +3,7 @@ package app.personal.workouttracker.wear.quickstart
 import app.personal.workouttracker.shared.quickstart.QuickStartCancellation
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
+import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import app.personal.workouttracker.shared.quickstart.encodeQuickStartCancellation
 import app.personal.workouttracker.shared.quickstart.quickStartCancellationPath
 import kotlinx.coroutines.test.runTest
@@ -23,6 +24,7 @@ class QuickStartCancellationCoordinatorTest {
         assertEquals(QuickStartStatus.CANCELLED, first?.status)
         assertNull(fixture.packages.current(NOW + 1))
         assertEquals(first, fixture.receipts.single())
+        assertEquals(1, fixture.notifier.cancels)
 
         val replay = fixture.coordinator.receive(
             encodeQuickStartCancellation(cancellation), quickStartCancellationPath(ID),
@@ -55,14 +57,16 @@ class QuickStartCancellationCoordinatorTest {
         packages.accept(runtimePackage().request, NOW, PHONE)
         val gate = GlobalSessionStartGate(LegacySessionSnapshotSource { emptyList() }, packages)
         val receipts = mutableListOf<app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement>()
-        return Fixture(packages, gate, receipts,
-            QuickStartCancellationCoordinator(gate, QuickStartReceiptClient { receipts += it }))
+        val notifier = CancellationOfferNotifier()
+        return Fixture(packages, gate, receipts, notifier,
+            QuickStartCancellationCoordinator(gate, QuickStartReceiptClient { receipts += it }, notifier))
     }
 
     private data class Fixture(
         val packages: WatchSessionPackageStore,
         val gate: GlobalSessionStartGate,
         val receipts: MutableList<app.personal.workouttracker.shared.quickstart.QuickStartAcknowledgement>,
+        val notifier: CancellationOfferNotifier,
         val coordinator: QuickStartCancellationCoordinator,
     ) {
         fun cancellation() = QuickStartCancellation(ID, 2, WATCH, PHONE, NOW)
@@ -72,5 +76,12 @@ class QuickStartCancellationCoordinatorTest {
         private var raw: String? = null
         override suspend fun read(): String? = raw
         override suspend fun write(raw: String?) { this.raw = raw }
+    }
+
+    private class CancellationOfferNotifier : QuickStartOfferNotifier {
+        var cancels = 0
+        override fun showReady(sessionPackage: WatchSessionPackage) =
+            QuickStartOfferNotificationResult.SHOWN
+        override fun cancel() { cancels++ }
     }
 }

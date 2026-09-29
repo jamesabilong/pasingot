@@ -36,6 +36,7 @@ class QuickStartOfferViewModel(
     private val receiptClient: QuickStartReceiptClient,
     private val resultClient: QuickStartResultClient? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val offerNotifier: QuickStartOfferNotifier = NoOpQuickStartOfferNotifier,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(QuickStartOfferUiState())
     val uiState = _uiState.asStateFlow()
@@ -54,6 +55,9 @@ class QuickStartOfferViewModel(
                     loading = false,
                     error = null,
                 )
+                if (sessionPackage?.state != QuickStartPackageState.READY) {
+                    runCatching { offerNotifier.cancel() }
+                }
                 if (sessionPackage?.state == QuickStartPackageState.STARTING) {
                     runtimeStore.current()?.takeIf {
                         it.sessionPackage.request.requestId == sessionPackage.request.requestId
@@ -124,6 +128,7 @@ class QuickStartOfferViewModel(
                     watchUpdatedAtMillis = terminal.recordedAtMillis,
                 )
                 // The terminal decision is durable before it becomes visible to the phone.
+                runCatching { offerNotifier.cancel() }
                 receiptClient.send(acknowledgement)
                 _uiState.value = QuickStartOfferUiState(loading = false)
             } catch (error: CancellationException) {
@@ -151,6 +156,7 @@ class QuickStartOfferViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val packageStore = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
             val runtimeStore = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+            val offerNotifier = AndroidQuickStartOfferNotifier(context)
             return QuickStartOfferViewModel(
                 packageStore = packageStore,
                 runtimeStore = runtimeStore,
@@ -158,9 +164,11 @@ class QuickStartOfferViewModel(
                     GlobalSessionStartGate(legacySessions, packageStore),
                     runtimeStore,
                     DataLayerQuickStartReceiptClient(context.applicationContext),
+                    offerNotifier = offerNotifier,
                 ),
                 receiptClient = DataLayerQuickStartReceiptClient(context.applicationContext),
                 resultClient = DataLayerQuickStartResultClient(context.applicationContext),
+                offerNotifier = offerNotifier,
             ) as T
         }
     }

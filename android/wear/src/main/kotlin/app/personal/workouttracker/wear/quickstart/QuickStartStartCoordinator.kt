@@ -10,6 +10,7 @@ class QuickStartStartCoordinator(
     private val runtimeStore: QuickStartRuntimeStore,
     private val receiptClient: QuickStartReceiptClient,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val offerNotifier: QuickStartOfferNotifier = NoOpQuickStartOfferNotifier,
 ) {
     suspend fun start(requestId: String, revision: Long): QuickStartRuntimeState {
         val gated = startGate.startQuickStart(requestId, revision, nowEpochMillis())
@@ -20,6 +21,7 @@ class QuickStartStartCoordinator(
             QuickStartGateResult.Expired -> error("Quick Start expired. Send it again from your phone.")
             QuickStartGateResult.Missing -> error("Quick Start is no longer available")
         }
+        runCatching { offerNotifier.cancel() }
         val startedAt = nowEpochMillis()
         val initialized = runtimeStore.initialize(
             starting,

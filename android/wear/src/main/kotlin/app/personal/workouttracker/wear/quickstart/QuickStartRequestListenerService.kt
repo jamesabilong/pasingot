@@ -23,10 +23,12 @@ class QuickStartRequestListenerService : WearableListenerService() {
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         try {
             val context = applicationContext
+            val packageStore = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
             val coordinator = QuickStartRequestCoordinator(
-                WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context)),
+                packageStore,
                 WorkoutRepositorySessionSnapshotSource(WorkoutRepository(context)),
                 DataLayerQuickStartReceiptClient(this),
+                offerNotifier = AndroidQuickStartOfferNotifier(context),
             )
             for (event in dataEvents) {
                 if (event.type != DataEvent.TYPE_CHANGED) continue

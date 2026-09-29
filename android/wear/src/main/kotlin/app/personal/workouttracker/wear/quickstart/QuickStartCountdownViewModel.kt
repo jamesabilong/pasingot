@@ -204,6 +204,7 @@ class QuickStartCountdownViewModel(
                     GlobalSessionStartGate(legacySessions, packageStore),
                     runtimeStore,
                     DataLayerQuickStartReceiptClient(context.applicationContext),
+                    offerNotifier = AndroidQuickStartOfferNotifier(context),
                 ),
                 cues = ControllerQuickStartCountdownCues(
                     WatchCueController(

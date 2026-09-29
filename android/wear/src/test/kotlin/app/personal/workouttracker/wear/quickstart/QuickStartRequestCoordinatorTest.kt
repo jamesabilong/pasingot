@@ -12,6 +12,7 @@ import app.personal.workouttracker.shared.quickstart.QuickStartRejectionReason
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartSource
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
+import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -40,6 +41,26 @@ class QuickStartRequestCoordinatorTest {
         assertEquals(QuickStartStatus.READY, result?.status)
         assertEquals(listOf(result), receipts)
         assertEquals(1, persistence.writes)
+    }
+
+    @Test
+    fun `denied or failed notification never hides the durable in-app Ready offer`() = runTest {
+        for (throws in listOf(false, true)) {
+            val persistence = MemoryPersistence()
+            val receipts = mutableListOf<QuickStartAcknowledgement>()
+            val notifier = RecordingOfferNotifier(throwsOnShow = throws)
+            val coordinator = coordinator(persistence, notifier) { receipts += it }
+
+            val result = coordinator.receive(
+                json.encodeToString(request()), path(), "phone-node", "watch-node", now,
+            )
+
+            assertEquals(QuickStartStatus.READY, result?.status)
+            assertEquals(REQUEST_ID, WatchSessionPackageStore(persistence)
+                .current(now)?.request?.requestId)
+            assertEquals(listOf(result), receipts)
+            assertEquals(1, notifier.showCalls)
+        }
     }
 
     @Test
@@ -251,13 +272,15 @@ class QuickStartRequestCoordinatorTest {
     fun `failed durable write never sends ready`() = runTest {
         val persistence = MemoryPersistence(failWrites = true)
         val receipts = mutableListOf<QuickStartAcknowledgement>()
-        val coordinator = coordinator(persistence) { receipts += it }
+        val notifier = RecordingOfferNotifier()
+        val coordinator = coordinator(persistence, notifier) { receipts += it }
 
         try {
             coordinator.receive(json.encodeToString(request()), path(), "phone-node", "watch-node", now)
             fail("Expected storage failure")
         } catch (_: IllegalStateException) {
             assertTrue(receipts.isEmpty())
+            assertEquals(0, notifier.showCalls)
         }
     }
 
@@ -292,10 +315,14 @@ class QuickStartRequestCoordinatorTest {
         }
     }
 
-    private fun coordinator(persistence: MemoryPersistence, send: suspend (QuickStartAcknowledgement) -> Unit) =
+    private fun coordinator(
+        persistence: MemoryPersistence,
+        notifier: QuickStartOfferNotifier = NoOpQuickStartOfferNotifier,
+        send: suspend (QuickStartAcknowledgement) -> Unit,
+    ) =
         QuickStartRequestCoordinator(WatchSessionPackageStore(persistence),
             LegacySessionSnapshotSource { emptyList<DownloadedWorkoutEntry>() },
-            QuickStartReceiptClient(send))
+            QuickStartReceiptClient(send), offerNotifier = notifier)
 
     private fun path() = QuickStartDataLayerPaths.REQUEST_PREFIX + REQUEST_ID
 
@@ -313,6 +340,19 @@ class QuickStartRequestCoordinatorTest {
             this.raw = raw
             writes++
         }
+    }
+
+    private class RecordingOfferNotifier(
+        private val throwsOnShow: Boolean = false,
+    ) : QuickStartOfferNotifier {
+        var showCalls = 0
+        override fun showReady(sessionPackage: WatchSessionPackage):
+            QuickStartOfferNotificationResult {
+            showCalls++
+            if (throwsOnShow) error("notifications unavailable")
+            return QuickStartOfferNotificationResult.PERMISSION_DENIED
+        }
+        override fun cancel() = Unit
     }
 
     private companion object { const val REQUEST_ID = "123e4567-e89b-12d3-a456-426614174000" }

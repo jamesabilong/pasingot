@@ -7,6 +7,7 @@ import app.personal.workouttracker.shared.quickstart.QuickStartRejectionReason
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.shared.quickstart.QuickStartStatus
 import app.personal.workouttracker.shared.quickstart.QuickStartValidationCode
+import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.sync.Mutex
@@ -23,6 +24,7 @@ class QuickStartRequestCoordinator(
     private val legacySessions: LegacySessionSnapshotSource,
     private val receipts: QuickStartReceiptClient,
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val offerNotifier: QuickStartOfferNotifier = NoOpQuickStartOfferNotifier,
 ) {
     private val gate = GlobalSessionStartGate(legacySessions, packages)
     private companion object {
@@ -70,9 +72,9 @@ class QuickStartRequestCoordinator(
                 localWatchNodeId, QuickStartRejectionReason.ACTIVE_SESSION, nowEpochMillis))
         }
         val acknowledgement = when (val result = (admission as QuickStartOfferGateResult.Processed).result) {
-            is AcceptQuickStartResult.Accepted -> ready(result.sessionPackage.request, localWatchNodeId, nowEpochMillis)
+            is AcceptQuickStartResult.Accepted -> ready(result.sessionPackage, localWatchNodeId, nowEpochMillis)
             is AcceptQuickStartResult.Duplicate -> when (result.sessionPackage.state) {
-                QuickStartPackageState.READY -> ready(result.sessionPackage.request, localWatchNodeId, nowEpochMillis)
+                QuickStartPackageState.READY -> ready(result.sessionPackage, localWatchNodeId, nowEpochMillis)
                 // STARTED follows durable runtime creation, not merely the STARTING marker.
                 QuickStartPackageState.STARTING -> return null
             }
@@ -104,9 +106,13 @@ class QuickStartRequestCoordinator(
         return acknowledgement
     }
 
-    private fun ready(request: QuickStartRequest, node: String, now: Long) =
-        QuickStartAcknowledgement(request.requestId, request.revision, node, QuickStartStatus.READY,
-            watchUpdatedAtMillis = now)
+    private fun ready(sessionPackage: WatchSessionPackage,
+                      node: String, now: Long): QuickStartAcknowledgement {
+        runCatching { offerNotifier.showReady(sessionPackage) }
+        val request = sessionPackage.request
+        return QuickStartAcknowledgement(request.requestId, request.revision, node,
+            QuickStartStatus.READY, watchUpdatedAtMillis = now)
+    }
 
     private fun rejectValue(id: String, revision: Long, node: String,
                             reason: QuickStartRejectionReason, now: Long) =

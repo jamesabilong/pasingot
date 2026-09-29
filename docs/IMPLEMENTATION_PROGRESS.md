@@ -1597,3 +1597,58 @@ close. Stage 19 is now **53/97 (55%)** overall and Phase 2 is **12/17 (71%)**.
 Exact next action: implement notification permission/fallback behavior without
 making notification permission a requirement for the in-app Ready prompt, then
 complete TTS/settings/device behavior and paired recovery validation.
+
+## Iteration 30 — 2026-09-29 — Quick Start notification fallback
+
+Status: **Permission-aware Ready notification and durable in-app fallback are
+complete with JVM/build evidence; device notification behavior remains open.**
+
+Starting checkpoint: `daffebd PST01: Add Wear success presentations`, clean tree
+matching the local `origin/PST01` tracking ref. No fetch, push, emulator, or
+physical-device action occurred.
+
+Added an isolated Quick Start offer notifier with a dedicated high-importance
+channel. After a Ready offer is durably accepted, the watch posts a bounded
+**Quick Start ready** notification containing the workout title, exercise count,
+and first exercise. It expires with the locally authoritative offer TTL and
+opens a fresh single-activity task on the workout list, where the existing
+durable Ready card exposes Start and Dismiss.
+
+Notification permission, global notification settings, and channel disablement
+are all treated as optional delivery outcomes. Denial, disabled notifications,
+or a posting failure cannot suppress the persisted package, in-app card, or
+Ready receipt. Start, local Dismiss, phone Cancel, expiry, and recovered
+STARTING state cancel the fixed notification ID so a stale Ready alert cannot
+survive a terminal transition. Duplicate Ready delivery refreshes the same
+notification instead of creating another offer or alert.
+
+Audit corrections:
+
+- The notification tap now recreates the single-activity task, guaranteeing it
+  reaches the list's Ready card even when Settings was previously open.
+- Posting remains strictly after the package write; a failed durable write is
+  tested to emit neither notification nor Ready receipt.
+- Notification output is best-effort and isolated from protocol acknowledgement
+  transport, so permission or platform failures cannot corrupt offer state.
+
+Validation:
+
+- `./gradlew :shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug --no-daemon --quiet` passed with **78
+  shared, 11 phone, and 179 Wear tests**, zero failures/errors, and both debug
+  APKs.
+- New coverage verifies denied and failed notification delivery retain the
+  durable in-app Ready offer and receipt, notification posting never precedes
+  persistence, and both phone cancellation and zero-boundary Start clear the
+  notification.
+- `git diff --check` passed before documentation closure.
+
+No emulator or physical watch was used, so the runtime permission dialog,
+channel presentation, notification tap behavior, vibration/display behavior,
+and round-screen Ready card remain device evidence rather than code closure.
+
+The Phase 2 notification/fallback checklist item closes. Stage 19 is now
+**54/97 (56%)** overall and Phase 2 is **13/17 (76%)**. Exact next action: add
+the watch voice-cue settings and non-blocking availability state, then audit the
+remaining TTS/audio-focus, TalkBack, ambient, reduced-motion, and round-screen
+device behavior without claiming physical acceptance from automated checks.
