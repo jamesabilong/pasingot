@@ -3,20 +3,20 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 31 — voice cue settings and test audit**
-Previous checkpoint: `298a5e8 PST01: Add Quick Start notification fallback`
+Latest checkpoint: **Iteration 32 — runtime voice availability**
+Previous checkpoint: `08d5044 PST01: Add Wear voice cue settings`
 Last updated: **2026-09-29**
 
-**Current closure:** Iteration 31 passes 78 shared, 12 phone, and 183 Wear JVM
+**Current closure:** Iteration 32 passes 78 shared, 12 phone, and 187 Wear JVM
 tests plus both debug APK builds. Iteration 25 remains the latest browser
 baseline. The checklist is 56/97 (58%); Phase 2 now has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
 foundation plus foreground start, durable rest cues, persisted exercise/
-workout success presentations, notification-independent Ready fallback, and
-the persisted voice opt-in/category settings.
+workout success presentations, notification-independent Ready fallback,
+persisted voice settings, and runtime TTS/locale/audio-route reporting.
 The local browser fixture passes 19 checks. Paired delivery, round-screen
-review, runtime audio/accessibility/ambient behavior, and physical
+review, accessibility/ambient behavior, physical audio, and paired
 acceptance remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
@@ -769,7 +769,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-29, Iteration 31
+### Progress audit — 2026-09-29, Iteration 32
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -779,7 +779,7 @@ stands at **56/97 items (58%) overall**:
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **15/17 (88%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence and settings, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; runtime device behavior and round-screen validation remain open |
+| Phase 2 — watch feature | **15/17 (88%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence/settings/runtime availability, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; ambient/reduced-motion behavior and round-screen/device validation remain open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -921,7 +921,7 @@ Exit checks:
 
 ### Phase 2 — Watch receiver and ready prompt
 
-Status: **In progress — terminal transport is wired and capability is published; cues and paired validation remain open**
+Status: **In progress — terminal transport and runtime voice reporting are wired; device presentation and paired validation remain open**
 
 - [x] Implement listener, coordinator, receipt client, and prompt.
 - [x] Persist accepted requests through the transient package store, leaving the
@@ -941,6 +941,10 @@ Status: **In progress — terminal transport is wired and capability is publishe
       rendering **Saved on watch**.
 - [ ] Add TTS discovery/lifecycle, audio-output/focus, TalkBack, ambient, and
       reduced-motion handling.
+
+Iteration 32 completes the TTS discovery/lifecycle and runtime locale,
+audio-output, and focus-reporting portion. This combined item remains open for
+explicit ambient/reduced-motion handling and device TalkBack/audio evidence.
 
 Exit checks:
 
@@ -1155,16 +1159,19 @@ durable in-app fallback. Iteration 31 adds persisted voice-cue preferences, a
 one-time opt-in prompt, per-category settings, non-blocking TTS-service
 availability reporting, failed-write rollback, and process-wide cue-store write
 serialization. The latest clean suites have 78 shared, 12 phone, and 183
+Wear passing tests plus both debug APK builds. Iteration 32 adds runtime TTS
+initialization, locale, audio-route, and focus reporting with route-listener
+lifecycle cleanup. Its latest clean suites have 78 shared, 12 phone, and 187
 Wear passing tests plus both debug APK builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
 delivery and physical-device acceptance remain open. No emulator was opened for
-Iteration 31, so the voice settings, published capability, and complete terminal
-path still need device validation.
+Iteration 32, so voice routing, ambient/reduced-motion states, published
+capability, and the complete terminal path still need device validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** wire runtime TTS initialization, locale and audio-route
-reporting into the settings availability state, then audit TalkBack, ambient,
-reduced-motion, and round-screen behavior. When a device session is allowed,
+**Exact next action:** add explicit ambient and reduced-motion presentation
+policies to countdown/session success states, then audit TalkBack and
+round-screen behavior. When a device session is allowed,
 separately verify capability-gated
 paired delivery, cancellation races, reboot recovery, and Data Item cleanup.
 Keep Send gated until native discovery confirms a reachable, compatible watch;

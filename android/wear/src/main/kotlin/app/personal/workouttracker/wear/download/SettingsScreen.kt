@@ -30,11 +30,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             WatchHeading(
                 eyebrow = "VOICE CUES",
                 title = if (voice.preferences.voiceEnabled) "Enabled" else "Off",
-                detail = "System voice and language",
+                detail = voice.availability.detail,
             )
         }
-        if (voice.availability == VoiceCueAvailability.UNAVAILABLE) {
-            item { WatchNote("Voice unavailable · Visual cues and haptics stay active") }
+        voice.availability.note?.let { note ->
+            item { WatchNote("$note · Visual cues and haptics stay active") }
         }
         voice.error?.let { error -> item { WatchNote(error) } }
         item {
@@ -103,6 +103,28 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         item { WatchNote("Saved automatically") }
     }
 }
+
+private val VoiceCueAvailability.detail: String
+    get() = when (this) {
+        VoiceCueAvailability.CHECKING -> "Checking system voice"
+        VoiceCueAvailability.ENGINE_AVAILABLE -> "Checked when a workout starts"
+        VoiceCueAvailability.AVAILABLE -> "System voice ready"
+        VoiceCueAvailability.SERVICE_UNAVAILABLE -> "No system voice service"
+        VoiceCueAvailability.INITIALIZATION_FAILED -> "System voice did not start"
+        VoiceCueAvailability.LANGUAGE_UNAVAILABLE -> "Current language unavailable"
+        VoiceCueAvailability.AUDIO_OUTPUT_UNAVAILABLE -> "No audio output"
+        VoiceCueAvailability.AUDIO_FOCUS_UNAVAILABLE -> "Audio is busy"
+    }
+
+private val VoiceCueAvailability.note: String?
+    get() = when (this) {
+        VoiceCueAvailability.SERVICE_UNAVAILABLE -> "Voice service unavailable"
+        VoiceCueAvailability.INITIALIZATION_FAILED -> "Voice initialization failed"
+        VoiceCueAvailability.LANGUAGE_UNAVAILABLE -> "Voice language unavailable"
+        VoiceCueAvailability.AUDIO_OUTPUT_UNAVAILABLE -> "Voice audio unavailable"
+        VoiceCueAvailability.AUDIO_FOCUS_UNAVAILABLE -> "Voice temporarily unavailable"
+        else -> null
+    }
 
 @Composable
 private fun VoiceSettingToggle(

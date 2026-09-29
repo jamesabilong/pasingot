@@ -69,7 +69,7 @@ class SettingsViewModelTest {
         assertTrue(restored.voice.value.preferences.voicePromptResolved)
         assertTrue(restored.voice.value.preferences.voiceEnabled)
         assertFalse(restored.voice.value.preferences.restAnnouncements)
-        assertEquals(VoiceCueAvailability.UNAVAILABLE, restored.voice.value.availability)
+        assertEquals(VoiceCueAvailability.SERVICE_UNAVAILABLE, restored.voice.value.availability)
     }
 
     @Test fun `failed voice write rolls back visible selection and reports error`() = runTest(dispatcher) {
@@ -85,10 +85,29 @@ class SettingsViewModelTest {
         assertEquals("Could not save voice settings", viewModel.voice.value.error)
     }
 
-    private fun viewModel(persistence: MemoryCueSettingsPersistence) = SettingsViewModel(
+    @Test fun `runtime voice availability replaces discovery status`() = runTest(dispatcher) {
+        val updates = MutableStateFlow(VoiceCueAvailability.ENGINE_AVAILABLE)
+        val viewModel = viewModel(
+            persistence = MemoryCueSettingsPersistence(),
+            availabilityUpdates = updates,
+        ).also { viewModels.put("availability", it) }
+        runCurrent()
+
+        assertEquals(VoiceCueAvailability.ENGINE_AVAILABLE, viewModel.voice.value.availability)
+        updates.value = VoiceCueAvailability.LANGUAGE_UNAVAILABLE
+        runCurrent()
+
+        assertEquals(VoiceCueAvailability.LANGUAGE_UNAVAILABLE, viewModel.voice.value.availability)
+    }
+
+    private fun viewModel(
+        persistence: MemoryCueSettingsPersistence,
+        availabilityUpdates: MutableStateFlow<VoiceCueAvailability>? = null,
+    ) = SettingsViewModel(
         settingsRepository = FakeScheduledDownloadSettings(),
         cueStore = WatchCueStore(persistence),
-        availabilityProbe = VoiceCueAvailabilityProbe { VoiceCueAvailability.UNAVAILABLE },
+        availabilityProbe = VoiceCueAvailabilityProbe { VoiceCueAvailability.SERVICE_UNAVAILABLE },
+        availabilityUpdates = availabilityUpdates,
         rescheduleDownload = {},
     )
 

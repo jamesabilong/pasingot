@@ -4,26 +4,27 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import app.personal.workouttracker.wear.data.ScheduledDownloadTime
-import app.personal.workouttracker.wear.data.ScheduledDownloadSettings
-import app.personal.workouttracker.wear.data.SettingsRepository
 import app.personal.workouttracker.wear.cues.AndroidVoiceCueAvailabilityProbe
 import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
 import app.personal.workouttracker.wear.cues.VoiceCueAvailability
 import app.personal.workouttracker.wear.cues.VoiceCueAvailabilityProbe
+import app.personal.workouttracker.wear.cues.VoiceCueAvailabilityRegistry
 import app.personal.workouttracker.wear.cues.WatchCuePreferences
 import app.personal.workouttracker.wear.cues.WatchCueStore
+import app.personal.workouttracker.wear.data.ScheduledDownloadSettings
+import app.personal.workouttracker.wear.data.ScheduledDownloadTime
+import app.personal.workouttracker.wear.data.SettingsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 data class VoiceCueSettingsUiState(
     val preferences: WatchCuePreferences = WatchCuePreferences(),
-    val availability: VoiceCueAvailability = VoiceCueAvailability.AVAILABLE,
+    val availability: VoiceCueAvailability = VoiceCueAvailability.CHECKING,
     val loading: Boolean = true,
     val error: String? = null,
 )
@@ -33,6 +34,7 @@ class SettingsViewModel(
     private val settingsRepository: ScheduledDownloadSettings,
     private val cueStore: WatchCueStore,
     availabilityProbe: VoiceCueAvailabilityProbe,
+    availabilityUpdates: StateFlow<VoiceCueAvailability>? = null,
     private val rescheduleDownload: suspend (ScheduledDownloadTime) -> Unit,
 ) : ViewModel() {
 
@@ -40,7 +42,7 @@ class SettingsViewModel(
     val time: StateFlow<ScheduledDownloadTime> = _time.asStateFlow()
     private val _voice = MutableStateFlow(VoiceCueSettingsUiState(
         availability = runCatching { availabilityProbe.check() }
-            .getOrDefault(VoiceCueAvailability.UNAVAILABLE),
+            .getOrDefault(VoiceCueAvailability.SERVICE_UNAVAILABLE),
     ))
     val voice: StateFlow<VoiceCueSettingsUiState> = _voice.asStateFlow()
     private val voiceMutex = Mutex()
@@ -63,6 +65,13 @@ class SettingsViewModel(
                     loading = false,
                     error = "Could not load voice settings",
                 )
+            }
+        }
+        if (availabilityUpdates != null) {
+            viewModelScope.launch {
+                availabilityUpdates.collect { availability ->
+                    _voice.value = _voice.value.copy(availability = availability)
+                }
             }
         }
     }
@@ -121,11 +130,15 @@ class SettingsViewModel(
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            SettingsViewModel(
-                settingsRepository,
-                WatchCueStore(DataStoreWatchCuePersistence(appContext)),
-                AndroidVoiceCueAvailabilityProbe(appContext),
-                rescheduleDownload = { ScheduleDownloadWorker.enqueueNext(appContext, it) },
-            ) as T
+            AndroidVoiceCueAvailabilityProbe(appContext).let { availabilityProbe ->
+                VoiceCueAvailabilityRegistry.reportDiscovery(availabilityProbe.check())
+                SettingsViewModel(
+                    settingsRepository,
+                    WatchCueStore(DataStoreWatchCuePersistence(appContext)),
+                    availabilityProbe,
+                    VoiceCueAvailabilityRegistry.availability,
+                    rescheduleDownload = { ScheduleDownloadWorker.enqueueNext(appContext, it) },
+                ) as T
+            }
     }
 }

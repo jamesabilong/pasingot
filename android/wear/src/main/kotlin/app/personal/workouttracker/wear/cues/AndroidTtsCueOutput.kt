@@ -2,6 +2,8 @@ package app.personal.workouttracker.wear.cues
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
@@ -32,26 +34,48 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
             }
         }
         .build()
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = audioRouteChanged()
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = audioRouteChanged()
+    }
 
     @Volatile private var initialized = false
     @Volatile private var closed = false
+    @Volatile private var languageSupported = false
+    private var audioCallbackRegistered = false
     private var tts: TextToSpeech? = TextToSpeech(appContext, this)
+
+    init {
+        VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.CHECKING)
+    }
 
     override val talkBackEnabled: Boolean
         get() = accessibilityManager?.isEnabled == true && accessibilityManager.isTouchExplorationEnabled
 
     override fun onInit(status: Int) {
         val engine = tts ?: return
-        initialized = status == TextToSpeech.SUCCESS &&
-            engine.setLanguage(Locale.getDefault()) !in setOf(TextToSpeech.LANG_MISSING_DATA, TextToSpeech.LANG_NOT_SUPPORTED)
-        if (initialized) engine.setAudioAttributes(audioAttributes)
+        initialized = status == TextToSpeech.SUCCESS
+        languageSupported = initialized && engine.setLanguage(Locale.getDefault()) !in
+            setOf(TextToSpeech.LANG_MISSING_DATA, TextToSpeech.LANG_NOT_SUPPORTED)
+        if (initialized && languageSupported) {
+            engine.setAudioAttributes(audioAttributes)
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
+            audioCallbackRegistered = true
+        }
+        reportAvailability()
     }
 
     override suspend fun speak(utteranceId: String, text: String): Boolean {
         val engine = tts ?: return false
-        if (closed || !initialized || audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        if (closed || !initialized || !languageSupported || !hasAudioOutput()) {
+            reportAvailability()
             return false
         }
+        if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AUDIO_FOCUS_UNAVAILABLE)
+            return false
+        }
+        VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AVAILABLE)
         return suspendCancellableCoroutine { continuation ->
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(id: String?) = Unit
@@ -99,8 +123,32 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     override fun close() {
         closed = true
         cancel(WatchCueCancellation.NAVIGATION)
+        if (audioCallbackRegistered) {
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+            audioCallbackRegistered = false
+        }
         tts?.shutdown()
         tts = null
         initialized = false
+        languageSupported = false
     }
+
+    private fun audioRouteChanged() {
+        if (closed || !initialized || !languageSupported) return
+        tts?.stop()
+        audioManager.abandonAudioFocusRequest(focusRequest)
+        reportAvailability()
+    }
+
+    private fun reportAvailability() {
+        VoiceCueAvailabilityRegistry.report(initializedVoiceCueAvailability(
+            initialized = initialized,
+            languageSupported = languageSupported,
+            hasAudioOutput = hasAudioOutput(),
+        ))
+    }
+
+    private fun hasAudioOutput(): Boolean = audioManager
+        .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        .any(AudioDeviceInfo::isSink)
 }

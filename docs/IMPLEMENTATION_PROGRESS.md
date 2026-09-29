@@ -1712,3 +1712,60 @@ broader TTS/device-behavior implementation item remains open. Stage 19 is now
 runtime TTS initialization/locale/audio-route availability back into Settings,
 add explicit ambient/reduced-motion policies, then perform the round-screen
 emulator review without claiming physical audio acceptance.
+
+## Iteration 32 — 2026-09-29 — Runtime voice availability
+
+Status: **TTS initialization, locale, audio-route, and focus outcomes now feed
+the watch Settings state; device-sensitive UI and audio acceptance remain
+open.**
+
+Starting checkpoint: `08d5044 PST01: Add Wear voice cue settings`, clean tree,
+two commits ahead of the local `origin/PST01` tracking ref. No fetch, push,
+emulator, or physical-device action occurred.
+
+Expanded voice availability from an installed-service yes/no probe into a
+process-visible runtime state. Foreground TTS owners now report initialization
+failure, unsupported current locale, missing audio output, transient focus
+denial, and ready state. The Settings view observes those updates and presents
+a specific quiet status while retaining the existing visual and haptic
+fallback.
+
+Registered an audio-device callback only after successful TTS and locale
+initialization. Route addition/removal stops active speech, abandons transient
+focus, and recomputes availability. Closing the cue output unregisters the
+callback before shutting down TTS, preserving the existing foreground-only
+lifecycle and avoiding a leaked route listener.
+
+Audit findings and corrections:
+
+- Installed-engine discovery is now labeled separately from confirmed runtime
+  readiness; Settings says the runtime check completes when a workout starts
+  instead of claiming that an uninitialized engine is ready.
+- Reopening Settings cannot downgrade a previously observed runtime result to
+  discovery-only status. A missing service can still replace stale readiness.
+- Focus denial remains a haptic-only cue result and is visible as a transient
+  availability outcome; speech never becomes a prerequisite for session
+  progress.
+
+Validation:
+
+- `./gradlew :wear:clean :shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+  --quiet` passed with **78 shared, 12 phone, and 187 Wear tests**, zero
+  failures/errors, and both debug APKs.
+- New JVM coverage distinguishes initialization, locale, output-route, and
+  ready outcomes and verifies that runtime updates replace discovery status in
+  the Settings state.
+- `git diff --check` passed before documentation closure.
+
+No emulator or physical watch was used. Actual speaker/Bluetooth routing,
+focus interaction with other watch audio, locale voice quality, TalkBack,
+ambient/reduced-motion rendering, round-screen layout, and haptic feel remain
+device evidence.
+
+The combined Phase 2 TTS/device-behavior item stays open because ambient and
+reduced-motion handling are not implemented and runtime audio is not physically
+accepted. Stage 19 remains **56/97 (58%)** overall and Phase 2 remains **15/17
+(88%)**. Exact next action: add explicit ambient and reduced-motion presentation
+policies to the countdown/session success states, then run the 454x454 emulator
+review when device work is allowed.
