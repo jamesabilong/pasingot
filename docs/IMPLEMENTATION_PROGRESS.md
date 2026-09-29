@@ -1769,3 +1769,68 @@ accepted. Stage 19 remains **56/97 (58%)** overall and Phase 2 remains **15/17
 (88%)**. Exact next action: add explicit ambient and reduced-motion presentation
 policies to the countdown/session success states, then run the 454x454 emulator
 review when device work is allowed.
+
+## Iteration 33 — 2026-09-29 — Ambient and reduced-motion policy
+
+Status: **Ambient and reduced-motion presentation handling is implemented and
+build-tested; round-screen and physical-device acceptance remain open.**
+
+Starting checkpoint: `73a47c6 PST01: Report Wear voice runtime availability`,
+clean tree, three commits ahead of the local `origin/PST01` tracking ref. No
+fetch, push, emulator, or physical-device action occurred.
+
+Added the stable `androidx.wear:wear:1.4.0` ambient lifecycle observer at the
+single activity and exposed a shared presentation policy to every route. The
+policy observes the system animator duration scale for reduced-motion changes
+and records ambient burn-in/low-bit capabilities plus ambient update ticks.
+
+Active, resting, paused, ended, and completed sessions now switch to a compact,
+non-interactive ambient layout containing only essential workout state. When
+burn-in protection is required, the content cycles through bounded two-dp
+offsets on ambient updates. Workout list and Settings routes use a shared static
+ambient fallback instead of leaving their full interactive layouts visible.
+The foreground-only Quick Start countdown cancels back to its durable Ready
+offer on ambient entry and briefly renders a static paused state while leaving.
+
+Reduced motion suppresses changing/decorative countdown, rest, and completion
+rings while preserving numeric state, action controls, haptics, and semantics.
+Ambient views use static monochrome text, merged accessibility descriptions,
+and no interactive controls or progress animation.
+
+Audit findings and corrections:
+
+- Activity-level ambient opt-in affects every navigation route. The initial
+  slice handled workout routes only; the audit added static list/Settings
+  fallbacks so no route retains a scrolling interactive surface in ambient.
+- Loading and error branches originally preceded the ambient branch. Ambient
+  handling now wins for those states as well, preventing blank or interactive
+  error layouts during low-power mode.
+- The existing `WAKE_LOCK` declaration already satisfies the ambient observer
+  requirement, so no additional permission was introduced.
+- TalkBack continues to suppress overlapping TTS while retaining haptics, and
+  ambient/reduced-motion layouts retain explicit merged descriptions. Physical
+  screen-reader behavior is still device evidence.
+
+Validation:
+
+- `./gradlew :wear:clean :shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+  --quiet` passed with **78 shared, 12 phone, and 191 Wear tests**, zero
+  failures/errors, and both debug APKs.
+- A final `./gradlew :wear:testDebugUnitTest :wear:assembleDebug --no-daemon
+  --quiet` passed after the ambient loading/error audit correction.
+- New JVM coverage verifies interactive, reduced-motion, and ambient policy
+  decisions plus the complete burn-in offset cycle.
+- `git diff --check` passed before documentation closure.
+
+No emulator or physical watch was used. Round-screen clipping/readability,
+actual ambient entry/update behavior, burn-in movement, low-bit rendering,
+system reduced-motion changes, TalkBack order, and haptic/audio behavior remain
+device evidence.
+
+The combined Phase 2 TTS/TalkBack/ambient/reduced-motion implementation item is
+now code-complete; device acceptance remains separate and the round-screen exit
+check remains open. Stage 19 is now **57/97 (59%)** overall and Phase 2 is
+**16/17 (94%)**. Exact next action: run the 454x454 emulator review for
+Start/Dismiss, countdown, exercise-success, rest, final-success, and ambient
+layouts, recording screenshots/findings without claiming physical acceptance.

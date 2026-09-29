@@ -6,10 +6,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -102,4 +106,30 @@ fun WatchAction(label: String, onClick: () -> Unit, primary: Boolean = false, en
         colors = if (primary) ChipDefaults.primaryChipColors() else ChipDefaults.secondaryChipColors(),
         modifier = Modifier.fillMaxWidth().height(44.dp),
     )
+}
+
+@Composable
+fun WatchAmbientPlaceholder(title: String, detail: String) {
+    val presentation = LocalWatchPresentationPolicy.current
+    val offset = if (presentation.burnInProtectionRequired) {
+        ambientBurnInOffset(presentation.ambientUpdate)
+    } else {
+        0 to 0
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = offset.first.dp, y = offset.second.dp)
+            .padding(34.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$title. $detail."
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("PASINGOT", style = MaterialTheme.typography.caption2, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.title3, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center)
+        Text(detail, style = MaterialTheme.typography.caption1, textAlign = TextAlign.Center)
+    }
 }

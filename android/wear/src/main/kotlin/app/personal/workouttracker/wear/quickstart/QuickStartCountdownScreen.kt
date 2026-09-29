@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +29,8 @@ import app.personal.workouttracker.wear.ui.WatchAction
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
 import app.personal.workouttracker.wear.ui.WatchPage
+import app.personal.workouttracker.wear.ui.LocalWatchPresentationPolicy
+import app.personal.workouttracker.wear.ui.ambientBurnInOffset
 
 @Composable
 fun QuickStartCountdownScreen(
@@ -36,8 +39,12 @@ fun QuickStartCountdownScreen(
     onCancel: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val presentation = LocalWatchPresentationPolicy.current
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel) { viewModel.begin(onStarted) }
+    LaunchedEffect(presentation.ambient) {
+        if (presentation.ambient) viewModel.onLeavingForeground(onCancel)
+    }
     BackHandler(enabled = !state.starting) { viewModel.leave(onCancel) }
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -47,7 +54,32 @@ fun QuickStartCountdownScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    if (presentation.ambient) {
+        val offset = if (presentation.burnInProtectionRequired) {
+            ambientBurnInOffset(presentation.ambientUpdate)
+        } else {
+            0 to 0
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(x = offset.first.dp, y = offset.second.dp)
+                .padding(34.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "Quick Start paused. Return to begin the countdown again."
+                },
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("QUICK START", style = MaterialTheme.typography.caption1)
+            Text("Paused", style = MaterialTheme.typography.title3, fontWeight = FontWeight.Bold)
+            Text("Return to begin again", style = MaterialTheme.typography.caption2, textAlign = TextAlign.Center)
+        }
+        return
+    }
+
     if (state.loading) return
+
     state.error?.let { error ->
         WatchPage {
             item { WatchHeading("QUICK START", "Could not start") }
@@ -58,11 +90,13 @@ fun QuickStartCountdownScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        CircularProgressIndicator(
-            progress = state.progress,
-            modifier = Modifier.fillMaxSize().padding(4.dp),
-            strokeWidth = 4.dp,
-        )
+        if (presentation.showDecorativeProgress) {
+            CircularProgressIndicator(
+                progress = state.progress,
+                modifier = Modifier.fillMaxSize().padding(4.dp),
+                strokeWidth = 4.dp,
+            )
+        }
         Column(
             modifier = Modifier
                 .align(Alignment.Center)

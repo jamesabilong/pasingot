@@ -9,6 +9,11 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 33 adds activity-wide ambient/reduced-motion policy, static
+  low-power session and non-session layouts, burn-in offset updates, and
+  foreground countdown cancellation on ambient entry. Clean suites pass
+  78/12/191 tests and both debug APKs; round-screen and physical-device checks
+  remain open.
 - Iteration 32 reports real foreground TTS initialization, locale, output-route,
   and focus outcomes back to Settings and tears down route observation with the
   cue lifecycle. Clean suites pass 78/12/187 tests and both debug APKs; ambient,
@@ -61,8 +66,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 32, runtime voice
-  availability and audio-route lifecycle. Iteration 31 added voice cue settings
+- Latest implementation checkpoint: Stage 19 Iteration 33, ambient and reduced-
+  motion presentation policy. Iteration 32 added runtime voice availability and
+  audio-route lifecycle. Iteration 31 added voice cue settings
   and the automated exit-check audit. Iteration 30 added notification-aware Ready
   offer fallback. Iteration 29 added persisted success presentations and
   completion cues. Iteration 28 added rest cues and the
@@ -126,9 +132,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **56/97 checklist items (58%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **15/17 (88%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and start/rest/success cues, persisted success/final-five state, notification fallback, voice settings, and runtime voice-availability reporting are implemented. Automated receipt/cue exit checks pass; accessibility/ambient behavior, round-screen review, physical audio, and paired delivery remain unverified | Next: add explicit ambient/reduced-motion presentation policies, then run the round-screen emulator review. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **57/97 checklist items (59%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **16/17 (94%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and cues, persisted success/final-five state, notification fallback, voice runtime reporting, and ambient/reduced-motion policy are implemented. Automated receipt/cue exit checks pass; round-screen review, physical accessibility/audio, and paired delivery remain unverified | Next: run the 454x454 emulator review across Ready, countdown, session, success, and ambient layouts. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 ambient/reduced-motion behavior and remaining device validation | Follow the plan's remaining Phase 2 watch checklist |
+| **Pending implementation** | Stage 19 Phase 2 implementation is code-complete; Phase 3 integration/recovery has not started | Close the round-screen Phase 2 exit check before Phase 3 |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

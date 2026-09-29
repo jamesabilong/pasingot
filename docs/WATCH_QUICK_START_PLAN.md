@@ -3,20 +3,21 @@
 Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 32 — runtime voice availability**
-Previous checkpoint: `08d5044 PST01: Add Wear voice cue settings`
+Latest checkpoint: **Iteration 33 — ambient and reduced-motion policy**
+Previous checkpoint: `73a47c6 PST01: Report Wear voice runtime availability`
 Last updated: **2026-09-29**
 
-**Current closure:** Iteration 32 passes 78 shared, 12 phone, and 187 Wear JVM
+**Current closure:** Iteration 33 passes 78 shared, 12 phone, and 191 Wear JVM
 tests plus both debug APK builds. Iteration 25 remains the latest browser
-baseline. The checklist is 56/97 (58%); Phase 2 now has serialized Start/Dismiss/Cancel,
+baseline. The checklist is 57/97 (59%); Phase 2 now has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
 foundation plus foreground start, durable rest cues, persisted exercise/
 workout success presentations, notification-independent Ready fallback,
-persisted voice settings, and runtime TTS/locale/audio-route reporting.
+persisted voice settings, runtime TTS/locale/audio-route reporting, and explicit
+ambient/reduced-motion presentation policy.
 The local browser fixture passes 19 checks. Paired delivery, round-screen
-review, accessibility/ambient behavior, physical audio, and paired
+review, physical accessibility/audio behavior, and paired
 acceptance remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
@@ -769,17 +770,17 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-29, Iteration 32
+### Progress audit — 2026-09-29, Iteration 33
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **56/97 items (58%) overall**:
+stands at **57/97 items (59%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **15/17 (88%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence/settings/runtime availability, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; ambient/reduced-motion behavior and round-screen/device validation remain open |
+| Phase 2 — watch feature | **16/17 (94%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence/settings/runtime availability, ambient/reduced-motion policy, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; round-screen/device validation remains open |
 | Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
@@ -939,12 +940,14 @@ Status: **In progress — terminal transport and runtime voice reporting are wir
       permission a requirement for opening the in-app ready prompt.
 - [x] Add immutable final summary and await durable local result enqueue before
       rendering **Saved on watch**.
-- [ ] Add TTS discovery/lifecycle, audio-output/focus, TalkBack, ambient, and
+- [x] Add TTS discovery/lifecycle, audio-output/focus, TalkBack, ambient, and
       reduced-motion handling.
 
 Iteration 32 completes the TTS discovery/lifecycle and runtime locale,
-audio-output, and focus-reporting portion. This combined item remains open for
-explicit ambient/reduced-motion handling and device TalkBack/audio evidence.
+audio-output, and focus-reporting portion. Iteration 33 completes explicit
+ambient/reduced-motion handling and retains TalkBack semantics/TTS suppression.
+Device TalkBack/audio/ambient behavior remains acceptance evidence, not code
+closure.
 
 Exit checks:
 
@@ -1162,18 +1165,22 @@ serialization. The latest clean suites have 78 shared, 12 phone, and 183
 Wear passing tests plus both debug APK builds. Iteration 32 adds runtime TTS
 initialization, locale, audio-route, and focus reporting with route-listener
 lifecycle cleanup. Its latest clean suites have 78 shared, 12 phone, and 187
-Wear passing tests plus both debug APK builds. The
+Wear passing tests plus both debug APK builds. Iteration 33 adds the shared
+ambient/reduced-motion policy, static low-power layouts, burn-in offsets, and
+foreground countdown cancellation. Its clean suites have 78 shared, 12 phone,
+and 191 Wear passing tests plus both debug APK builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
 delivery and physical-device acceptance remain open. No emulator was opened for
-Iteration 32, so voice routing, ambient/reduced-motion states, published
+Iteration 33, so voice routing, ambient/reduced-motion states, published
 capability, and the complete terminal path still need device validation.
 **Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** add explicit ambient and reduced-motion presentation
-policies to countdown/session success states, then audit TalkBack and
-round-screen behavior. When a device session is allowed,
-separately verify capability-gated
-paired delivery, cancellation races, reboot recovery, and Data Item cleanup.
+**Exact next action:** run the 454x454 emulator review for the Ready prompt
+(Start/Dismiss), countdown, exercise-success, rest, final-success, and ambient
+layouts. Then
+audit TalkBack ordering on a device when available. Separately verify
+capability-gated paired delivery, cancellation races, reboot recovery, and Data
+Item cleanup.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

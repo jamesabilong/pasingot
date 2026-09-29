@@ -19,11 +19,18 @@ import app.personal.workouttracker.wear.cues.VoiceCueAvailability
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
 import app.personal.workouttracker.wear.ui.WatchPage
+import app.personal.workouttracker.wear.ui.LocalWatchPresentationPolicy
+import app.personal.workouttracker.wear.ui.WatchAmbientPlaceholder
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val time by viewModel.time.collectAsStateWithLifecycle()
     val voice by viewModel.voice.collectAsStateWithLifecycle()
+
+    if (LocalWatchPresentationPolicy.current.ambient) {
+        WatchAmbientPlaceholder("Settings", "Wake to continue")
+        return
+    }
 
     WatchPage {
         item {

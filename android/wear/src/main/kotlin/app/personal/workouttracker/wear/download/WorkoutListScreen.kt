@@ -32,6 +32,8 @@ import app.personal.workouttracker.wear.ui.WatchAction
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
 import app.personal.workouttracker.wear.ui.WatchPage
+import app.personal.workouttracker.wear.ui.LocalWatchPresentationPolicy
+import app.personal.workouttracker.wear.ui.WatchAmbientPlaceholder
 import app.personal.workouttracker.wear.quickstart.QuickStartOfferViewModel
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import java.text.SimpleDateFormat
@@ -56,6 +58,11 @@ fun WorkoutListScreen(
     val quickStart by quickStartViewModel.uiState.collectAsStateWithLifecycle()
     val voice by settingsViewModel.voice.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    if (LocalWatchPresentationPolicy.current.ambient) {
+        WatchAmbientPlaceholder("Workouts", "Wake to continue")
+        return
+    }
 
     DisposableEffect(lifecycleOwner, quickStartViewModel) {
         val observer = LifecycleEventObserver { _, event ->

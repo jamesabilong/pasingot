@@ -1,11 +1,17 @@
 package app.personal.workouttracker.wear
 
 import android.Manifest
+import android.database.ContentObserver
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -15,6 +21,7 @@ import androidx.navigation.navArgument
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import androidx.wear.ambient.AmbientLifecycleObserver
 import app.personal.workouttracker.wear.data.LogSyncManager
 import app.personal.workouttracker.wear.data.SettingsRepository
 import app.personal.workouttracker.wear.data.WorkoutRepository
@@ -32,6 +39,8 @@ import app.personal.workouttracker.wear.quickstart.QuickStartCountdownViewModel
 import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnapshotSource
 import app.personal.workouttracker.wear.quickstart.QuickStartCapabilityPublisher
 import app.personal.workouttracker.wear.ui.PasingotTheme
+import app.personal.workouttracker.wear.ui.LocalWatchPresentationPolicy
+import app.personal.workouttracker.wear.ui.WatchPresentationPolicy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -44,9 +53,42 @@ class WearMainActivity : ComponentActivity() {
 
     private val prefsName = "workout_tracker_wear_prefs"
     private val notificationPermissionAskedKey = "notification_permission_requested"
+    private val presentationPolicy = mutableStateOf(WatchPresentationPolicy())
+    private val ambientCallbacks = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+        override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+            presentationPolicy.value = presentationPolicy.value.copy(
+                ambient = true,
+                burnInProtectionRequired = ambientDetails.burnInProtectionRequired,
+                lowBitAmbient = ambientDetails.deviceHasLowBitAmbient,
+                ambientUpdate = 0,
+            )
+        }
+
+        override fun onUpdateAmbient() {
+            presentationPolicy.value = presentationPolicy.value.copy(
+                ambientUpdate = presentationPolicy.value.ambientUpdate + 1,
+            )
+        }
+
+        override fun onExitAmbient() {
+            presentationPolicy.value = presentationPolicy.value.copy(
+                ambient = false,
+                burnInProtectionRequired = false,
+                lowBitAmbient = false,
+                ambientUpdate = 0,
+            )
+        }
+    }
+    private val ambientObserver by lazy {
+        AmbientLifecycleObserver(this, ContextCompat.getMainExecutor(this), ambientCallbacks)
+    }
+    private val animatorScaleObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) = refreshReducedMotion()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(ambientObserver)
         maybeRequestNotificationPermission()
 
         val repository = WorkoutRepository(applicationContext)
@@ -72,10 +114,11 @@ class WearMainActivity : ComponentActivity() {
         }
 
         setContent {
-            PasingotTheme {
-                val navController = rememberSwipeDismissableNavController()
+            CompositionLocalProvider(LocalWatchPresentationPolicy provides presentationPolicy.value) {
+                PasingotTheme {
+                    val navController = rememberSwipeDismissableNavController()
 
-                SwipeDismissableNavHost(navController = navController, startDestination = "list") {
+                    SwipeDismissableNavHost(navController = navController, startDestination = "list") {
                     composable("list") {
                         val viewModel: WorkoutListViewModel = viewModel(
                             factory = WorkoutListViewModel.Factory(applicationContext, repository)
@@ -158,9 +201,34 @@ class WearMainActivity : ComponentActivity() {
                             onCancel = { navController.popBackStack() },
                         )
                     }
+                    }
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        contentResolver.registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+            false,
+            animatorScaleObserver,
+        )
+        refreshReducedMotion()
+    }
+
+    override fun onStop() {
+        contentResolver.unregisterContentObserver(animatorScaleObserver)
+        super.onStop()
+    }
+
+    private fun refreshReducedMotion() {
+        val reducedMotion = Settings.Global.getFloat(
+            contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
+        presentationPolicy.value = presentationPolicy.value.copy(reducedMotion = reducedMotion)
     }
 
     private fun maybeRequestNotificationPermission() {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -39,9 +40,12 @@ import app.personal.workouttracker.shared.WorkoutExercise
 import app.personal.workouttracker.shared.estimatedDurationSeconds
 import app.personal.workouttracker.shared.session.ExerciseOutcomeStatus
 import app.personal.workouttracker.wear.ui.WatchAction
+import app.personal.workouttracker.wear.ui.WatchAmbientPlaceholder
 import app.personal.workouttracker.wear.ui.WatchHeading
 import app.personal.workouttracker.wear.ui.WatchNote
 import app.personal.workouttracker.wear.ui.WatchPage
+import app.personal.workouttracker.wear.ui.LocalWatchPresentationPolicy
+import app.personal.workouttracker.wear.ui.ambientBurnInOffset
 
 private enum class SessionConfirmation { RESTART, END }
 
@@ -52,6 +56,7 @@ private enum class SessionConfirmation { RESTART, END }
 @Composable
 fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
+    val presentation = LocalWatchPresentationPolicy.current
     val cueAction = rememberCueAction()
 
     // Exiting without an explicit unfinished state behaves like Pause, so
@@ -79,7 +84,19 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         }
     }
 
-    if (state.loading) return // brief DataStore read; nothing meaningful to render yet
+    if (state.loading) {
+        if (presentation.ambient) WatchAmbientPlaceholder("Workout", "Loading")
+        return
+    }
+
+    if (presentation.ambient) {
+        if (state.session == null) {
+            WatchAmbientPlaceholder("Workout", "Wake to continue")
+        } else {
+            AmbientSessionView(state)
+        }
+        return
+    }
 
     state.error?.let { error ->
         WatchPage {
@@ -217,11 +234,13 @@ private fun RestingView(
     val plannedRestSeconds = exercise.rest.coerceAtLeast(1)
     val progress = (state.restRemainingSeconds.toFloat() / plannedRestSeconds).coerceIn(0f, 1f)
     Box(modifier = Modifier.fillMaxSize()) {
-        CircularProgressIndicator(
-            progress = progress,
-            modifier = Modifier.fillMaxSize().padding(4.dp),
-            strokeWidth = 3.dp,
-        )
+        if (LocalWatchPresentationPolicy.current.showDecorativeProgress) {
+            CircularProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxSize().padding(4.dp),
+                strokeWidth = 3.dp,
+            )
+        }
         WatchPage {
             state.progress?.successExerciseIndex?.let { completedIndex ->
                 val completedName = state.entry?.exercises?.getOrNull(completedIndex)?.exercise
@@ -288,7 +307,9 @@ private fun WorkoutSuccessView(state: SessionUiState, onClose: () -> Unit) {
     WatchPage {
         item {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-                CircularProgressIndicator(progress = 1f, modifier = Modifier.padding(4.dp), strokeWidth = 4.dp)
+                if (LocalWatchPresentationPolicy.current.showDecorativeProgress) {
+                    CircularProgressIndicator(progress = 1f, modifier = Modifier.padding(4.dp), strokeWidth = 4.dp)
+                }
                 Text("✓", fontSize = 38.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colors.primary)
             }
         }
@@ -304,6 +325,45 @@ private fun WorkoutSuccessView(state: SessionUiState, onClose: () -> Unit) {
         }
         if (state.awaitingPhoneSync) item { WatchNote("Waiting to sync") }
         item { WatchAction("Back to workouts", onClose, primary = true) }
+    }
+}
+
+@Composable
+private fun AmbientSessionView(state: SessionUiState) {
+    val presentation = LocalWatchPresentationPolicy.current
+    val session = state.session ?: return
+    val exercise = state.currentExercise
+    val offset = if (presentation.burnInProtectionRequired) {
+        ambientBurnInOffset(presentation.ambientUpdate)
+    } else {
+        0 to 0
+    }
+    val title = when (session.status) {
+        SessionStatus.COMPLETED -> "Workout complete"
+        SessionStatus.ENDED -> "Workout ended"
+        SessionStatus.RESTING -> formatRestSeconds(state.restRemainingSeconds)
+        SessionStatus.PAUSED -> "Paused"
+        else -> exercise?.let { exerciseDisplayName(it.exercise) } ?: "Workout"
+    }
+    val detail = when (session.status) {
+        SessionStatus.COMPLETED, SessionStatus.ENDED -> progressLabel(state)
+        SessionStatus.RESTING -> exercise?.let { "Next · ${exerciseDisplayName(it.exercise)}" } ?: "Rest"
+        else -> exercise?.let { "Set ${session.currentSet} / ${it.sets}" } ?: progressLabel(state)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(x = offset.first.dp, y = offset.second.dp)
+            .padding(34.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$title. $detail. ${progressAccessibilityLabel(state)}"
+            },
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("PASINGOT", style = MaterialTheme.typography.caption2, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.title3, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(detail, style = MaterialTheme.typography.caption1, textAlign = TextAlign.Center)
     }
 }
 

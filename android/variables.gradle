@@ -27,6 +27,7 @@ ext {
     kotlinxSerializationJsonVersion = '1.6.3'
     datastorePreferencesVersion = '1.1.1'
     workManagerVersion = '2.9.1'
+    wearVersion = '1.4.0'
     wearComposeVersion = '1.4.0'
     wearToolingPreviewVersion = '1.0.0'
     activityComposeVersion = '1.9.3'
