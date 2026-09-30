@@ -3,14 +3,14 @@
 Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 34 — round-screen closure and recovery audit**
-Previous checkpoint: `1ca0df9 PST01: Add Wear ambient presentation policy`
+Latest checkpoint: **Iteration 35 — paired prerequisite and legacy transport audit**
+Previous checkpoint: `0e6312c PST01: Close Wear round-screen phase`
 Last updated: **2026-09-30**
 
-**Current closure:** Iteration 34 passes 78 shared, 11 phone, and 191 Wear JVM
-tests plus both debug APK builds, Capacitor sync, 109 browser checks, and three
-Node checks. The latest XML recount supersedes the current-summary claim of 12
-phone tests without rewriting earlier iteration evidence. The checklist is
+**Current closure:** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
+tests plus both debug APK builds, TypeScript, Capacitor sync, the production
+PWA build, and three Node checks. Iteration 34's 109 browser checks remain the
+latest real-browser evidence. The checklist is
 65/97 (67%); Phase 2 has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
@@ -22,7 +22,10 @@ Ready, countdown, rest, exercise-success, final-success, and ambient layout
 review; countdown-to-ambient returned to the durable Ready offer. Phase 3 now
 records the already-wired acknowledgement event and recreation/resume paths
 plus its automated exit checks. Paired delivery/recovery and physical
-accessibility/audio behavior remain open. See
+accessibility/audio behavior remain open. The paired-emulator attempt confirmed
+the documented ADB bridge, but Android Studio's official assistant reports that
+the cold Pixel 8 AVD lacks Google Pixel Watch; its Play Store is signed out, so
+the companion cannot be restored without user-owned account action. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
 ## Goal
@@ -774,7 +777,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-30, Iteration 34
+### Progress audit — 2026-09-30, Iteration 35
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -1189,11 +1192,12 @@ Phase 3 baseline passes, but paired Quick Start delivery, process/reboot
 recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 3 — End-to-end integration and recovery.
-**Exact next action:** run capability-gated paired Quick Start delivery on the
-phone/watch emulators, then verify watch process death between Ready and Start,
-phone cancellation/dismissal, stale replay/node binding, and exact Data Item
-cleanup. Audit TalkBack ordering and audio routing on a physical device when
-available.
+**Exact next action:** restore the official Google Pixel Watch companion on the
+phone AVD through a user-authorized Play Store session, or use a paired physical
+phone/watch. Then run capability-gated Quick Start delivery, watch process death
+between Ready and Start, phone cancellation/dismissal, stale replay/node
+binding, reboot/receipt retention, and exact Data Item cleanup. Audit TalkBack
+ordering and audio routing on a physical device when available.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

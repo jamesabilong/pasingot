@@ -83,7 +83,7 @@ class ScheduleSyncPlugin : Plugin() {
                     put("date", payload.date)
                 })
             } catch (error: Exception) {
-                call.reject(error.message ?: "Could not send workout. Check your watch connection.", error)
+                call.reject(watchTransferErrorMessage(error), error)
             }
         }
     }

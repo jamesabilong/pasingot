@@ -1894,3 +1894,55 @@ Quick Start delivery on the phone/watch emulators and verify Ready-to-Start
 process death, cancellation/dismissal, stale replay/node binding, terminal Data
 Item cleanup, and retained completion through reboot/receipt. Keep physical
 TalkBack/audio/haptic/battery checks separate.
+
+## Iteration 35 — 2026-09-30 — Paired prerequisite and legacy transport audit
+
+Status: **Actionable legacy watch-transfer errors complete with clean automated
+evidence; paired Quick Start validation blocked by the cold phone AVD's missing
+official companion app.**
+
+Starting checkpoint: `0e6312c PST01: Close Wear round-screen phase`, clean tree,
+one commit ahead of the local `origin/PST01` tracking ref. No fetch or push was
+made.
+
+Launched the existing Pixel 8 and round Wear OS AVDs, installed the current
+debug APKs, and restored the documented session bridge (`phone tcp:5602 ->
+tcp:5601`, watch reverse `tcp:5601 -> tcp:5602`). The official watch pairing
+refresh succeeded locally, but pairing status remained `Local:[643cb999]` and
+`Peer:[null,false,true]`. Android Studio's Wear pairing assistant then identified
+the prerequisite precisely: **Google Pixel Watch is not installed** on the
+phone AVD. The phone Play Store is signed out. No Google credentials or
+untrusted APK were used, both emulators were stopped, and no paired product
+behavior is claimed. This supersedes interpreting the failed connection as a
+Quick Start transport defect; Iteration 23 remains the latest successful paired
+legacy-sync evidence.
+
+The audit resumed a documented legacy regression from the 2026-09-11 emulator
+evidence: **Send today to watch** exposed raw `Wearable.API`, status-code, and
+timeout diagnostics. Added a bounded error normalizer at the native schedule
+bridge. A missing/unavailable companion now tells the user to install or open
+the watch companion and pair the watch; an unreachable node retains the prior
+reconnect instruction; a timeout gives a retry action; unexpected failures use
+a stable generic connection message. Cause inspection is bounded and uses a
+locale-stable comparison. Five new phone tests cover unavailable services,
+nested status, disconnected, timeout, and redacted unexpected failures.
+
+Validation:
+
+- Clean `./gradlew clean :shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+  --quiet` passed with **78 shared, 16 phone, and 191 Wear tests** (285 total),
+  zero failures/errors, and both debug APKs.
+- `npx tsc --noEmit`, the three Quick Start Node fixtures, `npm run build`, and
+  `npm run cap:sync` passed. Iteration 34's 109 checks remain the latest
+  real-browser evidence; this native-only error mapper did not change browser
+  code.
+- `git diff --check` passed before documentation closure.
+
+The Stage 19 checklist remains **65/97 (67%)**: Phase 0 **31/31**, Phase 1
+**10/10**, Phase 2 **17/17**, Phase 3 **7/12**, and Phase 4 **0/27**. No paired,
+reboot, physical audio/accessibility, or battery item closes. Exact next action:
+restore the official Google Pixel Watch companion through a user-authorized
+Play Store session, or use a paired physical phone/watch; then execute the
+recorded Phase 3 delivery/process-death/cancellation/replay/node-binding/
+cleanup/reboot matrix before physical-device acceptance.

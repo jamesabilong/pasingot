@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 35 attempted the Phase 3 paired-emulator checkpoint and confirmed
+  the local transport bridge, but Android Studio reported that the cold Pixel 8
+  AVD no longer has its required Google Pixel Watch companion app. Its Play
+  Store is signed out, so no paired behavior is claimed. The legacy **Send
+  today to watch** path now replaces raw Wearable API/timeout diagnostics with
+  actionable connection guidance. Clean suites pass 78/16/191 tests and both
+  debug APKs; TypeScript, Node fixtures, the PWA build, and Capacitor sync pass.
 - Iteration 34 closes the Phase 2 round-screen exit check on the Wear OS 7
   round AVD and reconciles two already-implemented Phase 3 paths: native
   acknowledgement events reach the React hook, and durable status restores on
@@ -72,8 +79,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 34, Phase 2 round-screen
-  closure and Phase 3 recovery-checklist reconciliation. Iteration 33 added the
+- Latest implementation checkpoint: Stage 19 Iteration 35, paired-environment
+  prerequisite audit and legacy watch-transfer error correction. Iteration 34
+  closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
+  Iteration 33 added the
   ambient and reduced-motion presentation policy. Iteration 32 added runtime
   voice availability and audio-route lifecycle. Iteration 31 added voice cue
   settings and the automated exit-check audit. Iteration 30 added notification-
@@ -139,7 +148,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. The round AVD shows readable Ready, countdown, rest, exercise-success, final-success, and static ambient layouts; entering ambient during countdown returns to the durable Ready offer. Native acknowledgement events and recreation/resume reconciliation were already implemented and now have reconciled checklist status. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: run capability-gated paired Quick Start delivery and recovery on the phone/watch emulators, including process-death, cancellation, replay, and Data Item cleanup. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 remains **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. Iteration 35 confirmed the cold Pixel 8 AVD lacks the Google Pixel Watch companion required by Android Studio's pairing assistant; the signed-out Play Store prevents restoring it without user-owned account action. Legacy manual send errors are now actionable. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: restore the official companion app on the phone AVD or use a paired physical phone/watch, then run capability delivery, process-death, cancellation, replay, reboot/receipt, and Data Item cleanup checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
