@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 34 closes the Phase 2 round-screen exit check on the Wear OS 7
+  round AVD and reconciles two already-implemented Phase 3 paths: native
+  acknowledgement events reach the React hook, and durable status restores on
+  app recreation/resume. The clean suites pass 78/11/191 tests, both debug
+  APKs, Capacitor sync, 109 browser checks, and three Node checks. Phase 3
+  paired recovery and physical accessibility/audio acceptance remain open.
 - Iteration 33 adds activity-wide ambient/reduced-motion policy, static
   low-power session and non-session layouts, burn-in offset updates, and
   foreground countdown cancellation on ambient entry. Clean suites pass
@@ -66,11 +72,12 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 33, ambient and reduced-
-  motion presentation policy. Iteration 32 added runtime voice availability and
-  audio-route lifecycle. Iteration 31 added voice cue settings
-  and the automated exit-check audit. Iteration 30 added notification-aware Ready
-  offer fallback. Iteration 29 added persisted success presentations and
+- Latest implementation checkpoint: Stage 19 Iteration 34, Phase 2 round-screen
+  closure and Phase 3 recovery-checklist reconciliation. Iteration 33 added the
+  ambient and reduced-motion presentation policy. Iteration 32 added runtime
+  voice availability and audio-route lifecycle. Iteration 31 added voice cue
+  settings and the automated exit-check audit. Iteration 30 added notification-
+  aware Ready offer fallback. Iteration 29 added persisted success presentations and
   completion cues. Iteration 28 added rest cues and the
   durable final-countdown lock. Iteration 27 added the foreground Quick Start
   countdown, Iteration 26 added the Wear cue-controller foundation, and
@@ -127,14 +134,14 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-29
+## Delivery board — reviewed 2026-09-30
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **57/97 checklist items (59%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, and Phase 2 is **16/17 (94%)**. Start/Dismiss/Cancel is serialized, final results survive offline transport until an exact phone receipt, both peers publish schema 1, and cues, persisted success/final-five state, notification fallback, voice runtime reporting, and ambient/reduced-motion policy are implemented. Automated receipt/cue exit checks pass; round-screen review, physical accessibility/audio, and paired delivery remain unverified | Next: run the 454x454 emulator review across Ready, countdown, session, success, and ambient layouts. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. The round AVD shows readable Ready, countdown, rest, exercise-success, final-success, and static ambient layouts; entering ambient during countdown returns to the durable Ready offer. Native acknowledgement events and recreation/resume reconciliation were already implemented and now have reconciled checklist status. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: run capability-gated paired Quick Start delivery and recovery on the phone/watch emulators, including process-death, cancellation, replay, and Data Item cleanup. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phase 2 implementation is code-complete; Phase 3 integration/recovery has not started | Close the round-screen Phase 2 exit check before Phase 3 |
+| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
 | **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

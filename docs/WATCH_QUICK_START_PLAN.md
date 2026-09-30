@@ -1,24 +1,28 @@
 # Watch Quick Start Plan
 
-Status: **Phase 0 and Phase 1 complete; Phase 2 watch cues in progress**
+Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 33 — ambient and reduced-motion policy**
-Previous checkpoint: `73a47c6 PST01: Report Wear voice runtime availability`
-Last updated: **2026-09-29**
+Latest checkpoint: **Iteration 34 — round-screen closure and recovery audit**
+Previous checkpoint: `1ca0df9 PST01: Add Wear ambient presentation policy`
+Last updated: **2026-09-30**
 
-**Current closure:** Iteration 33 passes 78 shared, 12 phone, and 191 Wear JVM
-tests plus both debug APK builds. Iteration 25 remains the latest browser
-baseline. The checklist is 57/97 (59%); Phase 2 now has serialized Start/Dismiss/Cancel,
+**Current closure:** Iteration 34 passes 78 shared, 11 phone, and 191 Wear JVM
+tests plus both debug APK builds, Capacitor sync, 109 browser checks, and three
+Node checks. The latest XML recount supersedes the current-summary claim of 12
+phone tests without rewriting earlier iteration evidence. The checklist is
+65/97 (67%); Phase 2 has serialized Start/Dismiss/Cancel,
 replay-safe native final-result transport and receipt cleanup, schema-1
 capability publication on both peers, and the isolated cue/TTS/persistence
 foundation plus foreground start, durable rest cues, persisted exercise/
 workout success presentations, notification-independent Ready fallback,
 persisted voice settings, runtime TTS/locale/audio-route reporting, and explicit
-ambient/reduced-motion presentation policy.
-The local browser fixture passes 19 checks. Paired delivery, round-screen
-review, physical accessibility/audio behavior, and paired
-acceptance remain open. See
+ambient/reduced-motion presentation policy. The round Wear OS 7 AVD passed the
+Ready, countdown, rest, exercise-success, final-success, and ambient layout
+review; countdown-to-ambient returned to the durable Ready offer. Phase 3 now
+records the already-wired acknowledgement event and recreation/resume paths
+plus its automated exit checks. Paired delivery/recovery and physical
+accessibility/audio behavior remain open. See
 `IMPLEMENTATION_PROGRESS.md` for evidence and next actions.
 
 ## Goal
@@ -770,18 +774,18 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-29, Iteration 33
+### Progress audit — 2026-09-30, Iteration 34
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **57/97 items (59%) overall**:
+stands at **65/97 items (67%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
-| Phase 2 — watch feature | **16/17 (94%)** | Ready/Start/Dismiss/Cancel, runtime session integration, native final-result cleanup, capability publication, cue/TTS persistence/settings/runtime availability, ambient/reduced-motion policy, foreground countdown, rest/success presentation, the durable final-five lock, and permission-independent notification fallback are wired; round-screen/device validation remains open |
-| Phase 3 — integration/recovery | **0/12 (0%)** | Not started |
+| Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
+| Phase 3 — integration/recovery | **7/12 (58%)** | Native acknowledgement events, React recreation/resume reconciliation, and automated exit checks pass; paired process/replay/cleanup cases remain open |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
@@ -922,7 +926,7 @@ Exit checks:
 
 ### Phase 2 — Watch receiver and ready prompt
 
-Status: **In progress — terminal transport and runtime voice reporting are wired; device presentation and paired validation remain open**
+Status: **Complete — code, headless checks, and round-emulator presentation exit check pass; physical behavior remains Phase 4 evidence**
 
 - [x] Implement listener, coordinator, receipt client, and prompt.
 - [x] Persist accepted requests through the transient package store, leaving the
@@ -958,15 +962,15 @@ Exit checks:
       five seconds, simultaneous tap/threshold ordering, Start now cancellation,
       and no warning/Go speech overlap.
 - [x] Existing session/repository tests still pass.
-- [ ] Round-screen preview/emulator shows readable Start/Dismiss, five-second
+- [x] Round-screen preview/emulator shows readable Start/Dismiss, five-second
       countdown, exercise-success, rest, and final-success states.
 
 ### Phase 3 — End-to-end integration and recovery
 
-Status: **Not started**
+Status: **In progress — event/resume wiring and automated gates pass; paired recovery evidence remains open**
 
-- [ ] Wire acknowledgement events to the phone plugin and React hook.
-- [ ] Reconcile status after phone process death/app resume.
+- [x] Wire acknowledgement events to the phone plugin and React hook.
+- [x] Reconcile status after phone process death/app resume.
 - [ ] Verify watch process death between ready and Start.
 - [ ] Verify phone cancellation/dismissal behavior.
 - [ ] Verify request/ack Data Item cleanup, stale replay, node binding, and
@@ -978,11 +982,11 @@ Status: **Not started**
 
 Exit checks:
 
-- [ ] Browser regression fixtures all pass.
-- [ ] Shared, phone, and Wear JVM tests pass.
-- [ ] `npm run cap:sync` passes.
-- [ ] Clean phone and Wear debug APK builds pass.
-- [ ] `git diff --check` passes.
+- [x] Browser regression fixtures all pass.
+- [x] Shared, phone, and Wear JVM tests pass.
+- [x] `npm run cap:sync` passes.
+- [x] Clean phone and Wear debug APK builds pass.
+- [x] `git diff --check` passes.
 
 ### Phase 4 — Paired-device acceptance
 
@@ -1172,15 +1176,24 @@ and 191 Wear passing tests plus both debug APK builds. The
 454x454 emulator renders the saved-workout list and a persisted Ready prompt;
 the Started path is covered by runtime adapter tests, but paired Quick Start
 delivery and physical-device acceptance remain open. No emulator was opened for
-Iteration 33, so voice routing, ambient/reduced-motion states, published
-capability, and the complete terminal path still need device validation.
-**Current phase:** Phase 2 — Watch receiver and ready prompt.
-**Exact next action:** run the 454x454 emulator review for the Ready prompt
-(Start/Dismiss), countdown, exercise-success, rest, final-success, and ambient
-layouts. Then
-audit TalkBack ordering on a device when available. Separately verify
-capability-gated paired delivery, cancellation races, reboot recovery, and Data
-Item cleanup.
+Iteration 33. Iteration 34 closes the round-emulator presentation gate:
+Ready/Start/Dismiss, the five-second countdown, rest, exercise-success,
+final-success, active ambient, final ambient, and countdown cancellation on
+ambient entry were readable on the round Wear OS 7 AVD. It also reconciles
+Phase 3 with code already delivered in Iterations 19 and 25: native
+acknowledgement events reach the React hook, and durable status restores and
+reconciles after recreation and resume. The clean recount is 78 shared, 11
+phone, and 191 Wear tests; the earlier 12-phone summary is a documentation
+count superseded here, not rewritten historical evidence. The full automated
+Phase 3 baseline passes, but paired Quick Start delivery, process/reboot
+recovery, cancellation races, cleanup, and physical-device acceptance remain
+open.
+**Current phase:** Phase 3 — End-to-end integration and recovery.
+**Exact next action:** run capability-gated paired Quick Start delivery on the
+phone/watch emulators, then verify watch process death between Ready and Start,
+phone cancellation/dismissal, stale replay/node binding, and exact Data Item
+cleanup. Audit TalkBack ordering and audio routing on a physical device when
+available.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

@@ -1834,3 +1834,63 @@ check remains open. Stage 19 is now **57/97 (59%)** overall and Phase 2 is
 **16/17 (94%)**. Exact next action: run the 454x454 emulator review for
 Start/Dismiss, countdown, exercise-success, rest, final-success, and ambient
 layouts, recording screenshots/findings without claiming physical acceptance.
+
+## Iteration 34 — 2026-09-30 — Round-screen closure and Phase 3 recovery audit
+
+Status: **Phase 2 round-screen exit check complete; Phase 3 event/resume wiring
+and automated gates reconciled and verified. Paired and physical-device
+acceptance remain open.**
+
+Starting checkpoint: `1ca0df9 PST01: Add Wear ambient presentation policy`,
+clean tree matching the local `origin/PST01` tracking ref. No fetch or push
+occurred.
+
+Installed the freshly built Wear APK on the existing round Wear OS 7 AVD and
+used a temporary valid two-exercise Quick Start package. The Ready card showed
+the full title, exercise count, Start, and Dismiss actions. The five-second
+countdown kept its number, exercise name, target, and perimeter ring inside the
+round viewport. Active and rest states remained readable; the success/rest
+combination exposed the complete exercise-success summary and scrollable rest
+controls. The final-success summary retained its counts, set total, elapsed and
+estimated time, durable **Saved on watch** state, and scrollable return action.
+
+Ambient validation showed static non-interactive active and final summaries
+with merged accessibility descriptions. Entering ambient one second into the
+countdown returned to the static Workouts fallback; waking restored the exact
+Ready offer and no runtime had started. This is emulator presentation/runtime
+evidence only. It does not validate physical burn-in movement, low-bit pixels,
+TalkBack order, haptics, TTS routing, battery use, or paired transport.
+
+The documentation audit found that Phase 3's first two checklist items were
+already implemented but still unchecked. `QuickStartAckListenerService`
+durably records acknowledgements and publishes the in-process event consumed by
+`WatchQuickStartPlugin`; `useWatchQuickStart` listens for that event and
+reconciles the authoritative native record on visibility/resume. Initial hook
+hydration restores the latest durable native offer after recreation. These
+paths were delivered in earlier iterations; this iteration reconciles their
+status rather than claiming new production code.
+
+Validation:
+
+- Clean `./gradlew clean :shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug --no-daemon
+  --quiet` passed with **78 shared, 11 phone, and 191 Wear tests** (280 total),
+  zero failures/errors, and both debug APKs. The latest XML result recount
+  supersedes the current-summary claim of 12 phone tests; earlier iteration
+  text is retained as historical evidence.
+- `npx tsc --noEmit`, `node --experimental-strip-types
+  pwa/tests/quick-start.test.mjs` (3/3), and `npm run cap:sync` passed.
+- Real-browser fixtures passed **109 checks**: 19 Quick Start, 35 data
+  integrity, 10 custom quest, 6 workout timing, 17 workout integrity, and 22
+  watch sync. The expected watch-sync ACK failure log and missing favicon are
+  fixture/development noise, not application failures. The isolated workflow
+  smoke page also loaded successfully.
+- `git diff --check` passed before documentation closure.
+
+No production source changed. The verified checklist is now **65/97 (67%)**
+overall: Phase 0 **31/31**, Phase 1 **10/10**, Phase 2 **17/17**, Phase 3
+**7/12**, and Phase 4 **0/27**. Exact next action: run capability-gated paired
+Quick Start delivery on the phone/watch emulators and verify Ready-to-Start
+process death, cancellation/dismissal, stale replay/node binding, terminal Data
+Item cleanup, and retained completion through reboot/receipt. Keep physical
+TalkBack/audio/haptic/battery checks separate.
