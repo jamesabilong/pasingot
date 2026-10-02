@@ -33,8 +33,25 @@ class DataStoreWatchCuePersistenceTest {
             ))
             assertEquals(true, restored.state().preferences.voiceEnabled)
             assertEquals(ReserveWatchCue.Duplicate, restored.reserve(event))
+            restored.clearAcknowledgedSession(event.sessionId)
         } finally {
             secondJob.cancelAndJoin()
+        }
+
+        val thirdJob = SupervisorJob()
+        try {
+            val acknowledged = WatchCueStore(DataStoreWatchCuePersistence(
+                PreferenceDataStoreFactory.create(scope = CoroutineScope(thirdJob + Dispatchers.IO)) { file },
+            ))
+            assertEquals(true, acknowledged.state().preferences.voiceEnabled)
+            assertEquals(null, acknowledged.state().ledgerSessionId)
+            assertEquals(ReserveWatchCue.Duplicate, acknowledged.reserve(event))
+            val success = event.copy(kind = WatchCueKind.WORKOUT_SUCCESS)
+            assertEquals(ReserveWatchCue.Reserved(acknowledged.state().preferences), acknowledged.reserve(success))
+            assertEquals(ReserveWatchCue.Duplicate, acknowledged.reserve(success))
+            assertEquals(emptyList<String>(), acknowledged.state().ledger.deliveredKeys)
+        } finally {
+            thirdJob.cancelAndJoin()
             file.delete()
         }
     }

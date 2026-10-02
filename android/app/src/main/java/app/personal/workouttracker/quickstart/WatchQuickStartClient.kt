@@ -26,6 +26,7 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 sealed interface WatchQuickStartAvailability {
     data class Available(val watchNodeId: String) : WatchQuickStartAvailability
@@ -109,7 +110,12 @@ class WatchQuickStartClient(private val context: Context) {
         ))
         val item = PutDataMapRequest.create(
             quickStartResultReceiptPath(receipt.requestId, receipt.resultId),
-        ).apply { dataMap.putString("payload", payload) }.asPutDataRequest().setUrgent()
+        ).apply {
+            dataMap.putString("payload", payload)
+            // Reopening the phone must re-deliver an exact receipt whose cleanup
+            // failed on the watch, even when its immutable payload is unchanged.
+            dataMap.putString("deliveryId", UUID.randomUUID().toString())
+        }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(item).await()
     }
 

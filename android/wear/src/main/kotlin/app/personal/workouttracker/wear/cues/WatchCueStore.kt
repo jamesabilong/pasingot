@@ -20,6 +20,9 @@ data class PersistedWatchCueState(
     val preferences: WatchCuePreferences = WatchCuePreferences(),
     val ledgerSessionId: String? = null,
     val ledger: WatchCueLedger = WatchCueLedger(),
+    // One compact tombstone replaces the acknowledged session's transient keys.
+    val acknowledgedSessionId: String? = null,
+    val acknowledgedWorkoutSuccess: Boolean = false,
 )
 
 interface WatchCuePersistence {
@@ -67,6 +70,15 @@ class WatchCueStore(
     /** Records before output. Haptics are not gated by the voice preference. */
     suspend fun reserve(event: WatchCueEvent): ReserveWatchCue = processMutex.withLock {
         val current = readState()
+        if (current.acknowledgedSessionId == event.sessionId) {
+            // Receipt can beat the foreground success callback. Admit that success
+            // once without recreating the full ledger; all obsolete cues stay silent.
+            if (event.kind != WatchCueKind.WORKOUT_SUCCESS || current.acknowledgedWorkoutSuccess) {
+                return@withLock ReserveWatchCue.Duplicate
+            }
+            persistence.write(json.encodeToString(current.copy(acknowledgedWorkoutSuccess = true)))
+            return@withLock ReserveWatchCue.Reserved(current.preferences)
+        }
         val ledger = if (current.ledgerSessionId == event.sessionId) current.ledger else WatchCueLedger()
         val recorded = ledger.record(event) ?: return@withLock ReserveWatchCue.Duplicate
         persistence.write(json.encodeToString(current.copy(
@@ -79,10 +91,13 @@ class WatchCueStore(
     /** Called only after the session's exact final-result receipt is durable. */
     suspend fun clearAcknowledgedSession(sessionId: String) = processMutex.withLock {
         val current = readState()
-        if (current.ledgerSessionId != sessionId) return@withLock
+        if (current.ledgerSessionId != null && current.ledgerSessionId != sessionId) return@withLock
+        if (current.ledgerSessionId == null && current.acknowledgedSessionId == sessionId) return@withLock
         persistence.write(json.encodeToString(current.copy(
             ledgerSessionId = null,
             ledger = WatchCueLedger(),
+            acknowledgedSessionId = sessionId,
+            acknowledgedWorkoutSuccess = current.ledger.deliveredKeys.any { "|WORKOUT_SUCCESS|" in it },
         )))
     }
 

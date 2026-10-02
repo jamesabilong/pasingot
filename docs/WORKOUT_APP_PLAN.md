@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 50 implements safe exact-receipt cue pruning, retaining compact
+  terminal replay protection and preferences, plus retryable receipt delivery
+  metadata. All 198 Wear/16 phone tests and both APKs pass. Paired airplane-
+  mode completion survives reboot unchanged; exact receipt prunes runtime,
+  package and transient cues. Stage 19 is **68/97 (70%)**, Phase 3 **10/12
+  (83%)**. Full transport/replay/binding/capability and legacy checks remain.
+
 - Iteration 49 fixes final-screen sync wording through durable receipt
   observation. All 193 Wear tests, the Wear APK, and native live receipt UI
   validation pass. The loaded summary remains visible after runtime pruning.
@@ -242,9 +249,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **67/97 checklist items (69%) overall**; Phases 0–2 remain complete and Phase 3 is **9/12 (75%)**. Iteration 48 verifies paired Windows Ready/process-restart/Start and Cancel/Dismiss; connected completion/receipt passes. Physical accessibility/audio remains open | Next: fix receipt-aware final presentation and cue cleanup, then validate offline reboot, full replay/cleanup and legacy regression. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **68/97 checklist items (70%) overall**; Phases 0–2 remain complete and Phase 3 is **10/12 (83%)**. Paired Windows restart/Start, Cancel/Dismiss, offline reboot and exact receipt/cue pruning pass. Physical accessibility/audio remains open | Next: validate full transport/replay/binding/capability matrix and legacy regression. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 is **9/12**. Native testing found stale final-screen sync wording and a retained cue ledger after exact receipt | Implement receipt-aware presentation and audit ledger cleanup ordering; validate remaining paired cases |
+| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 is **10/12**. Iterations 49–50 fix stale sync wording and wire race-safe cue pruning | Run remaining native transport/replay/binding/capability and legacy checks before further changes |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

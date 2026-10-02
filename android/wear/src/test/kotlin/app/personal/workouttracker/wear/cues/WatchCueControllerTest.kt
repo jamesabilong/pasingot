@@ -89,7 +89,7 @@ class WatchCueControllerTest {
         store.clearAcknowledgedSession("another")
         assertEquals(WatchCueResult.DUPLICATE, WatchCueController(store, FakeCueOutput()).emit(first, "Done"))
         store.clearAcknowledgedSession(first.sessionId)
-        assertEquals(WatchCueResult.SPOKEN, WatchCueController(store, FakeCueOutput()).emit(first, "Done"))
+        assertEquals(WatchCueResult.DUPLICATE, WatchCueController(store, FakeCueOutput()).emit(first, "Done"))
     }
 
     private suspend fun enabledStore(): WatchCueStore = WatchCueStore(MemoryCuePersistence()).also {

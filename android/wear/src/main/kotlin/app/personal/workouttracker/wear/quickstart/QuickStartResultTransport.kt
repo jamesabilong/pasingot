@@ -3,6 +3,8 @@ package app.personal.workouttracker.wear.quickstart
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
+import app.personal.workouttracker.wear.cues.WatchCueStore
 import app.personal.workouttracker.shared.quickstart.QUICK_START_RESULT_SCHEMA_VERSION
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
 import app.personal.workouttracker.shared.quickstart.QuickStartResultEnvelope
@@ -49,6 +51,7 @@ sealed interface QuickStartResultCleanupResult {
 class QuickStartRuntimeResultCoordinator(
     private val runtime: QuickStartRuntimeStore,
     private val packages: QuickStartPackageStore,
+    private val clearAcknowledgedCues: suspend (String) -> Unit = {},
 ) {
     suspend fun acknowledgePayloadAndPrune(
         payload: String,
@@ -65,7 +68,7 @@ class QuickStartRuntimeResultCoordinator(
             ClearQuickStartRuntimePayloadResult.Missing -> return QuickStartResultCleanupResult.Missing
             ClearQuickStartRuntimePayloadResult.Mismatch -> return QuickStartResultCleanupResult.Mismatch
         }
-        return when (packages.releaseAcknowledged(receipt)) {
+        val result = when (packages.releaseAcknowledged(receipt)) {
             is ReleaseAcknowledgedQuickStartResult.Released -> QuickStartResultCleanupResult.Pruned(receipt)
             is ReleaseAcknowledgedQuickStartResult.AlreadyReleased ->
                 QuickStartResultCleanupResult.AlreadyPruned(receipt)
@@ -73,6 +76,11 @@ class QuickStartRuntimeResultCoordinator(
             ReleaseAcknowledgedQuickStartResult.Mismatch,
             ReleaseAcknowledgedQuickStartResult.NotStarting -> QuickStartResultCleanupResult.Mismatch
         }
+        if (result is QuickStartResultCleanupResult.Pruned || result is QuickStartResultCleanupResult.AlreadyPruned) {
+            // Failed cue writes retain transport items; exact receipt replay retries cleanup.
+            clearAcknowledgedCues(receipt.requestId)
+        }
+        return result
     }
 }
 
@@ -84,6 +92,7 @@ class QuickStartResultReceiptListenerService : WearableListenerService() {
             val coordinator = QuickStartRuntimeResultCoordinator(
                 QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context)),
                 WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context)),
+                WatchCueStore(DataStoreWatchCuePersistence(context))::clearAcknowledgedSession,
             )
             for (event in dataEvents) {
                 if (event.type != DataEvent.TYPE_CHANGED) continue

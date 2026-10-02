@@ -2660,3 +2660,63 @@ Completed: live receipt-aware success presentation and meaningful lifecycle/
 durability regression checks. Stage 19 stays **67/97**, Phase 3 **9/12**.
 Next action: implement race-safe cue ledger pruning using a compact terminal
 tombstone, then validate truly offline completion/reboot and receipt cleanup.
+
+## Iteration 50 — 2026-10-02 — Safe receipt cue pruning
+
+Status: **Exact-receipt cue pruning implemented; 198 Wear/16 phone tests,
+both APKs, offline reboot retention and paired receipt cleanup pass.**
+
+Starting checkpoint: `5cfc083 PST01: Refresh watch completion after durable
+phone receipt`. Read the latest plan/progress. Stage 19 remains 67/97 and
+Phase 3 9/12. Cleanup must preserve preferences, reject unrelated receipts,
+remain retryable after write failure, and avoid suppressing the first success
+cue when its receipt arrives before cue reservation.
+
+Implemented a bounded acknowledged-session ID/success flag in cue state.
+Exact receipt replaces that session's transient ledger with the compact
+tombstone while preserving preferences. A first terminal success arriving
+after receipt is still reserved once, without rebuilding the ledger; obsolete
+and replayed cues stay suppressed. Another session's ledger is untouched.
+Fields are additive with backward-compatible defaults; schema/wire versions
+do not change. Production receipt coordination now calls this cleanup after
+exact runtime/package acknowledgement and before transport-item deletion.
+Failed cue writes leave transport items available for receipt retry. Phone
+receipt Data Maps add a fresh delivery ID so an unchanged immutable receipt
+can generate another native event on retry; the receipt payload stays exact.
+
+Validation and audit:
+
+- All **198 Wear and 16 phone tests**, zero failures/errors, and both debug
+  APK builds pass. Five new tests cover receipt-before-success (including no
+  prior cues), success-before-receipt, concurrent reservation/receipt, and
+  failed-cleanup replay. Expanded real-file tests preserve tombstones and
+  preferences across independent DataStore scopes. Corrected the old cleanup
+  test that allowed an acknowledged exercise-success cue to replay.
+- Installed both updated APKs without clearing data. Sent a one-set Jumping
+  Jacks emulator fixture, started it, enabled watch airplane mode and restarted
+  adb to close existing bridge sockets. Watch reported **Active default
+  network: none**. Completed the set; its immutable result remained queued
+  while the screen showed **Saved on watch / Waiting to sync**.
+- Rebooted the watch with airplane mode still enabled. Boot completed with no
+  active network. The queued result deep-compared equal before/after reboot:
+  request `3b81456f-757a-497b-a98e-0ec511d08eb5`, revision 1, unchanged summary.
+  Resume reopened the completed summary without starting another workout.
+- Disabled airplane mode, enabled Wi-Fi and restored the adb forward/reverse
+  bridge. Exact phone receipt removed runtime/package and all transient cue
+  keys. Native stores show matching acknowledged request IDs, the terminal
+  success flag and unchanged preferences. The same open final screen retains
+  counts/duration and **Saved on watch**, with **Waiting to sync** absent.
+- Airplane mode is restored to its original disabled state; Wi-Fi is enabled.
+  No account or permission grant was performed. Test workouts are emulator
+  history, not real training, physical audio or battery evidence.
+- Reviewed scope/identity checks, persistence-before-output, idempotent retry,
+  new-session protection, observer lifecycle and delivery metadata. Source/
+  documentation review and `git diff --check` pass. This does not close the
+  entire stale replay/node/mixed-version/transport cleanup matrix.
+
+Completed: Phase 3 queued completion through watch reboot, exact phone receipt,
+and safe transient package/cue pruning. **Stage 19: 68/97 (70%), Phase 3:
+10/12 (83%)**. Remaining: full transport/replay/node/mixed-version matrix,
+legacy send/download/log/live-status regression, and physical Phase 4 0/27.
+Next action: inspect actual Data Items and run native replay/binding/capability
+checks, then execute legacy sync regression on the paired Windows emulators.
