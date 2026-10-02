@@ -2238,3 +2238,64 @@ Next action: isolate Today overview calculations and shell notification
 permission coordination, audit the remaining App responsibilities against
 Stage 14B, and record its exact closure status; resume Stage 19 paired recovery
 when companion/paired devices are available.
+
+## Iteration 42 — 2026-10-02 — Today overview and composition-root closure
+
+Status: **Today overview/permission modules complete; Stage 14B composition-
+root code goal complete with full browser regression evidence. Native, paired
+and physical acceptance remain separate and open.**
+
+Starting checkpoint: `749ddcd PST01: Extract inbound watch update workflow`,
+clean working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented pure `buildTodayOverview` and memoized `useTodayOverview` for
+weekday schedule selection/time ordering, estimated duration, latest local-date
+statuses, plan progress, and local-date set counts. The overview uses one local
+date for its weekday and history rather than separately reading the system
+weekday; rollover/reconciliation therefore updates them together. Added
+`useNotificationPermission` for shell permission initialization and explicit
+request results, preserving grant/denial and unsupported-browser behavior.
+No actual notification permission prompt was triggered during validation.
+
+Composition-root audit:
+
+- App now owns tab and History range selections and connects feature hook
+  outputs to feature screens and AppShell. It has no domain functions, React
+  effects, memoized domain calculations, persistence, network loading, timers
+  or subscriptions inline. Cross-feature callbacks remain wiring between
+  existing workflow actions (for example body metrics to Health Connect).
+- Shared data/catalog, bootstrap/restore, session progression, cues, quest,
+  Library/playlist, CSV import, backup transfer, watch updates, reminders and
+  shell permission handling have focused hook/module boundaries.
+- Added the lightweight composition-root review checklist to the React
+  instructions. Stage 14B's earlier partial findings are superseded by this
+  code audit; their historical evidence remains intact.
+
+Validation:
+
+- New overview/permission fixture passed **12 checks**: weekday/time selection,
+  non-mutation, latest status ordering, local midnight counts, estimate, memo
+  stability, date rollover, rest day, no initial permission prompt, grant,
+  denial and unsupported API handling. A TypeScript weekday-width mismatch
+  during implementation was corrected using the shared typed weekday list.
+- Full browser regression audit passed **200 checks total**: new overview 12,
+  data integrity 35, custom quests 10, Library 18, quest workflow 18, import 15,
+  hydration 16, watch updates 12, native watch bridge 22, Quick Start 19,
+  workout timing 6, and workout integrity 17. Injected failure/offline logs are
+  expected fixture evidence.
+- Isolated App saved its custom playlist and rendered Today with the correct
+  weekday, prescription/load, one pending exercise, duration and set count,
+  weekly plan and enabled Start action.
+- `npx tsc --noEmit`, `npm run build`, three Quick Start Node fixtures and
+  `git diff --check` passed.
+- No native code, schemas, or dependencies changed. No APK build, emulator
+  pairing, physical-device test, Git fetch or push occurred.
+
+Completed: Today overview and shell permission extraction; Stage 14B code
+architecture and browser regression closure. Remaining: native file chooser/
+export file verification, paired Stage 19 recovery and physical acceptance,
+including audio/accessibility and battery evidence. This checkpoint does not
+close device acceptance or promote a future feature into the active roadmap.
+Next action: verify native file chooser/export artifacts, or restore the
+official companion/use paired devices and execute the recorded Stage 19
+Phase 3 recovery matrix. No remaining Stage 14B extraction module is scheduled.

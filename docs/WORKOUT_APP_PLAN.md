@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 42 extracts Today overview and shell notification permission
+  handling and closes Stage 14B's composition-root **code** goal. The full
+  browser audit passes 200 checks; TypeScript, build and three Node fixtures
+  pass. Native file/export, paired recovery and physical acceptance remain
+  open; Stage 19 is unchanged at 65/97. Watch updates are in `749ddcd`.
+
 - Iteration 41 extracts inbound watch updates/status and queued native retries
   into `useWatchUpdates`. All 85 relevant browser checks, TypeScript, build, and
   three Node fixtures pass, including subscription and resume cleanup. Today
@@ -191,7 +197,7 @@ Update that log during every implementation iteration, not only at handoff.
 | **Current** | Stage 19 remains **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. Iteration 35 confirmed the cold Pixel 8 AVD lacks the Google Pixel Watch companion required by Android Studio's pairing assistant; the signed-out Play Store prevents restoring it without user-owned account action. Legacy manual send errors are now actionable. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: restore the official companion app on the phone AVD or use a paired physical phone/watch, then run capability delivery, process-death, cancellation, replay, reboot/receipt, and Data Item cleanup checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
-| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: Today derived presentation and shell notification permission coordination remain in `App.tsx`; inbound watch/queued sync, data/loading/hydration and principal feature actions now have hooks | Inbound watch/queued-sync module is extracted in Iteration 41 with 85 browser checks; next isolate Today overview/notification coordination and audit closure. The full refactor remains partial |
+| **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
@@ -1310,10 +1316,13 @@ Manual acceptance:
 
 ## Stage 14B - React State and Logic Overhaul
 
-**Status:** first cleanup slice complete and pushed as `650ac65 PST01: React
-cleanup`; the full composition-root goal remains partial. Several workflows
-still own state/effects/handlers in `App.tsx`. Iteration 2 adds local-date and
-quest-progress modules but does not claim the entire hook extraction is done.
+**Status:** composition-root code goal complete in Iteration 42, with 200
+passing browser regression checks plus TypeScript/build/Node verification.
+App now owns routing/display selections and wires focused workflow/data hooks;
+its domain persistence, loading, timers, subscriptions and derived calculations
+are extracted. The first cleanup slice was pushed as `650ac65 PST01: React
+cleanup`; earlier partial findings are preserved in the progress log and are
+superseded by Iterations 36–42. Native/paired/physical acceptance remains open.
 
 Goal: reduce `App.tsx` from a large app controller into a thin composition
 root by moving feature-specific state, effects, persistence, and action

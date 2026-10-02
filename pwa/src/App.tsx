@@ -3,7 +3,7 @@
 // worker. Foreground matching remains isolated in checkScheduleAgainstNow so a
 // future push handler can reuse it without changing the schedule contract.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { HistoryView } from './components/HistoryView';
 import { ImportView } from './components/ImportView';
@@ -15,6 +15,8 @@ import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickSt
 import { useWatchUpdates } from './hooks/useWatchUpdates';
 import { useWorkoutData } from './hooks/useWorkoutData';
 import { useWorkoutDataHydration } from './hooks/useWorkoutDataHydration';
+import { useTodayOverview } from './hooks/useTodayOverview';
+import { useNotificationPermission } from './hooks/useNotificationPermission';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
 import { useQuestWorkflow } from './hooks/useQuestWorkflow';
@@ -26,18 +28,11 @@ import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
 import { useWorkoutBackup } from './hooks/useWorkoutBackup';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
-import { localDateKey } from './lib/history-stats';
 import {
-  calculatePlanProgress,
   defaultPrescriptionFor,
-  estimateLevelFor,
-  estimateWorkoutDurationSeconds,
-  formatEstimatedDuration,
   LEVEL_LABELS,
   LEVELS,
   MAX_PLAYLIST_ITEMS,
-  todayName,
-  workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
   type HistoryRange,
@@ -56,9 +51,7 @@ export default function App() {
     refreshSetLogs, refreshCustomExercises, refreshWorkoutHistory, logExercise,
   } = data;
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
-    'Notification' in window ? Notification.permission : 'unsupported'
-  ));
+  const { permission: notificationPermission, requestPermission: requestNotificationPermission } = useNotificationPermission();
   const {
     entries: bodyMetricEntries,
     draft: bodyMetricDraft,
@@ -141,21 +134,10 @@ export default function App() {
 
   useScheduleNotifications(workouts, addToast);
 
-  const todayWorkouts = useMemo(() => workouts
-    .filter((row) => row.day.toLowerCase() === todayName().toLowerCase())
-    .sort((left, right) => left.time.localeCompare(right.time)), [workouts, localToday]);
-  const todayEstimate = useMemo(() => (
-    formatEstimatedDuration(estimateWorkoutDurationSeconds(todayWorkouts, estimateLevelFor(todayWorkouts)))
-  ), [todayWorkouts]);
-  const todayStatuses = useMemo(() => workoutStatusesOnDate(logs, localToday), [logs, localToday]);
-  const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
-  const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => localDateKey(entry.date) === localToday).length, [setLogEntries, localToday]);
-
-  async function requestNotificationPermission() {
-    if (!('Notification' in window)) return;
-    const permission = await Notification.requestPermission();
-    setNotificationPermission(permission);
-  }
+  const {
+    dayName: todayName, workouts: todayWorkouts, estimate: todayEstimate,
+    statuses: todayStatuses, progress: todayProgress, setLogCount: todaySetLogCount,
+  } = useTodayOverview(workouts, logs, setLogEntries, localToday);
 
   return (
     <AppShell
@@ -179,7 +161,7 @@ export default function App() {
       onRequestNotificationPermission={() => void requestNotificationPermission()}
     >
       {tab === 'today' && <TodayView
-        todayName={todayName()}
+        todayName={todayName}
         watchSession={watchSession}
         weeklyWorkouts={workouts}
         onBuildPlan={() => setTab('library')}

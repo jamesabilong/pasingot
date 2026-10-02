@@ -82,3 +82,18 @@ git diff --check
 
 For visible UI changes, also do a browser smoke test of the changed tab or
 workflow.
+
+## Composition-Root Review Checklist
+
+Before closing a React implementation checkpoint:
+
+- App owns routing/display selections and connects focused hook outputs to
+  screens; it contains no domain persistence, fetch, timer or subscription code.
+- Feature workflows own their state/effects/actions in named hooks; shared data
+  and bootstrap/restore coordination have explicit boundaries.
+- Pure calculations and validation live in `lib/`; screen components own JSX
+  and local presentation/form affordances.
+- Cross-feature callbacks connect workflows without duplicating their
+  persistence logic or triggering actions during render.
+- Relevant regression checks pass, and the progress log distinguishes code/
+  browser evidence from native, paired and physical-device acceptance.

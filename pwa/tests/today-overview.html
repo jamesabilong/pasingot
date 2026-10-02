@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Today overview and permission checks</title>
+<h1>Today overview and permission checks</h1>
+<p>Fixture records and mocked permission API; no system permission prompt.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { useTodayOverview } from '/src/hooks/useTodayOverview.ts';
+import { useNotificationPermission } from '/src/hooks/useNotificationPermission.ts';
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const row = { schemaVersion: 1, day: 'Friday', time: '08:00', exercise: 'Fixture Squat', sets: 1, reps: '10', rest: 0 };
+const rows = [{ ...row, id: 1 }, { ...row, id: 2, time: '07:00' }, { ...row, id: 3, time: '09:00' }, { ...row, id: 4, day: 'Saturday' }];
+const at = (date, time = '12:00:00') => new Date(`${date}T${time}`).toISOString();
+const logs = [
+  { schemaVersion: 1, exercise: 'Fixture Squat', workoutRowId: 1, status: 'done', date: at('2026-10-02', '13:00:00') },
+  { schemaVersion: 1, exercise: 'Fixture Squat', workoutRowId: 1, status: 'skipped', date: at('2026-10-02', '11:00:00') },
+  { schemaVersion: 1, exercise: 'Fixture Squat', workoutRowId: 2, status: 'skipped', date: at('2026-10-02') },
+  { schemaVersion: 1, exercise: 'Fixture Squat', workoutRowId: 3, status: 'done', date: at('2026-10-01') },
+];
+const setLogs = [{ date: at('2026-10-02', '00:01:00') }, { date: at('2026-10-01', '23:59:00') }];
+let date = '2026-10-02';
+let nextPermission = 'granted';
+let calls = 0;
+let notificationApi = { permission: 'default', requestPermission: async () => { calls++; return nextPermission; } };
+let api;
+let root = createRoot(document.getElementById('root'));
+function Harness() {
+  const overview = useTodayOverview(rows, logs, setLogs, date);
+  const permissions = useNotificationPermission(notificationApi);
+  React.useLayoutEffect(() => { api = { overview, permissions }; });
+  return null;
+}
+const render = () => flushSync(() => root.render(React.createElement(Harness)));
+try {
+  render();
+  check(api.overview.dayName === 'Friday' && api.overview.workouts.map(row => row.id).join(',') === '2,1,3', 'overview selects requested weekday and sorts by time');
+  check(rows[0].id === 1 && logs[0].status === 'done', 'overview does not mutate source rows or history');
+  check(api.overview.progress.completed === 1 && api.overview.progress.skipped === 1 && api.overview.progress.pending === 1, 'latest same-day status wins without older-day credit');
+  check(api.overview.setLogCount === 1, 'set count follows local midnight boundaries');
+  check(api.overview.estimate.startsWith('Est.'), 'overview retains estimated duration presentation');
+  const first = api.overview; render();
+  check(api.overview === first, 'unchanged inputs retain memoized overview');
+  date = '2026-10-03'; render();
+  check(api.overview.dayName === 'Saturday' && api.overview.workouts.length === 1 && api.overview.workouts[0].id === 4 && api.overview.setLogCount === 0, 'date rollover updates weekday, schedule and counts together');
+  date = '2026-10-04'; render();
+  check(api.overview.workouts.length === 0 && api.overview.progress.pending === 0, 'rest day has empty schedule and zero pending count');
+  check(api.permissions.permission === 'default' && calls === 0, 'permission initializes without prompting');
+  await api.permissions.requestPermission(); await settle();
+  check(api.permissions.permission === 'granted' && calls === 1, 'explicit permission action records grant');
+  nextPermission = 'denied'; await api.permissions.requestPermission(); await settle();
+  check(api.permissions.permission === 'denied' && calls === 2, 'permission denial updates state');
+  root.unmount(); root = createRoot(document.getElementById('root')); notificationApi = null; render();
+  await api.permissions.requestPermission(); await settle();
+  check(api.permissions.permission === 'unsupported' && calls === 2, 'unsupported browser safely ignores permission request');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally { root.unmount(); }
+</script>
+</html>
