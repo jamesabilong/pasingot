@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { HistoryView } from './components/HistoryView';
-import { ImportView, type BackupTransferResult } from './components/ImportView';
+import { ImportView } from './components/ImportView';
 import { LibraryView } from './components/LibraryView';
 import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
@@ -19,8 +19,9 @@ import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
 import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
+import { useWorkoutBackup } from './hooks/useWorkoutBackup';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
-import { backupFileName, buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from './lib/backup';
+import type { WorkoutBackup } from './lib/backup';
 import { parseCatalogCsv } from './lib/catalog';
 import {
   customExerciseFromDraft,
@@ -124,7 +125,6 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [backupResult, setBackupResult] = useState<BackupTransferResult | null>(null);
   const [customExerciseDraft, setCustomExerciseDraft] = useState<CustomExerciseDraft>(initialCustomExerciseDraft);
   const [customExerciseResult, setCustomExerciseResult] = useState<{ message: string; error: boolean } | null>(null);
   const [playlistResult, setPlaylistResult] = useState<{ message: string; error: boolean } | null>(null);
@@ -183,6 +183,9 @@ export default function App() {
     session: activeWorkoutSession,
     clearSession: clearActiveWorkoutSession,
     onScheduleChanged: setWorkouts,
+  });
+  const { result: backupResult, exportBackup, importBackup } = useWorkoutBackup({
+    onRestored: rehydrateBackup,
   });
   const saveDraft = useCallback(async (next: PlaylistDraft) => {
     setDraft(next);
@@ -385,49 +388,20 @@ export default function App() {
     setQuestHistory(storedQuestHistory?.entries ?? []);
   }
 
-  async function exportBackup() {
-    try {
-      const backup = await buildWorkoutBackup();
-      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = backupFileName();
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setBackupResult({ error: false, message: `Backup exported with ${backup.stores.workouts.length} schedule rows and ${backup.stores.logs.length} logs.` });
-    } catch (error) {
-      setBackupResult({ error: true, message: error instanceof Error ? error.message : 'Could not export backup.' });
-    }
+  async function rehydrateBackup(backup: WorkoutBackup) {
+    await refreshUserData();
+    await refreshHealthConnectEnabled();
+    setCustomExercises(backup.stores.customExercises);
+    const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
+    setQuestState(storedQuestState?.schemaVersion === SCHEMA_VERSION ? storedQuestState : null);
+    const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
+    setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
+    const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
+    loadWorkoutCueSettings(storedCueSettings);
+    await restoreWorkoutSession();
+    setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
   }
 
-  async function importBackup(file: File) {
-    try {
-      const backup = parseWorkoutBackup(await file.text());
-      const confirmed = window.confirm('Restore this backup? This replaces the local schedule, logs, set history, body metrics, quests, draft playlist, cue settings, and active session state.');
-      if (!confirmed) {
-        setBackupResult({ error: false, message: 'Backup restore canceled.' });
-        return;
-      }
-      const summary = await restoreWorkoutBackup(backup);
-      await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
-      await refreshUserData();
-      await refreshHealthConnectEnabled();
-      setCustomExercises(backup.stores.customExercises);
-      const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
-      setQuestState(storedQuestState?.schemaVersion === SCHEMA_VERSION ? storedQuestState : null);
-      const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
-      setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
-      const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
-      loadWorkoutCueSettings(storedCueSettings);
-      await restoreWorkoutSession();
-      setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
-      setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body metrics, ${summary.customExercises} custom exercises.` });
-    } catch (error) {
-      setBackupResult({ error: true, message: error instanceof Error ? error.message : 'Could not restore backup.' });
-    }
-  }
 
   async function addCatalogExercise(sourceId: number) {
     if (draft.items.length >= MAX_PLAYLIST_ITEMS) return addToast(`A playlist can contain up to ${MAX_PLAYLIST_ITEMS} exercises.`);

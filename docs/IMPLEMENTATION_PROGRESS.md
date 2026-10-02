@@ -1984,3 +1984,55 @@ hook extraction, and the recorded paired recovery/device matrix.
 Next action: verify CSV import success, cancellation, invalid input, and active
 workout protection in the isolated browser fixture; then extract backup/restore
 with explicit rehydration callbacks as the next maintenance module.
+
+## Iteration 37 — 2026-10-02 — Backup transfer workflow module
+
+Status: **Backup transfer extraction and isolated browser regression checks
+complete. Paired Stage 19 and physical-device acceptance remain open.**
+
+Starting checkpoint: `8dd6ff0 PST01: Extract schedule import workflow`, clean
+working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented `useWorkoutBackup` to own export creation/download initiation,
+backup parsing and confirmation, transactional restore, native schedule handoff,
+and result state. `App.tsx` supplies an explicit asynchronous `onRestored`
+callback that retains the previous refresh ordering for user data, Health
+Connect settings, custom exercises, quest state, playlist, cue settings, active
+session, and catalog. Success is still reported only after rehydration finishes.
+No schema, native contract, dependency, or user-facing UI changed. The full
+Stage 14B refactor remains partial: quest actions and cross-feature restore
+rehydration still live in the composition root.
+
+Added `pwa/tests/import-workflows.html`, using a disposable IndexedDB database
+and the actual React hooks with real Files. It avoids native file chooser
+dependence and restores its confirmation stub/unmounts/deletes its test
+database at completion. This supersedes Iteration 36's unverified **hook
+interaction** status: success, cancellation, invalid CSV and active/resting/
+paused protection now have browser evidence. Native file chooser interaction
+itself is not validated by this fixture.
+
+Review and validation:
+
+- Reviewed both extracted handlers against the previous code: confirmation,
+  persistence, native handoff, refresh, and result ordering are preserved.
+- New browser fixture passed **15 checks**, including history preservation,
+  valid/skipped CSV rows, replacement cancellation, unusable input, three live
+  session states, invalid/canceled backup, committed restore visibility,
+  summary reporting, and rehydration failure reporting.
+- Existing browser data-integrity fixture passed **35 checks**, including
+  malformed/unsupported backup rejection and transactional rollback.
+- Isolated App screen navigated to Import and reported **Backup exported with
+  0 schedule rows and 0 logs** after the export click, with no console errors.
+  The browser download-event capture timed out; saved-file/download contents
+  are not claimed as validated.
+- `npx tsc --noEmit`, `npm run build`, the three Quick Start Node fixtures,
+  and `git diff --check` passed.
+- No native source changed; no APK build, emulator pairing, physical-device
+  test, fetch, or push occurred.
+
+Completed: backup transfer module extraction, CSV hook interaction closure,
+and restore integrity regression checks. Remaining: native file chooser/export
+file verification, quest workflow extraction, and paired/physical acceptance.
+Next action: extract the quest workflow with regression coverage while keeping
+its scheduling/reconciliation safeguards, or resume the Phase 3 paired matrix
+when the official companion/paired devices are available.

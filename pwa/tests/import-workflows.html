@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Import workflow regression checks</title>
+<h1>Import workflow regression checks</h1>
+<p>Disposable database; no personal workout data is used.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { useScheduleImport } from '/src/hooks/useScheduleImport.ts';
+import { useWorkoutBackup } from '/src/hooks/useWorkoutBackup.ts';
+import { buildWorkoutBackup } from '/src/lib/backup.ts';
+import { getAll, putRecord, STORES } from '/src/lib/db.ts';
+
+const factory = window.indexedDB;
+const database = `pasingot-import-workflows-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const root = createRoot(document.getElementById('root'));
+const originalConfirm = window.confirm;
+let confirmed = true;
+let confirmations = 0;
+window.confirm = () => { confirmations++; return confirmed; };
+const checks = [];
+const check = (condition, message) => {
+  if (!condition) throw new Error(message);
+  checks.push(`PASS: ${message}`);
+};
+let api;
+let visibleRows = [];
+let cleared = 0;
+let restored = 0;
+let failHydration = false;
+const session = { status: 'completed' };
+function Harness() {
+  const schedule = useScheduleImport({ session, clearSession: async () => { cleared++; }, onScheduleChanged: rows => { visibleRows = rows; } });
+  const backup = useWorkoutBackup({ onRestored: async payload => {
+    if (failHydration) throw new Error('Fixture hydration failure');
+    restored++;
+    visibleRows = await getAll(STORES.workouts);
+    check(visibleRows.length === payload.stores.workouts.length, 'restore callback sees committed database');
+  } });
+  React.useLayoutEffect(() => { api = { schedule, backup }; });
+  return null;
+}
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const csv = text => new File([text], 'schedule.csv', { type: 'text/csv' });
+const header = 'day,time,exercise,sets,reps,rest\n';
+const valid = 'Friday,07:00,Fixture Squat,2,10,30\n';
+try {
+  root.render(React.createElement(Harness));
+  await settle();
+  await putRecord(STORES.logs, { schemaVersion: 1, date: '2026-10-02T00:00:00Z', exercise: 'Existing history', status: 'done' });
+  await api.schedule.importCsv(csv(header + valid + 'Invalid,07:00,Bad Row,2,10,30\n'));
+  await settle();
+  check(api.schedule.result.imported === 1 && api.schedule.result.skipped === 1, 'CSV reports valid and skipped rows');
+  check(visibleRows.length === 1 && cleared === 1, 'CSV refreshes visible schedule and clears old session');
+  check((await getAll(STORES.logs)).length === 1, 'schedule replacement preserves history');
+  const rowId = visibleRows[0].id;
+  confirmed = false;
+  await api.schedule.importCsv(csv(header + 'Monday,08:00,Canceled,1,5,0\n'));
+  check((await getAll(STORES.workouts))[0].id === rowId && cleared === 1, 'canceled CSV keeps schedule and session');
+  confirmed = true;
+  await api.schedule.importCsv(csv(header + 'Invalid,07:00,Bad Row,2,10,30\n'));
+  await settle();
+  check(Boolean(api.schedule.result.error) && (await getAll(STORES.workouts))[0].id === rowId, 'unusable CSV keeps existing schedule');
+  for (const status of ['active', 'resting', 'paused']) {
+    session.status = status;
+    const before = confirmations;
+    await api.schedule.importCsv(csv(header + valid));
+    await settle();
+    check(api.schedule.result.error.includes('Finish or end') && confirmations === before && cleared === 1, `${status} session blocks replacement before confirmation`);
+  }
+  session.status = 'completed';
+  const payload = await buildWorkoutBackup();
+  const backupFile = new File([JSON.stringify(payload)], 'backup.json', { type: 'application/json' });
+  await api.backup.importBackup(new File(['invalid'], 'invalid.json'));
+  await settle();
+  check(api.backup.result.error && restored === 0, 'invalid backup does not rehydrate');
+  confirmed = false;
+  await api.backup.importBackup(backupFile);
+  await settle();
+  check(!api.backup.result.error && api.backup.result.message.includes('canceled') && restored === 0, 'canceled restore does not rehydrate');
+  confirmed = true;
+  await api.schedule.importCsv(csv(header + 'Monday,08:00,Replacement,1,5,0\n'));
+  await api.backup.importBackup(backupFile);
+  await settle();
+  check(restored === 1 && visibleRows[0].exercise === 'Fixture Squat', 'backup restore refreshes the original schedule');
+  check(!api.backup.result.error && api.backup.result.message.includes('1 schedule rows'), 'restore reports persisted summary');
+  check((await getAll(STORES.logs)).length === 1, 'backup restore retains captured history');
+  failHydration = true;
+  await api.backup.importBackup(backupFile);
+  await settle();
+  check(api.backup.result.error && api.backup.result.message === 'Fixture hydration failure', 'rehydration failure is reported without success');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`;
+} finally {
+  window.confirm = originalConfirm;
+  root.unmount();
+  factory.deleteDatabase(database);
+}
+</script>
+</html>
