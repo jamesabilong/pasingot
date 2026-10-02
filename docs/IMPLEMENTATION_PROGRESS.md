@@ -2133,3 +2133,57 @@ Library/quest/session/import/backup action workflows now have focused hooks.
 Next action: isolate app data hydration/catalog loading and restore coordination
 with regression coverage for initialization, offline fallback and restored data;
 resume Stage 19 paired recovery when companion/paired devices are available.
+
+## Iteration 40 — 2026-10-02 — Workout data hydration modules
+
+Status: **Shared workout data, definition loading, and restore coordination
+extracted and regression-checked; final composition-root and device acceptance
+remain open.**
+
+Starting checkpoint: `c4ef8c6 PST01: Extract Library workflow module`, clean
+working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented `useWorkoutData` to own shared schedule/history/catalog/custom-
+exercise/playlist data, refresh callbacks, simple exercise logging, catalog
+network/cache loading, built-in quest definitions, and restored Library
+rehydration. Implemented `useWorkoutDataHydration` for startup repair/refresh,
+schedule handoff, definition loading, quest/cue/session hydration, visibility
+retry lifecycle, and backup/user-data refresh coordination. App now wires the
+focused feature hooks to this shared data and coordinator.
+
+Restore rehydration reads the committed IndexedDB custom exercises, draft and
+base catalog rather than relying on a captured App catalog and backup argument.
+The catalog stays sorted and absent/unsupported restored drafts reset to
+defaults. Initialization retains cached-catalog fallback and disposal guards;
+ordinary data renders do not restart its effect because dependencies use stable
+refresh/load callbacks rather than the newly created data result object.
+
+Review and validation:
+
+- Reviewed data ownership, stable callback dependencies, startup ordering,
+  offline fallback, disposed loads and post-commit restore ordering. Existing
+  domain/native contracts and schemas are unchanged.
+- New disposable-database hydration fixture passed **13 checks**: offline base/
+  custom catalog, persisted draft/schedule/session callback, stable rerender,
+  durable log identity/unsaved-row guard, fresh built-in/catalog loading,
+  disposal guard, restored custom/draft removal, health/cue/session refresh,
+  absent draft reset, and user-data refresh. Offline warning logs are expected
+  fixture evidence; no console errors were reported.
+- Existing data-integrity **35**, custom quest **10**, Library **18**, quest
+  **18**, and import **15** checks passed: **109 browser checks total**.
+- Isolated App initialized built-in and custom quest definitions plus the
+  persisted Library playlist. Custom enrollment/scheduling succeeded with
+  correct prescription/load, Ready badges, and enabled Start workout action;
+  no console errors were reported.
+- `npx tsc --noEmit`, `npm run build`, three Quick Start Node fixtures, and
+  `git diff --check` passed.
+- No APK builds, emulator pairing, physical-device tests, fetch, or push occurred.
+
+Completed: shared data ownership, catalog/definition loading, startup and
+backup hydration extraction. Remaining: inbound watch subscription/status and
+queued-sync coordination plus Today derived presentation in App; native file
+chooser/export verification and paired/physical acceptance. Stage 14B remains
+partial until the remaining composition-root responsibilities are audited.
+Next action: isolate inbound watch updates and queued-sync coordination with
+resume/subscription cleanup regression coverage, then audit Stage 14B closure;
+resume Stage 19 paired recovery when companion/paired devices are available.

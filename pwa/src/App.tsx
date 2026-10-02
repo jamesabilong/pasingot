@@ -12,6 +12,8 @@ import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickStartSheet';
 import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
+import { useWorkoutData } from './hooks/useWorkoutData';
+import { useWorkoutDataHydration } from './hooks/useWorkoutDataHydration';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
 import { useQuestWorkflow } from './hooks/useQuestWorkflow';
@@ -23,69 +25,43 @@ import { useToasts } from './hooks/useToasts';
 import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
 import { useWorkoutBackup } from './hooks/useWorkoutBackup';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
-import type { WorkoutBackup } from './lib/backup';
-import { parseCatalogCsv } from './lib/catalog';
-import {
-  mergeCatalogWithCustomExercises,
-  repairLegacyCustomExerciseNames,
-} from './lib/custom-exercises';
-import { addRecord, clearAndBulkInsert, getAll, getRecord, putRecord, STORES } from './lib/db';
-import { localDateKey, todayDateKey } from './lib/history-stats';
+import { localDateKey } from './lib/history-stats';
 import {
   drainPendingHealthConnectWrites,
   drainPendingWatchLogs,
   getLatestWatchSession,
-  pushScheduleToNative,
   subscribeToWatchChanges,
   type WatchSessionSnapshot,
 } from './lib/native-bridge';
-import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
-import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
 import {
   calculatePlanProgress,
   defaultPrescriptionFor,
   estimateLevelFor,
   estimateWorkoutDurationSeconds,
   formatEstimatedDuration,
-  initialDraft,
   LEVEL_LABELS,
   LEVELS,
   MAX_PLAYLIST_ITEMS,
-  normalizeDraft,
   todayName,
   workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
-  SCHEMA_VERSION,
-  type CustomExercise,
-  type ExerciseCatalogItem,
   type HistoryRange,
-  type PlaylistDraft,
-  type QuestTemplate,
-  type QuestWorkoutRow,
   type Tab,
-  type WorkoutLog,
-  type WorkoutRow,
-  type WorkoutSetLog,
-  type WorkoutSessionEvent,
 } from './types';
-
-const PLAYLIST_DRAFT_KEY = 'playlistDraft';
 
 export default function App() {
   const localToday = useLocalDate();
   const quickStart = useWatchQuickStart();
   const [tab, setTab] = useState<Tab>('today');
-  const [workouts, setWorkouts] = useState<WorkoutRow[]>([]);
-  const [logs, setLogs] = useState<WorkoutLog[]>([]);
-  const [sessionEvents, setSessionEvents] = useState<WorkoutSessionEvent[]>([]);
   const [watchSession, setWatchSession] = useState<WatchSessionSnapshot | null>(null);
-  const [setLogEntries, setSetLogEntries] = useState<WorkoutSetLog[]>([]);
-  const [catalog, setCatalog] = useState<ExerciseCatalogItem[]>([]);
-  const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
-  const [builtInQuestTemplates, setBuiltInQuestTemplates] = useState<QuestTemplate[]>([]);
-  const [builtInQuestRows, setBuiltInQuestRows] = useState<QuestWorkoutRow[]>([]);
-  const [draft, setDraft] = useState<PlaylistDraft>(initialDraft);
+  const data = useWorkoutData();
+  const {
+    workouts, setWorkouts, logs, sessionEvents, setLogEntries, catalog, setCatalog,
+    customExercises, setCustomExercises, builtInQuestTemplates, builtInQuestRows,
+    draft, setDraft, refreshWorkouts, refreshLogs, refreshSessionEvents,
+    refreshSetLogs, refreshCustomExercises, refreshWorkoutHistory, logExercise,
+  } = data;
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
     'Notification' in window ? Notification.permission : 'unsupported'
@@ -119,14 +95,6 @@ export default function App() {
     playCue: playWorkoutCue,
   } = useWorkoutCueSettings();
 
-  const refreshWorkouts = useCallback(async () => setWorkouts(await getAll<WorkoutRow>(STORES.workouts)), []);
-  const refreshLogs = useCallback(async () => setLogs(await getAll<WorkoutLog>(STORES.logs)), []);
-  const refreshSessionEvents = useCallback(async () => setSessionEvents(await getAll<WorkoutSessionEvent>(STORES.sessionEvents)), []);
-  const refreshSetLogs = useCallback(async () => setSetLogEntries(await getAll<WorkoutSetLog>(STORES.setLogs)), []);
-  const refreshCustomExercises = useCallback(async () => setCustomExercises(await getAll<CustomExercise>(STORES.customExercises)), []);
-  const refreshWorkoutHistory = useCallback(async () => {
-    await Promise.all([refreshLogs(), refreshSessionEvents(), refreshSetLogs()]);
-  }, [refreshLogs, refreshSessionEvents, refreshSetLogs]);
   const {
     session: activeWorkoutSession, rows: activeWorkoutRows, row: activeWorkoutRow,
     setInput: activeSetInput, elapsedSeconds: workoutElapsedSeconds, restRemainingSeconds: workoutRestRemainingSeconds,
@@ -146,7 +114,7 @@ export default function App() {
   } = useQuestWorkflow({
     builtInQuestTemplates, builtInQuestRows, catalog, draft, workouts, logs,
     localToday, activeWorkoutSession, clearActiveWorkoutSession,
-    refreshWorkouts, refreshUserData,
+    refreshWorkouts, refreshUserData: () => hydration.refreshUserData(),
   });
   const {
     search, setSearch, category, setCategory, featuredOnly, setFeaturedOnly,
@@ -166,7 +134,7 @@ export default function App() {
     onScheduleChanged: setWorkouts,
   });
   const { result: backupResult, exportBackup, importBackup } = useWorkoutBackup({
-    onRestored: rehydrateBackup,
+    onRestored: () => hydration.rehydrateBackup(),
   });
   const refreshWatchData = useCallback(async () => {
     const drained = await drainPendingWatchLogs();
@@ -197,63 +165,11 @@ export default function App() {
     return () => { disposed = true; removeListener(); };
   }, [refreshWatchData]);
 
-  useEffect(() => {
-    let disposed = false;
-    async function initialize() {
-      await repairLegacyCustomExerciseNames();
-      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics(), refreshCustomExercises()]);
-      // Refresh the native cache after an app upgrade as well as after an
-      // explicit schedule edit, so existing quest rows gain new bridge fields.
-      await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
-      let freshCatalog: ExerciseCatalogItem[] = [];
-      try {
-        const response = await fetch('/data/exercises.csv');
-        if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}.`);
-        freshCatalog = parseCatalogCsv(await response.text());
-        await clearAndBulkInsert(STORES.exercises, freshCatalog);
-      } catch (error) {
-        console.warn('Could not refresh the local exercise catalog:', error);
-      }
-      const storedBaseCatalog = (freshCatalog.length ? freshCatalog : await getAll<ExerciseCatalogItem>(STORES.exercises))
-        .sort((left, right) => left.displayName.localeCompare(right.displayName));
-      const storedCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
-      if (disposed) return;
-      setCustomExercises(storedCustomExercises);
-      setCatalog(mergeCatalogWithCustomExercises(storedBaseCatalog, storedCustomExercises));
-      const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
-      if (!disposed && storedDraft?.schemaVersion === SCHEMA_VERSION) setDraft(normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(storedBaseCatalog, storedCustomExercises)));
-      try {
-        const [templateResponse, workoutResponse] = await Promise.all([
-          fetch('/data/quest-templates.csv'),
-          fetch('/data/quest-workouts.csv'),
-        ]);
-        if (!templateResponse.ok || !workoutResponse.ok) throw new Error('Quest CSV request failed.');
-        const [freshTemplates, freshQuestRows] = [
-          parseQuestTemplatesCsv(await templateResponse.text()),
-          parseQuestWorkoutsCsv(await workoutResponse.text()),
-        ];
-        if (!disposed) {
-          setBuiltInQuestTemplates(freshTemplates);
-          setBuiltInQuestRows(freshQuestRows);
-        }
-      } catch (error) {
-        console.warn('Could not load quest definitions:', error);
-      }
-      await refreshQuestData(() => !disposed);
-      const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
-      if (!disposed) loadWorkoutCueSettings(storedCueSettings);
-      if (!disposed) await restoreWorkoutSession();
-      if (!disposed) await refreshWatchData();
-      const healthConnectDrained = await drainPendingHealthConnectWrites();
-      if (healthConnectDrained && !disposed) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
-    }
-    void initialize();
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void retryPendingSyncs();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs, refreshQuestData]);
+  const hydration = useWorkoutDataHydration({
+    data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,
+    loadWorkoutCueSettings, restoreWorkoutSession, refreshWatchData,
+    retryPendingSyncs, addToast,
+  });
 
   useScheduleNotifications(workouts, addToast);
 
@@ -266,37 +182,6 @@ export default function App() {
   const todayStatuses = useMemo(() => workoutStatusesOnDate(logs, localToday), [logs, localToday]);
   const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
   const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => localDateKey(entry.date) === localToday).length, [setLogEntries, localToday]);
-
-  async function logExercise(row: WorkoutRow, status: WorkoutLog['status']) {
-    if (row.id == null) return;
-    await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, status, workoutRowId: row.id } satisfies WorkoutLog);
-    const latestLogs = await getAll<WorkoutLog>(STORES.logs);
-    setLogs(latestLogs);
-  }
-
-  async function refreshUserData() {
-    await Promise.all([
-      refreshWorkouts(),
-      refreshLogs(),
-      refreshSessionEvents(),
-      refreshSetLogs(),
-      refreshBodyMetrics(),
-      refreshCustomExercises(),
-    ]);
-    await refreshQuestData();
-  }
-
-  async function rehydrateBackup(backup: WorkoutBackup) {
-    await refreshUserData();
-    await refreshHealthConnectEnabled();
-    setCustomExercises(backup.stores.customExercises);
-    const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
-    setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
-    const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
-    loadWorkoutCueSettings(storedCueSettings);
-    await restoreWorkoutSession();
-    setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
-  }
 
   async function requestNotificationPermission() {
     if (!('Notification' in window)) return;

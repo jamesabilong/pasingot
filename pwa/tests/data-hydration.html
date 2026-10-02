@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Workout data hydration regression checks</title>
+<h1>Workout data hydration regression checks</h1>
+<p>Disposable database; no personal workout data is used.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { useWorkoutData } from '/src/hooks/useWorkoutData.ts';
+import { useWorkoutDataHydration } from '/src/hooks/useWorkoutDataHydration.ts';
+import { getAll, putRecord, deleteRecord, STORES } from '/src/lib/db.ts';
+import { initialDraft } from '/src/lib/workout-planning.ts';
+const factory = window.indexedDB;
+const database = `pasingot-data-hydration-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const originalFetch = window.fetch;
+let offline = true;
+let fetches = 0;
+window.fetch = (...args) => { fetches++; return offline ? Promise.reject(new Error('Fixture offline')) : originalFetch(...args); };
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const now = new Date().toISOString();
+const base = { schemaVersion: 1, sourceId: 1, name: 'cached-squat', displayName: 'Cached Squat', category: 'Strength', primaryMuscles: ['Legs'], secondaryMuscles: [], equipment: [], featured: true, minimumLevel: 'beginner', progressionGroup: 'squat', progressionLevel: 'beginner', license: 'Fixture', licenseUrl: '', author: 'Fixture', sourceUrl: '' };
+const custom = { ...base, sourceId: -42, name: 'custom:42:hold', displayName: 'Custom Hold', custom: true, aliases: [], createdAt: now, updatedAt: now };
+let api;
+let restoredSessionCount = 0;
+let healthRefreshCount = 0;
+let cueSettings;
+let resolveStartup;
+const startup = new Promise(resolve => { resolveStartup = resolve; });
+const noOp = async () => {};
+const loadCue = value => { cueSettings = value; };
+const restoreSession = async () => { restoredSessionCount++; resolveStartup(); };
+const healthRefresh = async () => { healthRefreshCount++; };
+const root = createRoot(document.getElementById('root'));
+function Harness() {
+  const data = useWorkoutData();
+  const hydration = useWorkoutDataHydration({ data, refreshBodyMetrics: noOp, refreshQuestData: noOp, refreshHealthConnectEnabled: healthRefresh, loadWorkoutCueSettings: loadCue, restoreWorkoutSession: restoreSession, refreshWatchData: noOp, retryPendingSyncs: noOp, addToast: noOp });
+  React.useLayoutEffect(() => { api = { ...data, ...hydration }; });
+  return null;
+}
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+try {
+  await putRecord(STORES.exercises, base);
+  await putRecord(STORES.customExercises, custom);
+  await putRecord(STORES.workouts, { schemaVersion: 1, day: 'Friday', time: '07:00', exercise: 'Cached Squat', exerciseSourceId: 1, sets: 1, reps: '10', rest: 0 });
+  await putRecord(STORES.appState, { key: 'playlistDraft', schemaVersion: 1, ...initialDraft(), items: [{ sourceId: -42, name: 'Custom Hold', sets: 1, reps: '10 sec', rest: 0 }] });
+  root.render(React.createElement(Harness));
+  await startup; await settle();
+  check(api.catalog.length === 2 && api.catalog.some(item => item.sourceId === 1), 'offline initialization keeps cached base and custom catalog');
+  check(api.draft.items[0].sourceId === -42 && api.customExercises.length === 1, 'initialization restores custom exercise and playlist');
+  check(api.workouts.length === 1 && restoredSessionCount === 1, 'initialization restores workout rows before session callback');
+  const initialFetches = fetches;
+  root.render(React.createElement(Harness)); await settle();
+  check(fetches === initialFetches && restoredSessionCount === 1, 'data rerender does not restart initialization');
+  await api.logExercise(api.workouts[0], 'done'); await settle();
+  check(api.logs.length === 1 && api.logs[0].exerciseSourceId === 1, 'logging updates durable history and identity');
+  await api.logExercise({ ...api.workouts[0], id: undefined }, 'done'); await settle();
+  check((await getAll(STORES.logs)).length === 1, 'unsaved row does not create a log');
+  offline = false;
+  await api.loadDefinitions(); await settle();
+  check(api.builtInQuestTemplates.length > 0 && api.builtInQuestRows.length > 0, 'online loading restores built-in quest definitions');
+  check(api.catalog.length > 2 && api.catalog.some(item => item.sourceId === -42), 'fresh catalog retains local custom exercise');
+  const beforeGuard = api.catalog;
+  await api.loadDefinitions(() => false); await settle();
+  check(api.catalog === beforeGuard, 'disposed definitions load does not publish catalog');
+  await deleteRecord(STORES.customExercises, -42);
+  await putRecord(STORES.appState, { key: 'playlistDraft', schemaVersion: 1, ...initialDraft(), items: [] });
+  await api.rehydrateBackup(); await settle();
+  check(api.customExercises.length === 0 && !api.catalog.some(item => item.sourceId === -42) && api.draft.items.length === 0, 'restore removes stale custom catalog and playlist data');
+  check(healthRefreshCount === 1 && restoredSessionCount === 2 && cueSettings === undefined, 'restore refreshes health settings, missing cue settings and session');
+  await deleteRecord(STORES.appState, 'playlistDraft');
+  api.setDraft({ ...initialDraft(), items: [{ sourceId: 1, name: 'stale', sets: 1, reps: '10', rest: 0 }] }); await settle();
+  await api.restoreLibrary(); await settle();
+  check(api.draft.items.length === 0, 'absent restored draft resets to defaults');
+  await api.refreshUserData(); await settle();
+  check(api.logs.length === 1 && api.workouts.length === 1, 'user-data refresh retains current schedule and history');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally { window.fetch = originalFetch; root.unmount(); factory.deleteDatabase(database); }
+</script>
+</html>
