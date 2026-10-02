@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Watch update lifecycle checks</title>
+<h1>Watch update lifecycle checks</h1>
+<p>Mock native bridge; no personal workout data is used.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { useWatchUpdates } from '/src/hooks/useWatchUpdates.ts';
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+let api;
+let snapshot = { schemaVersion: 1, workoutEntryId: 'fixture', workoutDate: '2026-10-02', status: 'active', timestamp: '2026-10-02T08:00:00Z', exerciseIndex: 0, currentSet: 1, totalExercises: 1, elapsedSeconds: 10 };
+let drained = 0;
+let healthDrained = 0;
+let logsRefreshed = 0;
+let eventsRefreshed = 0;
+let subscriptions = 0;
+let removed = 0;
+let reads = 0;
+let listener;
+let subscriptionResolver;
+let failStatus = false;
+const order = [];
+const toasts = [];
+const bridge = {
+  drainPendingWatchLogs: async () => { order.push('watch'); return drained; },
+  getLatestWatchSession: async () => { reads++; if (failStatus) throw new Error('Fixture status failure'); return snapshot; },
+  drainPendingHealthConnectWrites: async () => { order.push('health'); return healthDrained; },
+  subscribeToWatchChanges: callback => {
+    subscriptions++; listener = callback;
+    return new Promise(resolve => { subscriptionResolver = resolve; });
+  },
+};
+const options = { refreshLogs: async () => { logsRefreshed++; }, refreshSessionEvents: async () => { eventsRefreshed++; }, addToast: message => toasts.push(message) };
+function Harness() {
+  const updates = useWatchUpdates(options, bridge);
+  React.useLayoutEffect(() => { api = updates; });
+  return null;
+}
+let root = createRoot(document.getElementById('root'));
+try {
+  flushSync(() => root.render(React.createElement(Harness))); await settle();
+  subscriptionResolver(() => { removed++; }); await settle();
+  check(api.watchSession.timestamp === snapshot.timestamp && subscriptions === 1, 'subscription registration refreshes initial status');
+  flushSync(() => root.render(React.createElement(Harness))); await settle();
+  check(subscriptions === 1 && removed === 0, 'ordinary render does not replace subscription');
+  snapshot = { ...snapshot, timestamp: '2026-10-02T07:00:00Z', status: 'paused' };
+  await api.refreshWatchData(); await settle();
+  check(api.watchSession.status === 'active', 'older snapshot cannot regress current status');
+  snapshot = { ...snapshot, timestamp: '2026-10-02T09:00:00Z', status: 'completed' };
+  drained = 1; listener(); await settle();
+  check(api.watchSession.status === 'completed' && logsRefreshed === 1 && eventsRefreshed === 1, 'watch event refreshes imported logs, events and latest status');
+  drained = 0; await api.refreshWatchData(); await settle();
+  check(logsRefreshed === 1 && eventsRefreshed === 1, 'empty watch queue avoids unnecessary history refresh');
+  healthDrained = 1; order.length = 0;
+  await api.retryPendingSyncs();
+  check(order.join(',') === 'watch,health' && toasts.at(-1) === 'A queued Health Connect update synced.', 'retry drains watch before health and reports singular success');
+  healthDrained = 2; await api.retryPendingSyncs();
+  check(toasts.at(-1) === '2 queued Health Connect updates synced.', 'multiple health writes report their count');
+  healthDrained = 0; const toastCount = toasts.length; await api.retryPendingSyncs();
+  check(toasts.length === toastCount, 'empty health queue stays quiet');
+  failStatus = true; await api.retryPendingSyncs(); await settle();
+  check(api.watchSession.status === 'completed' && order.at(-1) === 'health', 'status read failure preserves current status and permits health retry');
+  failStatus = false; snapshot = null; await api.refreshWatchData(); await settle();
+  check(api.watchSession === null, 'authoritative empty status clears previous snapshot');
+  root.unmount(); const readsAfterUnmount = reads; listener(); await settle();
+  check(removed === 1 && reads === readsAfterUnmount, 'unmount removes listener and ignores late callbacks');
+  root = createRoot(document.getElementById('root'));
+  flushSync(() => root.render(React.createElement(Harness))); await settle();
+  root.unmount();
+  subscriptionResolver(() => { removed++; }); await settle();
+  check(removed === 2 && reads === readsAfterUnmount, 'subscription resolved after unmount is removed without refreshing');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; root.unmount(); }
+</script>
+</html>

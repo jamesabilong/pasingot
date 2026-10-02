@@ -2187,3 +2187,54 @@ partial until the remaining composition-root responsibilities are audited.
 Next action: isolate inbound watch updates and queued-sync coordination with
 resume/subscription cleanup regression coverage, then audit Stage 14B closure;
 resume Stage 19 paired recovery when companion/paired devices are available.
+
+## Iteration 41 — 2026-10-02 — Inbound watch updates and queued sync
+
+Status: **Inbound watch/status/queued-sync module complete with lifecycle and
+regression checks; final composition-root audit and paired/device acceptance
+remain open.**
+
+Starting checkpoint: `8e4e4dd PST01: Extract workout data hydration modules`,
+clean working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented `useWatchUpdates` for inbound watch subscription registration and
+cleanup, imported log/session refresh, latest live status, timestamp-based
+non-regression, and ordered watch/Health Connect queue retries with existing
+count-aware feedback. App passes narrow refresh/toast callbacks and wires the
+hook to startup/resume hydration and the shell online callback. Manual schedule
+sending remains in the existing `useWatchSync` workflow.
+
+The production bridge is a stable default adapter; an optional typed adapter
+allows isolated lifecycle tests without native transport. Comparison against
+the prior App block confirms the same status, queue and subscription ordering,
+with adapter dependencies included in callbacks/effects. No schemas, native
+contracts, dependencies, or user-facing UI/copy changed.
+
+Review and validation:
+
+- New real-React/mock-bridge fixture passed **12 checks**: initial refresh,
+  stable render/subscription, stale status rejection, imported history and
+  event refresh, empty queues, ordered health retry/feedback, status-read
+  failure recovery, empty status clearing, unmount callbacks, and subscription
+  registration resolving after unmount. Its first run exposed fixture render/
+  effect timing; synchronous test mounting corrected the fixture before closure.
+- Hydration fixture now passes **16 checks**, adding hidden-versus-visible
+  resume retries and unmount listener cleanup to Iteration 40's 13 checks.
+- Existing native watch bridge **22** and data-integrity **35** browser checks
+  passed: **85 browser checks total** this iteration. Injected status/ACK
+  failure console logs are expected regression evidence, not App failures.
+- Isolated App initialization rendered Today, weekly plan, browser watch
+  migration guidance, and disabled empty-schedule Start controls successfully.
+- `npx tsc --noEmit`, `npm run build`, three Quick Start Node fixtures, and
+  `git diff --check` passed.
+- No APK builds, emulator pairing, physical-device tests, fetch, or push occurred.
+
+Completed: inbound watch and queued-sync extraction plus subscription/resume
+cleanup verification. Remaining: Today derived presentation and notification
+permission coordination in App, final Stage 14B composition-root audit, native
+file chooser/export verification, and paired/physical acceptance. No Stage 19
+acceptance item closes from mock/browser evidence.
+Next action: isolate Today overview calculations and shell notification
+permission coordination, audit the remaining App responsibilities against
+Stage 14B, and record its exact closure status; resume Stage 19 paired recovery
+when companion/paired devices are available.

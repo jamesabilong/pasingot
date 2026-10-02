@@ -3,7 +3,7 @@
 // worker. Foreground matching remains isolated in checkScheduleAgainstNow so a
 // future push handler can reuse it without changing the schedule contract.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { HistoryView } from './components/HistoryView';
 import { ImportView } from './components/ImportView';
@@ -12,6 +12,7 @@ import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickStartSheet';
 import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
+import { useWatchUpdates } from './hooks/useWatchUpdates';
 import { useWorkoutData } from './hooks/useWorkoutData';
 import { useWorkoutDataHydration } from './hooks/useWorkoutDataHydration';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
@@ -26,13 +27,6 @@ import { useWorkoutCueSettings } from './hooks/useWorkoutCueSettings';
 import { useWorkoutBackup } from './hooks/useWorkoutBackup';
 import { useWorkoutSession } from './hooks/useWorkoutSession';
 import { localDateKey } from './lib/history-stats';
-import {
-  drainPendingHealthConnectWrites,
-  drainPendingWatchLogs,
-  getLatestWatchSession,
-  subscribeToWatchChanges,
-  type WatchSessionSnapshot,
-} from './lib/native-bridge';
 import {
   calculatePlanProgress,
   defaultPrescriptionFor,
@@ -54,7 +48,6 @@ export default function App() {
   const localToday = useLocalDate();
   const quickStart = useWatchQuickStart();
   const [tab, setTab] = useState<Tab>('today');
-  const [watchSession, setWatchSession] = useState<WatchSessionSnapshot | null>(null);
   const data = useWorkoutData();
   const {
     workouts, setWorkouts, logs, sessionEvents, setLogEntries, catalog, setCatalog,
@@ -136,34 +129,9 @@ export default function App() {
   const { result: backupResult, exportBackup, importBackup } = useWorkoutBackup({
     onRestored: () => hydration.rehydrateBackup(),
   });
-  const refreshWatchData = useCallback(async () => {
-    const drained = await drainPendingWatchLogs();
-    if (drained) await Promise.all([refreshLogs(), refreshSessionEvents()]);
-    try {
-      const latest = await getLatestWatchSession();
-      setWatchSession((current) => current && latest && Date.parse(current.timestamp) > Date.parse(latest.timestamp) ? current : latest);
-    } catch (error) {
-      console.error('Failed to read watch session:', error);
-    }
-  }, [refreshLogs, refreshSessionEvents]);
-
-  const retryPendingSyncs = useCallback(async () => {
-    await refreshWatchData();
-    const healthConnectDrained = await drainPendingHealthConnectWrites();
-    if (healthConnectDrained) addToast(healthConnectDrained === 1 ? 'A queued Health Connect update synced.' : `${healthConnectDrained} queued Health Connect updates synced.`);
-  }, [addToast, refreshWatchData]);
-
-  useEffect(() => {
-    let disposed = false;
-    let removeListener = () => {};
-    void subscribeToWatchChanges(() => {
-      if (!disposed) void refreshWatchData();
-    }).then((remove) => {
-      if (disposed) remove();
-      else { removeListener = remove; void refreshWatchData(); }
-    }).catch((error) => console.error('Could not listen for watch updates:', error));
-    return () => { disposed = true; removeListener(); };
-  }, [refreshWatchData]);
+  const { watchSession, refreshWatchData, retryPendingSyncs } = useWatchUpdates({
+    refreshLogs, refreshSessionEvents, addToast,
+  });
 
   const hydration = useWorkoutDataHydration({
     data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,

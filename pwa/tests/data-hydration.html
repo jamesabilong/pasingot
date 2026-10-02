@@ -29,6 +29,11 @@ let api;
 let restoredSessionCount = 0;
 let healthRefreshCount = 0;
 let cueSettings;
+let retries = 0;
+let visibility = 'visible';
+const visibilityDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+const retryPending = async () => { retries++; };
 let resolveStartup;
 const startup = new Promise(resolve => { resolveStartup = resolve; });
 const noOp = async () => {};
@@ -38,7 +43,7 @@ const healthRefresh = async () => { healthRefreshCount++; };
 const root = createRoot(document.getElementById('root'));
 function Harness() {
   const data = useWorkoutData();
-  const hydration = useWorkoutDataHydration({ data, refreshBodyMetrics: noOp, refreshQuestData: noOp, refreshHealthConnectEnabled: healthRefresh, loadWorkoutCueSettings: loadCue, restoreWorkoutSession: restoreSession, refreshWatchData: noOp, retryPendingSyncs: noOp, addToast: noOp });
+  const hydration = useWorkoutDataHydration({ data, refreshBodyMetrics: noOp, refreshQuestData: noOp, refreshHealthConnectEnabled: healthRefresh, loadWorkoutCueSettings: loadCue, restoreWorkoutSession: restoreSession, refreshWatchData: noOp, retryPendingSyncs: retryPending, addToast: noOp });
   React.useLayoutEffect(() => { api = { ...data, ...hydration }; });
   return null;
 }
@@ -78,8 +83,19 @@ try {
   check(api.draft.items.length === 0, 'absent restored draft resets to defaults');
   await api.refreshUserData(); await settle();
   check(api.logs.length === 1 && api.workouts.length === 1, 'user-data refresh retains current schedule and history');
+  visibility = 'hidden'; document.dispatchEvent(new Event('visibilitychange')); await settle();
+  check(retries === 0, 'hidden visibility event does not retry sync');
+  visibility = 'visible'; document.dispatchEvent(new Event('visibilitychange')); await settle();
+  check(retries === 1, 'resume visibility event retries sync');
+  root.unmount(); document.dispatchEvent(new Event('visibilitychange')); await settle();
+  check(retries === 1, 'unmount removes resume listener');
   document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
 } catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
-finally { window.fetch = originalFetch; root.unmount(); factory.deleteDatabase(database); }
+finally {
+  window.fetch = originalFetch;
+  if (visibilityDescriptor) Object.defineProperty(document, 'visibilityState', visibilityDescriptor);
+  else delete document.visibilityState;
+  root.unmount(); factory.deleteDatabase(database);
+}
 </script>
 </html>

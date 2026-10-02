@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 41 extracts inbound watch updates/status and queued native retries
+  into `useWatchUpdates`. All 85 relevant browser checks, TypeScript, build, and
+  three Node fixtures pass, including subscription and resume cleanup. Today
+  derived presentation, notification permission coordination and the final
+  Stage 14B audit remain; Stage 19 remains 65/97. Data hydration is in `8e4e4dd`.
+
 - Iteration 40 extracts shared workout data and catalog loading into
   `useWorkoutData`, and startup/restore coordination into
   `useWorkoutDataHydration`. All 109 relevant browser checks, TypeScript, build,
@@ -185,7 +191,7 @@ Update that log during every implementation iteration, not only at handoff.
 | **Current** | Stage 19 remains **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. Iteration 35 confirmed the cold Pixel 8 AVD lacks the Google Pixel Watch companion required by Android Studio's pairing assistant; the signed-out Play Store prevents restoring it without user-owned account action. Legacy manual send errors are now actionable. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: restore the official companion app on the phone AVD or use a paired physical phone/watch, then run capability delivery, process-death, cancellation, replay, reboot/receipt, and Data Item cleanup checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
-| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: Inbound watch updates/queued-sync coordination and Today derived presentation remain in `App.tsx`; shared data/loading/hydration and principal feature actions now have hooks | Data and hydration modules are extracted in Iteration 40 with 109 browser checks; next isolate inbound watch updates/queued-sync coordination and audit closure. The full refactor remains partial |
+| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: Today derived presentation and shell notification permission coordination remain in `App.tsx`; inbound watch/queued sync, data/loading/hydration and principal feature actions now have hooks | Inbound watch/queued-sync module is extracted in Iteration 41 with 85 browser checks; next isolate Today overview/notification coordination and audit closure. The full refactor remains partial |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
