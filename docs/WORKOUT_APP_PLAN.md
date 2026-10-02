@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 48 validates paired Windows Quick Start Ready/process-restart/Start,
+  phone Cancel and watch Dismiss. Stage 19 is **67/97 (69%)**, Phase 3
+  **9/12 (75%)**. Connected completion/receipt passes; final-screen stale sync
+  wording and retained cue ledger require follow-up. Offline reboot, full
+  replay/cleanup, legacy regression and physical acceptance remain open.
+
 - Iteration 47 passes native backup Downloads save/cancel, saved JSON,
   reopen/restore with exact equality of all seven stores, native CSV picker
   cancellation, and pre-save process interruption recovery on Windows API 35.
@@ -225,14 +231,14 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-09-30
+## Delivery board — reviewed 2026-10-02
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 remains **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. Iteration 35 confirmed the cold Pixel 8 AVD lacks the Google Pixel Watch companion required by Android Studio's pairing assistant; the signed-out Play Store prevents restoring it without user-owned account action. Legacy manual send errors are now actionable. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: restore the official companion app on the phone AVD or use a paired physical phone/watch, then run capability delivery, process-death, cancellation, replay, reboot/receipt, and Data Item cleanup checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **67/97 checklist items (69%) overall**; Phases 0–2 remain complete and Phase 3 is **9/12 (75%)**. Iteration 48 verifies paired Windows Ready/process-restart/Start and Cancel/Dismiss; connected completion/receipt passes. Physical accessibility/audio remains open | Next: fix receipt-aware final presentation and cue cleanup, then validate offline reboot, full replay/cleanup and legacy regression. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
+| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 is **9/12**. Native testing found stale final-screen sync wording and a retained cue ledger after exact receipt | Implement receipt-aware presentation and audit ledger cleanup ordering; validate remaining paired cases |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

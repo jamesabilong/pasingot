@@ -3,11 +3,17 @@
 Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 35 — paired prerequisite and legacy transport audit**
-Previous checkpoint: `0e6312c PST01: Close Wear round-screen phase`
-Last updated: **2026-09-30**
+Latest checkpoint: **Iteration 48 — Windows paired Ready/Start and cancellation recovery**
+Previous checkpoint: `47e2b39 PST01: Verify native backup save and restore on Windows`
+Last updated: **2026-10-02**
 
-**Current closure:** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
+**Current closure:** **67/97 (69%)**, Phase 3 **9/12 (75%)**. Windows paired
+emulators verify watch process restart between Ready and Start, phone Cancel,
+watch Dismiss, and connected completion/receipt. Offline reboot, full replay/
+cleanup and legacy regression remain open. The final screen's stale sync flag
+and unpruned cue ledger require follow-up. Physical Phase 4 remains 0/27.
+
+**Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
 PWA build, and three Node checks. Iteration 34's 109 browser checks remain the
 latest real-browser evidence. The checklist is
@@ -777,18 +783,18 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-09-30, Iteration 35
+### Progress audit — 2026-10-02, Iteration 48
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **65/97 items (67%) overall**:
+stands at **67/97 items (69%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
-| Phase 3 — integration/recovery | **7/12 (58%)** | Native acknowledgement events, React recreation/resume reconciliation, and automated exit checks pass; paired process/replay/cleanup cases remain open |
+| Phase 3 — integration/recovery | **9/12 (75%)** | Paired watch process restart/Start and Cancel/Dismiss pass; full replay, cleanup, reboot retention and legacy regression remain open |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
@@ -974,8 +980,8 @@ Status: **In progress — event/resume wiring and automated gates pass; paired r
 
 - [x] Wire acknowledgement events to the phone plugin and React hook.
 - [x] Reconcile status after phone process death/app resume.
-- [ ] Verify watch process death between ready and Start.
-- [ ] Verify phone cancellation/dismissal behavior.
+- [x] Verify watch process death between ready and Start.
+- [x] Verify phone cancellation/dismissal behavior.
 - [ ] Verify request/ack Data Item cleanup, stale replay, node binding, and
       mixed-version capability gating.
 - [ ] Verify completion stays queued through watch reboot until phone ACK, then
@@ -1192,12 +1198,14 @@ Phase 3 baseline passes, but paired Quick Start delivery, process/reboot
 recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 3 — End-to-end integration and recovery.
-**Exact next action:** restore the official Google Pixel Watch companion on the
-phone AVD through a user-authorized Play Store session, or use a paired physical
-phone/watch. Then run capability-gated Quick Start delivery, watch process death
-between Ready and Start, phone cancellation/dismissal, stale replay/node
-binding, reboot/receipt retention, and exact Data Item cleanup. Audit TalkBack
-ordering and audio routing on a physical device when available.
+**Exact next action:** implement receipt-aware final-screen presentation and
+race-safe cue ledger cleanup found in Iteration 48. On the connected Windows
+phone/watch AVDs, restart adb to fully break active bridge sockets for offline
+completion/reboot retention, then restore forward/reverse for exact receipt and
+cleanup checks. Run stale replay/node binding, mixed-version gating and legacy
+regression before Phase 3 closure. The Windows companion is already installed;
+Iteration 35's missing-companion blocker remains historical Mac evidence.
+Audit TalkBack ordering and audio routing on a physical device when available.
 Keep Send gated until native discovery confirms a reachable, compatible watch;
 transport acceptance cannot display Ready on watch.
 

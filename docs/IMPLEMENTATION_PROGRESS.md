@@ -2553,3 +2553,61 @@ Next action: attempt the Phase 3 paired matrix on the local phone/watch AVDs.
 The official companion is installed here, unlike Iteration 35's Mac phone;
 startup logged a companion Bluetooth-permission crash, so pairing availability
 must be established before claiming transport acceptance.
+
+## Iteration 48 — 2026-10-02 — Windows paired recovery
+
+Status: **Paired Ready/process-restart/Start and Cancel/Dismiss checks pass;
+Phase 3 is 9/12. Receipt presentation/ledger findings require a follow-up.**
+
+Starting checkpoint: `47e2b39 PST01: Verify native backup save and restore on
+Windows`. Reviewed the plan and latest iteration. Phone API 35 and round Wear
+AVDs run with existing data intact. Both native services retain matching peer
+configuration initially reported disconnected. Restored the previously
+documented local adb bridge and built/tested/installed the current Wear APK.
+
+Validation and findings:
+
+- Shared/Wear Gradle suites and Wear APK build pass: **78 shared and 191 Wear
+  tests**, zero failures/errors. Iteration 47's 16 phone tests, phone APK,
+  TypeScript, production build and Capacitor sync remain current for this
+  unchanged-source checkpoint.
+- Phone node `3710eec` and watch `cc1f21d2` connected through phone forward
+  `tcp:5602 -> tcp:5601` and watch reverse `tcp:5601 -> tcp:5602`.
+  Quick Start's capability gate enabled Send only after current Wear startup.
+  The companion's earlier Bluetooth crash did not prevent this emulator
+  network transport. No permission or account change was needed.
+- The old September 27 emulator workout blocked the first send with **Watch
+  already has an active workout.** Its five-exercise download remained intact.
+  Ended that stale running emulator session through Pause/End/confirmation,
+  retaining its ended history; its accumulated 120-hour duration is emulator
+  test state, not real training or battery evidence.
+- A Library single exercise reached Ready with the correct two sets, 8–10
+  reps and 75-second rest. Watch force-stop/reopen retained the same offer.
+  Phone Cancel returned **Cancelled on watch.** and removed the watch prompt;
+  the persisted node-bound terminal record is revision 2. A second offer's
+  watch Dismiss returned **Dismissed on watch.** with revision 2.
+- A third offer survived watch force-stop/reopen, Start ran the visible
+  countdown, and the active session/phone **Workout started on watch.**
+  acknowledgement followed. Completed two sets using Start now for rest.
+  Exact durable phone receipt cleared runtime and released the package.
+- Removing adb forwarding alone left existing bridge sockets connected;
+  completion therefore does **not** prove offline retention. Restarting the
+  adb server subsequently confirmed **0 connected out of 1** on both peers.
+  Offline completion/reboot remains next; no such checklist item closes here.
+- Found two follow-ups: the still-open final screen says **Waiting to sync**
+  even after its exact receipt cleared runtime, because its flag is fixed at
+  ViewModel creation; the completed session's cue ledger remains retained
+  after receipt, with no production call to its existing cleanup operation.
+  Receipt-aware presentation and race-safe ledger pruning need implementation
+  before closing the combined reboot/receipt/cleanup item.
+- Documentation diff review and `git diff --check` pass. No app source changed
+  and no physical-device, Play installation, audio or battery acceptance is
+  claimed. Emulator artifacts are retained under ignored validation output.
+
+Completed: Phase 3 watch process death between Ready and Start, and phone
+cancellation/watch dismissal. **Stage 19: 67/97 (69%), Phase 3: 9/12 (75%)**.
+Remaining: full replay/node/mixed-version/transport cleanup matrix,
+offline completion/reboot/receipt/cue cleanup, and full legacy sync regression.
+Next action: implement receipt-aware final presentation and audit cue cleanup
+ordering; validate disconnected completion/reboot and exact acknowledgement
+before pruning. Physical Phase 4 stays 0/27.
