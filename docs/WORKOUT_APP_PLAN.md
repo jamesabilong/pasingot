@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 43 implements an Android backup save-file module using the system
+  document picker, chosen-document UTF-8 writes, cancellation and completion
+  acknowledgement. All 211 browser checks, TypeScript, build/Capacitor sync,
+  three Node fixtures, 16 phone unit tests and phone APK build pass. Actual
+  Android picker/provider/reopen validation remains open. Stage 14B code
+  completion is committed in `4b308b5`; Stage 19 remains 65/97.
+
 - Iteration 42 extracts Today overview and shell notification permission
   handling and closes Stage 14B's composition-root **code** goal. The full
   browser audit passes 200 checks; TypeScript, build and three Node fixtures
@@ -1406,6 +1413,9 @@ Manual acceptance:
 ## Stage 15 - Data Portability
 
 **Status:** complete and committed as `0cf416b PST01: Stage 15 implemented`.
+Iteration 43 adds explicit Android document export with provider completion/
+cancellation handling. It passes phone builds and automated routing/payload
+checks; actual document-provider save/reopen/restore acceptance remains open.
 
 Goal: give the user a way to protect and move their data while preserving the
 offline-first, no-account design.

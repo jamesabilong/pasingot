@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { BackupTransferResult } from '../components/ImportView';
 import { backupFileName, buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup, type WorkoutBackup } from '../lib/backup';
+import { saveBackupFile } from '../lib/backup-export';
 import { getAll, STORES } from '../lib/db';
 import { pushScheduleToNative } from '../lib/native-bridge';
 import type { WorkoutRow } from '../types';
@@ -10,22 +11,24 @@ type WorkoutBackupOptions = {
 };
 
 export function useWorkoutBackup({ onRestored }: WorkoutBackupOptions) {
+  const exporting = useRef(false);
   const [result, setBackupResult] = useState<BackupTransferResult | null>(null);
 
   async function exportBackup() {
+    if (exporting.current) return;
+    exporting.current = true;
     try {
       const backup = await buildWorkoutBackup();
-      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = backupFileName();
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      const saved = await saveBackupFile(backupFileName(), JSON.stringify(backup, null, 2));
+      if (!saved) {
+        setBackupResult({ error: false, message: 'Backup export canceled.' });
+        return;
+      }
       setBackupResult({ error: false, message: `Backup exported with ${backup.stores.workouts.length} schedule rows and ${backup.stores.logs.length} logs.` });
     } catch (error) {
       setBackupResult({ error: true, message: error instanceof Error ? error.message : 'Could not export backup.' });
+    } finally {
+      exporting.current = false;
     }
   }
 

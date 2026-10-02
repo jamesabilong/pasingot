@@ -2299,3 +2299,58 @@ close device acceptance or promote a future feature into the active roadmap.
 Next action: verify native file chooser/export artifacts, or restore the
 official companion/use paired devices and execute the recorded Stage 19
 Phase 3 recovery matrix. No remaining Stage 14B extraction module is scheduled.
+
+## Iteration 43 — 2026-10-02 — Android backup document export
+
+Status: **Native save-file module implemented and build/regression-checked;
+actual Android picker/provider and paired/physical acceptance remain open.**
+
+Starting checkpoint: `4b308b5 PST01: Complete composition-root workflow
+extraction`, clean working tree. Stage 14B remains code-complete. Stage 19
+remains **65/97 (67%)**, Phase 3 **7/12**; its next implementation/acceptance
+step is still paired recovery rather than another architecture extraction.
+
+The next recorded follow-up was native file/export verification. Code review
+found that backup export used a Blob download anchor on every platform with
+no dedicated Android save path or provider completion acknowledgement. This
+is a code-boundary finding, not a claim of observed Android download failure.
+Implemented the focused `BackupExport` Capacitor plugin and `saveBackupFile`
+adapter to make that boundary explicit and reviewable.
+
+Android uses ACTION_CREATE_DOCUMENT with JSON MIME type and the generated
+filename. Only the user-selected document is written, on an IO coroutine; no
+storage permission or persistent URI grant is added. The plugin resolves
+success only after the UTF-8 stream closes, resolves cancellation separately,
+and reports picker/provider failures. Hook and native guards prevent duplicate
+save dialogs. Older Android wrappers receive update guidance rather than a
+browser fallback; browsers retain Blob downloads with temporary-link/URL
+cleanup even when the click fails. Backup schemas/restoration are unchanged.
+
+Validation and review:
+
+- Reviewed plugin registration, chosen-URI write scope, output stream closure,
+  IO/lifecycle handling, duplicate/cancel/error outcomes and browser routing.
+- New disposable-database/mock-native export fixture passed **11 checks**:
+  filename, restorable Unicode payload, success counts, cancellation, provider
+  failure, duplicate taps, guard release, old-wrapper guidance, browser routing,
+  browser Blob contents and temporary-link/source-data preservation.
+- All existing **200 browser checks** passed: **211 total** this iteration.
+  Mock picker/provider evidence does not close native runtime acceptance.
+- `npx tsc --noEmit`, `npm run cap:sync` (including production build), three
+  Quick Start Node fixtures and `git diff --check` passed.
+- `./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --quiet`
+  passed with **16 phone tests**, zero failures/errors, and the debug phone APK.
+  The initial sandbox cache-lock restriction was resolved with authorized
+  Gradle execution; no build failures remained. Wear source did not change.
+- No emulator/physical-device testing, paired transport, Git fetch or push
+  occurred. No saved file from a real Android document provider is claimed.
+
+Completed: Android backup save-file implementation, browser/native routing and
+payload verification, phone build checks. Remaining: real Android save/cancel,
+provider failure/interruption and reopen/restore of the saved artifact, native
+import file chooser, paired Stage 19 recovery and physical acceptance. Earlier
+export hook-only evidence is superseded for routing/payload checks, while its
+unverified native provider/download observations remain open.
+Next action: install the phone APK and verify JSON save/cancel plus reopen/
+restore using an Android document provider, then execute the paired Stage 19
+matrix when companion/paired devices are available.

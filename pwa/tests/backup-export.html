@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Backup file export checks</title>
+<h1>Backup file export checks</h1>
+<p>Disposable database and mocked document picker; no personal data is exported.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { Capacitor } from '@capacitor/core';
+import { getAll, putRecord, STORES } from '/src/lib/db.ts';
+import { parseWorkoutBackup } from '/src/lib/backup.ts';
+const factory = window.indexedDB;
+const database = `pasingot-backup-export-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const originalPlatform = Capacitor.getPlatform;
+const originalHeaders = Capacitor.PluginHeaders;
+const originalNativePromise = Capacitor.nativePromise;
+const originalAvailable = Capacitor.isPluginAvailable;
+const originalCreateUrl = URL.createObjectURL;
+const originalClick = HTMLAnchorElement.prototype.click;
+Capacitor.getPlatform = () => 'android';
+Capacitor.PluginHeaders = [{ name: 'BackupExport', methods: [{ name: 'saveBackup', rtype: 'promise' }] }];
+let nativeOptions;
+let calls = 0;
+let nativeResult = { saved: true };
+let fail = false;
+let deferred;
+Capacitor.nativePromise = async (plugin, method, options) => {
+  if (plugin !== 'BackupExport' || method !== 'saveBackup') throw new Error('Unexpected native call');
+  calls++; nativeOptions = options;
+  if (fail) throw new Error('Fixture provider failure');
+  if (deferred) return deferred;
+  return nativeResult;
+};
+const { useWorkoutBackup } = await import('/src/hooks/useWorkoutBackup.ts');
+const { saveBackupFile } = await import('/src/lib/backup-export.ts');
+let api;
+const root = createRoot(document.getElementById('root'));
+function Harness() {
+  const backup = useWorkoutBackup({ onRestored: async () => {} });
+  React.useLayoutEffect(() => { api = backup; });
+  return null;
+}
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+try {
+  await putRecord(STORES.workouts, { schemaVersion: 1, day: 'Friday', time: '07:00', exercise: 'Señor 🏋️ hold', sets: 1, reps: '10 sec', rest: 0 });
+  flushSync(() => root.render(React.createElement(Harness)));
+  await api.exportBackup(); await settle();
+  check(nativeOptions.fileName.startsWith('pasingot-backup-') && nativeOptions.fileName.endsWith('.json'), 'native export uses named JSON document');
+  const payload = parseWorkoutBackup(nativeOptions.content);
+  check(payload.stores.workouts[0].exercise === 'Señor 🏋️ hold', 'native payload is restorable JSON preserving Unicode');
+  check(!api.result.error && api.result.message.includes('1 schedule rows'), 'native write success reports exported counts');
+  nativeResult = { saved: false }; await api.exportBackup(); await settle();
+  check(api.result.message === 'Backup export canceled.' && !api.result.error, 'picker cancellation never reports export success');
+  fail = true; await api.exportBackup(); await settle();
+  check(api.result.error && api.result.message === 'Fixture provider failure', 'provider failure reports error');
+  fail = false; nativeResult = { saved: true };
+  let resolveDeferred; deferred = new Promise(resolve => { resolveDeferred = resolve; });
+  const before = calls;
+  const exportOne = api.exportBackup(); await settle(); await api.exportBackup();
+  check(calls === before + 1, 'duplicate taps open only one save picker');
+  resolveDeferred({ saved: true }); await exportOne; deferred = undefined;
+  await api.exportBackup(); await settle();
+  check(calls === before + 2 && !api.result.error, 'completed export releases guard for next save');
+  Capacitor.PluginHeaders = []; Capacitor.isPluginAvailable = () => false; const priorCalls = calls;
+  await api.exportBackup();
+  await settle();
+  check(api.result.error && api.result.message.includes('Update') && calls === priorCalls, 'old Android wrapper gives update guidance without browser fallback');
+  Capacitor.getPlatform = () => 'web';
+  let browserBlob; let browserName;
+  URL.createObjectURL = blob => { browserBlob = blob; return originalCreateUrl.call(URL, blob); };
+  HTMLAnchorElement.prototype.click = function () { browserName = this.download; };
+  const saved = await saveBackupFile('fixture.json', nativeOptions.content);
+  check(saved && browserName === 'fixture.json' && calls === priorCalls, 'web export uses browser download without native call');
+  check(parseWorkoutBackup(await browserBlob.text()).stores.workouts[0].exercise === 'Señor 🏋️ hold', 'browser download blob retains restorable Unicode contents');
+  check(!document.querySelector('a[download]') && (await getAll(STORES.workouts)).length === 1, 'export removes temporary link and preserves source data');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally {
+  Capacitor.getPlatform = originalPlatform; Capacitor.PluginHeaders = originalHeaders; Capacitor.nativePromise = originalNativePromise; Capacitor.isPluginAvailable = originalAvailable;
+  URL.createObjectURL = originalCreateUrl; HTMLAnchorElement.prototype.click = originalClick;
+  root.unmount(); factory.deleteDatabase(database);
+}
+</script>
+</html>
