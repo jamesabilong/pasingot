@@ -2720,3 +2720,53 @@ and safe transient package/cue pruning. **Stage 19: 68/97 (70%), Phase 3:
 legacy send/download/log/live-status regression, and physical Phase 4 0/27.
 Next action: inspect actual Data Items and run native replay/binding/capability
 checks, then execute legacy sync regression on the paired Windows emulators.
+
+## Iteration 51 — 2026-10-02 — Native transport replay and capability matrix
+
+Status: **Native capability/binding/replay fixtures pass; audit identifies
+resume cleanup gaps, so the combined Phase 3 acceptance item stays open.**
+
+Starting checkpoint: `8f42bdb PST01: Prune acknowledged cues and verify offline
+reboot recovery`. Read the plan/latest progress. Stage 19 is 68/97; Phase 3
+10/12. Implement a test-only native phone probe and watch driver using existing
+instrumentation dependencies. Require explicit opt-in, emulator hardware and
+the exact connected peer; ordinary instrumented runs skip paired mutation.
+Exercise production phone availability against actual watch-owned capability
+Data Items, terminal cleanup and replay, mismatched target/ack identity, and
+unchanged durable watch state. Restore the original capability and remove
+fixture transport items. Fix the starter Android context test's obsolete
+package name. No production transport or UI change is planned.
+
+Validation and audit (completed across midnight, 2026-10-02–03):
+
+- Both instrumentation APKs build. The paired native matrix passes on Windows
+  phone API 35 and Wear API 37 emulators: seven capability states, mismatched
+  acknowledgement identity, completed/wrong-target replay, fresh Ready/Cancel,
+  cancellation replay, exact transport cleanup and unchanged replay state.
+- Ordinary instrumentation runs skip the explicit paired fixtures and pass the
+  corrected phone application-ID assertion. No production source changed.
+- Initial paired runs timed out waiting for an old transport item to disappear.
+  Moving the test probe off the main thread removed a harness blocking risk but
+  did not resolve that timeout. After a runtime interruption, both AVDs were
+  restarted without clearing data; the diagnostic build's native rerun passed.
+  The failing URI was not captured, so the original timeout cause is unproven.
+- Source audit found two concrete recovery gaps: failed terminal offer deletion
+  has no startup retry, and startup republishes historical receipts even after
+  their watch replay tombstones have been replaced. These remain follow-up
+  implementation work despite the happy-path native matrix passing.
+- User reported phone crashes. Crash logs identify only the Google Pixel Watch
+  companion, missing `BLUETOOTH_CONNECT`; no Pasingot fatal crash or system ANR
+  appeared in this boot. With explicit user approval, granted companion
+  Bluetooth connect/scan on this emulator, relaunched it, and observed stable
+  process/startup with no new crash. Notification permission was left unchanged.
+- Added `PAIRED_EMULATOR_VALIDATION.md` with commands, prerequisites, mutation
+  scope, skip behavior and emulator/physical evidence boundaries. Moved our
+  emulator launch logs into ignored output. Diff review and whitespace check
+  pass; earlier 198 Wear/16 phone JVM results remain the unchanged-source baseline.
+
+Completed: repeatable native transport/capability acceptance harness and
+companion crash diagnosis/setup correction. Stage 19 stays **68/97 (70%)**,
+Phase 3 **10/12 (83%)** while cleanup recovery remains open.
+Next action: implement durable terminal cleanup retry and reconcile actual
+node-bound result/receipt items without recreating consumed historical receipts;
+then run legacy send/download/log/live-status regression.

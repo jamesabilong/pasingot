@@ -1200,9 +1200,12 @@ Phase 3 baseline passes, but paired Quick Start delivery, process/reboot
 recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 3 — End-to-end integration and recovery.
-**Exact next action:** run native Data Item cleanup, stale replay/node binding,
-mixed-version capability checks and legacy send/download/log/live-status
-regression on the connected Windows phone/watch AVDs before Phase 3 closure.
+**Exact next action:** fix startup retry of terminal offer cleanup and reconcile
+actual node-bound result/receipt items without recreating consumed receipts.
+Iteration 51's opt-in native capability/binding/replay matrix passes, but these
+audited recovery gaps keep the combined transport item open. Then run legacy
+send/download/log/live-status regression before Phase 3 closure. Reproduction
+commands are in [Paired emulator validation](PAIRED_EMULATOR_VALIDATION.md).
 Offline isolation requires airplane mode plus closed adb bridge sockets;
 ordinary Wi-Fi disable is automatically reversed by this Wear runtime.
 The Windows companion is already installed;

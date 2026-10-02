@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 51 passes the opt-in native capability/binding/replay matrix and
+  adds repeatable emulator instrumentation. Audit finds missing startup cleanup
+  retries and historical receipt recreation, so Stage 19 remains **68/97 (70%)**,
+  Phase 3 **10/12 (83%)**. Companion crashes were traced to missing Bluetooth
+  permission and stopped after the user-approved emulator permission correction.
+  Cleanup recovery and legacy regression remain next.
+
 - Iteration 50 implements safe exact-receipt cue pruning, retaining compact
   terminal replay protection and preferences, plus retryable receipt delivery
   metadata. All 198 Wear/16 phone tests and both APKs pass. Paired airplane-
