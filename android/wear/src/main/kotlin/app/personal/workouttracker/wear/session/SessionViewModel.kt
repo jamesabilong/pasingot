@@ -49,6 +49,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -91,6 +93,7 @@ class SessionViewModel(
     private val canAdjustSets: Boolean = true,
     private val canRestart: Boolean = true,
     private val awaitsPhoneReceipt: Boolean = false,
+    private val phoneReceiptStatus: Flow<Boolean>? = null,
     private val cueEmitter: SessionCueEmitter = NoOpSessionCueEmitter,
     private val newRestIntervalId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
@@ -148,6 +151,19 @@ class SessionViewModel(
                 if (entry != null && session != null) sendSessionSnapshot(entry, session)
                 flushPendingHistory()
                 synchronizeRestTimer()
+                phoneReceiptStatus?.let { receipts ->
+                    viewModelScope.launch {
+                        try {
+                            receipts.collect { confirmed ->
+                                if (confirmed) _uiState.update { it.copy(awaitingPhoneSync = false) }
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            // Keep the last known status when durable receipt storage cannot be read.
+                        }
+                    }
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -835,6 +851,7 @@ class SessionViewModel(
                 canAdjustSets = false,
                 canRestart = false,
                 awaitsPhoneReceipt = true,
+                phoneReceiptStatus = runtime.observePhoneReceipt(requestId),
                 cueEmitter = createProductionSessionCueEmitter(appContext),
             ) as T
         }

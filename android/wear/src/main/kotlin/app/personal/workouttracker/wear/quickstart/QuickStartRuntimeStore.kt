@@ -28,6 +28,11 @@ import app.personal.workouttracker.wear.session.toCompletionSummaryOrNull
 import app.personal.workouttracker.wear.session.toProgressSnapshot
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
@@ -35,6 +40,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 interface QuickStartRuntimePersistence {
+    /** Durable record changes, including writes from the receipt listener. */
+    val changes: Flow<Unit> get() = emptyFlow()
+
     suspend fun read(): String?
 
     /** Replace the whole record atomically and return only after durable persistence. */
@@ -106,6 +114,12 @@ class QuickStartRuntimeStore(private val persistence: QuickStartRuntimePersisten
     }
 
     suspend fun current(): QuickStartRuntimeState? = processMutex.withLock { load()?.runtime }
+
+    /** Runtime disappearance alone is not proof that this request reached the phone. */
+    fun observePhoneReceipt(requestId: String): Flow<Boolean> = persistence.changes
+        .onStart { emit(Unit) }
+        .map { processMutex.withLock { load()?.clearedReceipt?.requestId == requestId } }
+        .distinctUntilChanged()
 
     suspend fun initialize(
         sessionPackage: WatchSessionPackage,

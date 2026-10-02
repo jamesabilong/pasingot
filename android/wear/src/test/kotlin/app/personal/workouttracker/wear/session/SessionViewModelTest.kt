@@ -26,6 +26,7 @@ import app.personal.workouttracker.wear.quickstart.WatchSessionPackageStore
 import app.personal.workouttracker.wear.cues.WatchCueCancellation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -499,6 +500,42 @@ class SessionViewModelTest {
         runCurrent()
         assertTrue(closed)
         assertEquals(SessionStatus.PAUSED, repository.entry.sessionState?.status)
+    }
+
+    @Test fun `late phone receipt clears waiting without losing completed summary`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Squat", "10", sets = 1, rest = 0)))
+        val receipts = MutableStateFlow(false)
+        val viewModel = SessionViewModel(repository.entry.id, repository, sender,
+            legacyStartGate = defaultGate(), awaitsPhoneReceipt = true, phoneReceiptStatus = receipts)
+        viewModels.put("session", viewModel)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        val completed = viewModel.uiState.value.session
+        assertEquals(SessionStatus.COMPLETED, completed?.status)
+        assertTrue(viewModel.uiState.value.awaitingPhoneSync)
+
+        receipts.value = true
+        runCurrent()
+        assertFalse(viewModel.uiState.value.awaitingPhoneSync)
+        assertEquals(completed, viewModel.uiState.value.session)
+        receipts.value = false // A later request can replace the single receipt tombstone.
+        runCurrent()
+        assertFalse(viewModel.uiState.value.awaitingPhoneSync)
+        assertEquals(completed, viewModel.uiState.value.session)
+        viewModels.clear()
+        runCurrent()
+        assertEquals(0, receipts.subscriptionCount.value)
+    }
+
+    @Test fun `receipt already persisted when screen opens clears waiting`() = runSessionTest {
+        val receipts = MutableStateFlow(true)
+        val viewModel = SessionViewModel(repository.entry.id, repository, sender,
+            legacyStartGate = defaultGate(), awaitsPhoneReceipt = true, phoneReceiptStatus = receipts)
+        viewModels.put("session", viewModel)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.awaitingPhoneSync)
+        assertEquals(repository.entry.sessionState, viewModel.uiState.value.session)
     }
 
     private class FakeSessionStore : WorkoutSessionStore {

@@ -2611,3 +2611,52 @@ offline completion/reboot/receipt/cue cleanup, and full legacy sync regression.
 Next action: implement receipt-aware final presentation and audit cue cleanup
 ordering; validate disconnected completion/reboot and exact acknowledgement
 before pruning. Physical Phase 4 stays 0/27.
+
+## Iteration 49 — 2026-10-02 — Receipt-aware watch completion
+
+Status: **Receipt-aware final presentation implemented, 193 Wear tests and
+APK build pass, and the open final screen updates correctly on the emulator.**
+
+Starting checkpoint: `cd778be PST01: Validate paired Quick Start restart and
+cancellation`. Read the updated plan and latest iteration. Stage 19 is 67/97,
+Phase 3 9/12. Implement durable runtime receipt observation for the existing
+session ViewModel, preserving its immutable success summary after runtime
+pruning. Validate matching identity, early/late receipt and observer cleanup.
+
+Implemented durable runtime-change observation through the existing DataStore
+adapter. Only this request's validated cleared-receipt tombstone confirms sync;
+missing runtime or another request's receipt cannot. The session ViewModel
+clears its waiting flag while retaining its loaded summary. Observation runs
+in its lifecycle scope, and later tombstone replacement cannot regress a
+confirmed display. No wire contract or persistence version changes.
+
+Validation and audit:
+
+- All **193 Wear tests** and the debug APK build pass. Two new ViewModel tests
+  cover late/early confirmation, immutable summary preservation, non-regression
+  and subscriber cleanup. Expanded real-file DataStore coverage checks durable
+  change observation, request identity and confirmation after reopening storage.
+- The first test run found incorrect setup in the new fake-store fixtures:
+  gateless initialization did not persist their initial sessions. Corrected
+  the fixtures to use their existing persistence gate; all checks then passed.
+- Installed the updated Wear APK. A native one-set Jumping Jacks result received
+  its exact phone receipt; after scrolling the still-open final screen, it
+  shows the same counts/duration and **Saved on watch**, with **Waiting to sync**
+  absent. This directly supersedes Iteration 48's stale-label finding.
+- Attempts to isolate transport by removing adb sockets and issuing Wi-Fi
+  disable still received receipts; Wear re-enabled Wi-Fi automatically.
+  These runs do not close offline/reboot retention. One reboot occurred after
+  receipt, so it is not queued-result reboot evidence. The original airplane
+  mode is disabled; a controlled airplane-mode test remains next.
+- Audited ledger cleanup ordering: final cue reservation can follow immediate
+  receipt transport, so simply clearing the ledger in the receipt callback
+  can allow a late cue to repopulate it or replay. A compact acknowledged-
+  session tombstone must permit one late terminal success while suppressing
+  obsolete/replayed cues before production cleanup is wired.
+- Source/diff audit and `git diff --check` pass. Shared and phone source is
+  unchanged; no browser or physical-device validation is newly claimed.
+
+Completed: live receipt-aware success presentation and meaningful lifecycle/
+durability regression checks. Stage 19 stays **67/97**, Phase 3 **9/12**.
+Next action: implement race-safe cue ledger pruning using a compact terminal
+tombstone, then validate truly offline completion/reboot and receipt cleanup.

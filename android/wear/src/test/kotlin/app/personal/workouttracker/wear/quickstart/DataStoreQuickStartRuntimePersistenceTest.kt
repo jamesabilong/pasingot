@@ -7,6 +7,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -41,10 +44,17 @@ class DataStoreQuickStartRuntimePersistenceTest {
         withStore { store ->
             assertEquals(final, store.current())
             assertEquals(initialized.startedAcknowledgement, store.current()!!.startedAcknowledgement)
+            assertEquals(false, store.observePhoneReceipt(ID).first())
+            val confirmed = async(start = CoroutineStart.UNDISPATCHED) {
+                store.observePhoneReceipt(ID).first { it }
+            }
             assertEquals(ClearQuickStartRuntimeResult.CLEARED, store.clearAcknowledged(receipt, PHONE))
+            assertEquals(true, confirmed.await())
+            assertEquals(false, store.observePhoneReceipt("different-request").first())
         }
         withStore { store ->
             assertNull(store.current())
+            assertEquals(true, store.observePhoneReceipt(ID).first())
             assertEquals(ClearQuickStartRuntimeResult.ALREADY_CLEARED, store.clearAcknowledged(receipt, PHONE))
             assertEquals(InitializeQuickStartRuntimeResult.AlreadyAcknowledged(receipt),
                 store.initialize(runtimePackage(), initialSession(), NOW))

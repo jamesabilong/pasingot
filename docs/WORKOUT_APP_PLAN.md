@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 49 fixes final-screen sync wording through durable receipt
+  observation. All 193 Wear tests, the Wear APK, and native live receipt UI
+  validation pass. The loaded summary remains visible after runtime pruning.
+  Cue ledger cleanup ordering and truly offline reboot remain next; Stage 19
+  stays 67/97 (69%), Phase 3 9/12 (75%).
+
 - Iteration 48 validates paired Windows Quick Start Ready/process-restart/Start,
   phone Cancel and watch Dismiss. Stage 19 is **67/97 (69%)**, Phase 3
   **9/12 (75%)**. Connected completion/receipt passes; final-screen stale sync
