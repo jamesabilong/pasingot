@@ -5,13 +5,25 @@ import { localDateKey, todayDateKey } from './history-stats';
 export const QUEST_STATE_KEY = 'questState';
 export const QUEST_HISTORY_KEY = 'questHistory';
 
+export function questTotalDays(template: QuestTemplate): number {
+  return template.durationWeeks * template.daysPerWeek;
+}
+
+export function questWeekNumber(state: QuestState, template: QuestTemplate): number {
+  return Math.floor((state.nextDayIndex - 1) / template.daysPerWeek) + 1;
+}
+
+export function questTemplateDayNumber(state: QuestState, template: QuestTemplate): number {
+  return ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
+}
+
 export function belongsToQuestRun(row: WorkoutRow, state: QuestState): boolean {
   return row.questId === state.questId && row.questRunId === state.runId;
 }
 
 export function resolveQuestDay(rows: QuestWorkoutRow[], state: QuestState, template: QuestTemplate, catalog: Map<number, ExerciseCatalogItem>) {
   if (state.status !== 'active') return [];
-  const dayNumber = ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
+  const dayNumber = questTemplateDayNumber(state, template);
   const dayRows = rows.filter((row) => row.questId === state.questId && row.level === state.level && row.dayNumber === dayNumber);
   // A partial day must not become a smaller, apparently complete workout.
   if (!dayRows.length || dayRows.some((row) => !catalog.has(row.exerciseSourceId))) return [];
@@ -29,7 +41,7 @@ export function completeQuestDay(state: QuestState, template: QuestTemplate, row
     && new Date(log.date).getTime() >= new Date(state.startedAt).getTime()
     && (log.status === 'done' || log.status === 'skipped')
   )))) return state;
-  const dayNumber = ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
+  const dayNumber = questTemplateDayNumber(state, template);
   const nextDayIndex = state.nextDayIndex + 1;
   return {
     ...state,

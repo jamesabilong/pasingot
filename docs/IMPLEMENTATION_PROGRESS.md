@@ -2036,3 +2036,54 @@ file verification, quest workflow extraction, and paired/physical acceptance.
 Next action: extract the quest workflow with regression coverage while keeping
 its scheduling/reconciliation safeguards, or resume the Phase 3 paired matrix
 when the official companion/paired devices are available.
+
+## Iteration 38 — 2026-10-02 — Quest workflow module
+
+Status: **Quest workflow extraction complete with browser and build checks;
+full composition-root cleanup and paired/device acceptance remain open.**
+
+Starting checkpoint: `f185475 PST01: Extract backup transfer workflow`, clean
+working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented `useQuestWorkflow` to own enrollment, custom quest creation/deletion,
+quest-day scheduling, conflict and duplicate handling, leave/session guards,
+log-driven completion reconciliation, derived day/progress presentation, and
+durable quest state/history/custom-template hydration. `App.tsx` passes the
+catalog, built-in definitions, playlist, workout/log data, active session, and
+refresh callbacks, then wires hook results to Quests/History/Library.
+
+Quest hydration now has one stable refresh entry point shared by initialization,
+backup restore, and leave refresh; absent/unsupported state clears stale
+enrollment, and initialization supplies its disposal guard. Pure total/week/day
+calculations moved to `lib/quest-progress.ts`; day resolution uses the shared
+calculation. Existing domain persistence and native handoff ordering remain
+unchanged. No schema, dependency, native source, or user-facing copy changed.
+
+Review and validation:
+
+- Reviewed moved action handlers and derived state against the previous App
+  implementation, including run identity, missing catalog handling, session
+  guards, conflict checks, archiving, and completion replay behavior.
+- New disposable-database React-hook browser fixture passed **18 checks**:
+  empty/durable hydration, template authoring/enrollment, day resolution,
+  enrolled-template deletion guard, invalid time/conflicts, custom identity,
+  duplicate scheduling, linked paused-session leave guard, cancellation,
+  completion/replay, archiving, unrelated schedule/history retention, deletion,
+  and authoritative refresh.
+- Existing custom quest **10**, data-integrity **35**, and import workflow
+  **15** browser checks passed: **78 browser checks total**.
+- Isolated App smoke check enrolled Test Mobility Program, rendered its
+  day/level/load prescription, and scheduled it successfully. Ready navigation
+  badges and the Start workout action updated; no console errors were reported.
+- `npx tsc --noEmit`, `npm run build`, three Quick Start Node fixtures, and
+  `git diff --check` passed.
+- No APK builds, emulator pairing, physical-device tests, fetch, or push occurred.
+
+Completed: quest workflow extraction and relevant regression verification.
+Remaining: Library/custom exercise/playlist handlers, built-in catalog loading,
+shared restore/bootstrap coordination, native file chooser/export verification,
+and paired/physical acceptance. Stage 14B remains partial, with quest/import/
+backup/session workflows now isolated rather than all feature workflows.
+Next action: extract the Library playlist/custom-exercise workflow with
+reference/deletion and schedule regression coverage; resume Stage 19 paired
+recovery when official companion/paired devices are available.

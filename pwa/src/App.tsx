@@ -14,6 +14,7 @@ import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickSta
 import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
+import { useQuestWorkflow } from './hooks/useQuestWorkflow';
 import { useLocalDate } from './hooks/useLocalDate';
 import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
@@ -32,12 +33,8 @@ import {
   type CustomExerciseDraft,
 } from './lib/custom-exercises';
 import {
-  createCustomQuestDefinition,
-  CUSTOM_QUESTS_KEY,
   describeCustomExerciseReferences,
   findCustomExerciseReferences,
-  normalizeCustomQuestCollection,
-  type CustomQuestDraft,
 } from './lib/custom-quests';
 import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
@@ -50,7 +47,6 @@ import {
   type WatchSessionSnapshot,
 } from './lib/native-bridge';
 import { parseQuestTemplatesCsv, parseQuestWorkoutsCsv } from './lib/quests';
-import { archiveQuest, belongsToQuestRun, QUEST_HISTORY_KEY, QUEST_STATE_KEY, reconcileQuestDay, resolveQuestDay } from './lib/quest-progress';
 import { WORKOUT_CUE_SETTINGS_KEY, type WorkoutCueSettings } from './lib/workout-cues';
 import {
   calculatePlanProgress,
@@ -73,15 +69,11 @@ import {
 import {
   SCHEMA_VERSION,
   type CustomExercise,
-  type CustomQuestCollection,
-  type CustomQuestDefinition,
   type ExerciseLevel,
   type ExerciseCatalogItem,
   type HistoryRange,
   type PlaylistDraft,
   type PlaylistItem,
-  type QuestHistory,
-  type QuestState,
   type QuestTemplate,
   type QuestWorkoutRow,
   type Tab,
@@ -92,18 +84,6 @@ import {
 } from './types';
 
 const PLAYLIST_DRAFT_KEY = 'playlistDraft';
-
-function questTotalDays(template: QuestTemplate): number {
-  return template.durationWeeks * template.daysPerWeek;
-}
-
-function questWeekNumber(state: QuestState, template: QuestTemplate): number {
-  return Math.floor((state.nextDayIndex - 1) / template.daysPerWeek) + 1;
-}
-
-function questTemplateDayNumber(state: QuestState, template: QuestTemplate): number {
-  return ((state.nextDayIndex - 1) % template.daysPerWeek) + 1;
-}
 
 export default function App() {
   const localToday = useLocalDate();
@@ -118,9 +98,6 @@ export default function App() {
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>([]);
   const [builtInQuestTemplates, setBuiltInQuestTemplates] = useState<QuestTemplate[]>([]);
   const [builtInQuestRows, setBuiltInQuestRows] = useState<QuestWorkoutRow[]>([]);
-  const [customQuestDefinitions, setCustomQuestDefinitions] = useState<CustomQuestDefinition[]>([]);
-  const [questState, setQuestState] = useState<QuestState | null>(null);
-  const [questHistory, setQuestHistory] = useState<QuestHistory['entries']>([]);
   const [draft, setDraft] = useState<PlaylistDraft>(initialDraft);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -128,7 +105,6 @@ export default function App() {
   const [customExerciseDraft, setCustomExerciseDraft] = useState<CustomExerciseDraft>(initialCustomExerciseDraft);
   const [customExerciseResult, setCustomExerciseResult] = useState<{ message: string; error: boolean } | null>(null);
   const [playlistResult, setPlaylistResult] = useState<{ message: string; error: boolean } | null>(null);
-  const [questResult, setQuestResult] = useState<{ message: string; error: boolean } | null>(null);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
     'Notification' in window ? Notification.permission : 'unsupported'
@@ -179,6 +155,18 @@ export default function App() {
     startRestNow: startPwaRestNow, addRestSeconds: addPwaRestSeconds,
   } = useWorkoutSession({ workouts, logs, onHistoryChanged: refreshWorkoutHistory,
     onCompleted: writeHealthConnectSession, playCue: playWorkoutCue, addToast });
+  const {
+    questState, questHistory, customQuestDefinitions, questTemplates,
+    activeQuestTemplate, activeQuestLevels, currentQuestRows,
+    currentQuestEstimate, scheduledCurrentQuestRows, currentQuestProgress,
+    questResult, totalDays, weekNumber, dayNumber,
+    refresh: refreshQuestData, saveQuestState, startQuest, createCustomQuest,
+    deleteCustomQuest, leaveQuest, saveQuestDayToSchedule,
+  } = useQuestWorkflow({
+    builtInQuestTemplates, builtInQuestRows, catalog, draft, workouts, logs,
+    localToday, activeWorkoutSession, clearActiveWorkoutSession,
+    refreshWorkouts, refreshUserData,
+  });
   const { result: importResult, importCsv } = useScheduleImport({
     session: activeWorkoutSession,
     clearSession: clearActiveWorkoutSession,
@@ -190,11 +178,6 @@ export default function App() {
   const saveDraft = useCallback(async (next: PlaylistDraft) => {
     setDraft(next);
     await putRecord(STORES.appState, { key: PLAYLIST_DRAFT_KEY, schemaVersion: SCHEMA_VERSION, ...next });
-  }, []);
-
-  const saveQuestState = useCallback(async (next: QuestState) => {
-    setQuestState(next);
-    await putRecord(STORES.appState, next);
   }, []);
 
   const refreshWatchData = useCallback(async () => {
@@ -268,12 +251,7 @@ export default function App() {
       } catch (error) {
         console.warn('Could not load quest definitions:', error);
       }
-      const storedCustomQuests = normalizeCustomQuestCollection(await getRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY));
-      if (!disposed) setCustomQuestDefinitions(storedCustomQuests.quests);
-      const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
-      if (!disposed && storedQuestState?.schemaVersion === SCHEMA_VERSION) setQuestState(storedQuestState);
-      const storedQuestHistory = await getRecord<QuestHistory>(STORES.appState, QUEST_HISTORY_KEY);
-      if (!disposed) setQuestHistory(storedQuestHistory?.entries ?? []);
+      await refreshQuestData(() => !disposed);
       const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
       if (!disposed) loadWorkoutCueSettings(storedCueSettings);
       if (!disposed) await restoreWorkoutSession();
@@ -287,7 +265,7 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs, refreshQuestData]);
 
   useScheduleNotifications(workouts, addToast);
 
@@ -317,55 +295,6 @@ export default function App() {
       && (category === 'all' || item.category === category)
       && (!featuredOnly || item.featured);
   }), [catalog, search, category, featuredOnly, draft.level]);
-  const catalogBySourceId = useMemo(() => new Map(catalog.map((item) => [item.sourceId, item])), [catalog]);
-  const questTemplates = useMemo(() => [
-    ...builtInQuestTemplates,
-    ...customQuestDefinitions.map((definition) => definition.template),
-  ], [builtInQuestTemplates, customQuestDefinitions]);
-  const questRows = useMemo(() => [
-    ...builtInQuestRows,
-    ...customQuestDefinitions.flatMap((definition) => definition.rows),
-  ], [builtInQuestRows, customQuestDefinitions]);
-  const activeQuestTemplate = useMemo(() => (
-    questState ? questTemplates.find((template) => template.questId === questState.questId) : questTemplates[0]
-  ), [questState, questTemplates]);
-  const activeQuestLevels = activeQuestTemplate?.availableLevels?.length ? activeQuestTemplate.availableLevels : LEVELS;
-  const currentQuestDayNumber = questState && activeQuestTemplate && questState.status === 'active'
-    ? questTemplateDayNumber(questState, activeQuestTemplate)
-    : null;
-  const currentQuestRows = useMemo(() => {
-    if (!questState || !activeQuestTemplate || currentQuestDayNumber == null || questState.status !== 'active') return [];
-    return resolveQuestDay(questRows, questState, activeQuestTemplate, catalogBySourceId);
-  }, [activeQuestTemplate, catalogBySourceId, currentQuestDayNumber, questRows, questState]);
-  const currentQuestEstimate = useMemo(() => (
-    formatEstimatedDuration(estimateWorkoutDurationSeconds(currentQuestRows.map(({ row }) => row), questState?.level ?? 'beginner'))
-  ), [currentQuestRows, questState?.level]);
-  const scheduledCurrentQuestRows = useMemo(() => {
-    if (!questState) return [];
-    return workouts.filter((row) => belongsToQuestRun(row, questState) && row.questDayIndex === questState.nextDayIndex);
-  }, [questState, workouts]);
-  const currentQuestProgressRows = useMemo(() => (
-    scheduledCurrentQuestRows.length
-      ? scheduledCurrentQuestRows
-      : currentQuestRows.map(({ row }, index) => ({ id: undefined, sequence: row.sequence, fallbackIndex: index }))
-  ), [currentQuestRows, scheduledCurrentQuestRows]);
-  const currentQuestProgress = useMemo(() => (
-    calculatePlanProgress(currentQuestProgressRows, todayStatuses)
-  ), [currentQuestProgressRows, todayStatuses]);
-
-  useEffect(() => {
-    // Watch logs arrive through the native bridge while the app resumes.
-    // Reconcile one representative row per quest day after those logs enter
-    // IndexedDB; phone-button logs use this same path through the logs state.
-    const candidates = new Map<string, WorkoutRow>();
-    workouts.forEach((row) => {
-      if (!questState || !belongsToQuestRun(row, questState) || row.questDayIndex !== questState.nextDayIndex || row.id == null) return;
-      const hasLinkedLog = logs.some((log) => log.workoutRowId === row.id);
-      if (hasLinkedLog) candidates.set(`${row.questId}:${row.questDayIndex}`, row);
-    });
-    candidates.forEach((row) => { void maybeCompleteQuestDay(row, logs); });
-  }, [logs, questTemplates, workouts, questState, localToday]);
-
   async function logExercise(row: WorkoutRow, status: WorkoutLog['status']) {
     if (row.id == null) return;
     await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, status, workoutRowId: row.id } satisfies WorkoutLog);
@@ -382,18 +311,13 @@ export default function App() {
       refreshBodyMetrics(),
       refreshCustomExercises(),
     ]);
-    const storedCustomQuests = normalizeCustomQuestCollection(await getRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY));
-    setCustomQuestDefinitions(storedCustomQuests.quests);
-    const storedQuestHistory = await getRecord<QuestHistory>(STORES.appState, QUEST_HISTORY_KEY);
-    setQuestHistory(storedQuestHistory?.entries ?? []);
+    await refreshQuestData();
   }
 
   async function rehydrateBackup(backup: WorkoutBackup) {
     await refreshUserData();
     await refreshHealthConnectEnabled();
     setCustomExercises(backup.stores.customExercises);
-    const storedQuestState = await getRecord<QuestState>(STORES.appState, QUEST_STATE_KEY);
-    setQuestState(storedQuestState?.schemaVersion === SCHEMA_VERSION ? storedQuestState : null);
     const storedDraft = await getRecord<PlaylistDraft & { schemaVersion: number }>(STORES.appState, PLAYLIST_DRAFT_KEY);
     setDraft(storedDraft?.schemaVersion === SCHEMA_VERSION ? normalizeDraft(storedDraft, mergeCatalogWithCustomExercises(catalog.filter((item) => !item.custom), backup.stores.customExercises)) : initialDraft());
     const storedCueSettings = await getRecord<WorkoutCueSettings>(STORES.appState, WORKOUT_CUE_SETTINGS_KEY);
@@ -401,7 +325,6 @@ export default function App() {
     await restoreWorkoutSession();
     setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
   }
-
 
   async function addCatalogExercise(sourceId: number) {
     if (draft.items.length >= MAX_PLAYLIST_ITEMS) return addToast(`A playlist can contain up to ${MAX_PLAYLIST_ITEMS} exercises.`);
@@ -514,152 +437,6 @@ export default function App() {
     setPlaylistResult({ error: false, message: additions.length ? `Added ${additions.length} exercise${additions.length === 1 ? '' : 's'} to ${draft.day} at ${draft.time}. ${draftEstimate}.` : 'This playlist is already on the schedule at that day and time.' });
   }
 
-  async function startQuest(template: QuestTemplate) {
-    const availableLevels = template.availableLevels?.length ? template.availableLevels : LEVELS;
-    const next: QuestState = {
-      key: QUEST_STATE_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      questId: template.questId,
-      runId: crypto.randomUUID(),
-      level: availableLevels.includes(draft.level) ? draft.level : availableLevels[0],
-      nextDayIndex: 1,
-      scheduledTime: draft.time,
-      startedAt: new Date().toISOString(),
-      completedDays: [],
-      status: 'active',
-    };
-    setQuestResult(null);
-    await saveQuestState(next);
-  }
-
-  async function createCustomQuest(questDraft: CustomQuestDraft) {
-    const { definition, error } = createCustomQuestDefinition(questDraft, draft, catalog);
-    if (!definition || error) {
-      setQuestResult({ error: true, message: error ?? 'Could not create the custom quest.' });
-      return;
-    }
-    const nextDefinitions = [...customQuestDefinitions, definition];
-    await putRecord(STORES.appState, {
-      key: CUSTOM_QUESTS_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      quests: nextDefinitions,
-    } satisfies CustomQuestCollection);
-    setCustomQuestDefinitions(nextDefinitions);
-    setQuestResult({ error: false, message: `${definition.template.title} created from the ${draft.items.length}-exercise Library playlist.` });
-  }
-
-  async function deleteCustomQuest(questId: string) {
-    const definition = customQuestDefinitions.find((item) => item.questId === questId);
-    if (!definition) return;
-    if (questState?.questId === questId) {
-      setQuestResult({ error: true, message: 'Leave this quest before deleting its template.' });
-      return;
-    }
-    const scheduledRows = workouts.filter((row) => row.questId === questId).length;
-    if (scheduledRows) {
-      setQuestResult({ error: true, message: `This quest still has ${scheduledRows} saved schedule row${scheduledRows === 1 ? '' : 's'} and cannot be deleted.` });
-      return;
-    }
-    if (!window.confirm(`Delete the ${definition.template.title} quest template?`)) return;
-    const nextDefinitions = customQuestDefinitions.filter((item) => item.questId !== questId);
-    await putRecord(STORES.appState, {
-      key: CUSTOM_QUESTS_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      quests: nextDefinitions,
-    } satisfies CustomQuestCollection);
-    setCustomQuestDefinitions(nextDefinitions);
-    setQuestResult({ error: false, message: 'Custom quest deleted.' });
-  }
-
-  async function leaveQuest() {
-    if (!questState) return;
-    const questRowIds = new Set(workouts.filter((row) => belongsToQuestRun(row, questState)).map((row) => row.id));
-    if (activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)
-      && activeWorkoutSession.rowIds.some((id) => questRowIds.has(id))) {
-      setQuestResult({ error: true, message: 'Finish or end the current workout before leaving this quest.' });
-      return;
-    }
-    const action = 'Leave this quest and remove its scheduled exercises? Completed days and workout history will be kept in History.';
-    if (!window.confirm(action)) return;
-    await archiveQuest(questState, activeQuestTemplate);
-    setQuestState(null);
-    if (activeWorkoutSession?.rowIds.some((id) => questRowIds.has(id))) await clearActiveWorkoutSession();
-    await refreshUserData();
-    await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
-    setQuestResult(null);
-  }
-
-  async function saveQuestDayToSchedule() {
-    if (!questState || !activeQuestTemplate || !currentQuestRows.length) return;
-    if (!TIME_RE.test(questState.scheduledTime)) {
-      setQuestResult({ error: true, message: 'Choose a valid start time before scheduling this quest day.' });
-      return;
-    }
-    const dayNumber = questTemplateDayNumber(questState, activeQuestTemplate);
-    const dayLabel = currentQuestRows[0]?.row.dayLabel ?? `Day ${dayNumber}`;
-    const proposedRows = currentQuestRows.map(({ row, exercise }) => ({
-      schemaVersion: SCHEMA_VERSION,
-      day: todayName(),
-      time: questState.scheduledTime,
-      exercise: exercise.custom ? exercise.displayName : exercise.name,
-      exerciseSourceId: exercise.sourceId,
-      sets: row.sets,
-      reps: row.reps,
-      rest: row.rest,
-      loadWeight: row.loadWeight ?? null,
-      loadUnit: row.loadWeight != null ? row.loadUnit ?? 'kg' : null,
-      questId: questState.questId,
-      questRunId: questState.runId,
-      questDayIndex: questState.nextDayIndex,
-      questDayLabel: dayLabel,
-      questLevel: questState.level,
-    } satisfies WorkoutRow));
-    const completedQuestDayIndexes = new Set(questState.completedDays.map((day) => day.dayIndex));
-    const replacementRows = workouts.filter((existing) => (
-      existing.id != null
-      && belongsToQuestRun(existing, questState)
-      && existing.questDayIndex != null
-      && completedQuestDayIndexes.has(existing.questDayIndex)
-      && existing.day === todayName()
-      && existing.time === questState.scheduledTime
-    ));
-    const replacementIds = new Set(replacementRows.map((row) => row.id));
-    const activeWorkouts = workouts.filter((row) => row.id == null || !replacementIds.has(row.id));
-    const conflicts = proposedRows.filter((proposed) => activeWorkouts.some((existing) => (
-      existing.day === proposed.day
-      && existing.time === proposed.time
-      && existing.exercise.toLowerCase() === proposed.exercise.toLowerCase()
-      && !(belongsToQuestRun(existing, questState) && existing.questDayIndex === proposed.questDayIndex)
-    )));
-    if (conflicts.length) {
-      setQuestResult({ error: true, message: `Move this quest to a different time; ${conflicts.length} exercise${conflicts.length === 1 ? '' : 's'} already exist at ${questState.scheduledTime}.` });
-      return;
-    }
-    for (const row of replacementRows) {
-      if (row.id != null) await deleteRecord(STORES.workouts, row.id);
-    }
-    const existingQuestKeys = new Set(activeWorkouts
-      .filter((row) => belongsToQuestRun(row, questState) && row.questDayIndex === questState.nextDayIndex)
-      .map((row) => row.exercise.toLowerCase()));
-    const additions = proposedRows.filter((row) => !existingQuestKeys.has(row.exercise.toLowerCase()));
-    for (const row of additions) await addRecord(STORES.workouts, row);
-    const schedule = await getAll<WorkoutRow>(STORES.workouts);
-    await pushScheduleToNative(schedule);
-    await refreshWorkouts();
-    setQuestResult({ error: false, message: additions.length ? `Scheduled ${dayLabel} for ${todayName()} at ${questState.scheduledTime}. ${currentQuestEstimate}.` : `${dayLabel} is already scheduled.` });
-  }
-
-  async function maybeCompleteQuestDay(row: WorkoutRow, latestLogs: WorkoutLog[]) {
-    if (!row.questId || row.questDayIndex == null) return;
-    const template = questTemplates.find((item) => item.questId === row.questId);
-    if (!template) return;
-    const nextState = await reconcileQuestDay(template, row, workouts, latestLogs);
-    if (!nextState) return;
-    setQuestState(nextState);
-    const completion = nextState.completedDays.at(-1)!;
-    setQuestResult({ error: false, message: nextState.status === 'completed' ? `${template.title} completed.` : `${completion.dayLabel} completed. Next quest day is ready.` });
-  }
-
   async function requestNotificationPermission() {
     if (!('Notification' in window)) return;
     const permission = await Notification.requestPermission();
@@ -735,9 +512,9 @@ export default function App() {
         currentQuestEstimate={currentQuestEstimate}
         currentQuestProgress={currentQuestProgress}
         questResult={questResult}
-        totalDays={activeQuestTemplate ? questTotalDays(activeQuestTemplate) : null}
-        weekNumber={questState && activeQuestTemplate ? questWeekNumber(questState, activeQuestTemplate) : null}
-        dayNumber={questState && activeQuestTemplate ? questTemplateDayNumber(questState, activeQuestTemplate) : null}
+        totalDays={totalDays}
+        weekNumber={weekNumber}
+        dayNumber={dayNumber}
         onDraftLevelChange={(level) => void saveDraft({ ...draft, level })}
         onQuestStateChange={(state) => void saveQuestState(state)}
         onStartQuest={(template) => void startQuest(template)}

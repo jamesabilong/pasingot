@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Quest workflow regression checks</title>
+<h1>Quest workflow regression checks</h1>
+<p>Disposable database; no personal workout data is used.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { useQuestWorkflow } from '/src/hooks/useQuestWorkflow.ts';
+import { getAll, getRecord, putRecord, STORES } from '/src/lib/db.ts';
+import { QUEST_STATE_KEY } from '/src/lib/quest-progress.ts';
+import { todayDateKey } from '/src/lib/history-stats.ts';
+import { todayName } from '/src/lib/workout-planning.ts';
+const factory = window.indexedDB;
+const database = `pasingot-quest-workflow-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const originalConfirm = window.confirm;
+let confirmed = true;
+window.confirm = () => confirmed;
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const now = new Date().toISOString();
+const exercise = { schemaVersion: 1, sourceId: -42, name: 'custom:42:tempo-hold', displayName: 'Tempo Hold', category: 'Mobility', primaryMuscles: ['Core'], secondaryMuscles: [], equipment: [], featured: false, minimumLevel: 'beginner', progressionGroup: 'custom', progressionLevel: 'beginner', license: 'User-provided', licenseUrl: '', author: 'Custom', sourceUrl: '', custom: true, createdAt: now, updatedAt: now };
+const draft = { day: todayName(), time: '07:00', level: 'beginner', items: [{ sourceId: -42, name: 'Tempo Hold', sets: 1, reps: '10 sec', rest: 0 }] };
+let api;
+let active = null;
+let cleared = 0;
+const root = createRoot(document.getElementById('root'));
+function Harness() {
+  const [workouts, setWorkouts] = React.useState([]);
+  const [logs, setLogs] = React.useState([]);
+  const quest = useQuestWorkflow({ builtInQuestTemplates: [], builtInQuestRows: [], catalog: [exercise], draft, workouts, logs, localToday: todayDateKey(), activeWorkoutSession: active,
+    clearActiveWorkoutSession: async () => { cleared++; active = null; },
+    refreshWorkouts: async () => setWorkouts(await getAll(STORES.workouts)),
+    refreshUserData: async () => { setWorkouts(await getAll(STORES.workouts)); await api.refresh(); },
+  });
+  React.useLayoutEffect(() => { api = { ...quest, reload: async () => { setWorkouts(await getAll(STORES.workouts)); setLogs(await getAll(STORES.logs)); } }; });
+  return null;
+}
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const render = async () => { root.render(React.createElement(Harness)); await settle(); };
+try {
+  await render();
+  await api.refresh(); await settle();
+  check(api.questState === null && api.questHistory.length === 0, 'empty stores restore an empty quest');
+  await api.createCustomQuest({ title: 'Fixture Quest', description: 'Fixture goal', safetyNote: 'Fixture only', durationWeeks: 1, daysPerWeek: 2 }); await settle();
+  check(api.questTemplates.length === 1 && api.customQuestDefinitions.length === 1, 'created custom template is immediately available');
+  const template = api.questTemplates[0];
+  await api.startQuest(template); await settle();
+  const state = api.questState;
+  check(state.runId && state.nextDayIndex === 1 && api.totalDays === 2 && api.dayNumber === 1, 'enrollment persists a run with first-day presentation');
+  check((await getRecord(STORES.appState, QUEST_STATE_KEY)).runId === state.runId, 'enrollment is durable');
+  check(api.currentQuestRows.length === 1, 'current quest day resolves custom catalog exercise');
+  await api.deleteCustomQuest(template.questId); await settle();
+  check(api.questResult.error && api.customQuestDefinitions.length === 1, 'enrolled template cannot be deleted');
+  await api.saveQuestState({ ...state, scheduledTime: 'invalid' }); await settle();
+  await api.saveQuestDayToSchedule(); await settle();
+  check(api.questResult.error && (await getAll(STORES.workouts)).length === 0, 'invalid start time does not write schedule');
+  await api.saveQuestState(state); await settle();
+  const conflictId = await putRecord(STORES.workouts, { schemaVersion: 1, day: todayName(), time: '07:00', exercise: 'Tempo Hold', sets: 1, reps: '10 sec', rest: 0 });
+  await api.reload(); await settle();
+  await api.saveQuestDayToSchedule(); await settle();
+  check(api.questResult.error && (await getAll(STORES.workouts)).length === 1, 'schedule conflict preserves existing rows');
+  await api.saveQuestState({ ...state, scheduledTime: '08:00' }); await settle();
+  await api.saveQuestDayToSchedule(); await settle();
+  const scheduled = api.scheduledCurrentQuestRows[0];
+  check(scheduled.exercise === 'Tempo Hold' && scheduled.questRunId === state.runId && scheduled.exerciseSourceId === -42, 'scheduling preserves custom name and run identity');
+  await api.saveQuestDayToSchedule(); await settle();
+  check((await getAll(STORES.workouts)).length === 2, 'repeated scheduling does not duplicate rows');
+  active = { status: 'paused', rowIds: [scheduled.id] }; await render();
+  await api.leaveQuest(); await settle();
+  check(api.questResult.error && api.questState.runId === state.runId && cleared === 0, 'paused linked workout blocks leaving');
+  active = null; await render();
+  confirmed = false;
+  await api.leaveQuest(); await settle();
+  check(api.questState.runId === state.runId, 'canceled leave keeps enrollment');
+  confirmed = true;
+  await putRecord(STORES.logs, { schemaVersion: 1, date: new Date().toISOString(), exercise: scheduled.exercise, status: 'done', workoutRowId: scheduled.id });
+  await api.reload(); await settle(); await settle();
+  check(api.questState.nextDayIndex === 2 && api.questState.completedDays.length === 1, 'linked completion advances quest once');
+  await api.reload(); await settle();
+  check(api.questState.completedDays.length === 1, 'replayed logs do not duplicate completion');
+  await api.leaveQuest(); await settle();
+  check(api.questState === null && api.questHistory[0].state.completedDays.length === 1, 'leaving archives completed days and clears enrollment');
+  check((await getAll(STORES.workouts)).length === 1 && (await getAll(STORES.workouts))[0].id === conflictId && (await getAll(STORES.logs)).length === 1, 'leaving preserves unrelated schedule and workout history');
+  await api.deleteCustomQuest(template.questId); await settle();
+  check(api.customQuestDefinitions.length === 0, 'unreferenced template can be deleted');
+  await api.refresh(); await settle();
+  check(api.questState === null && api.questHistory.length === 1 && api.customQuestDefinitions.length === 0, 'refresh restores authoritative archive and template state');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally { window.confirm = originalConfirm; root.unmount(); factory.deleteDatabase(database); }
+</script>
+</html>
