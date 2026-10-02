@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 45 recovers the existing Pixel_8 emulator with Docker stopped,
+  a cold boot and hardware GLES/Vulkan disabled. Boot, launcher, Pasingot
+  navigation, actual backup picker and cancellation pass. The reusable launch
+  profile is in `scripts/start-phone-emulator.sh`; existing app data is intact.
+  Iteration 44's runtime blocker is superseded for this setup. Native saved-file
+  and reopen/restore acceptance remain next; Stage 19 remains 65/97.
+
 - Iteration 44 installed the phone APK and attempted native backup acceptance
   on the existing Android 37.1 Pixel_8 AVD. System UI became unresponsive; a
   hardware-rendering retry produced a black screen and null UI reads. Native

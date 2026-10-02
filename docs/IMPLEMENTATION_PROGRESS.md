@@ -2404,3 +2404,61 @@ Next action: use a responsive Android runtime (a stable emulator image with
 sufficient host resources, or a physical phone) to execute save/cancel and
 reopen/restore without clearing existing user data. Paired recovery still
 requires the official companion/paired devices before its recorded matrix.
+
+## Iteration 45 — 2026-10-02 — Pixel emulator recovery
+
+Status: **Recovery smoke checks passed on the preserved Pixel_8 AVD; native
+saved-file/restore and paired acceptance remain open.**
+
+Starting checkpoint: `077b03b PST01: Record native backup validation blocker`,
+clean working tree. User requested emulator repair and explicitly authorized
+stopping Docker without restarting it. Read the current plan and latest log.
+
+Findings and changes:
+
+- Confirmed the Pixel_8 config requests 2 GB but Android 37.1 Play Store/16 KB
+  forces 4 GB guest RAM. Disk space was sufficient. The 8 GB host had heavy
+  compressed-memory/swap activity. Docker was configured for 4 GB, eight
+  CPUs and had 12 running containers; no unrelated applications were closed.
+- Tested hardware GLES with Vulkan disabled, two guest cores, half display
+  density and no cameras. Google documents disabling Vulkan as an Apple
+  Silicon workaround. With Docker running, Android booted in 31 seconds
+  but still stalled and showed a System UI ANR. Graphics changes alone were
+  insufficient in this observed workload.
+- Stopped Docker Desktop with the user's explicit authorization; it remains
+  stopped. Cold-booted the same AVD with normal display/four cores, hardware
+  GLES, Vulkan disabled, no snapshots and no cameras. Boot took 17 seconds.
+  No AVD wipe, app-data clear, uninstall, SDK replacement or global AVD
+  configuration edit occurred.
+- Added `scripts/start-phone-emulator.sh` and Android README instructions
+  for that recovery profile. The script preserves app data, uses the configured
+  SDK location and never stops other apps. It avoids loading/saving graphics
+  snapshots and does not claim to reduce this image's enforced RAM minimum.
+
+Validation:
+
+- Fresh launcher screenshot rendered icons/status/navigation; fresh UI dump
+  succeeded and identified the installed Workout Tracker launcher action.
+- Pasingot rendered Today with existing weekly-plan data. Import navigation
+  responded and showed four existing schedule rows across Wednesday/Thursday.
+- Export opened the actual Android Downloads save picker with JSON filename
+  and Save action; fresh picker UI dump and screenshot confirmed it. Back
+  returned to the app with **Backup export canceled.** No file was saved and
+  no restore was performed. Initial UI dumps during first activity launches
+  sometimes returned null roots; settled reads/screens succeeded.
+- Shell syntax (`bash -n`) and `git diff --check` passed. Reviewed the script
+  and documentation. No app source changed, so prior automated app evidence
+  remains unchanged rather than being represented as newly rerun tests.
+
+Completed: emulator recovery under the recorded workload and actual picker/
+cancellation smoke validation. Iteration 44's unusable-runtime finding is
+superseded for this configuration with Docker stopped, not erased. Emulator
+remains running; Docker remains stopped as requested. Resource pressure may
+recur if both 4 GB virtual machines run together. The checks do not isolate
+Vulkan as a root cause or establish long-duration stability.
+
+Remaining: saved JSON contents, reopen/restore, provider interruption/failure,
+native import chooser, paired Stage 19 recovery and physical acceptance.
+Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**; no paired checklist item
+is closed. Next action: continue native backup save/reopen/restore on the
+now-responsive runtime, preserving the existing user data.

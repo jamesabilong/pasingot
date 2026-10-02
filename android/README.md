@@ -4,6 +4,33 @@ This wraps the built React PWA (`pwa/dist`) in a native Android app and ships
 a separate Wear OS companion. Use Node 22, Android SDK, and the project's
 Gradle-configured Java toolchain for native builds.
 
+## Pixel emulator recovery on the 8 GB development Mac
+
+From the repository root, run:
+
+```bash
+bash scripts/start-phone-emulator.sh
+```
+
+The default AVD is `Pixel_8`; pass another existing phone AVD name as the
+first argument. The script uses `ANDROID_SDK_ROOT`, then `ANDROID_HOME`, then
+the standard macOS SDK location. It cold-boots with hardware GLES, Vulkan
+disabled, and cameras disabled. App data is preserved; snapshots are neither
+loaded nor saved. AVD configuration and SDK versions are not changed.
+
+On this Mac the Android 37.1 Play Store/16 KB image forces 4 GB guest RAM,
+even when a lower amount is requested. Docker was configured for another
+4 GB and had 12 running containers. With Docker stopped and this profile,
+the emulator booted in about 17 seconds; launcher, Pasingot navigation, native
+backup picker and cancellation worked. The same graphics workaround with
+Docker running still stalled, so the memory constraint remains relevant.
+The script does not stop Docker or any other application automatically.
+
+Google documents the Apple Silicon Vulkan workaround in its
+[emulator troubleshooting guide](https://developer.android.com/studio/run/emulator-troubleshooting).
+This recovery smoke check does not establish saved-file/restore acceptance
+or phone/watch pairing; see Iteration 45 in the implementation progress log.
+
 ## Manual phone → watch sync
 
 1. Install the current phone **and** Wear APKs. Pair/connect the watch to this
