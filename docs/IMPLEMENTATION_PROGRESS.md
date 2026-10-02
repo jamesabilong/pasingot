@@ -2087,3 +2087,49 @@ backup/session workflows now isolated rather than all feature workflows.
 Next action: extract the Library playlist/custom-exercise workflow with
 reference/deletion and schedule regression coverage; resume Stage 19 paired
 recovery when official companion/paired devices are available.
+
+## Iteration 39 — 2026-10-02 — Library workflow module
+
+Status: **Library workflow extraction complete with browser/build checks;
+shared bootstrap/restore cleanup and paired/device acceptance remain open.**
+
+Starting checkpoint: `3fb7c44 PST01: Extract quest workflow module`, clean
+working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**.
+
+Implemented `useLibraryWorkflow` for search/category/featured filtering, level
+counts, playlist estimates and persistence, item addition/update/reordering,
+playlist schedule saving, custom exercise creation/editing/deletion, result
+state, and reference guards. Shared catalog/custom-exercise/playlist records
+stay in App composition because Quests, History, initial loading, and backup
+restore consume them; the hook receives explicit records and update callbacks.
+No schema, dependency, native contract, or visible UI/copy changed.
+
+Review and validation:
+
+- Compared all seven moved action handlers with the previous App source; they
+  match exactly, preserving name/ID/alias safeguards, write ordering, native
+  handoff, confirmation, and schedule deduplication. Playlist persistence moved
+  into the hook with the shared draft update callback in its dependency list.
+- New disposable IndexedDB/React-hook browser fixture passed **18 checks**:
+  combined search/category/featured filters, durable/duplicate additions,
+  reorder, schedule prescriptions/load/identity, duplicate saves, invalid
+  prescriptions, blank/duplicate custom names, custom persistence/catalog
+  refresh, display names, rename identity/aliases/draft refresh, draft/history
+  deletion guards, cancellation, editor cleanup, and unrelated schedule retention.
+- Existing custom quest **10**, data-integrity **35**, quest workflow **18**,
+  and import workflow **15** checks passed: **96 browser checks total**.
+- Isolated App smoke check searched Test Tempo Hold, showed its saved
+  prescription/load, and added the playlist to the weekly schedule. The Ready
+  Today badge and Start workout action updated, with no console errors.
+- `npx tsc --noEmit`, `npm run build`, three Quick Start Node fixtures, and
+  `git diff --check` passed.
+- No APK builds, emulator pairing, physical-device tests, fetch, or push occurred.
+
+Completed: Library action/filter/result module extraction and relevant
+regression verification. Remaining: shared bootstrap/catalog loading, restore
+coordination and data ownership cleanup, native file chooser/export verification,
+and paired/physical acceptance. Stage 14B remains partial; all principal
+Library/quest/session/import/backup action workflows now have focused hooks.
+Next action: isolate app data hydration/catalog loading and restore coordination
+with regression coverage for initialization, offline fallback and restored data;
+resume Stage 19 paired recovery when companion/paired devices are available.

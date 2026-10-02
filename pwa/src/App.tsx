@@ -15,6 +15,7 @@ import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickSt
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
 import { useQuestWorkflow } from './hooks/useQuestWorkflow';
+import { useLibraryWorkflow } from './hooks/useLibraryWorkflow';
 import { useLocalDate } from './hooks/useLocalDate';
 import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
@@ -25,18 +26,10 @@ import { useWorkoutSession } from './hooks/useWorkoutSession';
 import type { WorkoutBackup } from './lib/backup';
 import { parseCatalogCsv } from './lib/catalog';
 import {
-  customExerciseFromDraft,
-  draftFromCustomExercise,
-  initialCustomExerciseDraft,
   mergeCatalogWithCustomExercises,
   repairLegacyCustomExerciseNames,
-  type CustomExerciseDraft,
 } from './lib/custom-exercises';
-import {
-  describeCustomExerciseReferences,
-  findCustomExerciseReferences,
-} from './lib/custom-quests';
-import { addRecord, clearAndBulkInsert, deleteRecord, getAll, getRecord, putRecord, STORES } from './lib/db';
+import { addRecord, clearAndBulkInsert, getAll, getRecord, putRecord, STORES } from './lib/db';
 import { localDateKey, todayDateKey } from './lib/history-stats';
 import {
   drainPendingHealthConnectWrites,
@@ -55,25 +48,19 @@ import {
   estimateWorkoutDurationSeconds,
   formatEstimatedDuration,
   initialDraft,
-  isWeightUnit,
   LEVEL_LABELS,
   LEVELS,
-  levelEligible,
   MAX_PLAYLIST_ITEMS,
   normalizeDraft,
-  TIME_RE,
   todayName,
-  validLoadWeight,
   workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
   SCHEMA_VERSION,
   type CustomExercise,
-  type ExerciseLevel,
   type ExerciseCatalogItem,
   type HistoryRange,
   type PlaylistDraft,
-  type PlaylistItem,
   type QuestTemplate,
   type QuestWorkoutRow,
   type Tab,
@@ -99,12 +86,6 @@ export default function App() {
   const [builtInQuestTemplates, setBuiltInQuestTemplates] = useState<QuestTemplate[]>([]);
   const [builtInQuestRows, setBuiltInQuestRows] = useState<QuestWorkoutRow[]>([]);
   const [draft, setDraft] = useState<PlaylistDraft>(initialDraft);
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('all');
-  const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [customExerciseDraft, setCustomExerciseDraft] = useState<CustomExerciseDraft>(initialCustomExerciseDraft);
-  const [customExerciseResult, setCustomExerciseResult] = useState<{ message: string; error: boolean } | null>(null);
-  const [playlistResult, setPlaylistResult] = useState<{ message: string; error: boolean } | null>(null);
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => (
     'Notification' in window ? Notification.permission : 'unsupported'
@@ -167,6 +148,18 @@ export default function App() {
     localToday, activeWorkoutSession, clearActiveWorkoutSession,
     refreshWorkouts, refreshUserData,
   });
+  const {
+    search, setSearch, category, setCategory, featuredOnly, setFeaturedOnly,
+    customExerciseDraft, setCustomExerciseDraft, customExerciseResult,
+    playlistResult, setPlaylistResult, categories, levelCounts, filteredCatalog,
+    draftEstimate, saveDraft, addCatalogExercise, saveCustomExercise,
+    editCustomExercise, deleteCustomExercise, updateDraftItem, reorderDraftItem,
+    savePlaylistToSchedule,
+  } = useLibraryWorkflow({
+    catalog, setCatalog, customExercises, setCustomExercises, draft, setDraft,
+    workouts, logs, setLogEntries, sessionEvents, customQuestDefinitions,
+    refreshWorkouts, addToast,
+  });
   const { result: importResult, importCsv } = useScheduleImport({
     session: activeWorkoutSession,
     clearSession: clearActiveWorkoutSession,
@@ -175,11 +168,6 @@ export default function App() {
   const { result: backupResult, exportBackup, importBackup } = useWorkoutBackup({
     onRestored: rehydrateBackup,
   });
-  const saveDraft = useCallback(async (next: PlaylistDraft) => {
-    setDraft(next);
-    await putRecord(STORES.appState, { key: PLAYLIST_DRAFT_KEY, schemaVersion: SCHEMA_VERSION, ...next });
-  }, []);
-
   const refreshWatchData = useCallback(async () => {
     const drained = await drainPendingWatchLogs();
     if (drained) await Promise.all([refreshLogs(), refreshSessionEvents()]);
@@ -275,26 +263,10 @@ export default function App() {
   const todayEstimate = useMemo(() => (
     formatEstimatedDuration(estimateWorkoutDurationSeconds(todayWorkouts, estimateLevelFor(todayWorkouts)))
   ), [todayWorkouts]);
-  const draftEstimate = useMemo(() => (
-    formatEstimatedDuration(estimateWorkoutDurationSeconds(draft.items, draft.level))
-  ), [draft.items, draft.level]);
-
   const todayStatuses = useMemo(() => workoutStatusesOnDate(logs, localToday), [logs, localToday]);
   const todayProgress = useMemo(() => calculatePlanProgress(todayWorkouts, todayStatuses), [todayStatuses, todayWorkouts]);
   const todaySetLogCount = useMemo(() => setLogEntries.filter((entry) => localDateKey(entry.date) === localToday).length, [setLogEntries, localToday]);
 
-  const categories = useMemo(() => [...new Set(catalog.map((item) => item.category))].sort(), [catalog]);
-  const levelCounts = useMemo(() => LEVELS.reduce((result, level) => ({
-    ...result,
-    [level]: catalog.filter((item) => levelEligible(item, level)).length,
-  }), {} as Record<ExerciseLevel, number>), [catalog]);
-  const filteredCatalog = useMemo(() => catalog.filter((item) => {
-    const searchable = `${item.displayName} ${item.name} ${item.category} ${item.primaryMuscles.join(' ')} ${item.equipment.join(' ')}`.toLowerCase();
-    return levelEligible(item, draft.level)
-      && (!search || searchable.includes(search.toLowerCase()))
-      && (category === 'all' || item.category === category)
-      && (!featuredOnly || item.featured);
-  }), [catalog, search, category, featuredOnly, draft.level]);
   async function logExercise(row: WorkoutRow, status: WorkoutLog['status']) {
     if (row.id == null) return;
     await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, status, workoutRowId: row.id } satisfies WorkoutLog);
@@ -324,117 +296,6 @@ export default function App() {
     loadWorkoutCueSettings(storedCueSettings);
     await restoreWorkoutSession();
     setCatalog((current) => mergeCatalogWithCustomExercises(current.filter((item) => !item.custom), backup.stores.customExercises));
-  }
-
-  async function addCatalogExercise(sourceId: number) {
-    if (draft.items.length >= MAX_PLAYLIST_ITEMS) return addToast(`A playlist can contain up to ${MAX_PLAYLIST_ITEMS} exercises.`);
-    const exercise = catalog.find((item) => item.sourceId === sourceId);
-    if (!exercise || draft.items.some((item) => item.sourceId === sourceId)) return;
-    await saveDraft({ ...draft, items: [...draft.items, { sourceId, name: exercise.custom ? exercise.displayName : exercise.name, ...defaultPrescriptionFor(exercise, draft.level) }] });
-  }
-
-  async function saveCustomExercise() {
-    const existing = customExerciseDraft.sourceId == null
-      ? undefined
-      : customExercises.find((exercise) => exercise.sourceId === customExerciseDraft.sourceId);
-    const exercise = customExerciseFromDraft(customExerciseDraft, existing);
-    if (!exercise) {
-      setCustomExerciseResult({ error: true, message: 'Enter a custom exercise name.' });
-      return;
-    }
-    const duplicate = catalog.find((item) => item.sourceId !== exercise.sourceId && (
-      item.name.trim().toLowerCase() === exercise.displayName.toLowerCase()
-      || item.displayName.trim().toLowerCase() === exercise.displayName.toLowerCase()
-    ));
-    if (duplicate) {
-      setCustomExerciseResult({ error: true, message: `An exercise named ${duplicate.displayName} already exists.` });
-      return;
-    }
-    await putRecord(STORES.customExercises, exercise);
-    const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
-    const baseCatalog = catalog.filter((item) => !item.custom);
-    setCustomExercises(nextCustomExercises);
-    setCatalog(mergeCatalogWithCustomExercises(baseCatalog, nextCustomExercises));
-    if (draft.items.some((item) => item.sourceId === exercise.sourceId)) {
-      await saveDraft({ ...draft, items: draft.items.map((item) => item.sourceId === exercise.sourceId ? { ...item, name: exercise.displayName } : item) });
-    }
-    setCustomExerciseDraft(initialCustomExerciseDraft());
-    setCustomExerciseResult({ error: false, message: existing ? 'Custom exercise updated.' : 'Custom exercise created.' });
-  }
-
-  async function editCustomExercise(sourceId: number) {
-    const exercise = customExercises.find((item) => item.sourceId === sourceId);
-    if (!exercise) return;
-    setCustomExerciseDraft(draftFromCustomExercise(exercise));
-    setCustomExerciseResult(null);
-  }
-
-  async function deleteCustomExercise(sourceId: number) {
-    const exercise = customExercises.find((item) => item.sourceId === sourceId);
-    if (!exercise) return;
-    const references = findCustomExerciseReferences(exercise, {
-      draft,
-      workouts,
-      logs,
-      setLogs: setLogEntries,
-      sessionEvents,
-      customQuests: customQuestDefinitions,
-    });
-    if (references.total) {
-      setCustomExerciseResult({ error: true, message: `This exercise is still used by ${describeCustomExerciseReferences(references)}. Remove those references before deleting it.` });
-      return;
-    }
-    if (!window.confirm(`Delete ${exercise.displayName}?`)) return;
-    await deleteRecord(STORES.customExercises, sourceId);
-    const nextCustomExercises = await getAll<CustomExercise>(STORES.customExercises);
-    const baseCatalog = catalog.filter((item) => !item.custom);
-    setCustomExercises(nextCustomExercises);
-    setCatalog(mergeCatalogWithCustomExercises(baseCatalog, nextCustomExercises));
-    setCustomExerciseDraft((current) => current.sourceId === sourceId ? initialCustomExerciseDraft() : current);
-    setCustomExerciseResult({ error: false, message: 'Custom exercise deleted.' });
-  }
-
-  async function updateDraftItem(index: number, updates: Partial<PlaylistItem>) {
-    await saveDraft({ ...draft, items: draft.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...updates } : item) });
-  }
-
-  async function reorderDraftItem(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= draft.items.length) return;
-    const items = [...draft.items];
-    [items[index], items[target]] = [items[target], items[index]];
-    await saveDraft({ ...draft, items });
-  }
-
-  async function savePlaylistToSchedule() {
-    const invalid = draft.items.some((item) => (
-      !Number.isInteger(item.sets)
-      || item.sets <= 0
-      || !item.reps.trim()
-      || !Number.isInteger(item.rest)
-      || item.rest < 0
-      || (item.loadWeight != null && validLoadWeight(item.loadWeight) == null)
-      || (item.loadWeight != null && !isWeightUnit(item.loadUnit))
-    ));
-    if (!TIME_RE.test(draft.time) || invalid) return setPlaylistResult({ error: true, message: 'Fix invalid day, time, sets, reps, rest, or load values before saving.' });
-    const existingKeys = new Set(workouts.map((row) => `${row.day}|${row.time}|${row.exercise.toLowerCase()}`));
-    const additions = draft.items.filter((item) => !existingKeys.has(`${draft.day}|${draft.time}|${item.name.toLowerCase()}`)).map((item) => ({
-      schemaVersion: SCHEMA_VERSION,
-      day: draft.day,
-      time: draft.time,
-      exercise: item.name,
-      exerciseSourceId: item.sourceId,
-      sets: item.sets,
-      reps: item.reps.trim(),
-      rest: item.rest,
-      loadWeight: item.loadWeight ?? null,
-      loadUnit: item.loadWeight != null ? item.loadUnit ?? 'kg' : null,
-    } satisfies WorkoutRow));
-    for (const row of additions) await addRecord(STORES.workouts, row);
-    const schedule = await getAll<WorkoutRow>(STORES.workouts);
-    await pushScheduleToNative(schedule);
-    await refreshWorkouts();
-    setPlaylistResult({ error: false, message: additions.length ? `Added ${additions.length} exercise${additions.length === 1 ? '' : 's'} to ${draft.day} at ${draft.time}. ${draftEstimate}.` : 'This playlist is already on the schedule at that day and time.' });
   }
 
   async function requestNotificationPermission() {

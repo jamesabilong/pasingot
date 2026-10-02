@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Library workflow regression checks</title>
+<h1>Library workflow regression checks</h1>
+<p>Disposable database; no personal workout data is used.</p>
+<pre id="result">Running…</pre>
+<div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { useLibraryWorkflow } from '/src/hooks/useLibraryWorkflow.ts';
+import { getAll, getRecord, STORES } from '/src/lib/db.ts';
+import { initialDraft } from '/src/lib/workout-planning.ts';
+const factory = window.indexedDB;
+const database = `pasingot-library-workflow-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const originalConfirm = window.confirm;
+let confirmed = true;
+window.confirm = () => confirmed;
+const checks = [];
+const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS: ${message}`); };
+const base = { schemaVersion: 1, sourceId: 1, name: 'fixture-squat', displayName: 'Fixture Squat', category: 'Strength', primaryMuscles: ['Legs'], secondaryMuscles: [], equipment: ['Dumbbell'], featured: true, minimumLevel: 'beginner', progressionGroup: 'squat', progressionLevel: 'beginner', license: 'Fixture', licenseUrl: '', author: 'Fixture', sourceUrl: '' };
+const other = { ...base, sourceId: 2, name: 'fixture-hold', displayName: 'Fixture Hold', category: 'Mobility', featured: false };
+let api;
+let logs = [];
+const toasts = [];
+const root = createRoot(document.getElementById('root'));
+function Harness() {
+  const [catalog, setCatalog] = React.useState([base, other]);
+  const [customExercises, setCustomExercises] = React.useState([]);
+  const [draft, setDraft] = React.useState(initialDraft);
+  const [workouts, setWorkouts] = React.useState([]);
+  const library = useLibraryWorkflow({ catalog, setCatalog, customExercises, setCustomExercises, draft, setDraft, workouts, logs, setLogEntries: [], sessionEvents: [], customQuestDefinitions: [], refreshWorkouts: async () => setWorkouts(await getAll(STORES.workouts)), addToast: message => toasts.push(message) });
+  React.useLayoutEffect(() => { api = { ...library, catalog, customExercises, draft, workouts }; });
+  return null;
+}
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const render = async () => { root.render(React.createElement(Harness)); await settle(); };
+try {
+  await render();
+  api.setSearch('dumbbell'); await settle();
+  check(api.filteredCatalog.length === 2, 'search matches equipment');
+  api.setCategory('Mobility'); await settle();
+  check(api.filteredCatalog.length === 1 && api.filteredCatalog[0].sourceId === 2, 'category combines with search');
+  api.setFeaturedOnly(true); await settle();
+  check(api.filteredCatalog.length === 0, 'featured filter excludes nonfeatured matches');
+  api.setCategory('all'); api.setSearch(''); api.setFeaturedOnly(false); await settle();
+  await api.addCatalogExercise(1); await settle();
+  await api.addCatalogExercise(1); await settle();
+  check(api.draft.items.length === 1 && (await getRecord(STORES.appState, 'playlistDraft')).items.length === 1, 'playlist additions persist and reject duplicate identities');
+  await api.addCatalogExercise(2); await settle();
+  await api.reorderDraftItem(1, -1); await settle();
+  check(api.draft.items[0].sourceId === 2, 'playlist reorder changes durable order');
+  await api.updateDraftItem(0, { sets: 2, reps: '15 sec', rest: 20, loadWeight: 8, loadUnit: 'kg' }); await settle();
+  await api.savePlaylistToSchedule(); await settle();
+  check(api.workouts.length === 2 && api.workouts[0].exerciseSourceId === 2 && api.workouts[0].loadWeight === 8 && api.workouts[0].reps === '15 sec', 'schedule keeps playlist order, identity and prescription');
+  await api.savePlaylistToSchedule(); await settle();
+  check(api.workouts.length === 2 && api.playlistResult.message.includes('already'), 'repeated save does not duplicate schedule');
+  await api.updateDraftItem(0, { sets: 0 }); await settle();
+  await api.savePlaylistToSchedule(); await settle();
+  check(api.playlistResult.error && (await getAll(STORES.workouts)).length === 2, 'invalid prescription preserves schedule');
+  await api.saveCustomExercise(); await settle();
+  check(api.customExerciseResult.error && api.customExercises.length === 0, 'blank custom name is rejected');
+  api.setCustomExerciseDraft({ ...api.customExerciseDraft, sourceId: -42, name: 'Fixture Squat' }); await settle();
+  await api.saveCustomExercise(); await settle();
+  check(api.customExerciseResult.error && api.customExercises.length === 0, 'duplicate catalog name is rejected');
+  api.setCustomExerciseDraft({ ...api.customExerciseDraft, name: 'Tempo Hold' }); await settle();
+  await api.saveCustomExercise(); await settle();
+  check(api.customExercises.length === 1 && api.catalog.some(item => item.sourceId === -42), 'custom save updates catalog and durable store');
+  await api.saveDraft({ ...api.draft, items: [] }); await settle();
+  await api.addCatalogExercise(-42); await settle();
+  check(api.draft.items[0].name === 'Tempo Hold', 'custom playlist uses display name');
+  await api.editCustomExercise(-42); await settle();
+  api.setCustomExerciseDraft({ ...api.customExerciseDraft, name: 'Renamed Hold' }); await settle();
+  await api.saveCustomExercise(); await settle();
+  check(api.customExercises[0].sourceId === -42 && api.customExercises[0].aliases.includes('Tempo Hold') && api.draft.items[0].name === 'Renamed Hold', 'rename preserves identity and aliases and refreshes playlist label');
+  await api.deleteCustomExercise(-42); await settle();
+  check(api.customExerciseResult.error && (await getAll(STORES.customExercises)).length === 1, 'playlist reference prevents deletion');
+  await api.saveDraft({ ...api.draft, items: [] }); await settle();
+  logs = [{ schemaVersion: 1, exercise: 'Tempo Hold', status: 'done', date: new Date().toISOString() }]; await render();
+  await api.deleteCustomExercise(-42); await settle();
+  check(api.customExerciseResult.error && api.customExercises.length === 1, 'historical alias reference prevents deletion');
+  logs = []; await render();
+  confirmed = false;
+  await api.deleteCustomExercise(-42); await settle();
+  check(api.customExercises.length === 1, 'canceled deletion retains custom exercise');
+  confirmed = true;
+  await api.editCustomExercise(-42); await settle();
+  await api.deleteCustomExercise(-42); await settle();
+  check(api.customExercises.length === 0 && !api.catalog.some(item => item.sourceId === -42) && api.customExerciseDraft.name === '', 'unreferenced deletion updates store, catalog and editor');
+  check((await getAll(STORES.workouts)).length === 2, 'custom deletion preserves unrelated schedule');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally { window.confirm = originalConfirm; root.unmount(); factory.deleteDatabase(database); }
+</script>
+</html>
