@@ -2354,3 +2354,53 @@ unverified native provider/download observations remain open.
 Next action: install the phone APK and verify JSON save/cancel plus reopen/
 restore using an Android document provider, then execute the paired Stage 19
 matrix when companion/paired devices are available.
+
+## Iteration 44 — 2026-10-02 — Native backup acceptance attempt
+
+Status: **APK installation/startup checked; document-provider acceptance
+remains incomplete because the emulator could not sustain a usable UI.**
+
+Starting checkpoint: `844d736 PST01: Add Android backup document export`,
+clean working tree. Read the current plan, latest progress and React working
+instructions. The next recorded step is native save/cancel and reopen/restore
+validation; no additional Stage 14B extraction is scheduled.
+
+Findings and validation:
+
+- Started the existing Pixel_8 AVD (emulator 37.1.11, installed Android 37.1
+  Play Store/16 KB ARM64 image). This runtime differs from the older API 35
+  evidence; those historical checks do not establish acceptance here.
+- Installed the existing debug phone APK with `adb install -r`: Success.
+  No uninstall, app-data clear, backup restore or AVD wipe was performed.
+- Launched MainActivity and confirmed it was the resumed activity. A fresh
+  screenshot showed Pasingot's Today view with its existing weekly plan,
+  covered by a **System UI isn't responding** dialog. No export was triggered.
+- The first launch reported approximately 1.1 GB available host memory versus
+  5 GB required, software rendering fallback, and an 8 GB host versus a
+  suggested 16 GB. Selecting Wait did not produce a usable accessibility
+  tree; fresh UI dumps returned null roots and a screenshot request stalled.
+- Retried a cold boot with hardware graphics and requested 1536 MB RAM. The
+  emulator forced RAM to 4096 MB; it booted but a fresh screenshot remained
+  black apart from the navigation indicator and the UI dump again returned
+  a null root. This is emulator/environment evidence, not proof of an app or
+  document-provider defect. Both launched emulator processes were stopped.
+- Reviewed native plugin registration, chosen-document write handling,
+  cancellation/error guards, adapter platform routing and restore confirmation.
+  No product source changes or demonstrated product defect resulted.
+- Iteration 43's 211 browser checks, 16 phone tests, TypeScript, build/sync
+  and APK checks remain the latest automated evidence; they were not rerun
+  or represented as real provider checks in this documentation-only iteration.
+- Reviewed the documentation diff and ran `git diff --check`. No Git fetch,
+  push, paired transport or physical-device validation occurred.
+
+Completed: progress audit, APK install/startup attempt and reviewable record
+of the native validation blocker. **Acceptance iteration remains open:**
+save/cancel, saved JSON contents, reopen/restore, provider failure/interruption
+and native import chooser remain unverified. Stage 14B remains code-complete;
+Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**. No checklist item is closed
+from this attempt.
+
+Next action: use a responsive Android runtime (a stable emulator image with
+sufficient host resources, or a physical phone) to execute save/cancel and
+reopen/restore without clearing existing user data. Paired recovery still
+requires the official companion/paired devices before its recorded matrix.

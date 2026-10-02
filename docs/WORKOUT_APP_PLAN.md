@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 44 installed the phone APK and attempted native backup acceptance
+  on the existing Android 37.1 Pixel_8 AVD. System UI became unresponsive; a
+  hardware-rendering retry produced a black screen and null UI reads. Native
+  save/cancel and reopen/restore remain unverified. Use a responsive Android
+  runtime for that next step; Stage 14B remains code-complete and Stage 19
+  remains 65/97. Iteration 43's code checkpoint is committed in `844d736`.
+
 - Iteration 43 implements an Android backup save-file module using the system
   document picker, chosen-document UTF-8 writes, cancellation and completion
   acknowledgement. All 211 browser checks, TypeScript, build/Capacitor sync,
