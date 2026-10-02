@@ -9,6 +9,12 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 36 extracts schedule CSV import into `useScheduleImport` as the
+  next Stage 14B maintenance module. TypeScript, production build, and three
+  Node fixtures pass; the Import screen renders in the isolated browser. Full
+  file-import interaction validation remains open after a stalled file chooser.
+  Stage 19 remains 65/97; paired and physical acceptance are unchanged.
+
 - Iteration 35 attempted the Phase 3 paired-emulator checkpoint and confirmed
   the local transport bridge, but Android Studio reported that the cold Pixel 8
   AVD no longer has its required Google Pixel Watch companion app. Its Play
@@ -151,7 +157,7 @@ Update that log during every implementation iteration, not only at handoff.
 | **Current** | Stage 19 remains **65/97 checklist items (67%) overall**; Phase 0 is **31/31 (100%)**, Phase 1 is **10/10 (100%)**, Phase 2 is **17/17 (100%)**, and Phase 3 is **7/12 (58%)**. Iteration 35 confirmed the cold Pixel 8 AVD lacks the Google Pixel Watch companion required by Android Studio's pairing assistant; the signed-out Play Store prevents restoring it without user-owned account action. Legacy manual send errors are now actionable. Physical accessibility/audio and paired delivery/recovery remain unverified | Next: restore the official companion app on the phone AVD or use a paired physical phone/watch, then run capability delivery, process-death, cancellation, replay, reboot/receipt, and Data Item cleanup checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 code and automated gates are **7/12**, with paired recovery cases still open | Exercise the existing recovery paths end to end before changing transport code |
-| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Extract focused hooks incrementally with regression coverage; do not report the first cleanup slice as the full refactor |
+| **Maintenance follow-up** | Stage 14B's full composition-root goal remains partial: workout, quest, and import workflows still have handlers in `App.tsx` | Schedule CSV import is extracted in Iteration 36; verify full browser interactions, then extract backup/restore and quest workflows. The full refactor remains partial |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 

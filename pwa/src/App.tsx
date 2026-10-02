@@ -4,16 +4,16 @@
 // future push handler can reuse it without changing the schedule contract.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Papa from 'papaparse';
 import { AppShell } from './components/AppShell';
 import { HistoryView } from './components/HistoryView';
-import { ImportView, type BackupTransferResult, type ImportResult } from './components/ImportView';
+import { ImportView, type BackupTransferResult } from './components/ImportView';
 import { LibraryView } from './components/LibraryView';
 import { QuestsView } from './components/QuestsView';
 import { TodayView } from './components/TodayView';
 import { WatchQuickStartSheet } from './features/watch-quick-start/WatchQuickStartSheet';
 import { useWatchQuickStart } from './features/watch-quick-start/useWatchQuickStart';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
+import { useScheduleImport } from './hooks/useScheduleImport';
 import { useLocalDate } from './hooks/useLocalDate';
 import { useHealthConnectSync } from './hooks/useHealthConnectSync';
 import { useScheduleNotifications } from './hooks/useScheduleNotifications';
@@ -67,7 +67,6 @@ import {
   TIME_RE,
   todayName,
   validLoadWeight,
-  validateWorkoutRow,
   workoutStatusesOnDate,
 } from './lib/workout-planning';
 import {
@@ -125,7 +124,6 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [featuredOnly, setFeaturedOnly] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [backupResult, setBackupResult] = useState<BackupTransferResult | null>(null);
   const [customExerciseDraft, setCustomExerciseDraft] = useState<CustomExerciseDraft>(initialCustomExerciseDraft);
   const [customExerciseResult, setCustomExerciseResult] = useState<{ message: string; error: boolean } | null>(null);
@@ -181,6 +179,11 @@ export default function App() {
     startRestNow: startPwaRestNow, addRestSeconds: addPwaRestSeconds,
   } = useWorkoutSession({ workouts, logs, onHistoryChanged: refreshWorkoutHistory,
     onCompleted: writeHealthConnectSession, playCue: playWorkoutCue, addToast });
+  const { result: importResult, importCsv } = useScheduleImport({
+    session: activeWorkoutSession,
+    clearSession: clearActiveWorkoutSession,
+    onScheduleChanged: setWorkouts,
+  });
   const saveDraft = useCallback(async (next: PlaylistDraft) => {
     setDraft(next);
     await putRecord(STORES.appState, { key: PLAYLIST_DRAFT_KEY, schemaVersion: SCHEMA_VERSION, ...next });
@@ -365,29 +368,6 @@ export default function App() {
     await addRecord(STORES.logs, { schemaVersion: SCHEMA_VERSION, date: new Date().toISOString(), exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, status, workoutRowId: row.id } satisfies WorkoutLog);
     const latestLogs = await getAll<WorkoutLog>(STORES.logs);
     setLogs(latestLogs);
-  }
-
-  async function importCsv(file: File) {
-    try {
-      if (activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)) {
-        throw new Error('Finish or end the current workout before replacing the schedule.');
-      }
-      const parsed = await new Promise<Papa.ParseResult<Record<string, string>>>((resolve, reject) => {
-        Papa.parse<Record<string, string>>(file, { header: true, skipEmptyLines: true, complete: resolve, error: reject });
-      });
-      const valid = parsed.data.map(validateWorkoutRow).filter((row): row is WorkoutRow => row !== null);
-      if (parsed.errors.length || !valid.length) throw new Error('The CSV has no usable schedule or could not be parsed. The current schedule was kept.');
-      const skipped = parsed.data.length - valid.length;
-      if (!window.confirm(`Replace the current schedule with ${valid.length} exercise rows${skipped ? `, skipping ${skipped} invalid rows` : ''}? Workout history will be kept.`)) return;
-      await clearAndBulkInsert(STORES.workouts, valid);
-      await clearActiveWorkoutSession();
-      const saved = await getAll<WorkoutRow>(STORES.workouts);
-      await pushScheduleToNative(saved);
-      setWorkouts(saved);
-      setImportResult({ imported: saved.length, skipped });
-    } catch (error) {
-      setImportResult({ imported: 0, skipped: 0, error: error instanceof Error ? error.message : 'Could not import the schedule.' });
-    }
   }
 
   async function refreshUserData() {

@@ -1946,3 +1946,41 @@ restore the official Google Pixel Watch companion through a user-authorized
 Play Store session, or use a paired physical phone/watch; then execute the
 recorded Phase 3 delivery/process-death/cancellation/replay/node-binding/
 cleanup/reboot matrix before physical-device acceptance.
+
+## Iteration 36 — 2026-10-02 — Schedule import workflow module
+
+Status: **Schedule CSV import extraction complete and build-checked; paired
+Stage 19 and physical-device acceptance remain open.**
+
+Starting checkpoint: `6e13b60 PST01: Improve watch transport recovery audit`,
+clean working tree. Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**. The
+next Stage 19 action still requires restoring the official phone companion or
+using paired physical devices; no transport acceptance item closes here.
+
+Implemented the next Stage 14B maintenance slice: `useScheduleImport` owns
+CSV parsing, validation, replacement confirmation, active-session protection,
+IndexedDB replacement, session clearing, native schedule handoff, and result
+state. `App.tsx` supplies the current session and narrow update callbacks.
+The existing handler was moved without changing its ordering or messages.
+Backup/restore and quest workflows still remain in the composition root; this
+is a focused slice, not completion of Stage 14B.
+
+Review and validation:
+
+- Reviewed the extraction diff against the previous handler; no persistence
+  schema, native contract, UI markup, or dependencies changed.
+- `npx tsc --noEmit`, `npm run build`, the three Quick Start Node fixtures,
+  and `git diff --check` passed.
+- In-app browser loaded the isolated workflow database and navigated to Import;
+  CSV controls, backup controls, and the empty current schedule rendered.
+  The subsequent local CSV file chooser stalled and its tab became unavailable,
+  so successful import/cancellation/active-session browser validation is **not
+  claimed**. The existing branch-level browser evidence remains Iteration 34.
+- No APK, emulator pairing, physical-device test, fetch, or push was performed.
+
+Completed: schedule import module extraction and static/build verification.
+Remaining: full import interaction browser regression, backup/restore and quest
+hook extraction, and the recorded paired recovery/device matrix.
+Next action: verify CSV import success, cancellation, invalid input, and active
+workout protection in the isolated browser fixture; then extract backup/restore
+with explicit rehydration callbacks as the next maintenance module.
