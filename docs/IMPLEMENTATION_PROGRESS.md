@@ -2462,3 +2462,40 @@ native import chooser, paired Stage 19 recovery and physical acceptance.
 Stage 19 remains **65/97 (67%)**, Phase 3 **7/12**; no paired checklist item
 is closed. Next action: continue native backup save/reopen/restore on the
 now-responsive runtime, preserving the existing user data.
+
+## Iteration 46 — 2026-10-02 — 50% target and checkpoint audit
+
+Status: **Progress audit complete; requested 50% threshold already exceeded.
+No new implementation or device acceptance is claimed.**
+
+Starting checkpoint: `abe7458 PST01: Add verified Pixel emulator recovery
+profile`, clean working tree. Read the app plan, latest iteration, React
+instructions, Quick Start checklist and feature roadmap. The user requested
+progress review, next-plan implementation, audit and commit until 50%.
+
+Findings and validation:
+
+- Counted the Stage 19 Phase 0–4 checklist directly: **65 checked and 32
+  unchecked items, 97 total (67%)**. Phase 3 remains **7/12 (58%)**.
+  The active plan already exceeds the requested stopping point; there is no
+  separate overall-app percentage defined by the roadmap.
+- Iteration 45's recovery script and documentation are committed in `abe7458`.
+  Its recovery evidence explicitly applies to the earlier Apple Silicon host.
+  The current workspace runs on Windows. The local SDK is installed and lists
+  `Pixel_8` and `Wear_OS_Large_Round`; `adb devices -l` reports no devices.
+  No emulator was launched, app data changed, backup restored or Docker stopped.
+- Reviewed plan/roadmap consistency: Stage 14B is code-complete, Stage 19
+  remains at its existing count, and physical/paired acceptance remains open.
+  Updated the current-state summary to identify this threshold audit and
+  distinguish historical emulator evidence from current-host availability.
+- Documentation diff review and `git diff --check` passed. Product source,
+  dependencies and schemas are unchanged; existing automated results remain
+  historical evidence rather than newly rerun checks.
+
+Completed: progress/count audit and documentation checkpoint for the already
+exceeded 50% target. Remaining: native backup save, saved JSON inspection,
+reopen/restore and import chooser, provider failure/interruption, Stage 19
+paired recovery and physical acceptance. No checklist item closes here.
+Next action for work beyond this threshold: validate native backup on a
+responsive local Android runtime while preserving existing data; restore the
+official companion/use paired devices for the Phase 3 recovery matrix.
