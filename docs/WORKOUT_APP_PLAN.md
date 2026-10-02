@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 47 passes native backup Downloads save/cancel, saved JSON,
+  reopen/restore with exact equality of all seven stores, native CSV picker
+  cancellation, and pre-save process interruption recovery on Windows API 35.
+  Provider failure/during-write interruption remains open. Phone build/sync,
+  TypeScript and 16 phone tests pass. Local Wear companion is installed;
+  establish pairing before Phase 3 recovery. Stage 19 remains 65/97 (67%).
+
 - Iteration 46 audits the requested 50% stopping point against the Stage 19
   checklist: **65 complete, 32 open, 97 total (67%)**; Phase 3 remains
   **7/12 (58%)**. Both already exceed 50%. Iteration 45 is committed in

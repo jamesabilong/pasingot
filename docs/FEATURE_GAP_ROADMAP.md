@@ -14,6 +14,11 @@ committed in `6d97150`; integrity fixes and follow-ups are now in `3ba1bc6`.
 Iteration status and
 verification are in [Implementation progress](IMPLEMENTATION_PROGRESS.md).
 
+2026-10-02 native backup follow-up: Iteration 47 verifies Android Downloads
+save/cancel and native reopen/restore with all seven stores preserved exactly
+on the Windows API 35 phone emulator. Provider write failure/interruption and
+paired/physical acceptance remain open; Stage 19 stays 65/97 (67%).
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

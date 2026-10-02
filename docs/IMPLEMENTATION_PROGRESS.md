@@ -2499,3 +2499,57 @@ paired recovery and physical acceptance. No checklist item closes here.
 Next action for work beyond this threshold: validate native backup on a
 responsive local Android runtime while preserving existing data; restore the
 official companion/use paired devices for the Phase 3 recovery matrix.
+
+## Iteration 47 — 2026-10-02 — Windows native backup acceptance
+
+Status: **Native Downloads save/cancel, reopen/restore, and pre-save process
+interruption recovery passed. Provider write failure/interruption remains open.**
+
+Starting checkpoint: `c4b3a6b PST01: Audit progress against 50 percent target`,
+clean working tree. The user requested continued planned work, audit and
+commits until the available limit. Read the plan, latest iteration and React
+instructions. Next action is native backup save/reopen/restore before paired
+recovery; Stage 19 remains 65/97 and Phase 3 remains 7/12.
+
+The Windows Pixel_8 AVD uses API 35/x86_64 and 2 GB configured RAM, unlike the
+previous Mac ARM64 runtime. Started it without snapshots or data wiping.
+Production build/Capacitor sync and TypeScript pass. Phone Gradle tests and
+APK build pass: 16 tests, zero failures/errors. Installed the current APK with
+`adb install -r` successfully, retaining existing app data.
+
+Validation and audit:
+
+- Android Downloads ACTION_CREATE_DOCUMENT opened with the generated JSON
+  filename. Save returned to Pasingot with **Backup exported with 5 schedule
+  rows and 0 logs.** The provider created a 4,394-byte file with backup format
+  `pasingot.workout-tracker.backup`, backup version 1 and schema version 1.
+- The saved file contains five workout rows, one session event, two app-state
+  records and empty remaining stores. Force-stopped/reopened Pasingot, chose
+  that saved file through the native restore picker, and accepted the restore
+  confirmation for the same current-data snapshot. The app reported five
+  restored rows. A second native export deep-compares equal across **all seven
+  stores**, including IDs, prescriptions, quest state and session history.
+- Export picker Back cancellation reports **Backup export canceled.** and
+  creates no third file. CSV picker opening/cancellation also passes; no CSV
+  was imported and no test schedule replaced the existing data.
+- Force-stopped Pasingot while the save picker was open, before choosing a
+  destination. Reopening and opening a new export picker succeeds; cancel
+  returns normally. This closes pre-save process interruption recovery only,
+  not interruption during a provider write or arbitrary provider failures.
+- First UI reads after activity launch occasionally returned null roots.
+  Used fresh uniquely named dumps after settling rather than stale XML.
+  Screenshots and saved backups remain under ignored
+  `output/emulator-validation/`; personal backup payloads are not committed.
+- Reviewed plugin registration, selected-URI stream closure, cancellation and
+  guards against the observed results. No product defect or source change was
+  demonstrated. Documentation review and `git diff --check` pass. No app test
+  results from earlier iterations are represented as newly run browser checks.
+
+Completed: real native save/cancel, saved JSON, native import chooser,
+reopen/restore and exact store preservation on the Windows API 35 phone AVD.
+Remaining: provider failure/during-write interruption, paired Phase 3 recovery,
+and physical acceptance. Stage 19 stays **65/97**, Phase 3 **7/12**.
+Next action: attempt the Phase 3 paired matrix on the local phone/watch AVDs.
+The official companion is installed here, unlike Iteration 35's Mac phone;
+startup logged a companion Bluetooth-permission crash, so pairing availability
+must be established before claiming transport acceptance.
