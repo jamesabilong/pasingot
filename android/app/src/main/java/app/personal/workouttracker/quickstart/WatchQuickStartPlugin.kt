@@ -1,5 +1,6 @@
 package app.personal.workouttracker.quickstart
 
+import android.util.Log
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -8,10 +9,13 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -23,6 +27,7 @@ class WatchQuickStartPlugin : Plugin() {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val store by lazy { QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context)) }
     private val client by lazy { WatchQuickStartClient(context) }
+    private val recoveryMutex = Mutex()
 
     override fun load() {
         super.load()
@@ -32,16 +37,32 @@ class WatchQuickStartPlugin : Plugin() {
                 notifyListeners("quickStartStatus", JSObject(json.encodeToString(acknowledgement)))
             }
         }
-        // A prior listener may have committed the import before receipt transport failed.
+        // Retry durable decisions against actual retained transport items. Historical
+        // receipts alone must not recreate already-consumed Data Items.
+        recoverTransport()
+    }
+
+    override fun handleOnResume() {
+        super.handleOnResume()
+        recoverTransport()
+    }
+
+    private fun recoverTransport() {
         scope.launch {
-            runCatching { client.publishCapability() }
-            store.recordsWithPendingCancellations().forEach { record ->
-                runCatching { client.sendCancellation(requireNotNull(record.cancellation)) }
-            }
-            store.recordsWithResultReceipts().forEach { record ->
-                runCatching {
-                    client.sendResultReceipt(requireNotNull(record.resultReceipt), record.request.targetNodeId)
+            recoveryMutex.withLock {
+                try { client.publishCapability() }
+                catch (error: CancellationException) { throw error }
+                catch (error: Exception) { Log.w("QuickStartRecovery", "Could not publish capability", error) }
+                try {
+                    QuickStartPhoneTransportRecovery(store, client,
+                        onFailure = { requestId, error ->
+                            Log.w("QuickStartRecovery", "Could not reconcile request $requestId", error)
+                        },
+                        onImported = QuickStartPhoneEvents::publish,
+                    ).reconcile()
                 }
+                catch (error: CancellationException) { throw error }
+                catch (error: Exception) { Log.w("QuickStartRecovery", "Could not read transport state", error) }
             }
         }
     }

@@ -34,8 +34,27 @@ sealed interface WatchQuickStartAvailability {
 }
 
 /** The phone selects one connected watch and verifies its published codec. */
-class WatchQuickStartClient(private val context: Context) {
+class WatchQuickStartClient(private val context: Context) : QuickStartPhoneTransport {
     private val json = Json { ignoreUnknownKeys = true }
+
+    override suspend fun localNodeId(): String = Wearable.getNodeClient(context).localNode.await().id
+
+    override suspend fun dataItems(): List<QuickStartTransportItem> {
+        val items = Wearable.getDataClient(context).dataItems.await()
+        return try {
+            items.mapNotNull { item ->
+                val nodeId = item.uri.host ?: return@mapNotNull null
+                val path = item.uri.path ?: return@mapNotNull null
+                val payload = try { DataMapItem.fromDataItem(item).dataMap.getString("payload") }
+                catch (_: Exception) { null }
+                QuickStartTransportItem(nodeId, path, payload)
+            }
+        } finally { items.release() }
+    }
+
+    override suspend fun deleteItem(nodeId: String, path: String) {
+        Wearable.getDataClient(context).deleteDataItems(Uri.parse("wear://$nodeId$path")).await()
+    }
 
     suspend fun availability(): WatchQuickStartAvailability {
         val nodes = Wearable.getNodeClient(context).connectedNodes.await()
@@ -90,7 +109,7 @@ class WatchQuickStartClient(private val context: Context) {
     }
 
     /** Cancellation is durable/offline-capable and remains bound to the original nodes. */
-    suspend fun sendCancellation(cancellation: QuickStartCancellation) {
+    override suspend fun sendCancellation(cancellation: QuickStartCancellation) {
         val local = Wearable.getNodeClient(context).localNode.await()
         require(cancellation.phoneNodeId == local.id) { "Phone identity changed" }
         val item = PutDataMapRequest.create(quickStartCancellationPath(cancellation.requestId)).apply {
@@ -99,7 +118,7 @@ class WatchQuickStartClient(private val context: Context) {
         Wearable.getDataClient(context).putDataItem(item).await()
     }
 
-    suspend fun sendResultReceipt(receipt: QuickStartResultReceipt, watchNodeId: String) {
+    override suspend fun sendResultReceipt(receipt: QuickStartResultReceipt, watchNodeId: String) {
         val local = Wearable.getNodeClient(context).localNode.await()
         require(receipt.phoneNodeId == local.id) { "Phone identity changed" }
         val payload = encodeQuickStartResultReceiptEnvelope(QuickStartResultReceiptEnvelope(
@@ -119,8 +138,8 @@ class WatchQuickStartClient(private val context: Context) {
         Wearable.getDataClient(context).putDataItem(item).await()
     }
 
-    /** Safe only after a matching terminal acknowledgement is durable on the phone. */
-    suspend fun cleanupTerminalOffer(requestId: String, watchNodeId: String) {
+    /** Safe only after a matching terminal acknowledgement or final result is durable on the phone. */
+    override suspend fun cleanupTerminalOffer(requestId: String, watchNodeId: String) {
         val localNodeId = Wearable.getNodeClient(context).localNode.await().id
         val client = Wearable.getDataClient(context)
         val paths = listOf(

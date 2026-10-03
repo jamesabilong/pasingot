@@ -92,6 +92,11 @@ class QuickStartPhoneStore(private val persistence: QuickStartPhonePersistence) 
         load().records.filter { it.resultReceipt != null }
     }
 
+    /** Durable decisions remain available after a failed transport cleanup. */
+    suspend fun recordsForTransportRecovery(): List<PhoneQuickStartRecord> = processMutex.withLock {
+        load().records
+    }
+
     /** Cancellation transport is retryable until a terminal watch state is durable. */
     suspend fun recordsWithPendingCancellations(): List<PhoneQuickStartRecord> = processMutex.withLock {
         load().records.filter { record ->

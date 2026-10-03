@@ -5,6 +5,9 @@ import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.personal.workouttracker.shared.quickstart.*
+import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.wear.data.WorkoutRepository
+import app.personal.workouttracker.wear.session.WorkoutOutcomeTransitionType
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -17,7 +20,11 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -59,10 +66,36 @@ class PairedQuickStartTransportTest {
             ?.let { DataMapItem.fromDataItem(it).dataMap.getString("payload") } } finally { buffer.release() }
         val packages = DataStoreQuickStartPackagePersistence(context)
         val runtime = DataStoreQuickStartRuntimePersistence(context)
-        val beforePackages = packages.read()
-        val beforeRuntime = runtime.read()
         var invalidAckPath: String? = null
         try {
+            if (args.getString("quickStartFreshCompletedFixture") == "true") {
+                assertTrue("Finish the active legacy emulator workout before creating a completion fixture",
+                    WorkoutRepositorySessionSnapshotSource(WorkoutRepository(context)).entries().blockingSessions().isEmpty())
+                // Native transport fixture only: no countdown/audio/UI acceptance.
+                val id = probe("fresh_offer").removePrefix("offered:")
+                val packageStore = WatchSessionPackageStore(packages)
+                withTimeout(15_000) {
+                    while (packageStore.current(System.currentTimeMillis())?.request?.requestId != id) delay(200)
+                }
+                val runtimeStore = QuickStartRuntimeStore(runtime)
+                val started = QuickStartStartCoordinator(
+                    GlobalSessionStartGate(WorkoutRepositorySessionSnapshotSource(WorkoutRepository(context)), packageStore),
+                    runtimeStore, DataLayerQuickStartReceiptClient(context),
+                ).start(id, requireNotNull(packageStore.current(System.currentTimeMillis())).request.revision)
+                val now = System.currentTimeMillis()
+                val completed = runtimeStore.transition(id, started.runtimeRevision, started.session,
+                    started.session.copy(status = SessionStatus.COMPLETED, elapsedStartedAtEpochMillis = null,
+                        accumulatedElapsedMillis = now - requireNotNull(started.session.elapsedStartedAtEpochMillis)),
+                    QuickStartRuntimeAction(WorkoutOutcomeTransitionType.SET_COMPLETED, 0), now)
+                    as ApplyQuickStartRuntimeResult.Applied
+                DataLayerQuickStartResultClient(context).send(requireNotNull(completed.state.finalResult))
+                assertEquals("completed:$id", probe("await_completed"))
+                withTimeout(15_000) {
+                    while (runtimeStore.current() != null || packageStore.current(System.currentTimeMillis()) != null) delay(200)
+                }
+            }
+            val beforePackages = packages.read()
+            val beforeRuntime = runtime.read()
             val capability = localQuickStartCapability(local, QuickStartNodeRole.WATCH)
             val variants = listOf(
                 null to "unavailable:missing_capability",
@@ -94,17 +127,30 @@ class PairedQuickStartTransportTest {
             invalidAckPath = null
             assertEquals("replay:passed", probe("replay_completed"))
             delay(500)
-            assertEquals(beforePackages, packages.read())
+            if (args.getString("quickStartTerminalReplayOnly") == "true") {
+                // Expired replay protection may add this request's refusal again.
+                // Every unrelated package/history field must remain exact.
+                fun withoutFixtureRefusal(raw: String?): JsonObject? = raw?.let {
+                    val state = json.parseToJsonElement(it).jsonObject
+                    JsonObject(state + ("terminalHistory" to JsonArray(
+                        state["terminalHistory"]?.jsonArray.orEmpty().filterNot { entry ->
+                            entry.jsonObject["requestId"]?.jsonPrimitive?.content == acknowledgement.requestId
+                        })))
+                }
+                assertEquals(withoutFixtureRefusal(beforePackages), withoutFixtureRefusal(packages.read()))
+            } else assertEquals(beforePackages, packages.read())
             assertEquals(beforeRuntime, runtime.read())
-            val cancelledId = probe("fresh_cancel").removePrefix("cancelled:")
-            UUID.fromString(cancelledId)
-            val cancelledPackages = packages.read()
-            val terminal = json.parseToJsonElement(requireNotNull(cancelledPackages)).jsonObject.getValue("terminal").jsonObject
-            assertEquals("\"$cancelledId\"", terminal.getValue("requestId").toString())
-            assertEquals("\"cancelled\"", terminal.getValue("status").toString())
-            assertEquals("replay:passed", probe("replay_cancelled"))
-            assertEquals(cancelledPackages, packages.read())
-            assertEquals(beforeRuntime, runtime.read())
+            if (args.getString("quickStartTerminalReplayOnly") != "true") {
+                val cancelledId = probe("fresh_cancel").removePrefix("cancelled:")
+                UUID.fromString(cancelledId)
+                val cancelledPackages = packages.read()
+                val terminal = json.parseToJsonElement(requireNotNull(cancelledPackages)).jsonObject.getValue("terminal").jsonObject
+                assertEquals("\"$cancelledId\"", terminal.getValue("requestId").toString())
+                assertEquals("\"cancelled\"", terminal.getValue("status").toString())
+                assertEquals("replay:passed", probe("replay_cancelled"))
+                assertEquals(cancelledPackages, packages.read())
+                assertEquals(beforeRuntime, runtime.read())
+            }
         } finally {
             invalidAckPath?.let { data.deleteDataItems(Uri.parse("wear://$local$it")).await() }
             publish(original)

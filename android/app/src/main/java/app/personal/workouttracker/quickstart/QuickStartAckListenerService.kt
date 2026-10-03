@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
@@ -33,11 +34,16 @@ class QuickStartAckListenerService : WearableListenerService() {
                         withTimeout(10_000) {
                             val decision = store.acceptAcknowledgement(payload, path, sender)
                             if (decision == PhoneAcknowledgementResult.RECORDED ||
-                                decision == PhoneAcknowledgementResult.DUPLICATE) {
+                                decision == PhoneAcknowledgementResult.DUPLICATE ||
+                                decision == PhoneAcknowledgementResult.STALE) {
                                 val requestId = path.removePrefix(QuickStartDataLayerPaths.ACKNOWLEDGEMENT_PREFIX)
                                 val record = store.current(requestId)
-                                if (record?.acknowledgement?.status != app.personal.workouttracker.shared.quickstart.QuickStartStatus.READY) {
-                                    runCatching { client.cleanupTerminalOffer(requestId, sender) }
+                                if (record?.finalResult != null || record?.acknowledgement?.let {
+                                    it.status != app.personal.workouttracker.shared.quickstart.QuickStartStatus.READY
+                                } == true) {
+                                    try { client.cleanupTerminalOffer(requestId, sender) }
+                                    catch (error: CancellationException) { throw error }
+                                    catch (error: Exception) { Log.w("QuickStartAck", "Could not clean up terminal offer", error) }
                                 }
                                 if (decision == PhoneAcknowledgementResult.RECORDED) {
                                     QuickStartPhoneEvents.publish(requestId)

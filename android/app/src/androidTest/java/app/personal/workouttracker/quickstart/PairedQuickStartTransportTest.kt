@@ -34,6 +34,7 @@ class PairedQuickStartTransportTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val args = InstrumentationRegistry.getArguments()
     private val json = Json { ignoreUnknownKeys = true }
+    private var completedFixtureId: String? = null
 
     @Test
     fun serveProductionTransportProbe() = runBlocking {
@@ -57,6 +58,27 @@ class PairedQuickStartTransportTest {
                             is WatchQuickStartAvailability.Unavailable -> "unavailable:${value.reason}"
                         }
                         "record" -> json.encodeToString(requireNotNull(store.current(requiredRequestId())))
+                        "fresh_offer" -> {
+                            val source = requireNotNull(store.current(requiredRequestId())).request
+                            val now = System.currentTimeMillis()
+                            val request = source.copy(requestId = UUID.randomUUID().toString(),
+                                title = "Transport validation", source = QuickStartSource.SINGLE,
+                                createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
+                                exercises = listOf(source.exercises.first().copy(sets = 1)))
+                            store.saveRequest(request, now)
+                            WatchQuickStartClient(context).send(request)
+                            withTimeout(15_000) {
+                                while (store.current(request.requestId)?.acknowledgement?.status != QuickStartStatus.READY) delay(200)
+                            }
+                            completedFixtureId = request.requestId
+                            "offered:${request.requestId}"
+                        }
+                        "await_completed" -> {
+                            withTimeout(15_000) {
+                                while (store.current(requiredRequestId())?.resultReceipt == null) delay(200)
+                            }
+                            "completed:${requiredRequestId()}"
+                        }
                         "replay_completed" -> {
                             verifyReplayAndCleanup(peer, store, requiredRequestId(), completed = true)
                             "replay:passed"
@@ -89,7 +111,7 @@ class PairedQuickStartTransportTest {
         }
     }
 
-    private fun requiredRequestId() = requireNotNull(args.getString("completedRequestId"))
+    private fun requiredRequestId() = completedFixtureId ?: requireNotNull(args.getString("completedRequestId"))
 
     private suspend fun createCancelledFixture(peer: String, store: QuickStartPhoneStore): String {
         val source = requireNotNull(store.current(requiredRequestId())).request

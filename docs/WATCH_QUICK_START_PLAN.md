@@ -3,17 +3,19 @@
 Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 50 — offline reboot and exact receipt/cue pruning**
-Previous checkpoint: `5cfc083 PST01: Refresh watch completion after durable phone receipt`
-Last updated: **2026-10-02**
+Latest checkpoint: **Iteration 52 — phone transport cleanup recovery (uncommitted)**
+Previous checkpoint: `5db5278 PST01: Add native paired transport acceptance checks`
+Last updated: **2026-10-03**
 
 **Current closure:** **68/97 (70%)**, Phase 3 **10/12 (83%)**. Windows paired
 emulators verify Ready/process restart/Start, Cancel/Dismiss, offline queued
 completion through reboot, exact receipt and runtime/package/cue pruning.
 Receipt-aware final presentation and race-safe ledger cleanup are fixed.
-Full replay/node/mixed-version/transport cleanup and legacy regression remain
-open. Current suites pass 78 shared, 16 phone and 198 Wear tests with both
-APKs. Physical Phase 4 remains 0/27.
+Phone startup/resume cleanup passes native acceptance; interrupted-result
+recovery passes JVM checks. Historical replay/capability checks pass; the full fresh-fixture
+matrix and legacy regression remain open while an existing active emulator
+workout is preserved pending user direction. Current suites pass 78 shared,
+28 phone and 198 Wear tests with both APKs. Physical Phase 4 remains 0/27.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -1200,11 +1202,12 @@ Phase 3 baseline passes, but paired Quick Start delivery, process/reboot
 recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 3 — End-to-end integration and recovery.
-**Exact next action:** fix startup retry of terminal offer cleanup and reconcile
-actual node-bound result/receipt items without recreating consumed receipts.
-Iteration 51's opt-in native capability/binding/replay matrix passes, but these
-audited recovery gaps keep the combined transport item open. Then run legacy
-send/download/log/live-status regression before Phase 3 closure. Reproduction
+**Exact next action:** resolve the active cached October 2 emulator workout
+according to user direction, then rerun the full native matrix with a fresh
+completion fixture. Iteration 52 supersedes Iteration 51's startup/resume cleanup
+gaps and passes native recovery plus historical replay/capability checks.
+Fresh completion mode is built but runtime acceptance remains open. Then run
+legacy send/download/log/live-status regression before Phase 3 closure. Reproduction
 commands are in [Paired emulator validation](PAIRED_EMULATOR_VALIDATION.md).
 Offline isolation requires airplane mode plus closed adb bridge sockets;
 ordinary Wi-Fi disable is automatically reversed by this Wear runtime.

@@ -2770,3 +2770,88 @@ Phase 3 **10/12 (83%)** while cleanup recovery remains open.
 Next action: implement durable terminal cleanup retry and reconcile actual
 node-bound result/receipt items without recreating consumed historical receipts;
 then run legacy send/download/log/live-status regression.
+
+## Iteration 52 — 2026-10-03 — Recover terminal transport cleanup
+
+Status: **Cleanup recovery code complete; 304 JVM tests, both debug APKs,
+native launch/resume recovery and historical replay/capability checks pass.
+Full fresh-fixture and legacy acceptance remain open.**
+
+Starting checkpoint: `5db5278 PST01: Add native paired transport acceptance
+checks`. Read the updated plan/latest progress. Stage 19 is 68/97, Phase 3
+10/12. Retry cleanup of durably terminal requests, reconcile actual node-bound
+result/receipt items, and preserve unrelated data. Do not recreate consumed
+historical receipts. Add meaningful failure/resume and partial-delete tests,
+then validate the updated phone on the paired emulators. Keep legacy and
+physical acceptance separate from unit-level recovery evidence.
+
+Implemented startup/resume transport reconciliation against actual Data Items.
+Durable terminal decisions retry request/cancellation/ack deletion even after a
+partial failure. Retained exact watch results retry the original immutable
+receipt; consumed historical records do not recreate receipts. An exact
+phone-owned receipt with no matching watch-owned result finishes orphan cleanup.
+Malformed/conflicting payloads, paths and node identities remain untouched.
+Records with a persisted receipt/cancellation bound to another phone are skipped
+before any terminal cleanup; a replacement-phone regression preserves all items.
+Recovery also imports a retained result if its listener was interrupted before
+the phone write. The same validation/persistence boundary precedes receipt
+delivery. Per-record failures do not block other records, cancellation propagates,
+and plugin launch/resume retries are serialized and cancelled on destruction.
+Validated stale acknowledgements now clean already-terminal offers without
+changing durable phone status. Final-result import also retries terminal cleanup
+when the original Started acknowledgement was missed.
+
+Validation and findings:
+
+- All **78 shared, 28 phone and 198 Wear JVM tests** pass, zero failures/errors;
+  both debug APKs and instrumentation APKs build. Twelve recovery tests cover
+  interrupted import, failed durable writes, per-record transport failure,
+  partial deletes, reopen, consumed history, exact/conflicting receipts/results,
+  node/path binding, cancellation and terminal/stale status preservation.
+- The first JVM run found a malformed test fixture passed to the validating
+  encoder. Constructed that intentionally invalid revision as raw wire JSON
+  and added a valid-but-conflicting summary case; the corrected suite passes.
+  The initial Gradle task typo (`:shared:testDebugUnitTest`) was corrected to
+  the JVM module's `:shared:test` before validation.
+- Started the existing Windows phone API 35 and Wear API 37 emulators without
+  clearing data; restored phone `3710eec` / watch `cc1f21d2` adb transport.
+  Installed current APKs. The opt-in native recovery fixture passes **OK (1
+  test)** against real Data Items and MainActivity launch/background/resume.
+  Injected partial deletion retries, exact orphan removal, conflicting receipt
+  preservation and repeated resume without historical receipt recreation pass.
+  Phone durable history is byte-identical before/after this fixture.
+- Historical replay-only native checks pass on **both peers, OK (1 test)**:
+  seven capability states, mismatched acknowledgement identity, completed/expired
+  replay, wrong target, immutable phone status and cleaned offer/ack transport.
+  Runtime and unrelated package/history fields remain exact. An expired
+  replay may add its own durable refusal after bounded replay protection expires;
+  the historical mode explicitly permits only that fixture's refusal history.
+- The first historical run found a stale acknowledgement retained after the
+  phone's Started decision; the listener correction and final native replay
+  rerun supersede that finding. Reusing yesterday's completed fixture cannot
+  require an unchanged whole package record after its replay window expires.
+- Full fresh completion/Ready/Cancel matrix was attempted but the fresh offer
+  was correctly rejected with `active_session`: cached legacy workout
+  `2026-10-02` is active with one completed set. Preserved it and requested user
+  direction before ending it. The failed offer remains as a terminal emulator
+  fixture. Added opt-in fresh-completion and historical-only matrix modes,
+  including an active-session preflight and probe cleanup on fixture failure. Fresh
+  completion mode is built but not accepted at runtime in this iteration.
+- Ordinary instrumentation passes the phone application-ID assertion while
+  skipping paired/recovery mutations; the Wear paired fixture also skips.
+  The legacy download/session JSON deep-compares exactly equal to its captured
+  baseline. This is preservation evidence, not legacy transport acceptance.
+  No phone fatal crash appears in this boot's crash buffer.
+- Source/documentation review and `git diff --check` pass. Emulator/build logs
+  are retained under ignored validation output. No React/PWA source changed;
+  no new browser, physical audio, battery or Play acceptance is claimed.
+
+Completed: Iteration 51's audited phone startup/resume cleanup gaps, interrupted
+result import recovery and native recovery/stale replay validation.
+**Stage 19 remains 68/97 (70%), Phase 3 10/12 (83%)**: the combined full matrix
+and legacy regression items remain open. Changes are uncommitted on `PST01`;
+the starting checkpoint still reads `5db5278` at the final Git audit.
+Next action: resolve the active cached emulator session according to user
+direction, run the full matrix with a fresh completion fixture, then validate
+legacy Send today/download/log/live-status transport. Physical Phase 4 stays
+0/27. Keep existing workout data intact until the user authorizes ending it.

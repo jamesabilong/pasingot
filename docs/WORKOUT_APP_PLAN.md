@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 52 completes phone startup/resume cleanup retry and interrupted
+  result import recovery. All 304 JVM tests, both APKs, native launch/resume
+  recovery and historical replay/capability checks pass. The full fresh-fixture
+  matrix is blocked by an existing active October 2 emulator workout, preserved
+  pending user direction. Legacy transport acceptance remains next; Stage 19
+  stays **68/97 (70%)**, Phase 3 **10/12 (83%)**. Code changes are uncommitted.
+
 - Iteration 51 passes the opt-in native capability/binding/replay matrix and
   adds repeatable emulator instrumentation. Audit finds missing startup cleanup
   retries and historical receipt recreation, so Stage 19 remains **68/97 (70%)**,
@@ -187,8 +194,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 35, paired-environment
-  prerequisite audit and legacy watch-transfer error correction. Iteration 34
+- Latest implementation checkpoint: Stage 19 Iteration 52 cleanup recovery,
+  validated in the working tree; latest commit is `5db5278` (Iteration 51).
+  Historical Iteration 35 covered the paired-environment prerequisite audit
+  and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
   Iteration 33 added the
   ambient and reduced-motion presentation policy. Iteration 32 added runtime

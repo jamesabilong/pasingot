@@ -11,6 +11,27 @@ additional offer, retaining that terminal fixture in normal local history.
 It does not start a workout. Complete a fresh fixture before repeating a run
 whose earlier replay tombstone has expired or been replaced.
 
+The default full matrix requires no active legacy workout. Preserve an existing
+active workout until the operator decides to finish it; test fixtures must not
+silently replace or end it. In Iteration 52, the cached October 2 workout has
+one completed set and blocks fresh Ready/Cancel acceptance.
+
+Two additional watch-driver modes are available (use one at a time):
+
+- `-e quickStartFreshCompletedFixture true` creates a fresh one-set Quick Start
+  through the phone probe, uses native start/runtime transition/result APIs to
+  complete it, then runs the full matrix. It retains synthetic completion and
+  cancellation history. The supplied phone `completedRequestId` seeds its
+  exercise prescription. This mode is built but its completion runtime path
+  remains unverified in Iteration 52 because an active legacy workout blocks it.
+  It does not establish countdown, UI, cue or physical-device acceptance.
+- `-e quickStartTerminalReplayOnly true` runs capability/binding and historical
+  completed/wrong-target replay while preserving active workouts; skips fresh
+  Ready/Cancel creation. Require both probes to report `OK (1 test)`. It checks
+  exact phone/runtime and unrelated package/history state. An expired fixture
+  may add its own refusal to terminal history, which this mode permits.
+  This partial mode cannot close the full Phase 3 matrix item.
+
 Build from `android`:
 
 ```powershell
@@ -52,6 +73,22 @@ Coverage:
 The original capability is restored and injected transport items are removed
 in cleanup. These fixtures establish native emulator integration, not physical
 Bluetooth, mixed installed app releases, audio, battery or Play acceptance.
+
+Phone launch/resume cleanup acceptance is a separate opt-in fixture. It requires
+the exact connected watch and two existing completed phone records with no
+retained watch results. It injects invalid payloads at those terminal offer
+paths, one exact orphan receipt and one timestamp conflict; uses real Data Items
+and an injected partial deletion failure; then launches/backgrounds/resumes
+MainActivity to exercise production plugin recovery. Phone durable history must
+remain exact. Owned transport fixtures are removed in `finally`.
+
+```powershell
+adb -s PHONE_SERIAL shell am instrument -w -e class app.personal.workouttracker.quickstart.QuickStartTransportRecoveryInstrumentedTest -e quickStartRecoveryValidation true -e peerNodeId WATCH_NODE app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require `OK (1 test)`; without opt-in it skips. This fixture does not exercise
+legacy transfer or the full fresh Quick Start matrix. Iteration 52 verifies this
+fixture and the historical replay-only mode on Windows API 35/API 37 emulators.
 
 On this Windows phone AVD, the Google Pixel Watch companion crashed with
 `SecurityException: BLUETOOTH_CONNECT` until the user approved granting its

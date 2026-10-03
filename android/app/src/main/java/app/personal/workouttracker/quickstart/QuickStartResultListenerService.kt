@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
@@ -34,18 +35,26 @@ class QuickStartResultListenerService : WearableListenerService() {
                     runBlocking(Dispatchers.IO) {
                         withTimeout(10_000) {
                             val localNodeId = Wearable.getNodeClient(context).localNode.await().id
-                            when (val imported = store.importResult(
+                            val imported = store.importResult(
                                 payload, path, sender, localNodeId, System.currentTimeMillis(),
-                            )) {
-                                is PhoneQuickStartResultImport.Imported -> {
-                                    client.sendResultReceipt(requireNotNull(imported.record.resultReceipt), sender)
-                                    QuickStartPhoneEvents.publish(imported.record.request.requestId)
-                                }
-                                is PhoneQuickStartResultImport.Duplicate ->
-                                    client.sendResultReceipt(requireNotNull(imported.record.resultReceipt), sender)
+                            )
+                            val record = when (imported) {
+                                is PhoneQuickStartResultImport.Imported -> imported.record
+                                is PhoneQuickStartResultImport.Duplicate -> imported.record
                                 PhoneQuickStartResultImport.UnknownRequest,
                                 PhoneQuickStartResultImport.Invalid,
-                                PhoneQuickStartResultImport.Conflict -> Unit
+                                PhoneQuickStartResultImport.Conflict -> null
+                            }
+                            if (record != null) {
+                                // A durable validated final result also proves the offer is
+                                // terminal, including when its Started acknowledgement was missed.
+                                try { client.cleanupTerminalOffer(record.request.requestId, sender) }
+                                catch (error: CancellationException) { throw error }
+                                catch (error: Exception) { Log.w(TAG, "Could not clean up terminal offer", error) }
+                                client.sendResultReceipt(requireNotNull(record.resultReceipt), sender)
+                                if (imported is PhoneQuickStartResultImport.Imported) {
+                                    QuickStartPhoneEvents.publish(record.request.requestId)
+                                }
                             }
                         }
                     }
