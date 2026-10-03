@@ -3064,3 +3064,109 @@ currently connected. Record phone/watch models and OS/app versions when
 available, then verify connected single, playlist, reordered selection and
 Today delivery before proceeding through lifecycle/audio/offline acceptance.
 Dedicated test copies/history remain only in ignored local validation output.
+
+## Iteration 56 — 2026-10-03 — Emulator UI acceptance and countdown lifecycle fix
+
+Status: **Validated — countdown lifecycle fix, paired emulator UI, settled
+visual evidence and preservation checks pass; physical acceptance stays open.**
+
+Starting checkpoint: `fde9ddb PST01: Complete isolated fresh Quick Start
+matrix`. User requested commit then continuation; Git is clean after the
+commit. Phase 3 is complete. `adb devices -l` currently lists no devices, so
+physical Phase 4 remains 0/27. Requested physical phone/watch models and a
+debugging connection while preparing a read-only collector, reproducible
+prescription/cue fixtures and evidence requirements for all 27 checks.
+
+User direction supersedes that initial hardware-preparation next action:
+**use emulator**. Restarted only the dedicated copied phone/Wear AVDs from
+Iteration 55 and re-established the adb transport bridge. Original profiles
+remain stopped and preserved. Physical Phase 4 counts remain distinct from
+emulator observations.
+
+Findings and changes so far:
+
+- Added `scripts/collect-device-validation.ps1`: read-only adb inventory,
+  model/OS/API/build fingerprint, package versions, battery snapshots, Git
+  checkpoint/dirty state and local debug APK hashes. Optional installed-base
+  APK pull/hash proves which build is installed. Emulator eligibility requires
+  `-AllowEmulators`; default physical inventory excludes the copied AVDs.
+  Reports are ignored under `output/device-validation/`.
+- Added `docs/DEVICE_ACCEPTANCE.md` with emulator reproduction, fixture scope
+  and observation/evidence requirements for all 27 Phase 4 checks.
+- Added explicitly opted-in round-watch UI instrumentation and native phone
+  offer/Started probes. The two-exercise fixture drives real Wear accessibility
+  actions and Activity lifecycle boundaries, preserving legacy entries and
+  restoring cue preferences. Reruns may finish only their own interrupted
+  synthetic fixture through the normal engine; no app-data reset is used.
+- First UI run reproduced a production `ConcurrentModificationException`:
+  countdown cancellation navigated synchronously while NavController iterated
+  its stack during Activity `ON_PAUSE`. `QuickStartCountdownViewModel.leave`
+  now yields before the navigation callback; countdown/cue cancellation stays
+  immediate. The fixed run cancels, waits beyond five seconds without a runtime,
+  retries Start and reaches rest without that crash.
+- A subsequent extension assertion read cached accessibility semantics showing
+  0:57 while the actual screenshot showed 0:05. Clearing UiAutomation's cache
+  before querying the tree resolves this fixture observation error. All three
+  controls are observed disabled at final lock; attempted clicks preserve the
+  deadline. Another fixture expectation assumed exercise advancement resumes
+  directly to Active; corrected it to preserve the prior exercise's rest,
+  then use actual Start now before completing exercise B. Earlier failed runs
+  remain diagnostic evidence; final acceptance is pending the corrected run.
+
+Validation so far:
+
+- PowerShell syntax parsing and collector execution pass; default inventory
+  rejects emulator physical eligibility, explicit emulator inventory selects
+  the correct pair. Both pulled installed-base APK hashes equal local debug
+  APKs in `20261003T134833319Z-iteration-56-patched`.
+- **198 Wear JVM tests pass**, zero failures/errors; Wear production APK and
+  both Android test APK builds pass after the lifecycle fix. Shared 78 and
+  phone 28 JVM tests remain the unchanged baseline.
+- Paired UI checks remain in progress; no physical audio, haptic, battery or
+  Play acceptance is inferred from these runs.
+
+Final validation updates (supersede the earlier in-progress UI findings):
+
+- Corrected paired UI acceptance passes **OK (1 test) on both peers**, first
+  in `iteration-56-ui-{phone,wear}-acceptance.log`. Visual review found toggle
+  snapshots captured during their animation. Added fresh checked-semantics
+  assertions and a settled-frame wait; final rerun also passes **OK (1 test)
+  on both peers**, in `iteration-56-ui-{phone,wear}-verified.log`.
+- Actual UI cancellation remains Ready with no runtime beyond the countdown;
+  retry produces a phone Started acknowledgement. All three rest extensions
+  increment the deadline exactly, final-five-second controls disable and
+  attempted clicks cannot change it. Exercise A completes, exercise B preserves
+  inter-exercise rest across explicit Pause/background/resume, and Start now
+  advances correctly. Final phone result has a completion summary (no ended
+  summary) with all three sets. Exact receipt prunes runtime while the loaded
+  screen retains **Workout complete / Saved on watch**, with no pending-sync
+  wording. Existing legacy entries remain exactly equal.
+- Voice master/category changes persist across actual Activity recreation.
+  Final rendered/checked states agree with stored values; original preferences
+  are restored. Inspected round-screen screenshots for countdown, lock,
+  advancement, summary and settings. Final 01–10 PNG/text artifacts are under
+  `iteration-56-ui-artifacts-verified`; older `failure.*` files in the pulled
+  directory are retained prior-run diagnostics, not final-run failures.
+- Ordinary unflagged instrumentation passes **OK (4 tests) phone / OK (4 tests)
+  Wear**, with opted-in mutation fixtures skipped. Final Wear test APK build
+  passes. Relevant production baseline remains 304 JVM tests (198 Wear rerun)
+  and both APKs; PWA production/browser files are unchanged.
+- Final inventory `20261003T140730409Z-iteration-56-final` identifies copied
+  phone API 35 and Wear API 37, app 1.0/code 1, emulator identity and matching
+  installed/local base APK hashes. Inventory is readiness evidence, not physical
+  acceptance. Stopped only `Pasingot_Matrix_Phone` and `Pasingot_Matrix_Wear`;
+  all **16 original source disk hashes remain unchanged** after shutdown,
+  preserving the original active legacy workout and history.
+
+Completed: the countdown lifecycle crash fix and real Wear emulator UI
+acceptance for foreground cancellation/retry, rest lock/recovery, completion
+receipt/presentation and persisted cue settings. `git diff --check` and collector
+syntax parsing pass. Code/emulator validation is closed for this iteration;
+physical audio/haptics/routing/battery/Play checks remain open. Git audit confirms
+`fde9ddb` as HEAD and only this iteration's changes uncommitted on `PST01`.
+
+Remaining/next action: continue actual phone Library
+single/playlist/reordered-selection and Today entry through the
+Android WebView, comparing exact watch prescriptions. Continue emulator
+lifecycle/cue cases; physical observations stay separate. Stage 19 remains
+70/97; physical Phase 4 remains 0/27.

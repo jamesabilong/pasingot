@@ -24,6 +24,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 private const val QUICK_START_COUNTDOWN_MILLIS = 5_000L
 
@@ -170,6 +171,9 @@ class QuickStartCountdownViewModel(
             runningCue?.cancelAndJoin()
             cues.cancel(WatchCueCancellation.NAVIGATION)
             cues.close()
+            // ON_PAUSE may call leave while NavController is iterating its back stack.
+            // Cancel immediately, then navigate after that lifecycle dispatch completes.
+            yield()
             onCancelled()
         }
     }

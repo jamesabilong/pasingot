@@ -3,6 +3,7 @@ node_modules/
 pwa/dist/
 output/playwright/
 output/emulator-validation/
+output/device-validation/
 output/validation/
 
 # OS

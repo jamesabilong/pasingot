@@ -81,6 +81,51 @@ class PairedQuickStartTransportTest {
                             completedFixtureId = request.requestId
                             "offered:${request.requestId}"
                         }
+                        "ui_offer" -> {
+                            check(args.getString("quickStartUiPairedValidation") == "true")
+                            val source = requireNotNull(store.current(requiredRequestId())).request
+                            val exercise = source.exercises.first()
+                            val now = System.currentTimeMillis()
+                            val request = source.copy(requestId = UUID.randomUUID().toString(),
+                                title = "Emulator UI acceptance", source = QuickStartSource.LIBRARY_SELECTION,
+                                createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
+                                exercises = listOf(
+                                    exercise.copy(itemId = "ui-a", exerciseName = "Emulator UI A", sets = 2,
+                                        prescription = "8-10", restSeconds = 12, loadWeight = 2.5, loadUnit = "kg"),
+                                    exercise.copy(itemId = "ui-b", exerciseName = "Emulator UI B", sets = 1,
+                                        prescription = "20 sec", restSeconds = 0, loadWeight = null, loadUnit = null),
+                                ))
+                            store.saveRequest(request, now)
+                            WatchQuickStartClient(context).send(request)
+                            withTimeout(15_000) {
+                                while (store.current(request.requestId)?.acknowledgement?.status != QuickStartStatus.READY) delay(200)
+                            }
+                            completedFixtureId = request.requestId
+                            json.encodeToString(request)
+                        }
+                        "ui_cancel_pending" -> {
+                            check(args.getString("quickStartUiPairedValidation") == "true")
+                            val pending = store.recordsForTransportRecovery().lastOrNull {
+                                it.request.title == "Emulator UI acceptance" && it.request.targetNodeId == peer &&
+                                    it.acknowledgement?.status == QuickStartStatus.READY
+                            }
+                            if (pending != null) {
+                                val local = Wearable.getNodeClient(context).localNode.await().id
+                                WatchQuickStartClient(context).sendCancellation(
+                                    store.prepareCancellation(pending.request.requestId, local, System.currentTimeMillis()))
+                                withTimeout(15_000) {
+                                    while (store.current(pending.request.requestId)?.acknowledgement?.status != QuickStartStatus.CANCELLED) delay(100)
+                                }
+                            }
+                            "pending:cleared"
+                        }
+                        "ui_started" -> {
+                            check(args.getString("quickStartUiPairedValidation") == "true")
+                            withTimeout(15_000) {
+                                while (store.current(requiredRequestId())?.acknowledgement?.status != QuickStartStatus.STARTED) delay(200)
+                            }
+                            "started:${requiredRequestId()}"
+                        }
                         "await_completed" -> {
                             withTimeout(15_000) {
                                 while (store.current(requiredRequestId())?.resultReceipt == null) delay(200)
@@ -112,7 +157,8 @@ class PairedQuickStartTransportTest {
         }
         messages.addListener(listener).await()
         try {
-            assertTrue("Wear test did not finish the paired probe", done.await(180, TimeUnit.SECONDS))
+            val timeout = if (args.getString("quickStartUiPairedValidation") == "true") 240L else 180L
+            assertTrue("Wear test did not finish the paired probe", done.await(timeout, TimeUnit.SECONDS))
         } finally {
             messages.removeListener(listener).await()
             scope.cancel()
