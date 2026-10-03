@@ -2,11 +2,15 @@ package app.personal.workouttracker.wear.quickstart
 
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
+import androidx.lifecycle.ViewModelStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.personal.workouttracker.shared.quickstart.*
 import app.personal.workouttracker.shared.SessionStatus
 import app.personal.workouttracker.wear.data.WorkoutRepository
+import app.personal.workouttracker.wear.data.LogSyncManager
+import app.personal.workouttracker.wear.session.SessionViewModel
 import app.personal.workouttracker.wear.session.WorkoutOutcomeTransitionType
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
@@ -15,6 +19,9 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.decodeFromString
@@ -34,6 +41,43 @@ import java.util.UUID
 /** Starts only with explicit opt-in and exact peer identity, on an emulator. */
 @RunWith(AndroidJUnit4::class)
 class PairedQuickStartTransportTest {
+    /** Ends only the copied session in the dedicated workspace AVD, through the normal engine. */
+    @Test
+    fun prepareIsolatedLegacySession() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartIsolatedLegacyPreparation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val avdName = ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand("getprop ro.boot.qemu.avd_name")
+        ).bufferedReader().use { it.readText().trim() }
+        assertEquals("Preparation is restricted to the isolated matrix AVD", "Pasingot_Matrix_Wear", avdName)
+        val context = instrumentation.targetContext
+        val repository = WorkoutRepository(context)
+        val entryId = requireNotNull(args.getString("legacyEntryId"))
+        val before = repository.entries.first()
+        val original = requireNotNull(repository.getEntry(entryId))
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isNotEmpty())
+        val models = ViewModelStore()
+        val model = withContext(Dispatchers.Main) {
+            SessionViewModel(entryId, repository, LogSyncManager(context), legacyStartGate = null)
+                .also { models.put("isolated-preparation", it) }
+        }
+        try {
+            withTimeout(15_000) { while (model.uiState.value.loading) delay(100) }
+            assertNull(model.uiState.value.error)
+            withContext(Dispatchers.Main) { model.onEndWorkout() }
+            withTimeout(15_000) {
+                while (repository.getEntry(entryId)?.sessionState?.status != SessionStatus.ENDED) delay(100)
+            }
+            val ended = requireNotNull(repository.getEntry(entryId))
+            assertEquals(original.copy(sessionState = ended.sessionState), ended)
+            assertEquals(original.sessionState?.progress?.completedSets, ended.sessionState?.progress?.completedSets)
+            assertEquals(before.filterNot { it.id == entryId }, repository.entries.first().filterNot { it.id == entryId })
+            assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        } finally { withContext(Dispatchers.Main) { models.clear() } }
+    }
+
     @Test
     fun capabilityBindingAndTerminalReplay() = runBlocking {
         val args = InstrumentationRegistry.getArguments()

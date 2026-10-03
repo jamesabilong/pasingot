@@ -1,10 +1,14 @@
 package app.personal.workouttracker.quickstart
 
 import android.net.Uri
+import android.content.Intent
 import android.os.Build
+import androidx.lifecycle.Lifecycle
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.personal.workouttracker.shared.quickstart.*
+import app.personal.workouttracker.MainActivity
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -153,8 +157,13 @@ class PairedQuickStartTransportTest {
             }.asPutDataRequest().setUrgent()).await()
         }
         try {
-            withTimeout(15_000) {
-                while (items().any { it.first.path?.split('/')?.contains(requestId) == true }) delay(200)
+            // Retained orphan receipts are retried by real phone launch/resume recovery.
+            ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+                scenario.moveToState(Lifecycle.State.CREATED)
+                scenario.moveToState(Lifecycle.State.RESUMED)
+                withTimeout(15_000) {
+                    while (items().any { it.first.path?.split('/')?.contains(requestId) == true }) delay(200)
+                }
             }
             put(record.request)
             if (completed) {

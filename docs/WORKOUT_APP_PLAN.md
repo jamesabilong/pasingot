@@ -9,12 +9,21 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 55 passes the full fresh Quick Start matrix on isolated copies of
+  the Windows phone/Wear AVDs. Fresh completion/receipt, Ready/Cancel, replay,
+  node/path/schema binding and real phone launch/resume cleanup pass on both
+  peers. All 16 original disk-image hashes remain unchanged, preserving the
+  active legacy workout. Stage 19 is **70/97 (72%)**, Phase 3 **12/12 (100%)**.
+  Iteration 55 tests/docs are uncommitted after `af1c9bd`; physical Phase 4
+  remains **0/27** and is the next plan item.
+
 - Iteration 54 strengthens the native matrix with acknowledgement URI binding
   and result sender/phone/schema/path rejection checks. Both historical-mode
   native probes and ordinary instrumentation pass, preserving the active
   legacy workout; fresh matrix acceptance still requires
   operator direction to end it. Stage 19 remains **69/97 (71%)**, Phase 3
-  **11/12 (92%)**. This iteration is uncommitted after `2c203d1`.
+  **11/12 (92%)**. Committed in `af1c9bd`; its active-session blocker is
+  superseded by Iteration 55's isolated-copy validation.
 
 - Iteration 53 validates legacy Send today, manual/worker downloads, queued
   log/session-event deduplication and live watch status on both Windows
@@ -208,9 +217,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 54 native matrix
-  hardening, in the working tree. Latest commit: Iteration 53 legacy regression,
-  `2c203d1`, after paired native and browser validation.
+- Latest implementation checkpoint: Stage 19 Iteration 55 full fresh native
+  matrix, validated in the working tree. Latest commit: Iteration 54 binding
+  checks, `af1c9bd`, after paired native validation.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
@@ -280,9 +289,9 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **69/97 checklist items (71%) overall**; Phases 0–2 remain complete and Phase 3 is **11/12 (92%)**. Paired Windows restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning and legacy sync regression pass. Physical accessibility/audio remains open | Next: resolve the active emulator workout according to user direction, then validate the full fresh transport/replay/binding/capability matrix. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Full fresh native transport/replay/binding/capability matrix, launch/resume cleanup, offline reboot, exact receipt/cue pruning and legacy sync regression pass. Physical Phase 4 is **0/27** | Next: record physical phone/watch models and OS/app versions, then validate connected single/playlist/selection/Today delivery. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phase 2 is complete; Phase 3 is **11/12**. Iteration 52 delivers cleanup recovery and Iteration 53 validates legacy sync | Run the remaining full fresh native transport/replay/binding/capability matrix; physical acceptance stays separate |
+| **Pending implementation** | Stage 19 Phases 0–3 are complete; no additional code gap is established by the current checks | Proceed to physical Phase 4 acceptance and fix any evidenced device issues |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
 | **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |

@@ -2987,3 +2987,80 @@ October 2 emulator workout. If authorized, end it through the normal session
 End action while retaining its completed set/history, then run the documented
 full matrix with `quickStartFreshCompletedFixture=true`. Otherwise preserve it
 and retain the explicit fresh-matrix blocker. Physical Phase 4 remains 0/27.
+
+## Iteration 55 — 2026-10-03 — Isolated fresh native matrix
+
+Status: **Validated — full fresh native matrix passes on isolated AVD copies;
+Phase 3 complete, physical Phase 4 still pending.**
+
+Starting checkpoint: `af1c9bd PST01: Strengthen native Quick Start binding
+validation`. User requested commit then continuation; Git is clean after the
+commit. The prior emulator processes have stopped. Investigate Android
+Emulator read-only copy-on-write instances and verify the source disk images
+remain unchanged. Run fresh completion/Ready/Cancel only within an isolated
+runtime; preserve the original active legacy workout and saved history.
+
+Findings and changes:
+
+- Created dedicated `Pasingot_Matrix_Phone` and `Pasingot_Matrix_Wear` AVDs
+  under ignored `output/emulator-validation/iteration-55-avds/`, using the
+  stopped original profiles' full disk chains and configuration. Used separate
+  copies instead of relying on read-only instance behavior. Writable userdata,
+  cache, encryption and SD-card paths all resolve inside the workspace copies.
+  Captured SHA-256 hashes of all 16 original disk images before starting.
+- The first clone boot recreated its overlay chain because version metadata
+  was omitted; instrumentation reported no target app. Stopped those copies,
+  restored disk chains plus `qemu-version.txt`/`version_num.cache`, and cold
+  booted again. App installations and the exact saved legacy JSON then match
+  the original baseline. Corrected runs supersede the initial setup failure;
+  no source AVD data was modified.
+- Added an opt-in Wear preparation test requiring emulator hardware and exact
+  boot AVD name `Pasingot_Matrix_Wear`. It ends the explicitly selected copied
+  legacy session through `SessionViewModel.onEndWorkout`, retaining its completed
+  sets, exercises and other cached entries. It cannot run on the original named
+  AVD and skips without `quickStartIsolatedLegacyPreparation=true`.
+- Fresh completion imports successfully and prunes watch runtime/package state.
+  The first full run found an orphan phone receipt still retained before replay.
+  Extended the phone probe to exercise actual MainActivity launch/background/
+  resume before requiring all terminal transport to disappear, using the
+  production recovery boundary delivered in Iteration 52. Final full runs pass;
+  cleanup is established across the real lifecycle retry boundary, not solely
+  immediate listener delivery. No production source change was needed.
+- Updated paired reproduction, roadmap counts and the exact next action.
+  Iteration 54 is committed in `af1c9bd`; previous preservation blockers remain
+  historical evidence superseded by this isolated setup.
+
+Validation:
+
+- Relevant phone and Wear test APK builds pass. Both copied AVDs boot with the
+  original matching signatures, companion pairing and node IDs (`3710eec`
+  phone API 35, `cc1f21d2` Wear API 37), using the adb bridge.
+- Isolated legacy preparation passes **OK (1 test)**. Before preparation, its
+  legacy download/session JSON equals the Iteration 52 source baseline exactly.
+- Full fresh matrix passes **OK (1 test) on both peers**: fresh one-set native
+  completion and exact phone receipt/runtime pruning; seven capability states;
+  acknowledgement node/path binding; invalid result watch/phone/schema/path
+  rejection without receipt; real phone launch/resume terminal cleanup;
+  completed and wrong-target replay; fresh Ready/Cancel and cancelled replay;
+  immutable durable status and watch package/runtime assertions.
+  Final paired logs are `iteration-55-full-matrix-phone-final.log` and
+  `iteration-55-full-matrix-wear-final.log` under ignored validation output.
+- Ordinary instrumentation passes **OK (4 tests)** on phone and **OK (3 tests)**
+  on Wear, skipping all mutation fixtures without explicit flags.
+- Stopped only the two copied AVDs after validation. All **16 original disk
+  hashes remain unchanged**, including a post-shutdown audit. The original
+  active workout, completed set and saved history are therefore preserved.
+- `git diff --check` passes. Production source is unchanged: the validated
+  baseline remains 304 JVM tests, both APKs and 53 relevant browser checks.
+  Native fixture completion does not establish UI countdown/cue or physical
+  Bluetooth/audio/battery/Play acceptance.
+
+Completed: Phase 3's full request/ack cleanup, stale replay, node binding and
+mixed-version capability gating item. **Stage 19 is 70/97 (72%); Phase 3 is
+12/12 (100%)**. Iteration 55 test/documentation changes remain uncommitted on
+`PST01`; final Git audit identifies `af1c9bd` as HEAD.
+Remaining/next action: physical Phase 4 **0/27**. No physical devices are
+currently connected. Record phone/watch models and OS/app versions when
+available, then verify connected single, playlist, reordered selection and
+Today delivery before proceeding through lifecycle/audio/offline acceptance.
+Dedicated test copies/history remain only in ignored local validation output.

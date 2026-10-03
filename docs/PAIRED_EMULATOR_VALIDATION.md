@@ -26,7 +26,9 @@ Two additional watch-driver modes are available (use one at a time):
   cancellation history. The supplied phone `completedRequestId` seeds its
   exercise prescription. This mode is built but its completion runtime path
   remains unverified in Iteration 52 because an active legacy workout blocks it.
-  It does not establish countdown, UI, cue or physical-device acceptance.
+  Iteration 55 validates this mode on isolated AVD copies after ending only the
+  copied legacy session. It does not establish countdown, UI, cue or
+  physical-device acceptance; the Iteration 52 runtime limitation is historical.
 - `-e quickStartTerminalReplayOnly true` runs capability/binding and historical
   completed/wrong-target replay while preserving active workouts; skips fresh
   Ready/Cancel creation. Require both probes to report `OK (1 test)`. It checks
@@ -81,10 +83,58 @@ Coverage:
   Replaying the cancelled request preserves its exact terminal record and
   cleans transport items again.
 - Durable runtime and package state remain unchanged during replay checks.
+- Before replay, actual MainActivity launch/background/resume exercises phone
+  terminal transport recovery and removes any retained exact orphan receipt.
+  Cleanup acceptance includes this lifecycle retry boundary.
 
 The original capability is restored and injected transport items are removed
 in cleanup. These fixtures establish native emulator integration, not physical
 Bluetooth, mixed installed app releases, audio, battery or Play acceptance.
+
+## Isolated full fresh matrix
+
+Iteration 55 passes the full matrix without ending the original active workout.
+Use dedicated disk copies when an original session must be preserved:
+
+1. Stop the source phone/Wear emulator processes normally and verify no source
+   disk is being written. Capture SHA-256 hashes of all source `.img` and
+   `.qcow2` files, retaining the source workout baseline separately.
+2. Create `Pasingot_Matrix_Phone.avd` and `Pasingot_Matrix_Wear.avd` directories
+   under ignored workspace validation output. Copy each original profile's
+   complete `.img`/`.qcow2` chains, `config.ini`, `qemu-version.txt`, and
+   `version_num.cache`. The version metadata is required: omitting it caused
+   the emulator to recreate the copied overlay chain in the initial attempt.
+3. Update each copied `config.ini` `AvdId` and create corresponding `.ini` files
+   pointing to those directories, with the correct Android target. Disk
+   backing names in this validated setup are relative; verify any backing
+   references and writable disk paths resolve to the copies. System images
+   and SDK skins may remain shared read-only resources.
+4. Scope `ANDROID_AVD_HOME` to the copied-profile directory in the launcher
+   process. Cold boot the copies with `-no-snapshot -no-window -no-boot-anim
+   -gpu host -feature -Vulkan`, distinct verified ports, and disabled phone
+   cameras. Use `Start-Process -WindowStyle Hidden` on Windows. Confirm actual
+   AVD names and app installations; verify the copied workout JSON exactly
+   matches the baseline before preparation. Re-establish the adb bridge.
+5. Build/install current test APKs, then run the explicit preparation below.
+   It requires exact boot name `Pasingot_Matrix_Wear`, ends only the selected
+   copied session through the normal engine, preserves completed sets and
+   cached exercises, and requires an idle copied watch afterward.
+
+```powershell
+adb -s WATCH_SERIAL shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartTransportTest#prepareIsolatedLegacySession' -e quickStartIsolatedLegacyPreparation true -e legacyEntryId 2026-10-02 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require `OK (1 test)`. Run the phone probe, then the watch driver with
+`quickStartFreshCompletedFixture=true` as above (select the
+`#capabilityBindingAndTerminalReplay` method explicitly if desired). Require
+`OK (1 test)` from both peers. The fresh fixture retains synthetic completion
+and cancellation history only in the copied runtime.
+
+Stop only the copied AVDs and compare every original disk hash afterward.
+Iteration 55 verifies **16 unchanged source disk images** before and after
+shutdown. Original emulator profiles remain stopped and unchanged; copied
+profiles/history are retained only in ignored local validation output. This
+closes the Phase 3 native matrix; physical Phase 4 remains separate.
 
 ## Legacy sync regression
 
