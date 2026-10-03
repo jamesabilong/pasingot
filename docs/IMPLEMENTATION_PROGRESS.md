@@ -2926,3 +2926,64 @@ alarm timing acceptance is claimed.
 Next action: resolve the active October 2 emulator workout according to user
 direction, then run the documented full matrix with a fresh completion fixture.
 Preserve existing workout data until the user authorizes ending that session.
+
+## Iteration 54 — 2026-10-03 — Full Quick Start matrix preparation
+
+Status: **Validated partial matrix — native binding/rejection checks pass;
+fresh matrix still awaits direction for the active emulator workout.**
+
+Starting checkpoint: `2c203d1 PST01: Validate paired legacy watch sync
+regression`. User requested commit then continuation; Git is clean after the
+commit. Both Windows emulators remain connected. The next Phase 3 item is the
+full request/ack cleanup, stale replay, binding and capability matrix. Requested
+operator direction before ending the existing active October 2 emulator
+workout, as required by the validation plan. Preserve it while reviewing and
+preparing independent matrix checks. Physical Phase 4 remains 0/27.
+
+Findings and changes:
+
+- The prior native matrix tested acknowledgement node mismatch and request
+  wrong-target replay, but did not inject a valid acknowledgement under the
+  wrong URI or exercise result sender/phone/schema/path rejection through real
+  listeners. Added those cases to the existing opted-in Wear driver.
+- Invalid result Data Items remain present without a persisted receipt; phone
+  records and Wear runtime remain exact. Fixture injection first checks that
+  no retained Data Item exists at the path, avoiding overwrite of user data.
+  Only injected paths are removed in cleanup. Existing capability restoration
+  and package/history preservation assertions remain in place.
+- Phone probe accepts an optional completed-request seed, otherwise selects
+  the newest durable receipt bound to the verified sole connected peer. It
+  rejects a missing baseline before registering its listener. Explicit seed
+  selection remains available. Fresh completion still creates its own seed.
+- Updated reproduction and roadmap checkpoint markers. Iteration 53 is now
+  committed in `2c203d1`; historical uncommitted notes remain dated evidence.
+
+Validation:
+
+- Both Android test APKs build; final Wear rebuild also passes. Installed them
+  on the existing phone API 35 and Wear API 37 emulators without clearing data.
+- Strengthened historical-only native matrix passes **OK (1 test) on both
+  peers**, including all seven capability variants, node/path acknowledgement
+  rejection, four invalid-result variants, completed/wrong-target replay,
+  durable status preservation and transport fixture cleanup. Final logs are
+  `iteration-54-matrix-phone-final.log` and `iteration-54-matrix-wear-final.log`
+  under ignored `output/emulator-validation/`. The earlier expanded run also
+  passed; final rerun adds absence-of-receipt and retained-item assertions.
+- Ordinary instrumentation passes **OK (4 tests)** on phone and **OK (2 tests)**
+  on Wear, skipping all opted-in mutations without flags.
+- Independently extracted legacy download/session JSON is exactly equal to
+  the Iteration 52 baseline. Existing active October 2 progress is preserved.
+- `git diff --check` passes. No production or PWA source changes; Iteration 52's
+  304 JVM tests/both APKs and Iteration 53's 53 browser checks remain the
+  unchanged production baseline. No new physical-device evidence is claimed.
+
+Completed: the previously missing native acknowledgement-path and
+result-envelope/path binding checks, plus reproducible seed discovery.
+**Stage 19 remains 69/97 (71%), Phase 3 11/12 (92%)**. This partial historical
+mode does not close the combined full matrix checklist item. Changes remain
+uncommitted on `PST01`; final Git audit identifies `2c203d1` as HEAD.
+Remaining/next action: operator direction is still pending for the active
+October 2 emulator workout. If authorized, end it through the normal session
+End action while retaining its completed set/history, then run the documented
+full matrix with `quickStartFreshCompletedFixture=true`. Otherwise preserve it
+and retain the explicit fresh-matrix blocker. Physical Phase 4 remains 0/27.

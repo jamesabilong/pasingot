@@ -51,6 +51,11 @@ they are distinct from adb serials.
 Run the phone probe first, then the watch driver in a second terminal within
 three minutes. Substitute the verified serials, node IDs and completed UUID:
 
+As of Iteration 54, the phone's `completedRequestId` argument is optional: when
+omitted it selects the newest durable completion receipt bound to the exact
+connected watch. Supply the argument to replay a specific retained fixture.
+The probe fails before registering if no matching completion exists.
+
 ```powershell
 adb -s PHONE_SERIAL shell am instrument -w -e class app.personal.workouttracker.quickstart.PairedQuickStartTransportTest -e quickStartPairedValidation true -e peerNodeId WATCH_NODE -e completedRequestId COMPLETED_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
 adb -s WATCH_SERIAL shell am instrument -w -e class app.personal.workouttracker.wear.quickstart.PairedQuickStartTransportTest -e quickStartPairedValidation true -e peerNodeId PHONE_NODE app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
@@ -66,6 +71,11 @@ Coverage:
 - Actual watch-owned capability Data Items: missing, malformed, future
   envelope, unsupported request version, wrong node, wrong role, compatible.
 - A watch-sent acknowledgement claiming another node cannot alter the phone.
+- A valid acknowledgement under another request's URI cannot alter the phone.
+- Actual result Data Items with a wrong watch, wrong importing phone, future
+  envelope schema or mismatched URI are retained without a persisted receipt;
+  phone records and watch runtime remain exact. Injection refuses to overwrite
+  an existing Data Item at the fixture path; only injected items are removed.
 - Known completed replay and wrong-target requests cannot revive watch state.
 - A fresh Ready offer becomes Cancelled; request/cancel/ack items disappear.
   Replaying the cancelled request preserves its exact terminal record and

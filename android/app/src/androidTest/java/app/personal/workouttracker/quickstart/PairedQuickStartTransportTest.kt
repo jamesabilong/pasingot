@@ -46,6 +46,10 @@ class PairedQuickStartTransportTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val messages = Wearable.getMessageClient(context)
         val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        // Prefer an explicit seed; otherwise use the newest completion bound to this peer.
+        completedFixtureId = args.getString("completedRequestId") ?: store.recordsWithResultReceipts()
+            .lastOrNull { it.request.targetNodeId == peer }?.request?.requestId
+        requireNotNull(completedFixtureId) { "Complete a Quick Start on this paired watch before running the matrix" }
         var cancelledFixtureId: String? = null
         val listener = MessageClient.OnMessageReceivedListener { event ->
             if (event.sourceNodeId != peer || event.path != PROBE_PATH) return@OnMessageReceivedListener

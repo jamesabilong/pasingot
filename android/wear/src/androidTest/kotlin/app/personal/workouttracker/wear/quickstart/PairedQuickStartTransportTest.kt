@@ -67,6 +67,18 @@ class PairedQuickStartTransportTest {
         val packages = DataStoreQuickStartPackagePersistence(context)
         val runtime = DataStoreQuickStartRuntimePersistence(context)
         var invalidAckPath: String? = null
+        var injectedResultPath: String? = null
+        suspend fun hasItem(path: String): Boolean {
+            val items = data.dataItems.await()
+            return try { items.any { it.uri.path == path } } finally { items.release() }
+        }
+        suspend fun putFixture(path: String, payload: String) {
+            assertFalse("Preserve existing Data Item at $path", hasItem(path))
+            data.putDataItem(PutDataMapRequest.create(path).apply {
+                dataMap.putString("payload", payload)
+                dataMap.putString("validationDeliveryId", UUID.randomUUID().toString())
+            }.asPutDataRequest().setUrgent()).await()
+        }
         try {
             if (args.getString("quickStartFreshCompletedFixture") == "true") {
                 assertTrue("Finish the active legacy emulator workout before creating a completion fixture",
@@ -125,6 +137,36 @@ class PairedQuickStartTransportTest {
             assertEquals(record, probe("record"))
             data.deleteDataItems(Uri.parse("wear://$local$invalidAckPath")).await()
             invalidAckPath = null
+            // A valid payload under another request's URI must also be ignored.
+            invalidAckPath = QuickStartDataLayerPaths.ACKNOWLEDGEMENT_PREFIX + UUID.randomUUID()
+            putFixture(invalidAckPath, json.encodeToString(acknowledgement))
+            delay(2_000)
+            assertEquals(record, probe("record"))
+            data.deleteDataItems(Uri.parse("wear://$local$invalidAckPath")).await()
+            invalidAckPath = null
+
+            val finalResult = json.decodeFromString<FinalQuickStartResult>(
+                json.parseToJsonElement(record).jsonObject.getValue("finalResult").toString())
+            val resultEnvelope = QuickStartResultEnvelope(QUICK_START_RESULT_SCHEMA_VERSION, local, finalResult)
+            val resultPath = quickStartResultPath(finalResult.requestId, finalResult.resultId)
+            val invalidResults = listOf(
+                resultPath to json.encodeToString(resultEnvelope.copy(watchNodeId = "other-watch")),
+                resultPath to json.encodeToString(resultEnvelope.copy(result = finalResult.copy(phoneNodeId = "other-phone"))),
+                resultPath to json.encodeToString(resultEnvelope.copy(schemaVersion = 2)),
+                quickStartResultPath(UUID.randomUUID().toString(), finalResult.resultId) to encodeQuickStartResultEnvelope(resultEnvelope),
+            )
+            for ((path, payload) in invalidResults) {
+                injectedResultPath = path
+                putFixture(path, payload)
+                delay(2_000)
+                assertEquals(record, probe("record"))
+                assertEquals(beforeRuntime, runtime.read())
+                assertTrue("Invalid result must not be consumed", hasItem(path))
+                assertFalse("Invalid result must not receive a persisted receipt",
+                    hasItem(quickStartResultReceiptPath(finalResult.requestId, finalResult.resultId)))
+                data.deleteDataItems(Uri.parse("wear://$local$path")).await()
+                injectedResultPath = null
+            }
             assertEquals("replay:passed", probe("replay_completed"))
             delay(500)
             if (args.getString("quickStartTerminalReplayOnly") == "true") {
@@ -153,6 +195,7 @@ class PairedQuickStartTransportTest {
             }
         } finally {
             invalidAckPath?.let { data.deleteDataItems(Uri.parse("wear://$local$it")).await() }
+            injectedResultPath?.let { data.deleteDataItems(Uri.parse("wear://$local$it")).await() }
             publish(original)
             try { assertEquals("finished", probe("finish")) }
             finally { messages.removeListener(listener).await(); replies.close() }

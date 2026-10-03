@@ -3,8 +3,8 @@
 Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 53 — legacy paired transport regression (uncommitted)**
-Previous checkpoint: `23d386a PST01: Recover terminal Quick Start transport on launch and resume`
+Latest checkpoint: **Iteration 54 — native matrix binding checks (uncommitted)**
+Previous checkpoint: `2c203d1 PST01: Validate paired legacy watch sync regression`
 Last updated: **2026-10-03**
 
 **Current closure:** **69/97 (71%)**, Phase 3 **11/12 (92%)**. Windows paired
@@ -13,7 +13,9 @@ completion through reboot, exact receipt and runtime/package/cue pruning.
 Receipt-aware final presentation and race-safe ledger cleanup are fixed.
 Phone startup/resume cleanup passes native acceptance; interrupted-result
 recovery passes JVM checks. Historical replay/capability and legacy native
-transport checks pass on both peers; 53 relevant browser checks pass. The full
+transport checks pass on both peers; 53 relevant browser checks pass.
+Iteration 54's historical mode also passes acknowledgement-path and invalid
+result binding/receipt checks on both peers. The full
 fresh-fixture matrix remains open while an existing active emulator workout is
 preserved pending user direction. Current suites pass 78 shared,
 28 phone and 198 Wear tests with both APKs. Physical Phase 4 remains 0/27.
@@ -788,7 +790,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-03, Iteration 53
+### Progress audit — 2026-10-03, Iteration 54
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -1209,7 +1211,9 @@ completion fixture. Iteration 52 supersedes Iteration 51's startup/resume cleanu
 gaps and passes native recovery plus historical replay/capability checks.
 Fresh completion mode is built but runtime acceptance remains open. Iteration 53
 passes legacy send/download/log/live-status regression with the existing active
-workout preserved; it does not close the remaining matrix item. Reproduction
+workout preserved. Iteration 54 adds actual native acknowledgement URI binding
+and result watch/phone/schema/path rejection checks to the historical mode;
+it does not close the remaining full fresh matrix item. Reproduction
 commands are in [Paired emulator validation](PAIRED_EMULATOR_VALIDATION.md).
 Offline isolation requires airplane mode plus closed adb bridge sockets;
 ordinary Wi-Fi disable is automatically reversed by this Wear runtime.
