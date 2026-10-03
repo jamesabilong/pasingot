@@ -62,6 +62,51 @@ outside this fixture's evidence.
 
 ## Phase 4 evidence protocol
 
+### Installed phone WebView entry fixture
+
+Iteration 57 adds `PairedQuickStartEntryUiTest` on phone and Wear. This fixture
+uses the installed production WebView's rendered DOM buttons, controlled inputs
+and React handlers with the real Capacitor/Data Layer bridge. It does not invoke
+native offer creation to substitute for Library/Today actions. These are DOM
+interactions inside Android instrumentation, not physical touch/accessibility
+acceptance. Both participants require explicit opt-in, emulator hardware, the
+exact isolated AVD name and sole verified paired node.
+
+Build/install both current Android test APKs. Start the Wear observer first,
+then the phone driver in another terminal:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class app.personal.workouttracker.wear.quickstart.PairedQuickStartEntryUiTest -e quickStartEntryUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5556 shell am instrument -w -e class app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest -e quickStartEntryUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5556 pull /sdcard/Android/data/app.personal.workouttracker/files/entry-ui-acceptance output/emulator-validation/phone-entry-ui
+adb -s emulator-5554 pull /sdcard/Android/data/app.personal.workouttracker/files/entry-ui-acceptance output/emulator-validation/wear-entry-ui
+```
+
+Require **OK (1 test)** from both peers. Four offers cover Library single,
+playlist with editable duration/rest/load/unit, selected items reordered in
+the confirmation sheet, and a synthetic Today row with exact source date/ID.
+Each native phone request must match the confirmation controls and be exactly
+equal to the durable watch Ready package. Ready and Cancelled wording is
+observed through the WebView; every offer is cancelled through its actual
+control before the next case. No workout is started.
+
+The driver backs up the persisted playlist draft and all IndexedDB records
+after ordinary startup reconciliation, writes only a temporary empty draft and
+one uniquely named Today row, and restores those records in cleanup. It
+compares all original IndexedDB records and restores the native schedule cache
+through the production schedule bridge. Native synthetic cancelled request
+history remains only on the copies. The Wear observer requires idle package/
+runtime, compares legacy entries throughout, and never creates or starts an
+offer. Screenshots, WebView text/input snapshots, before-store records and
+exact request JSON are stored in separate timestamped folders on each device.
+
+Iteration 57's paired entry checks pass on API 35/API 37 copies, with five
+ordinary instrumentation tests per peer skipping mutation fixtures without
+opt-in. Phone confirmation/Ready screenshots and Wear list prompts were
+visually inspected. Final log/artifact names and preservation evidence are
+recorded in the latest implementation progress iteration. The four connected
+entry cases are validated on emulators; physical Phase 4 stays distinct.
+
 For each row record device inventory, request ID/prescription, observations,
 artifacts, result and limitations. Failed or unexecuted rows remain open. The
 numbers below follow the roadmap's 25 behavior checks and two exit checks.

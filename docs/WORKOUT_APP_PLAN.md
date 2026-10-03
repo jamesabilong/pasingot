@@ -9,6 +9,17 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 57 validates phone Library single/playlist/reordered-selection
+  and Today controls in the installed Android WebView, with exact native
+  phone/watch package comparisons and UI Ready/Cancel reconciliation. Both
+  paired peers and ordinary instrumentation pass, with original IndexedDB
+  records, native schedule cache and watch legacy entries restored/preserved.
+  Iteration 56 is committed in `d6b4153`.
+  Stage 19 remains **70/97 (72%)**; emulator evidence stays separate from
+  physical Phase 4 **0/27**. Continue emulator Start/reopen and disconnected/
+  active/duplicate/expired entry cases next. All 16 original source AVD disk
+  hashes remain unchanged; Iteration 57 test/docs are validated and uncommitted.
+
 - Iteration 56 follows the user's emulator direction and validates real Wear
   UI countdown cancellation/retry, rest extensions/final lock, rest pause/resume,
   completion receipt and persisted cue preferences on isolated AVD copies.
@@ -16,9 +27,10 @@ Update that log during every implementation iteration, not only at handoff.
   and relevant APK builds pass. Both paired UI peers and ordinary instrumentation
   pass; settled screenshots verify rendered cue settings, and all 16 original
   source AVD disk hashes remain unchanged after shutting down the copies.
-  Iteration 55 is committed in `fde9ddb`; Stage 19 remains **70/97 (72%)**,
-  Phase 3 **12/12 (100%)**, physical Phase 4 **0/27**. Continue emulator
-  phone Library/Today UI acceptance next. See [device acceptance](DEVICE_ACCEPTANCE.md).
+  Iteration 56 is committed in `d6b4153`; Stage 19 remains **70/97 (72%)**,
+  Phase 3 **12/12 (100%)**, physical Phase 4 **0/27**. Its phone Library/Today
+  next action is superseded by Iteration 57's paired entry pass.
+  See [device acceptance](DEVICE_ACCEPTANCE.md).
 
 - Iteration 55 passes the full fresh Quick Start matrix on isolated copies of
   the Windows phone/Wear AVDs. Fresh completion/receipt, Ready/Cancel, replay,

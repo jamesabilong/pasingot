@@ -3170,3 +3170,100 @@ single/playlist/reordered-selection and Today entry through the
 Android WebView, comparing exact watch prescriptions. Continue emulator
 lifecycle/cue cases; physical observations stay separate. Stage 19 remains
 70/97; physical Phase 4 remains 0/27.
+
+## Iteration 57 — 2026-10-03 — Phone WebView Quick Start entry acceptance
+
+Status: **Validated — installed phone WebView entry, exact paired packages,
+UI cancellation and preservation checks pass; physical acceptance stays open.**
+
+Starting checkpoint: `d6b4153 PST01: Fix countdown lifecycle and validate
+emulator UI`. Git is clean after the requested commit. Continue the user's
+emulator direction with actual installed Android WebView Library single,
+playlist, reordered selection and Today controls. Compare exact prescriptions
+and order with native phone records and watch durable Ready packages. Preserve
+original AVD disks, legacy workouts and existing phone IndexedDB data; only
+owned synthetic fixtures and backed-up draft state may be changed.
+
+Initial sandboxed emulator launch could not acquire the SDK metadata lock
+outside the workspace. Stopped those launch processes and restarted only the
+dedicated copied AVDs with approved SDK metadata access; no source AVD launch
+or app-data reset is used. Acceptance evidence and closure remain pending.
+
+Findings and changes:
+
+- Added opt-in phone/Wear `PairedQuickStartEntryUiTest` fixtures. The phone
+  drives the installed `https://localhost` Android WebView's actual rendered
+  DOM controls and React handlers, using the production Capacitor bridge.
+  It does not substitute a native offer API for the UI entry actions. Both
+  peers require emulator hardware, their exact isolated AVD names and the
+  sole verified counterpart. The Wear observer only reads arriving packages,
+  captures the Ready list prompt and checks idle runtime/unchanged legacy data.
+- Cases cover Library single; two-item playlist with edited 4 sets / 30 sec /
+  25 seconds rest / 12.5 lb; two selected items reordered in the confirmation
+  sheet; and a unique Today row with 5 sets / 45 sec / 17 seconds rest / 7.5 kg.
+  Every phone request is compared with confirmation controls and the exact
+  durable Wear Ready request, including full order/identity/source metadata.
+  All requests are cancelled through the WebView's actual Cancel control before
+  continuing; both UI acknowledgement wording and watch package removal pass.
+- Temporary setup isolates only the backed-up playlist draft and a uniquely
+  named synthetic Today row. Cleanup restores the draft, deletes only that
+  owned row, compares all IndexedDB store records exactly, and restores the
+  native schedule cache through the production schedule bridge. Synthetic
+  cancelled request records remain only in the copies. No workout starts.
+- Initial attempts failed in the fixture before any offer: reload can discard
+  a pending WebView evaluation without invoking its callback. Short bounded
+  evaluation waits now return to the overall page-readiness poll. Read helpers
+  are reinstalled after each reload, and primary failure diagnostics are kept
+  when the observer also reports an incomplete run. Final passing evidence
+  supersedes these initial fixture failures; no production defect was found.
+- Added fixture reproduction and scope to `docs/DEVICE_ACCEPTANCE.md`.
+  DOM-driven emulator acceptance is distinct from physical touch, TalkBack,
+  audio/haptics/routing/battery/Play observations.
+
+Validation:
+
+- Both Android test APK builds pass; current test APKs are installed only on
+  the copies. Final paired entry run passes **OK (1 test) on phone and Wear**,
+  in `iteration-57-entry-{phone,wear}-reload.log` under ignored emulator output.
+  All four exact packages, Ready/Cancel reconciliation, restored IndexedDB/
+  native schedule cache and unchanged legacy entries pass.
+- Ordinary instrumentation passes **OK (5 tests) per peer**, skipping mutation
+  fixtures without flags. Production/PWA files are unchanged; Iteration 56's
+  304 JVM/both-APK baseline and previous browser evidence remain applicable.
+- Pulled and visually reviewed phone confirmation/Ready screens for edited
+  playlist, reordered selection and Today, plus watch Ready list prompts.
+  Final timestamped folders are phone `1791037912727` and Wear `1791037896018`
+  under `iteration-57-{phone,wear}-artifacts`; earlier folders retain initial
+  failure diagnostics. Exact request JSON and baseline IndexedDB snapshot are
+  retained locally. These prompts show title/count/Start; exact per-item
+  prescription evidence comes from confirmation controls and durable package
+  equality, not a claim that the watch list displays all prescriptions.
+
+Final evidence update:
+
+- Final run adds explicit Today load/unit assertions and before/after
+  restoration artifacts, and again passes **OK (1 test) on both peers** in
+  `iteration-57-entry-{phone,wear}-final.log`. Final phone ordinary run passes
+  **OK (5 tests)**; Wear's five-test ordinary run remains unchanged.
+- Latest artifact folders are phone `1791038329518` and Wear `1791038312723`
+  under `iteration-57-{phone,wear}-artifacts-final`. Before/after IndexedDB
+  and native schedule JSON file hashes independently match exactly, confirming
+  the passing restoration assertions. Earlier successful folders remain
+  historical evidence.
+- Inventory `20261003T143535698Z-iteration-57-final` identifies both copied
+  emulators and app 1.0/code 1, with installed/local production base APK hashes
+  matching for both peers. Stopped only the verified copied AVDs; all **16
+  original source disk hashes remain unchanged** after shutdown. Original active
+  workout/history are preserved.
+
+Completed: the four connected phone entry flows through the installed WebView
+and real native bridge, exact Ready package comparisons, UI cancellation and
+repeatable restoration evidence. Both test APK builds, paired/ordinary native
+checks, visual review and `git diff --check` pass. Code/emulator validation is
+closed for this iteration; no physical touch/audio/haptic/battery/Play evidence
+is claimed. Final Git audit confirms `d6b4153` as HEAD and only Iteration 57
+test/documentation changes uncommitted on `PST01`.
+
+Remaining/next action: continue emulator Start acknowledgement in open/reopened phone UI and
+disconnected/active/duplicate/expired entry behavior. Stage 19 remains 70/97;
+physical Phase 4 remains 0/27.
