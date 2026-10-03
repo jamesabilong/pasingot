@@ -4,6 +4,8 @@ These opt-in Android instrumentation checks use the production Data Layer
 services. They require two running, connected emulators with matching debug
 app signatures and application ID `app.personal.workouttracker`.
 
+## Quick Start matrix
+
 The phone must have a completed Quick Start with its exact phone receipt. Use
 the most recently acknowledged request, before creating another offer: its
 watch replay tombstone is the baseline. The harness creates and cancels one
@@ -73,6 +75,44 @@ Coverage:
 The original capability is restored and injected transport items are removed
 in cleanup. These fixtures establish native emulator integration, not physical
 Bluetooth, mixed installed app releases, audio, battery or Play acceptance.
+
+## Legacy sync regression
+
+Iteration 53 passes these probes on both Windows emulators with the active
+October 2 legacy workout preserved. Build/install the same Android test APKs
+described above. Require an empty Wear pending log/event/snapshot queue, fewer
+than three cached workouts, and no existing cache entry for today's date. The
+driver fails these preconditions instead of draining user history or evicting
+an existing workout. It can run while a different cached legacy workout is
+active. Use the verified connected node IDs and start the phone first:
+
+```powershell
+adb -s PHONE_SERIAL shell am instrument -w -e class app.personal.workouttracker.weardata.PairedLegacySyncTest -e legacyPairedValidation true -e peerNodeId WATCH_NODE app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s WATCH_SERIAL shell am instrument -w -e class app.personal.workouttracker.wear.data.PairedLegacySyncTest -e legacyPairedValidation true -e peerNodeId PHONE_NODE app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test) from both peers**, inspecting JUnit output even if adb
+exits zero. Ordinary instrumentation skips both fixtures. Coverage includes
+actual phone Send today transport with full exercise/quest prescriptions,
+manual download, the actual scheduled-download worker, duplicate-safe log and
+session-event staging, and live snapshot delivery. Existing cache/session
+entries and Quick Start package/runtime are asserted unchanged.
+
+Cleanup restores original raw phone schedule/live-status preferences and its
+owned workout Data Item, restores the watch-owned live snapshot Data Item,
+removes only marked synthetic phone history, and deletes only the downloaded
+fixture whose exercises still match and which has no session state. It cancels
+only its immediate worker ID. The production worker re-arms the ordinary
+scheduled-download job using existing settings, and normal log retry jobs may
+remain. Do not clear app data to repeat this test.
+
+Pair native evidence with `/tests/watch-sync.html`, `/tests/watch-updates.html`
+and `/tests/quick-start.html` in the local PWA test server: Iteration 53 passes
+22 + 12 + 19 browser checks. These use real isolated IndexedDB with mock native
+bridges, separately from actual native Data Layer transport. This checkpoint
+does not validate combined Android WebView interaction, scheduled wall-clock
+alarm delivery, countdown/cues, physical Bluetooth/audio/battery or the full
+fresh Quick Start matrix.
 
 Phone launch/resume cleanup acceptance is a separate opt-in fixture. It requires
 the exact connected watch and two existing completed phone records with no

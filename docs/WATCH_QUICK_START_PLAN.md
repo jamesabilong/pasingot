@@ -3,18 +3,19 @@
 Status: **Phases 0–2 complete; Phase 3 integration/recovery in progress**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 52 — phone transport cleanup recovery (uncommitted)**
-Previous checkpoint: `5db5278 PST01: Add native paired transport acceptance checks`
+Latest checkpoint: **Iteration 53 — legacy paired transport regression (uncommitted)**
+Previous checkpoint: `23d386a PST01: Recover terminal Quick Start transport on launch and resume`
 Last updated: **2026-10-03**
 
-**Current closure:** **68/97 (70%)**, Phase 3 **10/12 (83%)**. Windows paired
+**Current closure:** **69/97 (71%)**, Phase 3 **11/12 (92%)**. Windows paired
 emulators verify Ready/process restart/Start, Cancel/Dismiss, offline queued
 completion through reboot, exact receipt and runtime/package/cue pruning.
 Receipt-aware final presentation and race-safe ledger cleanup are fixed.
 Phone startup/resume cleanup passes native acceptance; interrupted-result
-recovery passes JVM checks. Historical replay/capability checks pass; the full fresh-fixture
-matrix and legacy regression remain open while an existing active emulator
-workout is preserved pending user direction. Current suites pass 78 shared,
+recovery passes JVM checks. Historical replay/capability and legacy native
+transport checks pass on both peers; 53 relevant browser checks pass. The full
+fresh-fixture matrix remains open while an existing active emulator workout is
+preserved pending user direction. Current suites pass 78 shared,
 28 phone and 198 Wear tests with both APKs. Physical Phase 4 remains 0/27.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
@@ -787,18 +788,18 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-02, Iteration 50
+### Progress audit — 2026-10-03, Iteration 53
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **68/97 items (70%) overall**:
+stands at **69/97 items (71%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
 | Phase 0 — foundations | **31/31 (100%)** | Code and headless contract decisions complete; native runtime and paired-device checks remain in later phases |
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
-| Phase 3 — integration/recovery | **10/12 (83%)** | Paired restart/Start, Cancel/Dismiss, offline reboot and exact receipt/cue pruning pass; full replay/binding/capability/transport cleanup and legacy regression remain open |
+| Phase 3 — integration/recovery | **11/12 (92%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, launch/resume recovery and legacy sync pass; the full fresh replay/binding/capability/transport matrix remains open |
 | Phase 4 — device acceptance | **0/27 (0%)** | Not started |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
@@ -980,7 +981,7 @@ Exit checks:
 
 ### Phase 3 — End-to-end integration and recovery
 
-Status: **In progress — event/resume wiring and automated gates pass; paired recovery evidence remains open**
+Status: **In progress — legacy sync and paired recovery checks pass; full fresh transport matrix remains open**
 
 - [x] Wire acknowledgement events to the phone plugin and React hook.
 - [x] Reconcile status after phone process death/app resume.
@@ -990,7 +991,7 @@ Status: **In progress — event/resume wiring and automated gates pass; paired r
       mixed-version capability gating.
 - [x] Verify completion stays queued through watch reboot until phone ACK, then
       transient package/cue data is safely pruned.
-- [ ] Preserve **Send today to watch**, scheduled downloads, log sync, and live
+- [x] Preserve **Send today to watch**, scheduled downloads, log sync, and live
       watch session status without contract regression.
 
 Exit checks:
@@ -1206,8 +1207,9 @@ open.
 according to user direction, then rerun the full native matrix with a fresh
 completion fixture. Iteration 52 supersedes Iteration 51's startup/resume cleanup
 gaps and passes native recovery plus historical replay/capability checks.
-Fresh completion mode is built but runtime acceptance remains open. Then run
-legacy send/download/log/live-status regression before Phase 3 closure. Reproduction
+Fresh completion mode is built but runtime acceptance remains open. Iteration 53
+passes legacy send/download/log/live-status regression with the existing active
+workout preserved; it does not close the remaining matrix item. Reproduction
 commands are in [Paired emulator validation](PAIRED_EMULATOR_VALIDATION.md).
 Offline isolation requires airplane mode plus closed adb bridge sockets;
 ordinary Wi-Fi disable is automatically reversed by this Wear runtime.

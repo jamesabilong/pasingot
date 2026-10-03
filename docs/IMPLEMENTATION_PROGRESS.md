@@ -2855,3 +2855,74 @@ Next action: resolve the active cached emulator session according to user
 direction, run the full matrix with a fresh completion fixture, then validate
 legacy Send today/download/log/live-status transport. Physical Phase 4 stays
 0/27. Keep existing workout data intact until the user authorizes ending it.
+
+## Iteration 53 — 2026-10-03 — Legacy paired transport regression
+
+Status: **Validated — native legacy transport and browser regression pass;
+full fresh Quick Start matrix and physical acceptance remain open.**
+
+Starting checkpoint: `23d386a PST01: Recover terminal Quick Start transport on
+launch and resume`. User requested commit then continuation. Git was clean
+immediately after that commit. The full fresh Quick Start matrix still requires
+the active October 2 legacy session to finish; no authorization to end that
+specific workout was given. Continue the independent Phase 3 legacy regression
+item: actual Send today transport, manual/scheduled download, queued log/session
+event delivery, and live session status. Keep the existing cached entries and
+active session exact. Use explicitly opted-in emulator-native fixtures, restore
+temporary schedule/transport/live-status data and remove only fixture history.
+Run relevant browser fixtures for the JS side and record distinct native,
+browser, pending matrix and physical evidence.
+
+Findings and changes:
+
+- Added opt-in `PairedLegacySyncTest` phone probe and Wear driver. Both require
+  an emulator, explicit `legacyPairedValidation=true`, and the expected sole
+  connected peer. Wear preflight requires empty pending log/event/snapshot
+  queues, a free cache slot, and no existing workout for the fixture date.
+- Real phone Send today transport preserves all exercise/order/quest/load
+  prescriptions on Wear. Manual download and the actual WorkManager
+  `ScheduleDownloadWorker` receive fresh Data Items without resetting the
+  downloaded entry. The worker succeeds and re-arms its normal scheduled job
+  using existing settings; this does not measure wall-clock alarm timing.
+- Real Wear queues/listeners deliver duplicate logs and session events only
+  once to phone pending stores, with exact event metadata. Live session
+  snapshots reach the phone store. The phone fixture restores its original
+  raw schedule/live-status preferences and owned workout Data Item, removing
+  only synthetic pending history; Wear restores its original snapshot Data
+  Item and deletes only the untouched synthetic cache entry. Test work is
+  cancelled; normal production scheduled-download/log retries remain.
+- Existing cached entries/active legacy progress and Quick Start package/runtime
+  remain unchanged. Independent post-run legacy download/session JSON compares
+  exactly equal to the Iteration 52 baseline. No production source changed.
+- Documented reproduction, preconditions, restoration and evidence limits in
+  `PAIRED_EMULATOR_VALIDATION.md`; updated current roadmap/checklist statuses.
+
+Validation:
+
+- Both Android test APKs build. Corrected paired probes report **OK (1 test)**
+  each on phone API 35 (`3710eec`) and Wear API 37 (`cc1f21d2`). The first run
+  used a calendar date where `ScheduleCache` expects a weekday; corrected that
+  fixture and awaited actual repository persistence before assertions. The
+  final passing runs supersede the initial fixture failure. A successful
+  phone cleanup alone does not establish paired acceptance.
+- Ordinary instrumentation passes **OK (4 tests)** on phone and **OK (2 tests)**
+  on Wear, with mutation fixtures skipped without explicit arguments.
+- Real browser test pages pass **53 checks**: watch-sync 22, watch-updates 12,
+  Quick Start 19. These use isolated IndexedDB and mock native bridges; native
+  transport evidence comes from the separate paired runs. They do not establish
+  a combined Android WebView UI/device workflow.
+- Iteration 52's unchanged production baseline remains **304 JVM tests**
+  (78 shared, 28 phone, 198 Wear) and both debug APKs. No React/PWA source
+  changed. Native/browser regression and `git diff --check` pass. Build/native
+  logs are retained in ignored `output/emulator-validation/`.
+
+Completed: Phase 3's legacy Send today/scheduled download/log/live-status
+regression item. **Stage 19 is 69/97 (71%), Phase 3 11/12 (92%)**. Iteration 52
+is committed in `23d386a`; Iteration 53 tests/documentation remain uncommitted
+on `PST01`. Final Git audit still identifies `23d386a` as HEAD.
+Remaining: full fresh Quick Start cleanup/replay/binding/capability matrix;
+physical Phase 4 stays **0/27**. No physical audio, battery, Play or scheduled
+alarm timing acceptance is claimed.
+Next action: resolve the active October 2 emulator workout according to user
+direction, then run the documented full matrix with a fresh completion fixture.
+Preserve existing workout data until the user authorizes ending that session.
