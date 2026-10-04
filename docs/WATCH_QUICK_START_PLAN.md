@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 64 — TTS callback ownership fix and voice-enabled rest/transition validation complete (uncommitted)**
-Previous checkpoint: `02ee2f7 PST01: Validate voice-enabled Wear UI interruption`
+Latest checkpoint: **Iteration 65 — Voice-enabled ambient/background recovery validation complete (uncommitted)**
+Previous checkpoint: `c7bdf5a PST01: Fix TTS callback ownership and validate rest speech`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -108,6 +108,23 @@ stay exact. Production/test builds, 204 Wear JVM tests, all three native
 interruption/focus/language regressions, nine phone/eighteen ordinary Wear
 checks, visual/crash/inventory checks and all 16 original disks pass. Historical
 readiness/transition failures remain evidence. Physical Phase 4 stays 0/27.
+
+Iteration 64 is committed in `c7bdf5a`. Iteration 65 observes actual production
+native speech/focus during Sleep and Home, without replacing output or session
+transitions. Ambient rest, background rest and ambient exercise-success retain
+exact runtime/deadlines/cues with 119/117/125 hidden silence observations; each
+foreground recovery reserves only one deadline-bound Go. Home during live Go
+durably pauses set 3; reopening and Resume do not replay. All five sets complete,
+receive one receipt and prune watch state. All 50 prior phone records and exact
+legacy entries/preferences stay unchanged. Both paired peers, test APK builds,
+nine phone/nineteen ordinary Wear checks, visual/crash/settings/focus and matching
+installed APK checks pass. No production defect is established. The first
+transient-idle harness failure and its normally ended/receipted fixture remain
+preserved. All 16 original source-disk hashes match after stopping only verified
+copies. Iteration 65 is validated and uncommitted; physical Phase 4 stays 0/27.
+Next: voice-enabled fresh-process success recovery with exact offline state,
+no replay and one receipt. Shared/phone/Wear JVM baselines remain 78/28/204;
+unchanged production code does not require rerunning those suites here.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production

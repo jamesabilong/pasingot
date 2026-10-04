@@ -89,6 +89,20 @@ validated and uncommitted; Stage 19 stays 70/97, physical Phase 4 0/27. Next:
 voice-enabled ambient/background cancellation and deadline recovery with
 native playback/silence and exact saved state. Physical acceptance stays separate.
 
+2026-10-04 Iteration 65 supersedes that next action and uncommitted status:
+Iteration 64 is committed in `c7bdf5a`. Actual voice-enabled Sleep/Home
+interruption and ambient/background deadline recovery pass on the copied pair.
+Hidden state/ledger stay exact and silent; foreground catch-up adds only Go.
+Home during spoken Go pauses durably and reopening/Resume does not replay.
+All five sets complete with a receipt; 50 prior phone records and exact legacy
+entries/preferences remain unchanged. Paired tests, test APK builds, nine phone/
+nineteen ordinary Wear checks and visual/crash/settings/focus/inventory pass.
+All 16 original source-disk hashes match after copied-AVD shutdown. Iteration 65
+is validated and uncommitted, with no production change needed. Stage 19 stays
+70/97 and physical Phase 4 stays 0/27.
+Next: voice-enabled fresh-process exercise/final-success recovery with exact
+offline state, no replay and one receipt. Physical acceptance stays separate.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

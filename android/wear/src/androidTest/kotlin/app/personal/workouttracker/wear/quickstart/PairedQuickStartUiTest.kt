@@ -975,6 +975,267 @@ class PairedQuickStartUiTest {
         }
     }
 
+    @Test fun voiceEnabledAmbientAndBackgroundRecoveryThroughRealUi() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartVoiceLifecycleUiValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        val beforeEntries = repository.entries.first()
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val originalPreferences = cues.state().preferences
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH)
+                replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        fun field(instance: Any, name: String) = instance.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(instance)
+        fun engine(owner: Any) = field(owner, "tts") as? android.speech.tts.TextToSpeech
+        fun active(controller: Any) = field(controller, "active") as? app.personal.workouttracker.wear.cues.WatchCueEvent
+        fun focus(dump: String) = dump.substringAfter("Audio Focus stack entries (last is top of stack):")
+            .substringBefore("No external focus policy").substringBefore("External focus policy")
+            .contains("pack: app.personal.workouttracker")
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        var folder: File? = null
+        val checks = mutableListOf<String>()
+        suspend fun evidence(name: String) = lifecycleEvidence(requireNotNull(folder), name)
+        suspend fun idle(controller: Any, owner: Any, name: String, timeout: Long = 1_500) {
+            withTimeout(timeout) {
+                while (active(controller) != null || engine(owner)?.isSpeaking == true || focus(lifecycleShell("dumpsys audio"))) delay(25)
+            }
+            File(requireNotNull(folder), "$name-audio.txt").writeText(lifecycleShell("dumpsys audio"))
+        }
+        suspend fun speaking(controller: Any, owner: Any, kind: String, name: String) {
+            withTimeout(10_000) { while (engine(owner)?.isSpeaking != true || active(controller)?.kind?.name != kind) delay(10) }
+            val dump = lifecycleShell("dumpsys audio")
+            assertTrue("Native speech must own focus", focus(dump))
+            File(requireNotNull(folder), "$name-speaking-audio.txt").writeText(dump)
+            File(requireNotNull(folder), "$name-speaking-cues.json").writeText(Json.encodeToString(cues.state()))
+            File(requireNotNull(folder), "$name-speaking-runtime.json").writeText(Json.encodeToString(runtime.current()))
+        }
+        suspend fun endOwnedFixture() {
+            runtime.current()?.let { interrupted ->
+                assertEquals("Preserve unrelated workouts", "Emulator voice lifecycle", interrupted.sessionPackage.request.title)
+                val models = ViewModelStore()
+                val model = withContext(Dispatchers.Main) {
+                    SessionViewModel.QuickStartFactory(interrupted.sessionPackage.request.requestId, context)
+                        .create(SessionViewModel::class.java).also { models.put("voice-lifecycle-cleanup", it) }
+                }
+                try {
+                    withTimeout(15_000) { while (model.uiState.value.loading) delay(100) }
+                    assertNull(model.uiState.value.error)
+                    withContext(Dispatchers.Main) { model.onEndWorkout() }
+                    withTimeout(15_000) { while (runtime.current() != null) delay(100) }
+                } finally { withContext(Dispatchers.Main) { models.clear() } }
+            }
+        }
+        suspend fun foreground() {
+            val result = lifecycleShell("am start -W --activity-reorder-to-front --activity-single-top -n app.personal.workouttracker/app.personal.workouttracker.wear.WearMainActivity")
+            File(requireNotNull(folder), "foreground-launch.txt").appendText(result + "\n")
+            withTimeout(10_000) {
+                var resumed = false
+                while (!resumed) {
+                    requireNotNull(scenario).onActivity { resumed = it.lifecycle.currentState == Lifecycle.State.RESUMED }
+                    if (!resumed) delay(50)
+                }
+            }
+        }
+        suspend fun hiddenDeadline(controller: Any, owner: Any, saved: QuickStartRuntimeState,
+            ledger: PersistedWatchCueState, name: String) {
+            val deadline = requireNotNull(saved.session.restUntilEpochMillis)
+            var observations = 0
+            while (System.currentTimeMillis() < deadline + 1_500) {
+                assertEquals("Hidden $name runtime/deadline changed", saved, runtime.current())
+                assertEquals("Hidden $name reserved an unseen cue", ledger, cues.state())
+                assertNull(active(controller))
+                assertFalse("Hidden $name spoke", engine(owner)?.isSpeaking == true)
+                observations++
+                delay(100)
+            }
+            assertEquals(saved, runtime.current())
+            assertEquals(ledger, cues.state())
+            checks += "$name hidden observations=$observations deadline=$deadline finalWall=${System.currentTimeMillis()} exact runtime/ledger; native silent"
+            File(requireNotNull(folder), "checks.txt").writeText(checks.joinToString("\n"))
+            File(requireNotNull(folder), "$name-hidden-power.txt").writeText(lifecycleShell("dumpsys power"))
+            File(requireNotNull(folder), "$name-hidden-activity.txt").writeText(lifecycleShell("dumpsys activity activities"))
+            evidence("$name-hidden-deadline")
+        }
+        suspend fun goRecovery(controller: Any, owner: Any, saved: QuickStartRuntimeState,
+            ledger: PersistedWatchCueState, name: String): QuickStartRuntimeState {
+            val restored = awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals(saved.session.progress, restored.session.progress)
+            assertEquals(saved.outcomes, restored.outcomes)
+            assertEquals(saved.session.currentSet, restored.session.currentSet)
+            speaking(controller, owner, "GO", "$name-recovered")
+            val newKeys = cues.state().ledger.deliveredKeys.filter { it !in ledger.ledger.deliveredKeys }
+            assertEquals(listOf("GO"), newKeys.map { it.split('|')[4] })
+            assertTrue(newKeys.single().endsWith("|${saved.session.restUntilEpochMillis}"))
+            checks += "$name foreground catch-up exactly GO; exact progress/outcomes/set"
+            return restored
+        }
+        try {
+            endOwnedFixture()
+            packages.current(System.currentTimeMillis())?.let {
+                assertEquals("Emulator voice lifecycle", it.request.title)
+                assertEquals(QuickStartPackageState.READY, it.state)
+                assertEquals("pending:cleared", probe("ui_cancel_pending"))
+                withTimeout(15_000) { while (packages.current(System.currentTimeMillis()) != null) delay(100) }
+            }
+            assertEquals("cleanup:preserved", probe("ui_voice_lifecycle_cleanup_complete"))
+            cues.setPreferences(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_voice_lifecycle_offer"))
+            folder = File(artifacts, "voice-lifecycle-${request.requestId}").apply { mkdirs() }
+            File(folder, "request.json").writeText(Json.encodeToString(request))
+            File(folder, "before-entries.json").writeText(Json.encodeToString(beforeEntries))
+            File(folder, "before-preferences.json").writeText(Json.encodeToString(originalPreferences))
+            withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(50) }
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator voice lifecycle")
+            tap("Start")
+            awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            awaitLabel("Complete set")
+            val controller = productionCueController(scenario)
+            val owner = requireNotNull(field(controller, "output"))
+            assertEquals("AndroidTtsCueOutput", owner.javaClass.simpleName)
+            withTimeout(10_000) { while (field(owner, "initialized") != true || field(owner, "languageSupported") != true) delay(25) }
+            idle(controller, owner, "initial-idle", 6_000)
+
+            // Real ambient entry stops an in-flight rest without pausing its deadline.
+            tap("Complete set")
+            val ambientRest = awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(controller, owner, "REST", "ambient-rest")
+            val ambientLedger = cues.state()
+            assertTrue(engine(owner)?.isSpeaking == true)
+            lifecycleShell("input keyevent KEYCODE_SLEEP")
+            assertLifecycleAmbient(scenario, true)
+            idle(controller, owner, "ambient-rest-released")
+            hiddenDeadline(controller, owner, ambientRest, ambientLedger, "ambient-rest")
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            assertLifecycleAmbient(scenario, false)
+            goRecovery(controller, owner, ambientRest, ambientLedger, "ambient-rest")
+            idle(controller, owner, "ambient-rest-go-idle", 6_000)
+            evidence("ambient-rest-recovered")
+
+            // Actual Home backgrounds a running rest, which still retains its deadline.
+            tap("Complete set")
+            val homeRest = awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(controller, owner, "REST", "home-rest")
+            val homeLedger = cues.state()
+            assertTrue(engine(owner)?.isSpeaking == true)
+            lifecycleShell("input keyevent KEYCODE_HOME")
+            idle(controller, owner, "home-rest-released")
+            withTimeout(10_000) {
+                var stopped = false
+                while (!stopped) {
+                    scenario.onActivity { stopped = it.lifecycle.currentState == Lifecycle.State.CREATED }
+                    if (!stopped) delay(50)
+                }
+            }
+            hiddenDeadline(controller, owner, homeRest, homeLedger, "home-rest")
+            foreground()
+            val activeThirdSet = goRecovery(controller, owner, homeRest, homeLedger, "home-rest")
+
+            // Home during catch-up Go is an active-set exit: persist PAUSED once.
+            val activeLedger = cues.state()
+            assertTrue("Home must target live Go", engine(owner)?.isSpeaking == true)
+            lifecycleShell("input keyevent KEYCODE_HOME")
+            val paused = awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            assertEquals(activeThirdSet.session.progress, paused.session.progress)
+            assertEquals(activeThirdSet.outcomes, paused.outcomes)
+            assertEquals(3, paused.session.currentSet)
+            idle(controller, owner, "active-home-released")
+            repeat(10) {
+                assertEquals(paused, runtime.current())
+                assertEquals(activeLedger, cues.state())
+                assertFalse(engine(owner)?.isSpeaking == true)
+                delay(100)
+            }
+            foreground()
+            awaitLabel("PAUSED")
+            assertEquals(paused, runtime.current())
+            assertEquals(activeLedger, cues.state())
+            evidence("active-home-paused")
+            tap("Resume")
+            awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            awaitLabel("Complete set")
+            assertEquals(activeLedger, cues.state())
+            idle(controller, owner, "active-resume-silent")
+            checks += "active Home pauses set 3 durably; reopened paused/resumed active do not replay Go"
+
+            // Advance through set 3 normally, then cancel actual exercise-success speech.
+            tap("Complete set")
+            awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(controller, owner, "REST", "third-set")
+            tap("Start now")
+            awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            speaking(controller, owner, "GO", "third-set-start-now")
+            idle(controller, owner, "third-set-go-idle", 6_000)
+            tap("Complete set")
+            val successRest = awaitLifecycleState { it.session.exerciseIndex == 1 && it.session.status == SessionStatus.RESTING }
+            speaking(controller, owner, "EXERCISE_SUCCESS", "ambient-success")
+            val successLedger = cues.state()
+            assertTrue(engine(owner)?.isSpeaking == true)
+            lifecycleShell("input keyevent KEYCODE_SLEEP")
+            assertLifecycleAmbient(scenario, true)
+            idle(controller, owner, "ambient-success-released")
+            hiddenDeadline(controller, owner, successRest, successLedger, "ambient-success")
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            assertLifecycleAmbient(scenario, false)
+            goRecovery(controller, owner, successRest, successLedger, "ambient-success")
+            idle(controller, owner, "ambient-success-go-idle", 6_000)
+            evidence("ambient-success-recovered")
+            tap("Complete set")
+            speaking(controller, owner, "WORKOUT_SUCCESS", "completed")
+            assertEquals("completed:${request.requestId}", probe("await_completed"))
+            idle(controller, owner, "completed-idle", 6_000)
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            val record = Json.parseToJsonElement(probe("record")).jsonObject
+            val result = Json.decodeFromString<FinalQuickStartResult>(requireNotNull(record["finalResult"]).toString())
+            assertEquals(request.requestId, result.requestId)
+            assertNotNull(result.summary)
+            assertNull(result.endedSummary)
+            assertEquals(5, result.snapshot.exercises.sumOf { it.completedSets })
+            File(folder, "phone-record.json").writeText(record.toString())
+            withTimeout(15_000) { while (runtime.current() != null || !cues.state().acknowledgedWorkoutSuccess) delay(50) }
+            assertNull(packages.current(System.currentTimeMillis()))
+            assertTrue(cues.state().ledger.deliveredKeys.isEmpty())
+            assertEquals(beforeEntries, repository.entries.first())
+            File(folder, "after-entries.json").writeText(Json.encodeToString(repository.entries.first()))
+            evidence("completed")
+            println("Voice lifecycle request: ${request.requestId}")
+        } catch (failure: Throwable) {
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            folder?.let { evidence("failure") }
+            runCatching { scenario?.close(); scenario = null; endOwnedFixture() }.exceptionOrNull()?.let(failure::addSuppressed)
+            throw failure
+        } finally {
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            scenario?.close()
+            cues.setPreferences(originalPreferences)
+            assertEquals(originalPreferences, cues.state().preferences)
+            folder?.let {
+                File(it, "after-preferences.json").writeText(Json.encodeToString(cues.state().preferences))
+                File(it, "checks.txt").writeText(checks.joinToString("\n"))
+            }
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
     private fun requireLifecycleCopy() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true")
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))

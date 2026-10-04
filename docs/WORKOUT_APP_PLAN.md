@@ -9,6 +9,19 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 64 is committed in `c7bdf5a`. Iteration 65 passes voice-enabled
+  actual Sleep/Home interruption and deadline recovery: hidden runtime/cues
+  remain exact and silent, foreground recovery adds only Go, and Home during
+  live Go durably pauses set 3 without replay on reopening/Resume. All five
+  sets complete with a receipt; all 50 prior phone records, legacy entries
+  and preferences stay exact. Both paired peers, test APK builds, nine phone/
+  nineteen ordinary Wear checks, screenshots, crash/settings/focus and matching
+  installed APK checks and all 16 original-disk hashes pass. Iteration 65 is
+  validated and uncommitted. No production change is needed. Stage 19 stays 70/97,
+  physical Phase 4 0/27. Next: voice-enabled fresh-process recovery around
+  exercise/final success, with exact offline state, no replay and one receipt.
+  This supersedes the Iteration 64 uncommitted status and next action below.
+
 - Iteration 63 is committed in `02ee2f7`. Iteration 64 fixes stale TTS callbacks
   completing/unfocusing replacement speech: callbacks match their utterance,
   complete once, and old cancellation cannot affect a newer owner. Actual
@@ -318,10 +331,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 64 TTS callback ownership
-  correction and natural voice-enabled rest/transition/recreation acceptance
-  completed in the working tree. Latest commit: Iteration 63 voice-enabled UI
-  interruption/recovery acceptance, `02ee2f7`.
+- Latest implementation checkpoint: Stage 19 Iteration 65 voice-enabled
+  ambient/background recovery acceptance validated in the working tree.
+  Latest commit: Iteration 64 TTS callback ownership fix
+  and voice-enabled rest validation, `c7bdf5a`.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.

@@ -196,6 +196,47 @@ interruption/focus/language suite accompany the natural paired matrix. Timeline
 samples establish emulator playback/controller ordering, separately from
 physical intelligibility/overlap, routing, tactile, battery and Play acceptance.
 
+### Voice-enabled ambient and background recovery
+
+Iteration 65 adds `voiceEnabledAmbientAndBackgroundRecoveryThroughRealUi`,
+guarded by `quickStartVoiceLifecycleUiValidation=true`, emulator hardware,
+the exact copied AVD names and sole exact connected peer. Use the current
+production APKs and both test APKs on those copies. Only the owned **Emulator
+voice lifecycle** fixture may be normally ended/cancelled before a fresh
+baseline; preserve unrelated runtime, all history and original AVD disks.
+Start the phone waiter before Wear:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe' -e quickStartPairedValidation true -e quickStartVoiceLifecycleUiValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#voiceEnabledAmbientAndBackgroundRecoveryThroughRealUi' -e quickStartVoiceLifecycleUiValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test)** on both peers. Four Lifecycle sets and one Final exercise
+use 12/0-second rests with all cue categories enabled. Actual Sleep interrupts
+native REST and EXERCISE_SUCCESS; actual Home interrupts REST and catch-up GO.
+Read the existing on-screen production controller/TTS and current native focus;
+never replace output, listener, scripts or session transitions. After each
+interruption, require native/controller idle and released focus within the
+1.5-second post-transition observation bound. This is not end-to-end action
+latency or an acoustic measurement. Poll exact saved runtime/ledger and native
+silence every 100 ms until each hidden deadline plus 1.5 seconds. Wake or
+reorder the same Activity to the foreground; require exactly one deadline-bound
+Go and unchanged progress/outcomes/set. Home during live Go must durably pause
+set 3; reopening and real Resume must not reserve/replay it.
+
+Observe Start now's actual Go before awaiting idle and completing the next
+set: ACTIVE persistence precedes asynchronous cue dispatch, so a transient idle
+sample alone does not establish completion. Observe final native success,
+5/5 saved sets, one receipt and runtime/package/ledger pruning. Pull Wear
+`ui-acceptance/voice-lifecycle-REQUEST_UUID` and phone
+`voice-lifecycle-acceptance/REQUEST_UUID`. Retain native focus dumps, hidden
+power/Activity witnesses, snapshots, screenshots and `checks.txt`; compare
+every prior phone record and exact original legacy-entry/preference JSON.
+Run ordinary instrumentation with flags absent, inventory installed APKs and
+audit original source disks after stopping only verified copies. Preserve
+failed-run evidence. Physical speech quality, routing, tactile, battery and
+Play acceptance remain separate.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

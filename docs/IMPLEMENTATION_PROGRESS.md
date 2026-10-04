@@ -3987,3 +3987,100 @@ hashes** match the baseline after stopping only the verified copies, in
 Final Git audit confirms `02ee2f7` as HEAD; only Iteration 64 source/tests/docs
 remain, validated and uncommitted. All relevant build/JVM/native/paired/UI/
 preservation/crash/settings/focus/source checks pass, closing this iteration.
+
+## Iteration 65 — 2026-10-04 — Voice-enabled ambient/background recovery
+
+Status: **Validated on the isolated paired emulators — test/docs uncommitted;
+physical acceptance remains separate.**
+
+Starting checkpoint: `c7bdf5a PST01: Fix TTS callback ownership and validate rest
+speech`, committed at the user's request with a clean working tree. Continue
+only on the exact copied AVD pair; Stage 19 remains 70/97, physical Phase 4 0/27.
+
+Next action: actual Sleep/ambient and Home/background during native rest and
+exercise-success speech, hidden deadline passage without playback/new keys,
+foreground-only Go catch-up and durable active-set pause on Home. Read the
+on-screen production controller/TTS and native focus without replacing output;
+use real controls and shell key events. Preserve exact saved progress/deadlines,
+prior phone records, legacy entries, preferences and all original source disks.
+Physical intelligibility/overlap, routing, tactile, battery and Play stay separate.
+
+Implementation: the guarded phone fixture has four Lifecycle sets followed
+by one Final exercise, with 12/0-second rest and all cue categories enabled.
+Wear observes the existing production controller/TTS/native focus during
+actual Sleep and Home events. It polls exact runtime/ledger and native silence
+past three hidden rest deadlines; foreground catch-up must add only Go.
+Home during spoken catch-up Go must durably pause set 3 and reopening/resuming
+must not replay. Actual exercise-success speech is also interrupted by ambient
+entry, then all five sets complete with a receipt. No production change is
+planned unless acceptance establishes a defect. Original 16-disk audit passes
+before launch; copied AVD identities are verified. Test builds are pending.
+
+First-run findings: test APK builds pass. Actual ambient-rest and Home-rest
+interruption/recovery pass with 125/122 hidden exact-state/silence observations;
+Home during Go durably pauses set 3 and reopening/resuming does not replay.
+The later success observation times out because the harness accepted transient
+idle immediately after Start now's durable ACTIVE commit, before asynchronous Go
+dispatch. It tapped Complete set while the higher-priority Go was becoming
+active; success was correctly rejected by cue priority. Retain the failed run
+and its normally ended/receipted owned fixture. Require actual Start now Go
+playback before waiting for idle and advancing. No production defect is
+established; acceptance remains pending.
+
+Final acceptance/checks:
+
+- Corrected paired runs pass **OK (1 test)** on each peer in
+  `iteration-65-phone-voice-lifecycle.log` and
+  `iteration-65-wear-voice-lifecycle.log`. Request
+  `edd7224c-7ae6-4ae3-8bb9-c18a7d96c9d9` completes **5/5 sets**, with a completed
+  summary, exact phone receipt and runtime/package/ledger pruning.
+- Actual Sleep during REST, Home during REST and Sleep during EXERCISE_SUCCESS
+  each target observed native playback/current controller kind/focus. Output
+  and focus become idle within the 1.5-second post-transition observation bound.
+  **119/117/125** hidden observations retain exact runtime/progress/outcomes,
+  deadlines and cue ledger while native output remains silent past each deadline
+  plus 1.5 seconds. Wake/actual same-Activity reorder adds exactly one deadline-
+  bound Go per recovery, without a late warning or success replay. Native Go
+  playback is observed on each return. Bound/sampling evidence does not measure
+  acoustic silence or end-to-end UI action latency.
+- Actual Home during live catch-up Go durably pauses set 3 with exact progress
+  and outcomes, stops speech and releases focus. Reopening stays PAUSED;
+  real Resume returns ACTIVE with the same ledger and no Go replay. Start now's
+  observed Go completes before advancing to exercise success. Screenshots show
+  paused set 3, ambient rest, exercise completion and 5/5 Saved on watch.
+- Independent `iteration-65-preservation-validated.json` proves all **50/50 prior
+  phone records exact**, records **50 -> 51**, receipts **27 -> 28**, byte-exact
+  legacy-entry/preference JSON, exact three hidden-state/ledger witnesses and
+  only deadline-bound Go additions. The normally ended first failed fixture
+  remains in that baseline/history. Final Wear/phone artifacts are retained in
+  `iteration-65-validated-wear-artifacts` / `iteration-65-validated-phone-artifacts`;
+  first-run logs/artifacts remain separately preserved.
+- Both test APK builds and corrected Wear test rebuild pass. Ordinary checks
+  with explicit mutation flags absent pass **9 phone / 19 Wear**, with guarded
+  methods skipped normally. Crash buffers are empty; accessibility is absent/0,
+  touch exploration 0, animator scale 1.0 and final current native focus has no
+  production owner. Shared 78/phone 28/Wear 204 JVM and PWA baselines remain
+  applicable and are not rerun because only test harness/docs change.
+- Inventory `20261004T061220351Z-iteration-65-final` records phone API 35/
+  Wear API 37, app 1.0/code 1 and matching installed/local production APK hashes.
+  Wear remains `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`;
+  phone remains `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+  Only the verified copied pair is stopped; final original-disk audit is pending.
+
+Completed code/emulator checks: guarded voice-enabled lifecycle harness, real
+native interruption/deadline/pause/receipt acceptance and preservation witnesses.
+No production change is needed. Closure awaits source audit and final Git check.
+Stage 19 remains **70/97 (72%)**, physical Phase 4 **0/27**. Next: voice-enabled
+fresh-process recovery around exercise/final success, exact offline runtime/cues,
+no replay and one receipt. Physical intelligibility/overlap, routing, tactile,
+battery and Play acceptance remain separate.
+
+Final closure supersedes the pending source audit/Git check above: all **16
+original source-disk hashes** match their baseline after stopping only verified
+copies (`iteration-65-source-disk-after.json`); ADB reports no remaining devices.
+Independent `iteration-65-focus-validated.json` proves current native focus
+present before and absent after all four interruptions. Installed/local APK
+hashes match and both crash buffers are empty. `git diff --check` passes;
+final Git audit confirms `c7bdf5a` as HEAD with only these Iteration 65 test/docs
+changes, validated and uncommitted. All relevant checks pass, closing this
+iteration. The earlier pending labels remain historical evidence.
