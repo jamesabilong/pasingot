@@ -522,6 +522,236 @@ class PairedQuickStartUiTest {
     private fun lifecycleShell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
         automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
 
+    /** Read the on-screen production owner's native state; never substitute its output/listener. */
+    private fun productionSpeechOwner(scenario: ActivityScenario<WearMainActivity>): Any {
+        var owner: Any? = null
+        scenario.onActivity { activity ->
+            val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<ViewModelStore, Boolean>())
+            fun values(instance: Any): List<Any> = generateSequence(instance.javaClass as Class<*>?) { it.superclass }
+                .flatMap { it.declaredFields.asSequence() }
+                .filter { java.util.Map::class.java.isAssignableFrom(it.type) }
+                .flatMap { field -> field.isAccessible = true; (field.get(instance) as? Map<*, *>)?.values.orEmpty().filterNotNull().asSequence() }
+                .toList()
+            fun visit(store: ViewModelStore) {
+                if (!seen.add(store)) return
+                for (model in values(store)) {
+                    if (model is SessionViewModel) {
+                        assertNull("Multiple session speech owners", owner)
+                        fun field(instance: Any, name: String): Any = instance.javaClass.getDeclaredField(name)
+                            .apply { isAccessible = true }.get(instance)!!
+                        owner = field(field(field(model, "cueEmitter"), "controller"), "output")
+                    } else if (model.javaClass.simpleName == "NavControllerViewModel") {
+                        values(model).filterIsInstance<ViewModelStore>().forEach(::visit)
+                    }
+                }
+            }
+            visit(activity.viewModelStore)
+        }
+        return requireNotNull(owner) { "No on-screen production SessionViewModel" }.also {
+            assertEquals("AndroidTtsCueOutput", it.javaClass.simpleName)
+        }
+    }
+
+    @Test fun voiceEnabledCancellationThroughRealUi() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartSpeechUiPairedValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        val beforeEntries = repository.entries.first()
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val originalPreferences = cues.state().preferences
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH)
+                replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        var folder: File? = null
+        fun engine(owner: Any) = owner.javaClass.getDeclaredField("tts").apply { isAccessible = true }
+            .get(owner) as? android.speech.tts.TextToSpeech
+        fun focusStack(dump: String) = dump.substringAfter("Audio Focus stack entries (last is top of stack):")
+            .substringBefore("No external focus policy").substringBefore("External focus policy")
+        fun hasFocus(dump: String) = focusStack(dump).contains("pack: app.personal.workouttracker")
+        suspend fun silent(owner: Any, name: String, timeout: Long = 1_500) {
+            withTimeout(timeout) {
+                while (engine(owner)?.isSpeaking == true || hasFocus(lifecycleShell("dumpsys audio"))) delay(25)
+            }
+            File(requireNotNull(folder), "$name-audio.txt").writeText(lifecycleShell("dumpsys audio"))
+        }
+        suspend fun speaking(owner: Any, name: String) {
+            withTimeout(10_000) { while (engine(owner)?.isSpeaking != true) delay(10) }
+            val dump = lifecycleShell("dumpsys audio")
+            assertTrue("Production speech must own transient focus", hasFocus(dump))
+            File(requireNotNull(folder), "$name-speaking-audio.txt").writeText(dump)
+            File(requireNotNull(folder), "$name-speaking-cues.json").writeText(Json.encodeToString(cues.state()))
+            File(requireNotNull(folder), "$name-speaking-runtime.json").writeText(Json.encodeToString(runtime.current()))
+        }
+        suspend fun evidence(name: String) = lifecycleEvidence(requireNotNull(folder), name)
+        suspend fun endOwnedFixture() {
+            runtime.current()?.let { interrupted ->
+                assertEquals("Preserve unrelated workouts", "Emulator UI speech", interrupted.sessionPackage.request.title)
+                val models = ViewModelStore()
+                val model = withContext(Dispatchers.Main) {
+                    SessionViewModel.QuickStartFactory(interrupted.sessionPackage.request.requestId, context)
+                        .create(SessionViewModel::class.java).also { models.put("speech-ui-cleanup", it) }
+                }
+                try {
+                    withTimeout(15_000) { while (model.uiState.value.loading) delay(100) }
+                    assertNull(model.uiState.value.error)
+                    withContext(Dispatchers.Main) { model.onEndWorkout() }
+                    withTimeout(15_000) { while (runtime.current() != null) delay(100) }
+                } finally { withContext(Dispatchers.Main) { models.clear() } }
+            }
+        }
+        try {
+            endOwnedFixture()
+            packages.current(System.currentTimeMillis())?.let {
+                assertEquals("Emulator UI speech", it.request.title)
+                assertEquals(QuickStartPackageState.READY, it.state)
+                assertEquals("pending:cleared", probe("ui_cancel_pending"))
+                withTimeout(15_000) { while (packages.current(System.currentTimeMillis()) != null) delay(100) }
+            }
+            assertEquals("cleanup:preserved", probe("ui_speech_cleanup_complete"))
+            cues.setPreferences(originalPreferences.copy(voiceEnabled = true, voicePromptResolved = true,
+                startBriefing = false, countdown = true, completion = false, restAnnouncements = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_speech_offer"))
+            folder = File(artifacts, "speech-${request.requestId}").apply { mkdirs() }
+            File(folder, "request.json").writeText(Json.encodeToString(request))
+            File(folder, "before-entries.json").writeText(Json.encodeToString(beforeEntries))
+            File(folder, "before-preferences.json").writeText(Json.encodeToString(originalPreferences))
+            withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(50) }
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator UI speech")
+            tap("Start")
+            awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            awaitLabel("Complete set")
+            var owner = productionSpeechOwner(scenario)
+            withTimeout(10_000) {
+                while (owner.javaClass.getDeclaredField("initialized").apply { isAccessible = true }.get(owner) != true ||
+                    owner.javaClass.getDeclaredField("languageSupported").apply { isAccessible = true }.get(owner) != true) delay(50)
+            }
+            silent(owner, "initial-idle", 5_000)
+            evidence("01-active")
+
+            // Same-exercise REST is the real short production script, so query/click
+            // promptly and prove native playback is still active at each action.
+            tap("Complete set")
+            val firstRest = awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(owner, "pause")
+            val pause = clickable(awaitLabel("Pause"))
+            assertTrue("Pause must interrupt live native speech", engine(owner)?.isSpeaking == true)
+            val pauseLedger = cues.state()
+            assertTrue(pause.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            val paused = awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            assertEquals(firstRest.session.progress, paused.session.progress)
+            assertEquals(2, paused.session.currentSet)
+            silent(owner, "pause-released")
+            assertEquals(pauseLedger, cues.state())
+            evidence("02-paused")
+
+            tap("Resume")
+            awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(owner, "start-now")
+            val startNow = clickable(awaitLabel("Start now"))
+            assertTrue("Start now must replace live native speech", engine(owner)?.isSpeaking == true)
+            val beforeGo = cues.state().ledger.deliveredKeys
+            assertTrue(startNow.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            val active = awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals(paused.session.progress, active.session.progress)
+            withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.size == beforeGo.size) delay(25) }
+            assertEquals(listOf("GO"), cues.state().ledger.deliveredKeys.filter { it !in beforeGo }.map { it.split('|')[4] })
+            silent(owner, "start-now-released", 3_000)
+            evidence("03-start-now")
+
+            tap("Complete set")
+            val secondRest = awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(owner, "back")
+            val beforeBack = cues.state()
+            assertTrue("Back must interrupt live native speech", engine(owner)?.isSpeaking == true)
+            lifecycleShell("input keyevent KEYCODE_BACK")
+            silent(owner, "back-released")
+            val saved = requireNotNull(runtime.current())
+            assertEquals("Back preserves the exact running rest for deadline recovery", secondRest, saved)
+            assertEquals(3, saved.session.currentSet)
+            assertEquals(beforeBack, cues.state())
+            awaitLabel("Resume")
+            evidence("04-back-saved")
+
+            tap("Resume")
+            awaitLabel("Start now")
+            owner = productionSpeechOwner(scenario)
+            withTimeout(10_000) { while (owner.javaClass.getDeclaredField("initialized").apply { isAccessible = true }.get(owner) != true) delay(25) }
+            delay(500)
+            assertEquals(saved, runtime.current())
+            assertEquals("Reopening the same rest must not replay its reservation", beforeBack, cues.state())
+            silent(owner, "reopened-rest-silent")
+            tap("Pause")
+            awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            tap("Resume")
+            awaitLifecycleState { it.session.status == SessionStatus.RESTING }
+            speaking(owner, "end-pause")
+            val endPause = clickable(awaitLabel("Pause"))
+            assertTrue(engine(owner)?.isSpeaking == true)
+            assertTrue(endPause.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            val endPaused = awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            assertEquals(saved.session.progress, endPaused.session.progress)
+            silent(owner, "end-pause-released")
+            val beforeEnd = cues.state()
+            tap("End workout")
+            awaitLabel("End workout?")
+            evidence("05-end-confirmation")
+            assertEquals(endPaused, runtime.current())
+            assertEquals(beforeEnd, cues.state())
+            tap("End workout")
+            assertEquals("completed:${request.requestId}", probe("await_completed"))
+            val record = Json.parseToJsonElement(probe("record")).jsonObject
+            val result = Json.decodeFromString<FinalQuickStartResult>(requireNotNull(record["finalResult"]).toString())
+            assertEquals(request.requestId, result.requestId)
+            assertNotNull(result.endedSummary)
+            assertNull(result.summary)
+            assertEquals(2, result.snapshot.exercises.sumOf { it.completedSets })
+            File(folder, "phone-record.json").writeText(record.toString())
+            awaitLabel("Workout ended")
+            withTimeout(15_000) { while (runtime.current() != null) delay(50) }
+            assertNull(packages.current(System.currentTimeMillis()))
+            assertTrue(cues.state().ledger.deliveredKeys.none { "|WORKOUT_SUCCESS|" in it })
+            silent(owner, "end-released")
+            val terminal = cues.state()
+            delay(1_000)
+            assertEquals(terminal, cues.state())
+            assertEquals(record, Json.parseToJsonElement(probe("record")).jsonObject)
+            assertEquals(beforeEntries, repository.entries.first())
+            evidence("06-ended")
+            File(folder, "after-entries.json").writeText(Json.encodeToString(repository.entries.first()))
+            println("Speech UI request: ${request.requestId}")
+        } catch (failure: Throwable) {
+            folder?.let { evidence("failure") }
+            runCatching { scenario?.close(); scenario = null; endOwnedFixture() }.exceptionOrNull()?.let(failure::addSuppressed)
+            throw failure
+        } finally {
+            scenario?.close()
+            cues.setPreferences(originalPreferences)
+            assertEquals(originalPreferences, cues.state().preferences)
+            folder?.let { File(it, "after-preferences.json").writeText(Json.encodeToString(cues.state().preferences)) }
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
     private fun requireLifecycleCopy() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true")
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))

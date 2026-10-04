@@ -9,6 +9,18 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 62 is committed in `f14785e`. Iteration 63 validates actual
+  voice-enabled Wear Pause/Start now/Back and safe paused End UI, reading the
+  production native engine/focus without replacing output. Back preserves
+  exact rest/deadline and reopening does not replay; End saves two partial
+  sets and a receipt. All 45 prior phone records, legacy entries/preferences
+  and 16 original disk hashes stay exact. Paired tests, both test APK builds,
+  nine phone/seventeen ordinary Wear checks, screenshots and crash checks
+  pass. No production defect is established. Iteration 63 is validated and
+  uncommitted; Stage 19 stays 70/97 and physical Phase 4 stays 0/27. Next:
+  voice-enabled short-rest/exercise-transition UI and native cue ordering.
+  This supersedes the Iteration 62 uncommitted status and next action below.
+
 - Iteration 61 is committed in `eb2be9e`. Iteration 62 adds native in-flight
   cancellation, priority replacement, real focus-loss/denial and unsupported-
   language acceptance, with exact cue/runtime/legacy preservation and focus
@@ -293,10 +305,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 62 native speech
-  interruption/focus/language validation and durable pause/end wiring tests
-  completed in the working tree. Latest commit: Iteration 61 native voice and
-  TTS initialization correction, `eb2be9e`.
+- Latest implementation checkpoint: Stage 19 Iteration 63 actual voice-enabled
+  UI interruption, exact Back/rest recovery and partial End/receipt validation
+  completed in the working tree. Latest commit: Iteration 62 native speech
+  interruption/focus/language acceptance, `f14785e`.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
@@ -366,7 +378,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI and native interruption/focus/language fallback pass on isolated emulators. Physical Phase 4 is **0/27** | Follow the user's emulator direction: actual voice-enabled Wear UI cancellation with native playback/focus and exact history checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and actual voice-enabled UI interruption/recovery pass on isolated emulators. Physical Phase 4 is **0/27** | Follow the user's emulator direction: voice-enabled short-rest/exercise-transition UI with native playback/countdown ordering and exact history checks. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

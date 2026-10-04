@@ -3774,3 +3774,89 @@ Start now, back/navigation and end, with native playback/focus observations
 and exact cue/history checks. Full-script intelligibility/overlap, physical
 speaker/Bluetooth/call routing, tactile delivery, battery and Play acceptance
 remain separate physical evidence.
+
+## Iteration 63 — 2026-10-04 — Voice-enabled UI interruption acceptance
+
+Status: **Complete — code/emulator validation passed; physical Phase 4 remains open.**
+
+Starting checkpoint: `f14785e PST01: Validate native speech interruption and
+fallback`, committed at the user's request with a clean working tree.
+Continue on exact copied phone/Wear AVDs. Stage 19 remains 70/97; physical
+Phase 4 remains 0/27. Preserve source disks, prior native records, downloaded
+entries and cue preferences.
+
+Next action: drive Pause, Start now, Back/navigation and End through real Wear
+controls while production rest speech is in flight. Read native playback and
+focus state without replacing the output; verify exact runtime/ledger changes,
+partial ended result/receipt, preservation and preference restoration. Actual
+speaker/Bluetooth quality, tactile delivery, battery and Play remain separate.
+
+Implementation findings: the first paired run proves live native Pause and
+Start now, but fails an incorrect harness expectation that Back pauses RESTING.
+Production intentionally preserves the exact running rest/deadline on Back;
+foreground recovery uses that deadline. Failure snapshots retain two completed
+sets, exact ledger/progress, and the Workouts Resume action. Correct the test to
+require exact saved rest, native silence/focus release and no cue replay when
+reopened. No production defect is established. First logs/artifacts remain
+historical evidence; the owned failed fixture is normally ended with a receipt,
+and prior preferences restored. Final acceptance is still pending.
+
+Paired/native validation completed:
+
+- Final phone and Wear runs pass **OK (1 test)** each, in
+  `iteration-63-phone-speech-ui.log` and `iteration-63-wear-speech-ui.log`.
+  Request `73da43bf-3a30-436e-90d4-9979b2c7c78d` uses the real production
+  SessionViewModel/controller/AndroidTtsCueOutput, observed read-only through
+  the existing navigation ViewModelStore. No speech output, listener, rate,
+  engine or session transition is replaced/injected by the UI driver.
+- Four actual native isSpeaking/focus witnesses precede real UI actions:
+  Pause, Start now, Back, and Pause before End. Pause cancels and preserves
+  progress/ledger; resume reserves a fresh rest deadline; Start now reserves
+  exactly one new GO and the native queue/focus returns idle. Back stops speech
+  and preserves the exact RESTING runtime/deadline with two completed sets.
+  Reopening through Workouts Resume neither reserves nor replays that rest.
+  Native playback/focus idle checks use 1.5-second bounds, with 3 seconds for
+  the legitimate short Go replacement. These bounds begin at the post-action
+  durable-state observation, not an end-to-end action-latency measurement.
+- End is available only on PAUSED: actual Pause/Resume creates a fresh spoken
+  rest, Pause cancels it, and the real End confirmation leaves the paused
+  runtime/ledger exact until confirmation. The resulting endedSummary contains
+  **2/6 completed sets**, summary is absent, a phone receipt arrives and runtime/
+  package prune. Native output/focus remains idle, with no workout-success
+  replay. This verifies the actual safe End UI path, separately from Iteration
+  62's direct in-flight native END cancellation.
+- Independent preservation audit `iteration-63-preservation-validated.json`
+  proves **45/45 prior phone records exact**, records **45 -> 46**, receipts
+  **22 -> 23**, exact legacy-entry JSON and exact restored preference JSON.
+  The failed first synthetic fixture's ended result is retained in that
+  baseline; no app data/history is reset. Eleven audio-stack witnesses match
+  the four speaking owners and seven released/idle points.
+- Both Android test APK builds pass. Ordinary instrumentation with opt-in flags
+  absent reports **OK (9 phone tests)** and **OK (17 Wear tests)**; guarded
+  mutation methods skip normally. Both crash buffers are empty. No production
+  defect/change is established, so the prior 78 shared/28 phone/201 Wear JVM,
+  production APK and PWA baselines remain applicable, not rerun this iteration.
+- Final artifacts are retained in `iteration-63-validated-wear-artifacts` and
+  `iteration-63-validated-phone-artifacts`; reviewed round screenshots show
+  Pause, Workouts Resume, End confirmation and Workout ended clearly. Paired
+  inventory `20261004T045645887Z-iteration-63-final` records phone API 35/Wear
+  API 37, app 1.0/code 1 and installed production hashes matching both local
+  APKs. Inventory readiness alone is not pairing acceptance; the explicit
+  two-peer tests above establish that evidence. Wear accessibility is absent/0,
+  touch exploration 0, animator scale 1.0; native focus is released.
+
+Final source-disk audit is pending after stopping only the two verified copies.
+Relevant acceptance/build/checks pass; iteration closure awaits that audit and
+final Git check. Next: actual voice-enabled short-rest/exercise-transition UI
+matrix with native playback/countdown ordering and exact history checks.
+Physical speech intelligibility/overlap, speaker/Bluetooth/call routing, tactile
+delivery, battery and Play remain separate.
+
+Final closure supersedes the pending audit above: all **16 source disk hashes**
+match the original baseline in `iteration-63-source-disk-after.json`, after
+stopping only Pasingot_Matrix_Wear/Phone. ADB reports no remaining devices.
+`git diff --check` passes. Final Git audit confirms `f14785e` as HEAD; only the
+Iteration 63 test/docs changes remain, validated and uncommitted. Completed:
+real voice-enabled UI interruption/replacement, exact Back/rest recovery and
+safe partial End/receipt acceptance, with native focus and preservation
+witnesses. Stage 19 remains **70/97 (72%)**, physical Phase 4 **0/27**.

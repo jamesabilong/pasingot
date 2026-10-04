@@ -106,6 +106,47 @@ these mutation checks without flags. Retain failures as historical evidence;
 review rest/success/fallback screenshots and audit source disks after shutdown.
 Physical speech quality, tactile delivery, routing and battery remain separate.
 
+### Actual voice-enabled interruption UI
+
+Iteration 63 adds `voiceEnabledCancellationThroughRealUi`, guarded by
+`quickStartSpeechUiPairedValidation=true`, emulator hardware and exact copied
+AVD names on both peers. It requires the sole exact peer, rejects unrelated
+runtime/Ready/downloaded active workouts, and may normally end/cancel only a
+prior **Emulator UI speech** fixture before taking a fresh baseline. No app
+data/history reset is permitted. Existing production APKs need no reinstall
+when their inventory hashes still match; build/install both current test APKs
+on the copies. Start the phone waiter before Wear:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe -e quickStartPairedValidation true -e quickStartSpeechUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#voiceEnabledCancellationThroughRealUi -e quickStartSpeechUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test)** on each peer. The synthetic two-exercise fixture has
+5/1 sets, 60/0 seconds rest and no load. Actual Start/countdown, Complete set,
+Pause, Resume, Start now, Android Back, Workouts Resume and End confirmation
+drive all transitions. Read-only reflection follows the existing navigation
+ViewModelStore to the on-screen production native TTS owner; it neither injects
+an output/listener nor adjusts speech rate/scripts. Native isSpeaking and
+production focus must still be active immediately before interruption. Pause/
+Back require stopped output and released focus; Start now adds exactly one GO
+reservation then returns idle. Back preserves exact running rest/deadline and
+reopening stays silent without a new reservation. End exists only while paused:
+Pause cancels the fresh spoken rest, confirmation preserves the paused state,
+and End saves 2/6 sets as endedSummary with no completed summary/success replay.
+The phone receipt must prune runtime/package; prior records/legacy entries
+and restored cue preferences must match exactly.
+
+Pull Wear `ui-acceptance/speech-REQUEST_UUID` and phone
+`speech-ui-acceptance/REQUEST_UUID` from their external app files. Retain
+native focus/JSON witnesses and round screenshots, review paused/list/End
+presentation, run ordinary instrumentation with flags absent, inventory the
+installation and audit all 16 original source disks after copied-AVD shutdown.
+Playback/focus assertions establish emulator behavior; measured action latency,
+physical intelligibility/overlap, routing, tactile, battery and Play remain
+separate evidence. Iteration 62's direct native END interruption remains the
+in-flight native End evidence; this method validates the actual paused UI path.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

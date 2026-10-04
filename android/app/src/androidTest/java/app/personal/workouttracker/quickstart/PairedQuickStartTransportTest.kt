@@ -49,7 +49,8 @@ class PairedQuickStartTransportTest {
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
         if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
             args.getString("quickStartLifecycleUiPairedValidation") == "true" ||
-            args.getString("reducedMotionValidation") == "true") {
+            args.getString("reducedMotionValidation") == "true" ||
+            args.getString("quickStartSpeechUiPairedValidation") == "true") {
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             val avdName = ParcelFileDescriptor.AutoCloseInputStream(
                 automation.executeShellCommand("getprop ro.boot.qemu.avd_name")
@@ -76,10 +77,12 @@ class PairedQuickStartTransportTest {
                 val command = event.data.toString(Charsets.UTF_8)
                 val reply = try {
                     when (command) {
-                        "ui_cleanup_complete" -> {
-                            check(args.getString("reducedMotionValidation") == "true")
+                        "ui_cleanup_complete", "ui_speech_cleanup_complete" -> {
+                            val speech = command == "ui_speech_cleanup_complete"
+                            check(args.getString(if (speech) "quickStartSpeechUiPairedValidation" else "reducedMotionValidation") == "true")
+                            val ownedTitle = if (speech) "Emulator UI speech" else "Emulator UI acceptance"
                             for (record in beforeRecords) {
-                                if (record.request.title == "Emulator UI acceptance" &&
+                                if (record.request.title == ownedTitle &&
                                     record.request.targetNodeId == peer &&
                                     record.acknowledgement?.status == QuickStartStatus.STARTED && record.finalResult == null) {
                                     withTimeout(15_000) {
@@ -118,10 +121,12 @@ class PairedQuickStartTransportTest {
                             completedFixtureId = request.requestId
                             "offered:${request.requestId}"
                         }
-                        "ui_offer", "ui_recovery_offer", "ui_lifecycle_offer" -> {
+                        "ui_offer", "ui_recovery_offer", "ui_lifecycle_offer", "ui_speech_offer" -> {
                             val recovery = command == "ui_recovery_offer"
                             val lifecycle = command == "ui_lifecycle_offer"
+                            val speech = command == "ui_speech_offer"
                             check(args.getString(when {
+                                speech -> "quickStartSpeechUiPairedValidation"
                                 lifecycle -> "quickStartLifecycleUiPairedValidation"
                                 recovery -> "quickStartRecoveryUiPairedValidation"
                                 else -> "quickStartUiPairedValidation"
@@ -130,10 +135,15 @@ class PairedQuickStartTransportTest {
                             val exercise = source.exercises.first()
                             val now = System.currentTimeMillis()
                             val request = source.copy(requestId = UUID.randomUUID().toString(),
-                                title = when { lifecycle -> "Emulator lifecycle acceptance"
+                                title = when { speech -> "Emulator UI speech"; lifecycle -> "Emulator lifecycle acceptance"
                                     recovery -> "Emulator cue recovery" else -> "Emulator UI acceptance" }, source = QuickStartSource.LIBRARY_SELECTION,
                                 createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
-                                exercises = if (lifecycle) listOf("Lifecycle A", "Lifecycle B").mapIndexed { index, name ->
+                                exercises = if (speech) listOf(
+                                    exercise.copy(itemId = "speech-a", exerciseName = "Controlled repetitions", sets = 5,
+                                        prescription = "8", restSeconds = 60, loadWeight = null, loadUnit = null),
+                                    exercise.copy(itemId = "speech-b", exerciseName = "Next exercise", sets = 1,
+                                        prescription = "8", restSeconds = 0, loadWeight = null, loadUnit = null),
+                                ) else if (lifecycle) listOf("Lifecycle A", "Lifecycle B").mapIndexed { index, name ->
                                     exercise.copy(itemId = "lifecycle-$index", exerciseName = name, sets = 1,
                                         prescription = "8", restSeconds = 0, loadWeight = null, loadUnit = null)
                                 } else if (recovery) listOf(0, 3, 5, 6, 8, 10, 12, 20).mapIndexed { index, rest ->
@@ -155,6 +165,10 @@ class PairedQuickStartTransportTest {
                                 val folder = File(context.getExternalFilesDir(null), "presentation-acceptance/${request.requestId}").apply { mkdirs() }
                                 File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
                             }
+                            if (speech) {
+                                val folder = File(context.getExternalFilesDir(null), "speech-ui-acceptance/${request.requestId}").apply { mkdirs() }
+                                File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
+                            }
                             if (lifecycle) {
                                 val folder = File(context.getExternalFilesDir(null), "lifecycle-acceptance/${request.requestId}").apply { mkdirs() }
                                 File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
@@ -162,9 +176,10 @@ class PairedQuickStartTransportTest {
                             json.encodeToString(request)
                         }
                         "ui_cancel_pending" -> {
-                            check(args.getString("quickStartUiPairedValidation") == "true")
+                            val speech = args.getString("quickStartSpeechUiPairedValidation") == "true"
+                            check(speech || args.getString("quickStartUiPairedValidation") == "true")
                             val pending = store.recordsForTransportRecovery().lastOrNull {
-                                it.request.title == "Emulator UI acceptance" && it.request.targetNodeId == peer &&
+                                it.request.title == (if (speech) "Emulator UI speech" else "Emulator UI acceptance") && it.request.targetNodeId == peer &&
                                     it.acknowledgement?.status == QuickStartStatus.READY
                             }
                             if (pending != null) {
@@ -180,6 +195,7 @@ class PairedQuickStartTransportTest {
                         }
                         "ui_started" -> {
                             check(args.getString("quickStartUiPairedValidation") == "true" ||
+                                args.getString("quickStartSpeechUiPairedValidation") == "true" ||
                                 args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
                                 args.getString("quickStartLifecycleUiPairedValidation") == "true")
                             withTimeout(15_000) {
@@ -208,6 +224,7 @@ class PairedQuickStartTransportTest {
                         "finish" -> {
                             if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
                                 args.getString("quickStartLifecycleUiPairedValidation") == "true" ||
+                                args.getString("quickStartSpeechUiPairedValidation") == "true" ||
                                 args.getString("reducedMotionValidation") == "true") {
                                 for (record in beforeRecords) {
                                     val expected = cancelledPriorUiRecord?.takeIf { it.request.requestId == record.request.requestId } ?: record
@@ -219,6 +236,10 @@ class PairedQuickStartTransportTest {
                                 }
                                 if (args.getString("reducedMotionValidation") == "true") {
                                     val folder = File(context.getExternalFilesDir(null), "presentation-acceptance/${requiredRequestId()}")
+                                    File(folder, "after-records.json").writeText(json.encodeToString(store.recordsForTransportRecovery()))
+                                }
+                                if (args.getString("quickStartSpeechUiPairedValidation") == "true") {
+                                    val folder = File(context.getExternalFilesDir(null), "speech-ui-acceptance/${requiredRequestId()}")
                                     File(folder, "after-records.json").writeText(json.encodeToString(store.recordsForTransportRecovery()))
                                 }
                             }
@@ -236,7 +257,8 @@ class PairedQuickStartTransportTest {
         }
         messages.addListener(listener).await()
         try {
-            val timeout = if (args.getString("quickStartRecoveryUiPairedValidation") == "true") 360L
+            val timeout = if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
+                args.getString("quickStartSpeechUiPairedValidation") == "true") 360L
                 else if (args.getString("quickStartUiPairedValidation") == "true") 240L else 180L
             assertTrue("Wear test did not finish the paired probe", done.await(timeout, TimeUnit.SECONDS))
         } finally {

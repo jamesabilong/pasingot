@@ -64,6 +64,18 @@ is validated and uncommitted. No new production defect is established. Stage
 19 stays 70/97 and physical Phase 4 stays 0/27. Next: actual voice-enabled Wear
 UI cancellation with native playback/focus and exact history observations.
 
+2026-10-04 Iteration 63 supersedes that next action and uncommitted status:
+Iteration 62 is committed in `f14785e`. Real voice-enabled Pause/Start now/Back
+and safe paused End UI pass with production native playback/focus observations.
+Back preserves exact rest/deadline and reopening does not replay; partial End
+adds one result/receipt while all 45 prior phone records stay exact. Test builds,
+nine phone/seventeen ordinary Wear checks, screenshots, preference/legacy
+preservation and all 16 source disk hashes pass. No new production defect is
+established; Iteration 63 test/docs are validated and uncommitted. Stage 19
+stays 70/97 and physical Phase 4 stays 0/27. Next: voice-enabled short-rest/
+exercise-transition UI with native playback/countdown ordering. Physical
+speech quality, routing, tactile, battery and Play remain separate evidence.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/
