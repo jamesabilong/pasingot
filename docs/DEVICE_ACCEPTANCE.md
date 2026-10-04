@@ -361,6 +361,77 @@ run without mutation flags; inventory APKs, restore settings and audit original
 disks after copied-AVD shutdown. These emulator observations remain separate
 from physical speech quality/routing/tactile/battery/Play acceptance.
 
+### Voice-enabled pending-rest process recovery
+
+Iteration 68 extends the same exact-copy staging/receipt protocol with
+`quickStartVoicePendingRestProcessUiValidation=true`. The owned **Emulator
+voice pending rest process** fixture has one two-set exercise and 120-second
+natural rest, leaving time to reboot the copied watch before its deadline.
+Run `serveProductionTransportProbe` on the phone with `quickStartPairedValidation`
+and the new flag; run `prepareVoiceEnabledPendingRestProcessRecovery` on Wear
+with the new flag and the exact phone peer. Both must report OK (1 test).
+
+Actual REST playback, Home cancellation and initialized native silence are
+required. Preparation retains voice enabled and an exact nonexpired RESTING
+runtime/ledger. Confirm/force-stop a live copied Home process, remove only the
+copied bridge mappings, stop only the copied phone, save/enable airplane mode
+on the watch copy and reboot. Dismiss the known charging overlay with Home/Wake.
+Complete these steps promptly without changing the saved deadline or clock.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverPendingVoiceRestAndCompleteOffline' -e quickStartVoicePendingRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This method requires no native peers, a fresh PID and at least 15 seconds before
+the original deadline. Home retains exact runtime/cues and has no session
+controller/current focus. Real Resume stays RESTING with no revision, deadline,
+progress, outcome or cue change. Initialized native output must remain idle
+without REST replay. Poll exact state/ledger/native silence until the final-five
+boundary, then require native FIVE_SECONDS between deadline minus five seconds
+and the deadline, and native Go at or after the deadline. Persisted revisions
+advance once for warning and once for Go, with only those two deadline-bound
+keys. A 20 ms read-only native timeline and wall timestamps retain the observed
+boundaries. No replacement TTS output or artificial transitions are used.
+
+Complete normally offline, observe native WORKOUT_SUCCESS and 2/2 saved summary
+with Waiting to sync. Restore original airplane mode and the same copied phone/
+bridge, then run `verifyLifecycleReceiptAfterReconnect` and
+`verifyLifecyclePrunedAfterReceipt` with the new flag, request/result IDs and
+exact peer IDs. Require exact full offline result, one new result/receipt,
+pruning/tombstone, every prior phone record unchanged and exact legacy entries/
+restored preferences. Pull Wear `ui-acceptance/voice-pending-rest-process-REQUEST_UUID`
+and phone `voice-pending-rest-process-acceptance/REQUEST_UUID`. Retain native
+timeline/focus/PID evidence, ordinary checks, inventory and final disk audit.
+Emulator native timing remains separate from physical acoustic, Bluetooth,
+tactile, battery and Play acceptance.
+
+If a failed attempt leaves this owned fixture until its deadline expires, retain
+its diagnostics and use the separately guarded
+`completeExpiredPendingRestFixtureOffline` method with the same flag/request ID.
+It requires the exact original saved RESTING witness and an expired deadline,
+then completes via actual Resume/Complete set. Reconnect for the same exact
+receipt/pruning/preference restoration before staging a new request. This
+cleanup does not satisfy before-deadline acceptance. The copied-watch charging
+overlay may appear more than 15 seconds after boot readiness; use a bounded
+40-second observed-overlay wait before Home/Wake, without changing device clock,
+charging settings, battery simulation or persisted deadline.
+
+Iteration 68's accepted request `30009af4-c1df-4a1a-8ed6-1ea01118dc7e` passes
+all five staged methods. Resume occurs 68,194 ms before the original deadline,
+native warning 4,883 ms before it and native Go 197 ms after it. The 3,130-sample
+timeline and exact state/ledger checks show no REST replay/early cue. All 2/2
+sets save offline; all 54 prior phone records stay exact, records 54 -> 55 and
+receipts 31 -> 32, with exact full result, pruning and restored preferences/
+legacy entries. Nine phone/twenty-five ordinary Wear checks, builds, screenshots,
+empty crash buffers, restored settings/released focus, matching installed APKs
+and all 16 original disk hashes pass. Earlier failed attempt and owned cleanup
+remain documented in the progress log. The accepted phone's synced prior-record
+artifact survives unchanged; its test runner requires reinstalling the same
+test APK after copied-phone shutdown before receipt verification. Check
+`pm list instrumentation` and repair only the test APK if unavailable. Sync
+the copied device before stopping it. Inventory is
+`20261004T082954071Z-iteration-68-final`; physical Phase 4 remains 0/27.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

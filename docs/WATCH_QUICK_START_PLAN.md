@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 67 — Voice-enabled expired-rest process recovery validation complete (uncommitted)**
-Previous checkpoint: `7b2fdc3 PST01: Validate voice-enabled fresh-process success recovery`
+Latest checkpoint: **Iteration 68 — Voice-enabled pending-rest process recovery validation complete (uncommitted)**
+Previous checkpoint: `c9d5d1f PST01: Validate voice-enabled expired-rest process recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -158,6 +158,29 @@ match after stopping only verified copies. Iteration 67 is validated and
 uncommitted. Physical Phase 4 stays 0/27. Next:
 voice-enabled fresh-process recovery before a rest deadline, exact deadline/
 no REST replay and native warning/Go thresholds.
+
+Iteration 67 is committed in `c9d5d1f`. Iteration 68 validates voice-enabled
+fresh-process recovery before a 120-second natural rest deadline. Actual Home
+cancels REST, then 19 hidden observations preserve exact runtime/ledger. Fresh
+offline Home and actual Resume retain that exact state/deadline/progress/cues
+with initialized silence and no REST replay. Resume occurs 68,194 ms before
+deadline; 1,069 foreground observations remain exact before the final-five
+boundary. Native warning occurs 4,883 ms before deadline and Go 197 ms after
+it, with one deadline-bound key/revision each. The 3,130-sample native timeline
+contains 79 warning and 62 Go playback samples, no replay/early cue and settled
+idle. Normal native workout success and all 2/2 sets save offline, followed by
+one exact full result/receipt and pruning. All 54 prior phone records and
+original legacy entries/preferences remain exact. Five accepted stages, test
+builds, nine phone/twenty-five ordinary Wear checks and screenshots/crash/
+settings/focus/matching APK checks pass. Initial wrong-label/charging-overlay
+failure and owned cleanup, reconstructed cleanup-only artifact and test-runner
+repair remain distinct historical evidence; the accepted request's synced
+prior-record witness survives shutdown intact. No production change is needed.
+All 16 original source-disk hashes match after verified copied-AVD shutdown.
+Iteration 68 is validated and uncommitted, superseding prior status/next-action
+labels. Physical Phase 4 stays 0/27. Next: voice-enabled paused-rest fresh-
+process recovery, exact saved remaining time, no replay and normal Resume
+deadline/cue behavior.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production

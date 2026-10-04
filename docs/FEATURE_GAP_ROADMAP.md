@@ -9,6 +9,21 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-04 Iteration 68 supersedes prior next actions/uncommitted labels:
+Iteration 67 is committed in `c9d5d1f`. Fresh offline pending-rest recovery
+preserves exact runtime/deadline/cues in Home and actual Resume, without REST
+replay. Native warning occurs 4,883 ms before deadline, Go 197 ms after it;
+all 2/2 sets save offline with exact result/receipt/pruning. All 54 prior phone
+records and original legacy entries/preferences stay exact. Five accepted
+stages, test builds, nine phone/twenty-five ordinary Wear checks, screenshots,
+crash/settings/focus/matching APK checks and all 16 original disk hashes pass.
+Retained initial harness/environment failures and owned cleanup are separately
+documented. No production change is needed. Iteration 68 is validated and
+uncommitted. Stage 19 stays 70/97 (72%), physical Phase 4 0/27. Next: voice-
+enabled paused-rest fresh-process recovery with exact saved remaining time,
+no replay and normal Resume deadline/cues. Physical audio/routing/tactile/
+battery/Play remain separate.
+
 **Reviewed against the code on 2026-09-12.** Stage 16 media/custom quests are
 committed in `6d97150`; integrity fixes and follow-ups are now in `3ba1bc6`.
 Iteration status and

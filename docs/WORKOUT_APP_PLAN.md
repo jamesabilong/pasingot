@@ -9,6 +9,23 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 67 is committed in `c9d5d1f`. Iteration 68 validates voice-enabled
+  fresh-process recovery before a natural rest deadline on the exact copied
+  pair. Home/Resume retain exact state/deadline/cues without REST replay;
+  native warning is observed 4,883 ms before deadline and Go 197 ms after it.
+  All 2/2 sets save offline with one exact result/receipt and pruning. All 54
+  prior phone records and original legacy entries/preferences remain exact.
+  Five accepted stages, test builds, nine phone/twenty-five ordinary Wear
+  checks, screenshots and crash/settings/focus/matching APK checks pass.
+  Retained first-attempt label/charging-overlay failure, owned cleanup and
+  test-artifact/runner repairs are documented separately. No production change
+  is needed. All 16 original source-disk hashes match after verified copied-
+  AVD shutdown. Iteration 68 test/docs are validated and uncommitted.
+  Stage 19 stays 70/97, physical Phase 4 0/27. Next: voice-enabled paused-rest
+  fresh-process recovery, exact saved remaining time, no replay and normal
+  Resume deadline/cue behavior. This supersedes the Iteration 67 uncommitted
+  status and next action below.
+
 - Iteration 66 is committed in `7b2fdc3`. Iteration 67 voice-enabled expired-
   rest process recovery passes on the exact copied emulators. Hidden and fresh
   Home preserve exact runtime/deadline/cues; actual Resume catches up once with
