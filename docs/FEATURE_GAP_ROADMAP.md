@@ -54,6 +54,16 @@ Iteration 61 is validated and uncommitted. Stage 19 stays 70/97 and physical
 Phase 4 stays 0/27; emulator speech cancellation and focus/language fallback
 are next. Physical audio, routing, tactile and battery acceptance remain open.
 
+2026-10-04 Iteration 62 supersedes that next action: native in-flight pause/
+Start now/navigation/end cancellation, priority replacement, actual focus
+loss/locked-focus denial and zz-ZZ language fallback pass on the Wear copy.
+All three final native methods preserve exact cue/runtime/legacy JSON and
+release fixture focus; 201 Wear JVM tests and 16 ordinary checks pass. Original
+source disks remain exact. Iteration 61 is committed in `eb2be9e`; Iteration 62
+is validated and uncommitted. No new production defect is established. Stage
+19 stays 70/97 and physical Phase 4 stays 0/27. Next: actual voice-enabled Wear
+UI cancellation with native playback/focus and exact history observations.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

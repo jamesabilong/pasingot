@@ -3677,3 +3677,100 @@ Remaining/next action: continue emulator native speech cancellation on pause,
 Start now, navigation and end, followed by audio-focus/language fallback.
 Full-script speech intelligibility/overlap, physical speaker/Bluetooth routing,
 tactile delivery, battery and Play acceptance retain separate physical evidence.
+
+## Iteration 62 — 2026-10-04 — Native speech interruption and language fallback
+
+Status: **Validated — native interruption/focus/language and durable action
+wiring checks pass; actual voice-enabled UI and physical acceptance remain open.**
+
+Starting checkpoint: `eb2be9e PST01: Fix TTS initialization and validate native
+voice cues`, committed at the user's request with a clean working tree.
+Continue on the isolated Wear AVD copy; preserve source disks and all durable
+session/preferences/history. Stage 19 remains 70/97; physical Phase 4 is 0/27.
+
+Next action: exercise actual in-flight TTS cancellation for pause, Start now,
+navigation and end, priority replacement, native focus loss/denial where the
+platform permits a repeatable fixture, and unsupported-language fallback.
+Use native playback/focus observations and an isolated cue store; distinguish
+output/controller acceptance from real UI action wiring and physical audio.
+Record findings, changes, checks, completed/remaining work and next action.
+
+Findings and validation in progress:
+
+- All 16 source hashes match before launch; only the exact Wear copy is booted.
+  Initial native cancellation/replacement/focus-loss and zz-ZZ language tests
+  pass (two executed methods, locked-focus method skipped). Android isSpeaking
+  is observed before interruption; prompt fallback, stopped playback, duplicate
+  suppression and a fresh SPOKEN cue are verified. This establishes native
+  output/controller behavior, separately from actual UI action acceptance.
+- A copied-emulator-only locked-focus fixture passes one explicit test. It
+  adopts shell identity and uses the framework's internal focus-for-call API
+  with hidden-API checks disabled only for that instrumentation invocation.
+  This requests a native focus lock without placing a telephone call. Native
+  output reports AUDIO_FOCUS_UNAVAILABLE/HAPTIC_ONLY, reserves before fallback,
+  rejects the duplicate and returns SPOKEN for a fresh event after release.
+  Cleanup drops shell identity and releases only its own fixture focus.
+- Add final exact cue/runtime/legacy JSON witnesses and focus-stack cleanup
+  assertions; add meaningful JVM pause/end tests that hold the durable commit
+  and verify no early cancellation, plus failed-write preservation. Final
+  build/JVM/native/ordinary/preservation checks remain pending. No new
+  production defect is established by the initial native checks.
+
+Final validation and closure:
+
+- Final guarded harness passes **OK (3 tests)**, all methods executed, in
+  `iteration-62-native-validated.log`. Actual Android isSpeaking precedes
+  PAUSE/START_NOW/NAVIGATION/END cancellation. Each pending emit returns
+  HAPTIC_ONLY within 1.5 seconds, native playback stops, duplicates stay silent
+  and a fresh cue returns SPOKEN. Reported cancel-plus-recovery times are
+  651/678/656/680 ms; these include the subsequent short Go utterance.
+  Priority replacement returns old HAPTIC_ONLY/new SPOKEN and suppresses replay.
+- A real competing transient focus request stops the active utterance, and
+  release permits a fresh SPOKEN cue. The explicit native focus lock establishes
+  AUDIO_FOCUS_UNAVAILABLE/HAPTIC_ONLY, duplicate suppression and SPOKEN recovery
+  after unlock. The copied-emulator system fixture makes no telephone call;
+  adopted shell identity/hidden-API allowance are scoped to instrumentation,
+  and its lock is released. Final focus-stack assertions and dumps establish
+  no remaining native cue or fixture owner after close.
+- zz-ZZ process locale establishes LANGUAGE_UNAVAILABLE/HAPTIC_ONLY with no
+  playback or replay. Restoring en_US creates a fresh AVAILABLE/SPOKEN owner;
+  the original process locale is asserted in cleanup. No persistent system
+  language setting is changed. These are output/controller tests, separately
+  from actual UI cancellation or physical speech/routing quality.
+- Each method's full cue/runtime/legacy JSON before/after is exactly equal.
+  Independent SHA-256 comparisons match all three in
+  `iteration-62-preservation-validated.json`. Native evidence is retained in
+  `iteration-62-validated-artifacts`, including focus during playback, the
+  real lock, final release and six JSON witnesses. Fixtures use isolated cue
+  persistence and reject existing active/paused workouts and native focus
+  owners; existing production preferences/history stay untouched.
+- Final Wear test APK build passes. All **201 Wear JVM tests** pass with zero
+  failures/errors, including two new tests that hold pause/end commit gates
+  and fail writes: speech cancellation waits for successful persistence, and
+  failed actions preserve active state/history without cancellation. Existing
+  Start now/navigation wiring checks remain green. Ordinary instrumentation
+  passes **OK (16 tests)** with mutation flags absent. Crash buffer is empty
+  and `git diff --check` passes. No production source/APK change is needed;
+  prior production/shared/phone/PWA baselines remain applicable, not rerun.
+- Watch-only inventory `20261004T042851279Z-iteration-62-final` records API 37,
+  matching installed/local Wear production APK hash and app 1.0/code 1. The
+  phone is intentionally not booted; the collector's pair-selection readiness
+  does not establish paired acceptance for this native-only iteration.
+  Accessibility remains absent/0, touch exploration 0, animator scale 1.0,
+  airplane mode 0. Only the verified Wear copy is stopped; all **16 source
+  disk hashes** remain unchanged in `iteration-62-source-disk-after.json`.
+  ADB reports no remaining devices.
+
+Completed: repeatable native speech interruption/replacement, focus-loss/denial
+and language fallback/restoration acceptance, plus durable pause/end action
+wiring regression tests and exact preservation witnesses. Relevant build/JVM/
+native/settings/focus/source checks pass, closing Iteration 62 code/emulator
+validation. No new production defect is established. Stage 19 stays
+**70/97 (72%)** and physical Phase 4 stays **0/27**. Final Git audit confirms
+`eb2be9e` as HEAD; Iteration 62 test/docs are validated and uncommitted.
+
+Remaining/next action: actual voice-enabled Wear UI cancellation on pause,
+Start now, back/navigation and end, with native playback/focus observations
+and exact cue/history checks. Full-script intelligibility/overlap, physical
+speaker/Bluetooth/call routing, tactile delivery, battery and Play acceptance
+remain separate physical evidence.

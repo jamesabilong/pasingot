@@ -106,6 +106,49 @@ these mutation checks without flags. Retain failures as historical evidence;
 review rest/success/fallback screenshots and audit source disks after shutdown.
 Physical speech quality, tactile delivery, routing and battery remain separate.
 
+### Native speech interruption, focus and language checks
+
+Iteration 62 adds `NativeSpeechInterruptionTest`, gated by
+`nativeSpeechInterruptionValidation=true`, emulator hardware and the exact
+`Pasingot_Matrix_Wear` copy. It rejects active/paused Quick Start or downloaded
+workouts and existing native focus owners. Only the Wear copy is required.
+Production cue/runtime/legacy JSON must be exactly unchanged before/after
+each method; synthetic cue storage is isolated. Run after baseline voice
+availability is verified and TalkBack/system settings are restored.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class app.personal.workouttracker.wear.cues.NativeSpeechInterruptionTest -e nativeSpeechInterruptionValidation true app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This executes interruption/replacement/focus-loss and unsupported-language
+methods, skipping the additional locked-focus method. Each cancellation reason
+(Pause, Start now, navigation, end) targets actual Android `isSpeaking`, requires
+HAPTIC_ONLY within 1.5 seconds, stopped playback, duplicate suppression and a
+fresh SPOKEN cue. Higher-priority Go replaces rest; a real competing transient
+focus request stops speech and allows recovery after release. Temporary process
+locale zz-ZZ must report LANGUAGE_UNAVAILABLE and restore to the prior locale
+with AVAILABLE/SPOKEN. These are output/controller checks; actual UI action
+wiring retains separate acceptance. JVM checks hold/fail pause/end persistence
+to ensure cancellation follows a successful durable transition.
+
+For focus denial, the extra explicit fixture uses adopted shell identity and
+the internal framework focus-for-call API only on the verified idle copy. It
+creates a native focus lock without making a telephone call. It requires
+AUDIO_FOCUS_UNAVAILABLE/HAPTIC_ONLY, no duplicate output, successful recovery
+after unlock, and final removal of its own lock/shell identity. Hidden-API
+checks are disabled only for this instrumentation invocation:
+
+```powershell
+adb -s emulator-5554 shell am instrument --no-hidden-api-checks -w -e class app.personal.workouttracker.wear.cues.NativeSpeechInterruptionTest -e nativeSpeechInterruptionValidation true -e nativeLockedFocusValidation true app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 pull /sdcard/Android/data/app.personal.workouttracker/files/speech-interruption output/emulator-validation/speech-interruption
+```
+
+Require **OK (3 tests)** with both flags (all three methods execute). Retain
+native playback/focus evidence and exact before/after JSON hashes. Ordinary
+instrumentation skips all three methods without opt-in. Focus loss/denial
+establish framework behavior; physical calls, routing, intelligibility, tactile
+delivery and battery acceptance remain open.
+
 ### Staged countdown, active ambient and process-death recovery
 
 Iteration 60 extends the existing paired UI/probe classes with explicit staged

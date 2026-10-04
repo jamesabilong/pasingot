@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 61 — native voice and reduced-motion validation complete (uncommitted)**
-Previous checkpoint: `965becd PST01: Validate ambient and offline process recovery`
+Latest checkpoint: **Iteration 62 — native interruption/focus/language validation complete (uncommitted)**
+Previous checkpoint: `eb2be9e PST01: Fix TTS initialization and validate native voice cues`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -20,7 +20,8 @@ completion/Ready/Cancel/replay matrix and real phone launch/resume cleanup on
 isolated AVD copies; 16 unchanged source disk hashes prove original workout
 preservation. The active-session blocker is superseded for this isolated setup.
 Current suites pass 78 shared,
-28 phone and 199 Wear tests with both APKs. Iteration 56 fixes a real countdown
+28 phone and 201 Wear tests; both production APK baselines remain applicable.
+Iteration 56 fixes a real countdown
 navigation crash during lifecycle dispatch and extends acceptance to actual
 Wear UI taps, deadline locks, rest recovery, terminal presentation and settings.
 User chose emulator validation; paired UI and ordinary instrumentation pass,
@@ -66,6 +67,18 @@ tests, nine phone/thirteen Wear ordinary checks, visual review, settings restore
 and 16 original source disk hashes pass. Historical failed harness attempts are
 retained; acceptance applies actual scale at validation points because automation/
 lifecycle transitions can reset it. Physical Phase 4 remains 0/27.
+
+Iteration 61 is committed in `eb2be9e`. Iteration 62 validates actual native
+in-flight cancellation for pause/Start now/navigation/end, priority replacement,
+transient focus loss and locked native focus denial, plus unsupported-language
+fallback/restoration. Exact cue/runtime/legacy witnesses stay unchanged;
+focus owners and adopted shell identity are released. All three explicit
+methods, the final test build, all 201 Wear JVM tests, 16 ordinary Wear checks
+and all 16 original disk hashes pass. Added JVM checks prove pause/end speech
+cancellation follows durable commits and failed writes preserve active state.
+No new production defect is established. These output/controller observations
+remain separate from actual voice-enabled UI action acceptance; physical
+Phase 4 remains 0/27. Only the Wear copy is booted for this iteration.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -837,7 +850,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-04, Iteration 61
+### Progress audit — 2026-10-04, Iteration 62
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -1257,8 +1270,11 @@ recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 4 — Paired-device acceptance.
 **Exact next action:** continue on the isolated phone/watch emulators as directed
-by the user. Validate native speech cancellation on pause, Start now, navigation
-and end, then native audio-focus/language fallback. Iteration 61 closes actual
+by the user. Validate actual voice-enabled Wear UI cancellation on pause,
+Start now, back/navigation and end with native playback/focus observations
+and exact ledger/history. Iteration 62 closes native output/controller
+interruption, replacement, focus-loss/denial and language fallback/restoration.
+Iteration 61 closes actual
 foreground availability, category/voice/TalkBack suppression, unavailable-
 engine fallback and reduced-motion rest/success presentation. Iteration 60 closes
 actual countdown ambient cancellation/retry, active-set screen-off and staged

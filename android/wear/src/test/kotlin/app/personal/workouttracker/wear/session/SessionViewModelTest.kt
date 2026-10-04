@@ -458,6 +458,59 @@ class SessionViewModelTest {
         assertEquals("Disk unavailable", viewModel.uiState.value.error)
     }
 
+    @Test fun `pause and end cancel speech only after each durable commit`() = runSessionTest {
+        val viewModel = createSession()
+        runCurrent()
+        var entered = CompletableDeferred<Unit>()
+        var release = CompletableDeferred<Unit>()
+        repository.beforeCommit = { entered.complete(Unit); release.await() }
+
+        viewModel.onPause()
+        runCurrent()
+        entered.await()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertTrue(cues.events.isEmpty())
+        release.complete(Unit)
+        runCurrent()
+        assertEquals(SessionStatus.PAUSED, repository.entry.sessionState?.status)
+        assertEquals(listOf("cancel:PAUSE"), cues.events)
+
+        repository.beforeCommit = {}
+        viewModel.onResume()
+        runCurrent()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        entered = CompletableDeferred()
+        release = CompletableDeferred()
+        repository.beforeCommit = { entered.complete(Unit); release.await() }
+        viewModel.onEndWorkout()
+        runCurrent()
+        entered.await()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertEquals(listOf("cancel:PAUSE"), cues.events)
+        release.complete(Unit)
+        runCurrent()
+        assertEquals(SessionStatus.ENDED, repository.entry.sessionState?.status)
+        assertEquals(listOf("cancel:PAUSE", "cancel:END"), cues.events)
+    }
+
+    @Test fun `failed pause or end never cancels speech or changes the active session`() = runSessionTest {
+        val viewModel = createSession()
+        runCurrent()
+        val before = repository.entry.sessionState
+        repository.failWrites = true
+        viewModel.onPause()
+        runCurrent()
+        assertEquals(before, repository.entry.sessionState)
+        assertTrue(cues.events.isEmpty())
+        viewModel.onEndWorkout()
+        runCurrent()
+        assertEquals(before, repository.entry.sessionState)
+        assertEquals(before, viewModel.uiState.value.session)
+        assertTrue(cues.events.isEmpty())
+        assertTrue(sender.events.isEmpty())
+        assertTrue(sender.logs.isEmpty())
+    }
+
     @Test fun `double completion cannot consume two zero-rest sets`() = runSessionTest {
         repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Squat", "10", sets = 3, rest = 0)))
         val viewModel = createSession()
