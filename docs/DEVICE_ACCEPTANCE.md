@@ -587,6 +587,51 @@ preferences and original AVD disks. Artifacts live under Wear
 test APK builds, ordinary tests, screenshots/crash/focus/settings/APK audits.
 Physical acoustic/routing/tactile/battery/Play checks remain separate.
 
+### Voice-enabled early rest exit after recovery
+
+Iteration 72 passes five accepted stages, 9 phone/33 Wear ordinary checks and
+preservation/inventory audits. Exact 20 seconds survive; Start now produces one
+Go 159 ms after the action, with no delayed warning/Go through the abandoned
+deadline while Awake/non-ambient. Full 2/2 result/receipt/pruning and all 59 prior
+records remain exact. The display-limited first result is also preserved; its
+initial receipt discovery failure is superseded by bounded peer readiness.
+See implementation progress for capture limits and final artifact evidence.
+
+Iteration 72 uses `quickStartVoiceEarlyRestProcessUiValidation=true` on the
+same exact copies. Phone `serveProductionTransportProbe` also requires
+`quickStartPairedValidation` and the exact watch peer. Wait for its
+`Transport probe ready` stream marker before running Wear
+`prepareVoiceEnabledEarlyRestProcessRecovery` with the flag/exact phone peer.
+The owned **Emulator voice early rest process** fixture has one two-set exercise
+and 20-second rest. Pause during native REST, preserving 6–20 frozen seconds,
+interval/progress/outcomes/ledger, then Home/native idle and exact hidden state.
+
+Follow the same synced live-process force-stop, phone disconnection/shutdown,
+watch airplane-mode/offline reboot and observed charging-overlay protocol.
+Run Wear `recoverEarlyVoiceRestAndCompleteOffline` with the new flag and
+`lifecycleRequestId`. Require fresh PID, no native peers, exact silent Home and
+opened PAUSED UI beyond the old deadline. Explicit session Resume alone creates
+the saved-seconds deadline and one intentional native REST. Let it settle, tap
+actual Start now before the final-five threshold, then require exactly one
+native Go and one revision, with only rest fields cleared and all progress/
+outcomes unchanged. The Go key binds to that now-abandoned deadline.
+
+Keep the active screen open through deadline +1,500 ms, using repeated Wake
+events plus Awake power/non-ambient assertions so display-idle cancellation
+cannot mask delayed cues. Compare the complete runtime/ledger and native
+controller/speech on every observation. No warning,
+extra Go or state change is allowed. Finish 2/2 offline with native final
+success. Restore original airplane mode/phone/bridge and run the shared
+receipt/pruning methods with the new flag and exact IDs/peers. Phone receipt
+waits up to 30 seconds for the sole exact native peer before its assertion.
+Preserve all
+prior records and compare the full offline result, one receipt, restored
+preferences/entries and original disk hashes. Wear artifacts are under
+`ui-acceptance/voice-early-rest-process-REQUEST_UUID`; phone artifacts under
+`voice-early-rest-process-acceptance/REQUEST_UUID`. Require five staged checks,
+test APK builds, ordinary tests, screenshots/crash/focus/settings/APK audits.
+Physical acoustic/routing/tactile/battery/Play checks remain separate.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

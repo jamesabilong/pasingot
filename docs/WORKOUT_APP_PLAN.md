@@ -9,6 +9,19 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 71 is committed in `9764243`. Iteration 72 validates Start now
+  after offline paused-rest recovery: one Go 159 ms after the action, exact
+  transition/progress/ledger and no late warning/Go through an awake abandoned
+  deadline. Five stages, 9 phone/33 Wear ordinary checks, exact 59 prior records,
+  result/receipt/pruning and original disk/settings/APK audits pass. A retained
+  display-limited first fixture and initial receipt discovery failure are
+  superseded by awake/non-ambient polling and bounded exact-peer readiness.
+  Iteration 72 is validated and committed on 2026-10-05 in the early-rest
+  recovery checkpoint, superseding its uncommitted label. Stage 19 stays 70/97,
+  physical 0/27.
+  Next: Start now during resumed REST speech, native Go interruption and no late
+  cues. Earlier uncommitted/pending/next-action labels remain historical.
+
 - Iteration 70 is committed in `ceaf53a`. Iteration 71 validates extended
   paused-rest recovery after actual +30: exact +30,000 ms/one revision, unchanged
   ledger, frozen 46 seconds through offline reboot/beyond the extended deadline,

@@ -3,9 +3,9 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 71 — Voice-enabled extended paused-rest recovery validated, uncommitted**
-Previous checkpoint: `ceaf53a PST01: Validate voice-enabled locked-rest process recovery`
-Last updated: **2026-10-04**
+Latest checkpoint: **Iteration 72 — Voice-enabled early rest exit after recovery validated and committed on 2026-10-05**
+Previous checkpoint: `9764243 PST01: Validate voice-enabled extended-rest process recovery`
+Last updated: **2026-10-05**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
 emulators verify Ready/process restart/Start, Cancel/Dismiss, offline queued

@@ -9,6 +9,17 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-04 checkpoint: Iteration 71 is committed in `9764243`. Iteration 72
+validates Start now after paused-rest process recovery: one Go 159 ms after the
+action and no late warning/Go through an awake abandoned deadline. Five stages,
+9 phone/33 Wear ordinary checks, exact 59 prior records, result/receipt/pruning
+and original disk/settings/APK audits pass. Display-limited first-run evidence
+and receipt discovery failure are retained, superseded by stronger awake/
+non-ambient checks and bounded exact-peer readiness. Iteration 72 is validated
+and committed on 2026-10-05 in the early-rest recovery checkpoint, superseding
+its uncommitted label; Stage 19 70/97, physical 0/27. Next: Start now during resumed REST
+speech, native Go supersession and no delayed cues. Earlier labels are historical.
+
 2026-10-04 checkpoint: Iteration 70 is committed in `ceaf53a`. Iteration 71
 validates actual +30/one revision/unchanged ledger and frozen 46 seconds through
 offline reboot beyond the extended deadline. Only Resume creates a new REST/

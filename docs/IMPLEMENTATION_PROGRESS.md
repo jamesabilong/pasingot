@@ -4766,3 +4766,151 @@ with only the seven expected Iteration 71 test/docs files modified and no
 unrelated changes. All relevant code/emulator checks above pass; this iteration
 is validated and uncommitted. Earlier pending labels and first-attempt failure
 remain historical evidence, superseded by the explicit successful results.
+
+## Iteration 72 — 2026-10-04 — Voice-enabled early rest exit after recovery
+
+Status: **Code/emulator acceptance validated; committed on 2026-10-05. Physical acceptance
+remains separate.**
+
+Starting checkpoint: `9764243 PST01: Validate voice-enabled extended-rest
+process recovery`, committed at the user's request with a clean tree. This
+supersedes Iteration 71's uncommitted label. Stage 19 stays 70/97, physical 0/27.
+
+Scope: preserve a voiced 20-second paused rest through process termination and
+offline reboot; explicit Resume alone rebases its deadline and plays one REST.
+Use the real Start now control before the final-five threshold. Require one
+immediate native Go, one revision and exact progress/outcomes, with no warning
+or extra Go through the abandoned deadline. Observe active runtime/ledger/native
+silence beyond that boundary before offline 2/2 completion, exact result/receipt
+and pruning. Preserve all prior records/preferences/entries/original AVD disks.
+Next: guarded implementation/build, five staged checks, ordinary/preservation/
+UI/inventory/settings/final audits. Physical acceptance remains separate.
+
+Implementation adds guarded early-rest offer/receipt and preparation/recovery
+methods. It compares the entire Start now runtime to the resumed copy changing
+only revision/status and clearing rest fields, requires native Go before the
+final-five boundary, then polls exact active state/ledger and initialized native
+silence through deadline +1,500 ms. A 20 ms native timeline and independent
+artifact validator check early Go/no warning/no delayed cues alongside exact
+receipt/pruning/preservation. Existing recovery modes keep their assertions.
+Both test APKs build (`iteration-72-test-build.log`, 59s); all 16 original disk
+hashes match before launch. Only verified copied AVDs are used. Next: staged
+acceptance with explicit phone listener readiness and charging-overlay checks.
+
+Both preparation stages pass on the first attempt for
+`a138c9cb-a5b4-4e84-a88b-2bd94f5f442c`, with the phone's registered-listener
+marker observed before Wear starts. Actual Pause/native cancellation and hidden
+frozen state pass. The host relaunches only copied Home after runner exit,
+confirms live PID **2929**, force-stops it with no remaining PID, syncs/stops
+only the verified phone and removes the copied bridge. Airplane-mode offline
+watch reboot and bounded charging-overlay observation precede fresh recovery.
+No unrelated records/data or system settings are cleared. Offline acceptance
+is running; exact receipt/pruning and final preservation checks are next.
+
+First offline recovery passes OK (1 test), PID **2596 -> 2327**, preserving
+**20 seconds** and observing **224** exact/silent active-state samples beyond
+the abandoned deadline. The immediate-active/offline screenshots look correct,
+but the beyond-deadline screenshot is black from display idle. Retain this
+first attempt; strengthen the late-cue check with repeated Wake events, explicit
+Awake power evidence and non-ambient presentation during polling, then repeat
+with a new owned fixture. This prevents display-idle cancellation masking a
+late-cue defect and does not change session state or system settings.
+
+Initial phone receipt check separately fails before inspecting records because
+the native peer list is still empty after bridge restoration. Add a bounded
+30-second exact-peer wait for this mode before retaining the same identity
+assertion. Complete and preserve the first fixture's exact receipt/pruning
+before staging another; no history or pending result is discarded. Build and
+retry those checks, then perform the stricter awake acceptance.
+
+The first fixture's receipt/pruning and independent state/native/preservation
+checks pass after peer discovery settles: **58/58** prior records exact,
+records **58 -> 59**, receipts **35 -> 36**, exact 2/2 result and original
+preferences/entries. Its initial receipt-discovery failure and complete logs/
+artifacts are retained under `iteration-72-first-*`. Go is observed **217 ms**
+after Start now and **10,218 ms** before the final-five threshold, with no late
+cue observed; the display-idle limitation remains explicit and this attempt
+does not establish the stricter awake result. Awake build passes (1m 50s);
+final source/peer-readiness test build passes (32s). Both fresh test APKs are
+installed. The new fixture rerun follows first receipt/pruning; all prior
+history, including the first result, remains preserved.
+
+Both stricter preparation stages pass for
+`3c68d00c-0718-468a-acb4-9875e7907a4f`, with first result/history retained.
+The same guarded offline force-stop/reboot protocol is running. Final accepted
+logs/artifacts will refer to this awake rerun; the first fixture's successful
+but display-limited evidence and receipt discovery failure remain historical.
+
+The stricter offline stage passes OK (1 test), fresh PID **3447 -> 2359** and
+confirmed terminated PID **3617**. Frozen **20 seconds** remain exact through
+fresh Home/opened PAUSED UI. After intentional Resume/REST, actual Start now
+adds one Go/revision and only clears rest fields. **223** observations keep the
+entire active runtime/ledger/native silence exact beyond the abandoned deadline,
+with repeated Awake/non-ambient assertions and saved power evidence. The
+beyond-boundary screenshot now visibly shows SET 2/2; it and the offline summary
+are reviewed. The immediate-active capture has a black frame, retained as a
+capture limitation; full transition/native Go evidence and the later visible
+active screen independently establish this case. Exact offline 2/2 completion
+passes. Original airplane mode is restored; final receipt/preservation checks
+are running on the same copied phone/bridge.
+
+Final evidence supersedes those pending labels:
+
+- All **five accepted stages** pass OK (1 test) for the awake rerun:
+  `iteration-72-preparation-{phone,wear}.log`, `iteration-72-offline-rest.log`
+  and `iteration-72-receipt-{phone,wear}.log`. Retained first-stage evidence
+  remains display-limited; the initial receipt peer-discovery failure is
+  superseded by bounded exact-peer readiness. No result/history is discarded.
+- Independent `validate-iteration-72.ps1` /
+  `iteration-72-preservation-validated.json` prove exact paused state/ledger/
+  **20 seconds** beyond the original deadline (opening **36,162 ms** later),
+  a new deadline/one REST only on explicit Resume, and the complete Start now
+  runtime changing only revision/status/rest fields. One native Go is observed
+  **159 ms** after Start now and **10,295 ms** before the final-five threshold.
+  All **223** foreground and **19** hidden observations pass. Awake/non-ambient
+  polling and power evidence cover **1,514 ms** beyond the abandoned deadline,
+  with exact active runtime/ledger and no warning or additional Go. The
+  **1,170-sample** native timeline includes one Checking sample, **74** REST,
+  **64** Go-speaking samples and zero warning samples, with no delayed cue.
+- Full offline 2/2 result equality, one new receipt, pruning and success
+  tombstone pass. All **59/59** prior records (including the first fixture) stay
+  exact: records **59 -> 60**, receipts **36 -> 37**. Original legacy entries/
+  restored preferences are byte-exact. Accepted Wear/phone artifacts contain
+  **86/3 files**. Awake beyond-boundary and offline screens are reviewed; the
+  immediate-active black capture is retained without substituting it for full
+  runtime/native evidence. Copied request history now holds 60/64 records.
+- Final test APK build passes (`iteration-72-final-test-build.log`, 32s);
+  earlier build/awake build logs remain retained. Ordinary mutation-free tests
+  pass **9 phone / 33 Wear**. Production/PWA code is unchanged; existing shared
+  78/phone 28/Wear 204 JVM and PWA baselines remain applicable. Crash buffers
+  are empty and current native focus released. Original airplane 0, absent/
+  disabled accessibility, touch exploration 0 and animator 1.0 are restored.
+  Inventory `20261004T154013950Z-iteration-72-final` verifies API 35/API 37,
+  app 1.0/code 1 and installed/local production APK equality; Wear remains
+  `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`,
+  phone `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+- Sync/stop only verified copies. All **16** original disk hashes match
+  before/after; final ADB inventory is empty. Physical acoustic/routing/tactile/
+  battery/Play observations remain open and are not established by this run.
+
+Completed: guarded early rest exit after fresh offline paused-rest recovery,
+exact transition/one native Go, no delayed cues through an awake abandoned
+deadline, offline result/receipt/pruning, peer readiness and preservation. No
+production defect is established. Stage 19 stays **70/97 (72%)**, physical
+**0/27**. Next: Start now while resumed REST speech is still active, verifying
+native Go supersedes that speech without duplicate/late cues and preserving
+the exact offline result/receipt. Closure awaits final Git/doc check.
+
+Final closure: `git diff --check` passes; Git is rechecked at HEAD `9764243`,
+with only the seven expected Iteration 72 test/docs files modified and no
+unrelated changes. All relevant code/emulator checks above pass; this iteration
+is validated and uncommitted. Earlier pending statements, initial receipt
+discovery failure and display-limited first fixture remain historical evidence,
+superseded by explicit awake acceptance and preservation results.
+
+Commit checkpoint — 2026-10-05: the user requests only the commit. Re-read the
+plan/latest iteration, confirm the seven expected files and passing diff check,
+and commit as `PST01: Validate voice-enabled early-rest process recovery`.
+This supersedes Iteration 72's earlier uncommitted labels. The validated source
+has not changed since acceptance; only checkpoint documentation is updated.
+The next implementation remains planned, not started by this commit request.
