@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,22 +68,29 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         viewModel.onCancel(onCancel)
     }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val interactive by rememberUpdatedState(presentation.allowInteraction)
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> viewModel.onScreenVisibilityChanged(true)
+                Lifecycle.Event.ON_RESUME -> viewModel.onScreenVisibilityChanged(interactive)
                 Lifecycle.Event.ON_PAUSE -> viewModel.onScreenVisibilityChanged(false)
                 Lifecycle.Event.ON_STOP -> viewModel.saveOnExitIfActive()
                 else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        viewModel.onScreenVisibilityChanged(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        viewModel.onScreenVisibilityChanged(interactive && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         onDispose {
             viewModel.onScreenVisibilityChanged(false)
             viewModel.saveOnExitIfActive()
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
+    }
+    // Wear may remain RESUMED while dozing. Stop foreground ticks/output on
+    // ambient entry without pausing the durable session or shifting its deadline.
+    LaunchedEffect(presentation.allowInteraction, lifecycleOwner, viewModel) {
+        viewModel.onScreenVisibilityChanged(presentation.allowInteraction &&
+            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
 
     if (state.loading) {

@@ -3,6 +3,7 @@ package app.personal.workouttracker.quickstart
 import android.net.Uri
 import android.content.Intent
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -44,12 +45,21 @@ class PairedQuickStartTransportTest {
     fun serveProductionTransportProbe() = runBlocking {
         assumeTrue(args.getString("quickStartPairedValidation") == "true")
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        if (args.getString("quickStartRecoveryUiPairedValidation") == "true") {
+            val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+            val avdName = ParcelFileDescriptor.AutoCloseInputStream(
+                automation.executeShellCommand("getprop ro.boot.qemu.avd_name")
+            ).bufferedReader().use { it.readText().trim() }
+            assertEquals("Pasingot_Matrix_Phone", avdName)
+        }
         val peer = requireNotNull(args.getString("peerNodeId"))
         assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
         val done = CountDownLatch(1)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val messages = Wearable.getMessageClient(context)
         val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        val beforeReceipts = store.recordsWithResultReceipts()
+        val beforeRecords = store.recordsForTransportRecovery()
         // Prefer an explicit seed; otherwise use the newest completion bound to this peer.
         completedFixtureId = args.getString("completedRequestId") ?: store.recordsWithResultReceipts()
             .lastOrNull { it.request.targetNodeId == peer }?.request?.requestId
@@ -81,15 +91,19 @@ class PairedQuickStartTransportTest {
                             completedFixtureId = request.requestId
                             "offered:${request.requestId}"
                         }
-                        "ui_offer" -> {
-                            check(args.getString("quickStartUiPairedValidation") == "true")
+                        "ui_offer", "ui_recovery_offer" -> {
+                            val recovery = command == "ui_recovery_offer"
+                            check(args.getString(if (recovery) "quickStartRecoveryUiPairedValidation" else "quickStartUiPairedValidation") == "true")
                             val source = requireNotNull(store.current(requiredRequestId())).request
                             val exercise = source.exercises.first()
                             val now = System.currentTimeMillis()
                             val request = source.copy(requestId = UUID.randomUUID().toString(),
-                                title = "Emulator UI acceptance", source = QuickStartSource.LIBRARY_SELECTION,
+                                title = if (recovery) "Emulator cue recovery" else "Emulator UI acceptance", source = QuickStartSource.LIBRARY_SELECTION,
                                 createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
-                                exercises = listOf(
+                                exercises = if (recovery) listOf(0, 3, 5, 6, 8, 10, 12, 20).mapIndexed { index, rest ->
+                                    exercise.copy(itemId = "recovery-$index", exerciseName = "Rest $rest", sets = 2,
+                                        prescription = "8", restSeconds = rest, loadWeight = null, loadUnit = null)
+                                } else listOf(
                                     exercise.copy(itemId = "ui-a", exerciseName = "Emulator UI A", sets = 2,
                                         prescription = "8-10", restSeconds = 12, loadWeight = 2.5, loadUnit = "kg"),
                                     exercise.copy(itemId = "ui-b", exerciseName = "Emulator UI B", sets = 1,
@@ -120,7 +134,8 @@ class PairedQuickStartTransportTest {
                             "pending:cleared"
                         }
                         "ui_started" -> {
-                            check(args.getString("quickStartUiPairedValidation") == "true")
+                            check(args.getString("quickStartUiPairedValidation") == "true" ||
+                                args.getString("quickStartRecoveryUiPairedValidation") == "true")
                             withTimeout(15_000) {
                                 while (store.current(requiredRequestId())?.acknowledgement?.status != QuickStartStatus.STARTED) delay(200)
                             }
@@ -144,7 +159,16 @@ class PairedQuickStartTransportTest {
                             verifyReplayAndCleanup(peer, store, requireNotNull(cancelledFixtureId), completed = false)
                             "replay:passed"
                         }
-                        "finish" -> "finished"
+                        "finish" -> {
+                            if (args.getString("quickStartRecoveryUiPairedValidation") == "true") {
+                                for (record in beforeRecords) assertEquals(record, store.current(record.request.requestId))
+                                assertEquals(beforeRecords.size + 1, store.recordsForTransportRecovery().size)
+                                store.current(requiredRequestId())?.resultReceipt?.let {
+                                    assertEquals(beforeReceipts.size + 1, store.recordsWithResultReceipts().size)
+                                }
+                            }
+                            "finished"
+                        }
                         else -> error("Unknown probe command")
                     }
                 } catch (failure: Throwable) {
@@ -157,7 +181,8 @@ class PairedQuickStartTransportTest {
         }
         messages.addListener(listener).await()
         try {
-            val timeout = if (args.getString("quickStartUiPairedValidation") == "true") 240L else 180L
+            val timeout = if (args.getString("quickStartRecoveryUiPairedValidation") == "true") 360L
+                else if (args.getString("quickStartUiPairedValidation") == "true") 240L else 180L
             assertTrue("Wear test did not finish the paired probe", done.await(timeout, TimeUnit.SECONDS))
         } finally {
             messages.removeListener(listener).await()

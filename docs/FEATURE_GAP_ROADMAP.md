@@ -26,6 +26,14 @@ active-workout guidance and expired cancellation. Original AVD disks/history
 are preserved. Physical Phase 4 stays **0/27**; emulator cue/lifecycle checks
 continue under the user's direction. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md).
 
+2026-10-04 Iteration 59 validates short-rest cue ledger, success Activity
+recreation and actual ambient rest recovery, fixing foreground timers that
+continued while Wear stayed RESUMED in ambient. Paired/native/JVM/APK checks
+and all 16 original disk hashes pass. Iteration 58 is committed in `b9b8431`;
+Iteration 59 is validated and uncommitted. Stage 19 stays 70/97 and physical
+Phase 4 stays 0/27; countdown/active-set ambient and process-death success
+checks remain next.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

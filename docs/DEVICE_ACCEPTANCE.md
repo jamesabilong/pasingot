@@ -62,6 +62,43 @@ outside this fixture's evidence.
 
 ## Phase 4 evidence protocol
 
+### Short-rest cue ledger and screen-off recovery fixture
+
+Iteration 59 adds a separate opt-in method to the existing paired UI classes.
+Use only the dedicated copied AVDs; both peers verify their exact isolated boot
+name. The watch requires idle runtime/offer and preserves legacy entries. The
+phone retains its prior completion receipts exactly and adds only its synthetic
+fixture. Start the phone waiter first, then the watch driver:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class app.personal.workouttracker.quickstart.PairedQuickStartTransportTest -e quickStartPairedValidation true -e quickStartRecoveryUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#shortRestCuesAndScreenOffRecoveryThroughRealUi' -e quickStartRecoveryUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 pull /sdcard/Android/data/app.personal.workouttracker/files/ui-acceptance output/emulator-validation/iteration-59-ui-artifacts
+```
+
+Require **OK (1 test)** on both peers. The fixture drives actual Start/Complete
+set/Pause/Resume/Start now controls. Rest durations 0/3/5/6/8/10/12 seconds are
+compared with durable ordered cue keys: zero has no rest cue, positive short
+rests have Five seconds/Go, and a 12-second same-exercise rest also announces
+rest. Voice is temporarily disabled and restored in `finally`; ledger evidence
+establishes production cue reservation, not audible intelligibility, spoken
+overlap, or physical haptic delivery. Exercise success is recreated while
+paused with exact runtime/ledger equality. A final 20-second rest spans actual
+sleep/wake key events; power/activity/presentation diagnostics distinguish
+screen-off from any observed ambient callback. Terminal recreation compares
+the exact phone result and compact acknowledged cue tombstone.
+
+Iteration 59 passes **OK (1 test) per peer** in
+`iteration-59-recovery-{phone,wear}-final.log`, plus ordinary **OK (8 tests) per
+peer** and 199 Wear JVM tests. Actual Dozing/ambient=true and the rendered static
+Pasingot rest screen are observed; exact before/hidden runtime and cue hashes
+match past the deadline, then wake reserves only Go. This found and corrected
+SessionScreen's lifecycle-only visibility gate: Wear can stay RESUMED while
+ambient. Final captures are `recovery-1791075079768` under
+`iteration-59-ui-artifacts-final`. All 16 original disk hashes remain unchanged.
+No injected ambient state is used. Success validation is Activity recreation;
+process-death success recovery remains separate. Physical Phase 4 stays 0/27.
+
 ### Start and request-state fixture
 
 Iteration 58 extends the entry test classes with separate opted-in methods.

@@ -3375,3 +3375,97 @@ Remaining/next action: continue isolated emulator short-rest cue sequences,
 success recreation and ambient/screen-off recovery, comparing durable cue
 ledger and session progress. Keep physical audio quality/routing, battery and
 Play evidence separate. Use the opted-in fixtures in DEVICE_ACCEPTANCE.md.
+
+## Iteration 59 — 2026-10-04 — Short-rest cues and lifecycle recovery
+
+Status: **Validated — short-rest cues, success recreation and actual ambient
+rest recovery pass; physical acceptance remains open.**
+
+Starting checkpoint: `b9b8431 PST01: Validate Quick Start states and fix expiry
+controls`. Iteration 58 was committed at the user's request; the working tree
+was clean afterward. Continue the isolated emulator direction with short-rest
+cue sequences, success recreation and ambient/screen-off recovery. Preserve
+source AVD disks, unrelated workouts and phone records. Physical Phase 4 stays
+0/27; Stage 19 remains 70/97.
+
+Next action: extend the opted-in paired UI fixture to compare durable cue ledger
+and progress across actual short-rest and lifecycle transitions, then run the
+relevant native/build checks and source-disk preservation audit. Code completion
+and emulator acceptance remain pending until those checks pass.
+
+Findings/validation in progress:
+
+- Both test APK builds pass, the exact isolated AVDs boot and connect, and all
+  16 original source disk hashes match before launch.
+- Added an eight-exercise fixture with 0/3/5/6/8/10/12/20-second rests, durable
+  ordered cue assertions, exercise/workout-success recreation and actual
+  sleep/wake diagnostics. Voice preferences are restored and legacy entries
+  remain guarded. The initial run found a test-only null assumption: initial
+  SessionState has no progress projection yet, while the authoritative runtime
+  outcomes already contain zero completed sets. Compare those outcomes instead.
+  Only the owned interrupted fixture was ended through the production engine;
+  the phone probe passes preservation assertions. Full acceptance is pending.
+- Corrected run passes all seven short-rest cue sequences and exercise-success
+  recreation, then exposes a production ambient visibility gap. Actual power
+  state is Dozing and the activity's real ambient callback sets ambient=true,
+  but RESUMED lifecycle alone leaves the rest timer running. It reserves Five
+  seconds/Go and advances rest while dozing; outcomes/progress are unchanged.
+  SessionScreen now gates foreground visibility with both lifecycle and the
+  existing presentation interaction policy. Ambient transitions cancel output
+  and suspend redraws without pausing the session or shifting the deadline.
+  Wake catches up through the existing deadline engine. Rerun/build/JVM checks
+  are pending; initial failure artifacts are retained as historical evidence.
+
+Final validation and closure:
+
+- Final paired run passes **OK (1 test) on phone and Wear** in
+  `iteration-59-recovery-{phone,wear}-final.log`. Seven first-set rest durations
+  (0/3/5/6/8/10/12 seconds) produce the exact ordered production cue keys.
+  Activity recreation while paused preserves exact runtime/ledger; the
+  exercise-success header returns after Resume. Completing all eight exercises
+  produces exactly 16 completed sets and one immutable phone result/receipt.
+  Every prior native phone request record remains exact, with only one new
+  fixture added; all watch legacy entries remain equal.
+- Actual sleep enters **Dozing** and the production ambient callback sets
+  **ambient=true**. The reviewed screenshot shows the static Pasingot ambient
+  rest display. Runtime and cue ledger remain exact past the 20-second deadline;
+  independently compared before/hidden artifact SHA-256 hashes match. Wake
+  catches up to set 2 with unchanged progress/outcomes and exactly one new Go
+  reservation, without the obsolete Five seconds warning. This supersedes the
+  corrected run's evidenced ambient visibility failure after the production fix.
+- Workout-success Activity recreation retains **Workout complete / Saved on
+  watch**, the exact phone result and the unchanged compact acknowledged cue
+  tombstone after runtime pruning. It emits no additional completion reservation.
+  This is Activity recreation, not a claim of terminal process-death recovery.
+- All **199 Wear JVM tests** pass, including the strengthened hidden-rest
+  regression (exact resting state, output cancellation, no hidden warning and
+  one catch-up Go). Wear production and both Android test APKs build. Ordinary
+  instrumentation passes **OK (8 tests) per peer**, skipping mutation fixtures
+  without flags. Crash buffers are empty and `git diff --check` passes. Phone
+  production/PWA/shared code is unchanged; their prior baseline remains current,
+  rather than claiming a fresh browser or phone JVM run.
+- Final artifacts are `recovery-1791075079768` under ignored
+  `iteration-59-ui-artifacts-final`; reviewed exercise-success, actual ambient,
+  recovered active set and recreated final summary screenshots. Inventory
+  `20261004T005319467Z-iteration-59-final` identifies API 35/API 37 and app
+  1.0/code 1, with installed/local production base APK hashes matching per peer.
+  Initial fixture/ambient failure artifacts remain historical diagnostics.
+- Stopped only the exact verified copied AVDs. All **16 original source disk
+  hashes** remain unchanged in `iteration-59-source-disk-after.json`, matching
+  the pre-launch audit. ADB shows no remaining device. Original workout/history
+  and source profiles are preserved; synthetic history remains only in copies.
+
+Completed: short-rest durable cue acceptance, success Activity recreation,
+actual ambient rest/deadline recovery and the evidenced foreground visibility
+correction. Relevant build/JVM/native/visual/preservation checks pass, closing
+this iteration's code/emulator validation. Stage 19 remains **70/97 (72%)**;
+physical Phase 4 remains **0/27**. Final Git audit confirms `b9b8431` as HEAD;
+Iteration 59 code/test/docs are validated and uncommitted on `PST01`.
+
+Remaining/next action: continue isolated emulator countdown ambient
+cancellation/retry and active-set screen-off recovery, then process-death
+success recovery before the phone receipt. Audible speech overlap, voice
+intelligibility, TalkBack/route changes, physical haptics, battery and Play
+acceptance still require separate evidence. The cue fixture deliberately uses
+voice disabled, restores original preferences and claims durable reservation
+and visual recovery only.

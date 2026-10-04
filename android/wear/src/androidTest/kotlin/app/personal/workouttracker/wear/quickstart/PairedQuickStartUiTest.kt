@@ -30,6 +30,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.*
@@ -263,6 +264,194 @@ class PairedQuickStartUiTest {
             awaitChecked("Voice cues", false)
         } catch (failure: Throwable) {
             capture("failure")
+            throw failure
+        } finally {
+            scenario?.close()
+            cues.setPreferences(beforePreferences)
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
+    @Test fun shortRestCuesAndScreenOffRecoveryThroughRealUi() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartRecoveryUiPairedValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
+            automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+        assertEquals("Pasingot_Matrix_Wear", shell("getprop ro.boot.qemu.avd_name"))
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        val beforeEntries = repository.entries.first()
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val beforePreferences = cues.state().preferences
+        assertNull("Preserve existing workouts", runtime.current())
+        assertNull("Preserve existing offers", packages.current(System.currentTimeMillis()))
+        val runArtifacts = File(artifacts, "recovery-${System.currentTimeMillis()}").apply { mkdirs() }
+        suspend fun evidence(name: String) {
+            File(runArtifacts, "$name-cues.json").writeText(Json.encodeToString(cues.state()))
+            File(runArtifacts, "$name-runtime.json").writeText(Json.encodeToString(runtime.current()))
+            capture("${runArtifacts.name}/$name")
+        }
+        suspend fun awaitState(predicate: (QuickStartRuntimeState) -> Boolean): QuickStartRuntimeState = withTimeout(30_000) {
+            while (true) {
+                runtime.current()?.takeIf(predicate)?.let { return@withTimeout it }
+                delay(50)
+            }
+            @Suppress("UNREACHABLE_CODE") error("Missing runtime state")
+        }
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH)
+                replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        try {
+            // Reserve production cues with voice disabled to observe the durable haptic path.
+            // This does not claim audible quality, delivery timing, or Bluetooth routing.
+            cues.setPreferences(beforePreferences.copy(voiceEnabled = false, voicePromptResolved = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_recovery_offer"))
+            File(runArtifacts, "request.json").writeText(Json.encodeToString(request))
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator cue recovery")
+            tap("Start")
+            awaitState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            for ((index, seconds) in listOf(0, 3, 5, 6, 8, 10, 12).withIndex()) {
+                val prior = awaitState { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index && it.session.currentSet == 1 }
+                val priorKeys = cues.state().ledger.deliveredKeys
+                tap("Complete set")
+                val active = awaitState { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index && it.session.currentSet == 2 }
+                assertEquals(prior.outcomes.exercises[index].completedSets + 1,
+                    active.outcomes.exercises[index].completedSets)
+                val expected = when {
+                    seconds == 0 -> emptyList()
+                    seconds > 10 -> listOf("REST", "FIVE_SECONDS", "GO")
+                    else -> listOf("FIVE_SECONDS", "GO")
+                }
+                withTimeout(5_000) {
+                    while (cues.state().ledger.deliveredKeys.filter { it !in priorKeys }.size < expected.size) delay(50)
+                }
+                val newKeys = cues.state().ledger.deliveredKeys.filter { it !in priorKeys }
+                assertEquals("Rest $seconds cue sequence", expected, newKeys.map { it.split('|')[4] })
+                assertEquals(newKeys.size, newKeys.distinct().size)
+                evidence("rest-$seconds")
+                tap("Complete set")
+                val advanced = awaitState { it.session.exerciseIndex == index + 1 }
+                assertEquals(index, advanced.session.progress?.successExerciseIndex)
+                withTimeout(5_000) {
+                    while (cues.state().ledger.deliveredKeys.none {
+                        val parts = it.split('|'); parts[2] == index.toString() && parts[4] == "EXERCISE_SUCCESS"
+                    }) delay(50)
+                }
+                if (index == 6) {
+                    awaitLabel("EXERCISE COMPLETE")
+                    tap("Pause")
+                    val paused = awaitState { it.session.status == SessionStatus.PAUSED }
+                    val ledger = cues.state()
+                    scenario.recreate()
+                    awaitLabel("Resume")
+                    assertEquals(paused, runtime.current())
+                    assertEquals(ledger, cues.state())
+                    tap("Resume")
+                    awaitState { it.session.status == SessionStatus.RESTING }
+                    awaitLabel("EXERCISE COMPLETE")
+                    evidence("exercise-success-recreated")
+                }
+                if (runtime.current()?.session?.status == SessionStatus.RESTING) tap("Start now")
+                awaitState { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index + 1 }
+            }
+            tap("Complete set")
+            val resting = awaitState { it.session.status == SessionStatus.RESTING }
+            withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.none {
+                it.contains("|REST|") && it.endsWith("|${resting.session.restUntilEpochMillis}")
+            }) delay(50) }
+            evidence("before-screen-off")
+            shell("input keyevent KEYCODE_SLEEP")
+            withTimeout(10_000) {
+                while (!shell("dumpsys power").contains("mWakefulness=Asleep") &&
+                    !shell("dumpsys power").contains("mWakefulness=Dozing")) delay(150)
+            }
+            val hiddenLedger = cues.state()
+            scenario.onActivity { activity ->
+                val field = WearMainActivity::class.java.getDeclaredField("presentationPolicy").apply { isAccessible = true }
+                val policy = (field.get(activity) as androidx.compose.runtime.State<*>).value
+                File(runArtifacts, "screen-off-presentation.txt").writeText(policy.toString())
+            }
+            automation.takeScreenshot()?.let { bitmap ->
+                File(runArtifacts, "screen-off.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bitmap.recycle()
+            }
+            File(runArtifacts, "screen-off-power.txt").writeText(shell("dumpsys power"))
+            File(runArtifacts, "screen-off-activity.txt").writeText(shell("dumpsys activity activities"))
+            delay(23_000)
+            assertEquals("Hidden rest must preserve exact progress/deadline", resting, runtime.current())
+            assertEquals("Hidden rest must not reserve unseen countdown cues", hiddenLedger, cues.state())
+            File(runArtifacts, "hidden-deadline-runtime.json").writeText(Json.encodeToString(runtime.current()))
+            File(runArtifacts, "hidden-deadline-cues.json").writeText(Json.encodeToString(cues.state()))
+            shell("input keyevent KEYCODE_WAKEUP")
+            val recovered = awaitState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals(resting.session.progress, recovered.session.progress)
+            assertEquals(resting.outcomes, recovered.outcomes)
+            assertEquals(2, recovered.session.currentSet)
+            withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.size == hiddenLedger.ledger.deliveredKeys.size) delay(50) }
+            assertEquals(listOf("GO"), cues.state().ledger.deliveredKeys.filter {
+                it !in hiddenLedger.ledger.deliveredKeys }.map { it.split('|')[4] })
+            evidence("screen-off-recovered")
+            tap("Complete set")
+            assertEquals("completed:${request.requestId}", probe("await_completed"))
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            withTimeout(15_000) { while (runtime.current() != null || !cues.state().acknowledgedWorkoutSuccess) delay(100) }
+            val record = Json.parseToJsonElement(probe("record")).jsonObject
+            val result = Json.decodeFromString<FinalQuickStartResult>(requireNotNull(record["finalResult"]).toString())
+            assertEquals(16, result.snapshot.exercises.sumOf { it.completedSets })
+            assertEquals(request.requestId, result.requestId)
+            File(runArtifacts, "phone-record.json").writeText(record.toString())
+            val terminalCues = cues.state()
+            assertTrue(terminalCues.ledger.deliveredKeys.isEmpty())
+            scenario.recreate()
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            assertNull(find("Waiting to sync"))
+            assertEquals(terminalCues, cues.state())
+            assertEquals(record, Json.parseToJsonElement(probe("record")).jsonObject)
+            assertEquals(beforeEntries, repository.entries.first())
+            evidence("workout-success-recreated")
+        } catch (failure: Throwable) {
+            shell("input keyevent KEYCODE_WAKEUP")
+            evidence("failure")
+            // End only this run's synthetic fixture through the normal engine.
+            // Keep the original assertion as the primary failure if cleanup fails.
+            runCatching {
+                scenario?.close()
+                scenario = null
+                runtime.current()?.let { interrupted ->
+                    assertEquals("Emulator cue recovery", interrupted.sessionPackage.request.title)
+                    val models = ViewModelStore()
+                    val model = withContext(Dispatchers.Main) {
+                        SessionViewModel.QuickStartFactory(interrupted.sessionPackage.request.requestId, context)
+                            .create(SessionViewModel::class.java).also { models.put("recovery-cleanup", it) }
+                    }
+                    try {
+                        withTimeout(15_000) { while (model.uiState.value.loading) delay(100) }
+                        assertNull(model.uiState.value.error)
+                        withContext(Dispatchers.Main) { model.onEndWorkout() }
+                        withTimeout(15_000) { while (runtime.current() != null) delay(100) }
+                    } finally { withContext(Dispatchers.Main) { models.clear() } }
+                }
+            }.exceptionOrNull()?.let(failure::addSuppressed)
             throw failure
         } finally {
             scenario?.close()

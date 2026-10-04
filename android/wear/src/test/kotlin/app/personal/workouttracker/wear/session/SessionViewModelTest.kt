@@ -183,6 +183,7 @@ class SessionViewModelTest {
         viewModel.onCompleteSet()
         runCurrent()
         assertEquals(30, viewModel.uiState.value.restRemainingSeconds)
+        val resting = repository.entry.sessionState
 
         viewModel.onScreenVisibilityChanged(false)
         viewModel.saveOnExitIfActive()
@@ -192,6 +193,8 @@ class SessionViewModelTest {
         assertEquals(30, viewModel.uiState.value.restRemainingSeconds)
         assertEquals(2, repository.sessionWrites)
         assertEquals(2, sender.snapshots.size)
+        assertEquals(resting, repository.entry.sessionState)
+        assertEquals(listOf("rest:30", "cancel:NAVIGATION"), cues.events)
 
         viewModel.onScreenVisibilityChanged(true)
         runCurrent()
@@ -200,6 +203,11 @@ class SessionViewModelTest {
         assertEquals(0, viewModel.uiState.value.restRemainingSeconds)
         assertEquals(90, viewModel.uiState.value.elapsedSeconds)
         assertEquals(3, sender.snapshots.size)
+        assertEquals(listOf("rest:30", "cancel:NAVIGATION", "cancel:START_NOW", "go"), cues.events)
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(1, cues.events.count { it == "go" })
+        assertFalse(cues.events.contains("five"))
     }
 
     @Test fun `closing active workout pauses once and leaves no elapsed ticker`() = runSessionTest {
