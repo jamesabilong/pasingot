@@ -4574,3 +4574,88 @@ with only the seven Iteration 69 test/docs files modified and no unrelated
 changes. All relevant checks above pass; this iteration is validated and
 uncommitted. Earlier pending statements and the pre-mutation discovery failure
 remain historical evidence, superseded by the explicit successful checks.
+
+## Iteration 70 — 2026-10-04 — Voice-enabled final-five paused-rest recovery
+
+Status: **Code/emulator acceptance validated; physical acceptance separate.**
+
+Starting checkpoint: `8a3c765 PST01: Validate voice-enabled paused-rest process
+recovery`, committed at the user's request with a clean working tree. This
+supersedes Iteration 69's uncommitted label. Stage 19 stays 70/97, physical 0/27.
+
+Scope/findings: Pause after the natural FIVE_SECONDS cue retains the durable
+final-countdown latch and short remaining time. On explicit session Resume,
+the normal engine rebases its deadline from saved seconds; rest scripts of at
+most five seconds are suppressed and the retained latch prevents another
+warning. Validate actual native warning/Pause cancellation, exact paused state/
+ledger/lock through Home, termination, offline reboot and opening PAUSED UI;
+then locked extension controls, native silence/no REST or warning replay until
+one deadline-bound Go. Finish 2/2 offline and require exact receipt/pruning.
+
+Implementation: a new exact-copy/peer opt-in stages one two-set 12-second rest.
+The shared helpers wait for actual native FIVE_SECONDS, save its original
+deadline-bound key, and Pause while speech is active. Frozen remaining time
+must be 1–5 seconds with its latch set. Fresh recovery keeps exact paused state
+and initializes silently before session Resume. The new deadline must match
+saved seconds plus the observed Resume time; extensions stay disabled, no cue/
+runtime change occurs until Go, and only Go adds one revision/key. Existing
+voice/paused/pending modes retain their assertions. Synced prior-record evidence
+and copied-device shutdown preserve originals. No production change is planned
+without defect evidence. Next: test builds, source-disk audit and staged native
+acceptance, then ordinary/preservation/UI/inventory/settings/final audits.
+
+Builds pass (`iteration-70-test-build.log` and the later diagnostic build), and
+all 16 original disk hashes match before launch. The first preparation fails
+before creating an owned fixture: the phone retains 56 records, and the final
+count assertion masks the original setup exception. Retain the first logs;
+the shared preparation now preserves its original exception and suppresses a
+secondary cleanup error, while phone probes log their original failures. No
+preservation assertion is weakened. A retry with these diagnostic-only changes
+passes both preparation stages for `fad676b6-8dbe-4fe8-9b16-f73c3c4f4366`.
+The initial root cause remains unconfirmed; do not infer a production defect
+from the masked error. Natural native warning/Pause and hidden frozen state
+pass. The host confirms process termination, syncs/stops the exact phone copy,
+removes its bridge and reboots the exact watch offline. Fresh recovery is next.
+
+Final evidence supersedes those pending labels:
+
+- All five stages pass OK (1 test): `iteration-70-preparation-{phone,wear}.log`,
+  `iteration-70-offline-rest.log`, `iteration-70-receipt-{phone,wear}.log`.
+  Fresh PID **2338** differs from preparation **2904**; host termination of PID
+  **3096** is confirmed. Exact paused state/ledger and **5 seconds** survive
+  beyond the old deadline (opening occurs **51,429 ms** after it). Original
+  native warning occurs **4,848 ms** before its deadline. Explicit Resume alone
+  rebases the deadline; +5/+10/+30 stay disabled. **164** foreground and **19**
+  hidden observations pass. Go occurs **202 ms** after the new deadline.
+- `validate-iteration-70.ps1` / `iteration-70-preservation-validated.json`
+  independently verify **56/56** prior records exact, records **56 -> 57**,
+  receipts **33 -> 34**, full offline 2/2 result equality, no new REST/warning,
+  one new deadline-bound Go, pruning, byte-exact legacy entries/preferences.
+  The first audit wrongly counted the separate initial workout countdown as a
+  replayed rest warning; binding that assertion to the original rest deadline
+  fixes the audit without changing acceptance data. The **511-sample** native
+  timeline contains **67** Go-speaking samples, one Checking sample and zero
+  REST/warning samples. Accepted Wear/phone folders contain **70/3 files**.
+- Both test APK builds and ordinary **9 phone / 29 Wear** tests pass. Production
+  code is unchanged; existing shared 78/phone 28/Wear 204 JVM and PWA baselines
+  remain applicable. Paused/rest/offline screenshots were visually inspected.
+  Crash buffers are empty, current focus released, and original airplane 0,
+  absent/disabled accessibility, touch exploration 0 and animator 1.0 restored.
+  Inventory `20261004T135422221Z-iteration-70-final` verifies API 35/API 37,
+  app 1.0/code 1 and unchanged installed/local production APK equality.
+- Synced shutdown stops only verified copies; all **16** original disk hashes
+  match before/after; final ADB inventory is empty. The earlier approval-review
+  usage-limit failure executed no command; a subsequent authorized retry
+  succeeds. Original setup failure remains historical evidence with an
+  unconfirmed cause, superseded by passing preparation/diagnostic improvements.
+
+Completed: latched paused-rest process recovery, native cancellation/silence,
+locked controls, exactly-once resumed Go, offline result/receipt/pruning and
+preservation. Stage 19 stays **70/97 (72%)**, physical **0/27**. Next: extend a
+voice-enabled rest using +30 before Pause, preserve its extended remaining time
+through fresh offline recovery, then validate the rebased deadline/cue sequence
+and exact result/receipt. Final Git/doc closure is recorded before committing.
+
+Final closure: `git diff --check` passes; HEAD remains `8a3c765` and only the
+seven expected test/docs files are modified. All relevant emulator checks pass;
+this iteration is ready for the requested commit, with physical 0/27 separate.

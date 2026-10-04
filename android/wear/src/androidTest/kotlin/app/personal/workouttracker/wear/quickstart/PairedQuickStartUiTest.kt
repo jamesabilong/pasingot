@@ -1240,14 +1240,14 @@ class PairedQuickStartUiTest {
     }
 
     private fun requireLifecycleCopy() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true" || voiceProcessValidation() || voiceRestProcessValidation() || voicePendingRestProcessValidation() || voicePausedRestProcessValidation())
+        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true" || voiceProcessValidation() || voiceRestProcessValidation() || voicePendingRestProcessValidation() || voicePausedRestProcessValidation() || voiceLockedRestProcessValidation())
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
         assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
     }
 
     private fun lifecycleFolder(): File {
         val id = java.util.UUID.fromString(requireNotNull(InstrumentationRegistry.getArguments().getString("lifecycleRequestId"))).toString()
-        return File(artifacts, "${when { voicePausedRestProcessValidation() -> "voice-paused-rest-process"; voicePendingRestProcessValidation() -> "voice-pending-rest-process"; voiceRestProcessValidation() -> "voice-rest-process"; voiceProcessValidation() -> "voice-process"; else -> "lifecycle" }}-$id").also { require(it.isDirectory) }
+        return File(artifacts, "${when { voiceLockedRestProcessValidation() -> "voice-locked-rest-process"; voicePausedRestProcessValidation() -> "voice-paused-rest-process"; voicePendingRestProcessValidation() -> "voice-pending-rest-process"; voiceRestProcessValidation() -> "voice-rest-process"; voiceProcessValidation() -> "voice-process"; else -> "lifecycle" }}-$id").also { require(it.isDirectory) }
     }
 
     private fun voiceProcessValidation() =
@@ -1261,6 +1261,9 @@ class PairedQuickStartUiTest {
 
     private fun voicePausedRestProcessValidation() =
         InstrumentationRegistry.getArguments().getString("quickStartVoicePausedRestProcessUiValidation") == "true"
+
+    private fun voiceLockedRestProcessValidation() =
+        InstrumentationRegistry.getArguments().getString("quickStartVoiceLockedRestProcessUiValidation") == "true"
 
     private fun voiceProcessField(instance: Any, name: String) =
         instance.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(instance)
@@ -1326,7 +1329,13 @@ class PairedQuickStartUiTest {
         prepareVoiceProcessStage(rest = true, pausedRest = true)
     }
 
-    private suspend fun prepareVoiceProcessStage(rest: Boolean, pendingRest: Boolean = false, pausedRest: Boolean = false) {
+    @Test fun prepareVoiceEnabledLockedRestProcessRecovery() = runBlocking {
+        assumeTrue(voiceLockedRestProcessValidation())
+        prepareVoiceProcessStage(rest = true, pausedRest = true, lockedRest = true)
+    }
+
+    private suspend fun prepareVoiceProcessStage(rest: Boolean, pendingRest: Boolean = false,
+        pausedRest: Boolean = false, lockedRest: Boolean = false) {
         requireLifecycleCopy()
         val context = instrumentation.targetContext
         val peer = requireNotNull(InstrumentationRegistry.getArguments().getString("peerNodeId"))
@@ -1356,16 +1365,17 @@ class PairedQuickStartUiTest {
         var scenario: ActivityScenario<WearMainActivity>? = null
         var folder: File? = null
         var prepared = false
+        var preparationFailure: Throwable? = null
         try {
             cues.setPreferences(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true))
-            val request = Json.decodeFromString<QuickStartRequest>(probe(when { pausedRest -> "ui_voice_paused_rest_process_offer"; pendingRest -> "ui_voice_pending_rest_process_offer"; rest -> "ui_voice_rest_process_offer"; else -> "ui_voice_process_offer" }))
-            folder = File(artifacts, "${when { pausedRest -> "voice-paused-rest-process"; pendingRest -> "voice-pending-rest-process"; rest -> "voice-rest-process"; else -> "voice-process" }}-${request.requestId}").apply { mkdirs() }
+            val request = Json.decodeFromString<QuickStartRequest>(probe(when { lockedRest -> "ui_voice_locked_rest_process_offer"; pausedRest -> "ui_voice_paused_rest_process_offer"; pendingRest -> "ui_voice_pending_rest_process_offer"; rest -> "ui_voice_rest_process_offer"; else -> "ui_voice_process_offer" }))
+            folder = File(artifacts, "${when { lockedRest -> "voice-locked-rest-process"; pausedRest -> "voice-paused-rest-process"; pendingRest -> "voice-pending-rest-process"; rest -> "voice-rest-process"; else -> "voice-process" }}-${request.requestId}").apply { mkdirs() }
             File(folder, "request.json").writeText(Json.encodeToString(request))
             File(folder, "legacy-entries.json").writeText(Json.encodeToString(entries))
             File(folder, "before-preferences.json").writeText(Json.encodeToString(originalPreferences))
             withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(50) }
             scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
-            awaitLabel(when { pausedRest -> "Emulator voice paused rest process"; pendingRest -> "Emulator voice pending rest process"; rest -> "Emulator voice rest process"; else -> "Emulator voice process" })
+            awaitLabel(when { lockedRest -> "Emulator voice locked rest process"; pausedRest -> "Emulator voice paused rest process"; pendingRest -> "Emulator voice pending rest process"; rest -> "Emulator voice rest process"; else -> "Emulator voice process" })
             tap("Start")
             awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
             assertEquals("started:${request.requestId}", probe("ui_started"))
@@ -1375,10 +1385,28 @@ class PairedQuickStartUiTest {
             if (rest) {
                 var saved = awaitLifecycleState { it.session.status == SessionStatus.RESTING && it.session.currentSet == 2 }
                 voiceProcessSpeaking(scenario, folder, "REST", "rest")
-                val ledger = cues.state()
+                var ledger = cues.state()
                 File(folder, "rest-speaking-runtime.json").writeText(Json.encodeToString(saved))
                 val (controller, output) = voiceProcessOutput(scenario)
                 assertTrue((voiceProcessField(output, "tts") as android.speech.tts.TextToSpeech).isSpeaking)
+                if (lockedRest) {
+                    val original = saved
+                    saved = awaitLifecycleState { it.session.status == SessionStatus.RESTING && it.session.restFinalCountdownStarted }
+                    voiceProcessSpeaking(scenario, folder, "FIVE_SECONDS", "locked-warning")
+                    val warningWall = System.currentTimeMillis()
+                    val originalDeadline = requireNotNull(original.session.restUntilEpochMillis)
+                    assertTrue(warningWall in (originalDeadline - 5_000) until originalDeadline)
+                    File(folder, "initial-warning-wall.txt").writeText(warningWall.toString())
+                    assertEquals(original.copy(runtimeRevision = original.runtimeRevision + 1,
+                        session = original.session.copy(restFinalCountdownStarted = true)), saved)
+                    val warnedLedger = cues.state()
+                    val warningKeys = warnedLedger.ledger.deliveredKeys.filter { it !in ledger.ledger.deliveredKeys }
+                    assertEquals(listOf("FIVE_SECONDS"), warningKeys.map { it.split('|')[4] })
+                    assertTrue(warningKeys.single().endsWith("|$originalDeadline"))
+                    ledger = warnedLedger
+                    File(folder, "locked-warning-runtime.json").writeText(Json.encodeToString(saved))
+                    assertTrue((voiceProcessField(output, "tts") as android.speech.tts.TextToSpeech).isSpeaking)
+                }
                 if (pausedRest) {
                     val resting = saved
                     tap("Pause")
@@ -1389,8 +1417,8 @@ class PairedQuickStartUiTest {
                     assertEquals(resting.outcomes, saved.outcomes)
                     assertEquals(resting.session.restIntervalId, saved.session.restIntervalId)
                     assertNull(saved.session.restUntilEpochMillis)
-                    assertTrue(requireNotNull(saved.session.pausedRestRemainingSeconds) in 6..20)
-                    assertFalse(saved.session.restFinalCountdownStarted)
+                    assertTrue(requireNotNull(saved.session.pausedRestRemainingSeconds) in if (lockedRest) 1..5 else 6..20)
+                    assertEquals(lockedRest, saved.session.restFinalCountdownStarted)
                     voiceProcessSilent(scenario, folder, "rest-paused")
                     assertEquals(ledger, cues.state())
                     lifecycleEvidence(folder, "rest-paused")
@@ -1432,6 +1460,7 @@ class PairedQuickStartUiTest {
             prepared = true
             println("Voice process request: ${request.requestId}")
         } catch (failure: Throwable) {
+            preparationFailure = failure
             folder?.let { lifecycleEvidence(it, "prepare-failure") }
             throw failure
         } finally {
@@ -1440,7 +1469,9 @@ class PairedQuickStartUiTest {
             // acceptance; the final receipt stage restores the persisted original witness.
             if (!prepared) cues.setPreferences(originalPreferences)
             try { assertEquals("finished", probe("finish")) }
-            finally { messages.removeListener(listener).await(); replies.close() }
+            catch (cleanupFailure: Throwable) {
+                preparationFailure?.addSuppressed(cleanupFailure) ?: throw cleanupFailure
+            } finally { messages.removeListener(listener).await(); replies.close() }
         }
     }
 
@@ -1459,6 +1490,11 @@ class PairedQuickStartUiTest {
         recoverVoiceRestAndCompleteOffline(expired = false, pausedRest = true)
     }
 
+    @Test fun recoverLockedVoiceRestAndCompleteOffline() = runBlocking {
+        assumeTrue(voiceLockedRestProcessValidation())
+        recoverVoiceRestAndCompleteOffline(expired = false, pausedRest = true, lockedRest = true)
+    }
+
     @Test fun completeExpiredPendingRestFixtureOffline() = runBlocking {
         // Separate cleanup stage for an owned, failed timing attempt. It cannot
         // satisfy the before-deadline recovery method or its timing assertions.
@@ -1466,7 +1502,8 @@ class PairedQuickStartUiTest {
         recoverVoiceRestAndCompleteOffline(expired = true)
     }
 
-    private suspend fun recoverVoiceRestAndCompleteOffline(expired: Boolean, pausedRest: Boolean = false) = kotlinx.coroutines.coroutineScope {
+    private suspend fun recoverVoiceRestAndCompleteOffline(expired: Boolean, pausedRest: Boolean = false,
+        lockedRest: Boolean = false) = kotlinx.coroutines.coroutineScope {
         requireLifecycleCopy()
         val context = instrumentation.targetContext
         withTimeout(45_000) { while (Wearable.getNodeClient(context).connectedNodes.await().isNotEmpty()) delay(200) }
@@ -1477,15 +1514,16 @@ class PairedQuickStartUiTest {
         val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
         var prior = Json.decodeFromString<QuickStartRuntimeState>(File(folder, "before-rest-process-death-runtime.json").readText())
         var ledger = Json.decodeFromString<PersistedWatchCueState>(File(folder, "before-rest-process-death-cues.json").readText())
-        assertEquals(when { pausedRest -> "Emulator voice paused rest process"; voicePendingRestProcessValidation() -> "Emulator voice pending rest process"; else -> "Emulator voice rest process" }, prior.sessionPackage.request.title)
+        assertEquals(when { lockedRest -> "Emulator voice locked rest process"; pausedRest -> "Emulator voice paused rest process"; voicePendingRestProcessValidation() -> "Emulator voice pending rest process"; else -> "Emulator voice rest process" }, prior.sessionPackage.request.title)
         assertEquals(if (pausedRest) SessionStatus.PAUSED else SessionStatus.RESTING, prior.session.status)
         var deadline = if (pausedRest) {
             assertNull(prior.session.restUntilEpochMillis)
-            assertTrue(requireNotNull(prior.session.pausedRestRemainingSeconds) in 6..20)
+            assertTrue(requireNotNull(prior.session.pausedRestRemainingSeconds) in if (lockedRest) 1..5 else 6..20)
+            assertEquals(lockedRest, prior.session.restFinalCountdownStarted)
             val original = Json.decodeFromString<QuickStartRuntimeState>(File(folder, "rest-speaking-runtime.json").readText())
             requireNotNull(original.session.restUntilEpochMillis).also { assertTrue("Original rest deadline must pass while paused", System.currentTimeMillis() > it) }
         } else requireNotNull(prior.session.restUntilEpochMillis)
-        val restPrefix = if (pausedRest) "paused-rest" else "pending-rest"
+        val restPrefix = when { lockedRest -> "locked-rest"; pausedRest -> "paused-rest"; else -> "pending-rest" }
         if (!pausedRest) {
             if (expired) assertTrue(System.currentTimeMillis() > deadline)
             else assertTrue("Recovery must precede final five seconds", System.currentTimeMillis() < deadline - 15_000)
@@ -1520,10 +1558,10 @@ class PairedQuickStartUiTest {
                 tap("Resume")
                 if (pausedRest) {
                     awaitLabel("PAUSED")
-                    voiceProcessSilent(scenario, folder, "paused-rest-opened")
+                    voiceProcessSilent(scenario, folder, "$restPrefix-opened")
                     assertEquals(prior, runtime.current())
                     assertEquals(ledger, cues.state())
-                    lifecycleEvidence(folder, "paused-rest-opened")
+                    lifecycleEvidence(folder, "$restPrefix-opened")
                     val resumeWall = System.currentTimeMillis()
                     File(folder, "session-resume-wall.txt").writeText(resumeWall.toString())
                     tap("Resume")
@@ -1540,17 +1578,45 @@ class PairedQuickStartUiTest {
                         elapsedStartedAtEpochMillis = resumed.session.elapsedStartedAtEpochMillis,
                         lastStopReason = null), resumed.session)
                     assertTrue(requireNotNull(resumed.session.elapsedStartedAtEpochMillis) in resumeWall..resumeCommittedWall)
-                    voiceProcessSpeaking(scenario, folder, "REST", "paused-rest-resumed")
+                    if (!lockedRest) voiceProcessSpeaking(scenario, folder, "REST", "$restPrefix-resumed")
                     val resumedLedger = cues.state()
                     val addedRest = resumedLedger.ledger.deliveredKeys.filter { it !in ledger.ledger.deliveredKeys }
-                    assertEquals(listOf("REST"), addedRest.map { it.split('|')[4] })
-                    assertTrue(addedRest.single().endsWith("|$deadline"))
-                    lifecycleEvidence(folder, "paused-rest-resumed")
+                    assertEquals(if (lockedRest) emptyList<String>() else listOf("REST"), addedRest.map { it.split('|')[4] })
+                    if (lockedRest) assertEquals(ledger, resumedLedger)
+                    else assertTrue(addedRest.single().endsWith("|$deadline"))
+                    lifecycleEvidence(folder, "$restPrefix-resumed")
                     // Boundary checks use the new deadline committed by real Resume.
                     prior = resumed
                     ledger = resumedLedger
                 }
-                if (!expired) {
+                if (lockedRest) {
+                    // The persisted warning latch must keep every extension disabled.
+                    for (seconds in listOf(5, 10, 30)) {
+                        assertFalse("Recovered final-five extension enabled", clickable(awaitLabel("+${seconds}s")).isEnabled)
+                    }
+                    val (controller, output) = voiceProcessOutput(scenario)
+                    var observations = 0
+                    while (System.currentTimeMillis() < deadline) {
+                        val observed = runtime.current()
+                        val observedCues = cues.state()
+                        val active = voiceProcessField(controller, "active")
+                        val speaking = (voiceProcessField(output, "tts") as android.speech.tts.TextToSpeech).isSpeaking
+                        if (System.currentTimeMillis() < deadline) {
+                            assertEquals(prior, observed)
+                            assertEquals(ledger, observedCues)
+                            assertNull(active)
+                            assertFalse(speaking)
+                            observations++
+                        }
+                        delay(20)
+                    }
+                    assertTrue("Observe locked rest before Go", observations > 0)
+                    voiceProcessSpeaking(scenario, folder, "GO", "$restPrefix-go")
+                    val goWall = System.currentTimeMillis()
+                    assertTrue(goWall >= deadline)
+                    File(folder, "go-wall.txt").writeText(goWall.toString())
+                    File(folder, "checks.txt").appendText("locked rest extensions disabled; exact runtime/ledger/native silence for $observations observations until deadline; no REST/warning replay; native Go at deadline\n")
+                } else if (!expired) {
                     awaitLabel("REST · SET 2 / 2")
                     voiceProcessSilent(scenario, folder, if (pausedRest) "paused-rest-resumed-idle" else "pending-rest-resumed", if (pausedRest) 6_000 else 1_500)
                     assertEquals(prior, runtime.current())
@@ -1599,10 +1665,10 @@ class PairedQuickStartUiTest {
                 assertEquals(prior.session.progress, restored.session.progress)
                 assertEquals(prior.outcomes, restored.outcomes)
                 assertEquals(prior.session.currentSet, restored.session.currentSet)
-                assertEquals(prior.runtimeRevision + if (expired) 1 else 2, restored.runtimeRevision)
+                assertEquals(prior.runtimeRevision + if (expired || lockedRest) 1 else 2, restored.runtimeRevision)
                 voiceProcessSilent(scenario, folder, if (expired) "expired-rest-go-idle" else "$restPrefix-go-idle", 6_000)
                 val added = cues.state().ledger.deliveredKeys.filter { it !in ledger.ledger.deliveredKeys }
-                assertEquals(if (expired) listOf("GO") else listOf("FIVE_SECONDS", "GO"), added.map { it.split('|')[4] })
+                assertEquals(if (expired || lockedRest) listOf("GO") else listOf("FIVE_SECONDS", "GO"), added.map { it.split('|')[4] })
                 assertTrue(added.all { it.endsWith("|$deadline") })
                 lifecycleEvidence(folder, if (expired) "expired-rest-foreground" else "$restPrefix-active")
             } finally {
@@ -1851,7 +1917,7 @@ class PairedQuickStartUiTest {
         assertEquals(priorCues.preferences, cues.state().preferences)
         assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), WorkoutRepository(context).entries.first())
         lifecycleEvidence(folder, "receipt-pruned")
-        if (voiceProcessValidation() || voiceRestProcessValidation() || voicePendingRestProcessValidation() || voicePausedRestProcessValidation()) {
+        if (voiceProcessValidation() || voiceRestProcessValidation() || voicePendingRestProcessValidation() || voicePausedRestProcessValidation() || voiceLockedRestProcessValidation()) {
             val original = Json.decodeFromString<WatchCuePreferences>(File(folder, "before-preferences.json").readText())
             cues.setPreferences(original)
             assertEquals(original, cues.state().preferences)

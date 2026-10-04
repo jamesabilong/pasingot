@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 69 — Voice-enabled paused-rest process recovery validation complete (uncommitted)**
-Previous checkpoint: `ed4ca54 PST01: Validate voice-enabled pending-rest process recovery`
+Latest checkpoint: **Iteration 70 — Voice-enabled final-five paused-rest recovery validated**
+Previous checkpoint: `8a3c765 PST01: Validate voice-enabled paused-rest process recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired

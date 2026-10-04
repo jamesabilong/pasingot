@@ -495,6 +495,59 @@ sole exact native peer, retaining strict assertions before fixture creation.
 Synced copied-phone shutdown retains the runner and history witness without
 repair. Inventory is `20261004T091754510Z-iteration-69-final`; physical 0/27.
 
+### Voice-enabled final-five paused-rest recovery
+
+Iteration 70 passes all five stages and 9 phone/29 Wear ordinary checks on the
+copies. Exact 5 seconds/latch survive; controls stay locked with no REST/warning
+replay, one native Go at the new deadline and exact result/receipt/pruning.
+All 56 prior records and original disk/settings/preferences/legacy data remain
+unchanged. See implementation progress for retained failures and final audits.
+
+Iteration 70 extends the staged exact-copy protocol with
+`quickStartVoiceLockedRestProcessUiValidation=true`. The owned **Emulator voice
+locked rest process** fixture has one two-set exercise and 12-second rest.
+Run phone `serveProductionTransportProbe` with `quickStartPairedValidation`, the
+new flag and exact watch peer; run Wear
+`prepareVoiceEnabledLockedRestProcessRecovery` with the flag/exact phone peer.
+Both wait for the sole exact native peer before mutation and must report
+OK (1 test). Actual native REST is followed by the natural FIVE_SECONDS latch,
+one key bound to the original deadline and native warning/focus. Pause while
+that speech is active, then require released focus/silence, 1–5 frozen seconds,
+retained interval/final-countdown latch and exact progress/outcomes/ledger.
+Home and normal Activity teardown retain the exact paused witness.
+
+Confirm/force-stop a live copied Home process, remove only the copied bridge,
+sync/stop only the copied phone, save/enable watch airplane mode and sync/reboot
+only the watch copy. Dismiss the observed charging overlay after a bounded
+40-second wait. The original deadline must pass while paused. Never rewrite
+clock/deadline/remaining time or clear app data/history.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverLockedVoiceRestAndCompleteOffline' -e quickStartVoiceLockedRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require no connected native peers, fresh PID and exact PAUSED state/cues.
+Home has no session owner/focus; opening PAUSED UI initializes speech but stays
+silent with exact remaining time/latch/ledger. Only the session Resume commits
+a new deadline from the saved seconds and retains the latch/interval. No REST
+or warning key is added. Verify +5/+10/+30 controls disabled, and exact runtime/
+ledger/native silence up to the new deadline. Natural native Go must occur at
+or after it, add exactly one deadline-bound key/revision, and settle idle.
+The original warning stays recorded without replay. Finish normally offline
+with native WORKOUT_SUCCESS, 2/2 Saved on watch and Waiting to sync.
+
+Restore airplane mode and the same copied phone/bridge. Run
+`verifyLifecycleReceiptAfterReconnect` and `verifyLifecyclePrunedAfterReceipt`
+with the new flag, request/result IDs and exact peers. Require exact full offline
+result, one new record/receipt, all prior records unchanged, pruning/tombstone,
+restored original preferences and exact legacy entries. Pull Wear
+`ui-acceptance/voice-locked-rest-process-REQUEST_UUID` and phone
+`voice-locked-rest-process-acceptance/REQUEST_UUID`, retaining initial warning,
+paused/resumed/cue/PID/native timeline/focus evidence. Run ordinary tests without
+flags, inventory installed production APKs, inspect screenshots/crashes/settings/
+focus, then sync/stop verified copies and audit original disks. Physical acoustic,
+routing, tactile, battery and Play acceptance remain separate.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

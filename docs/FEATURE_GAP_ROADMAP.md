@@ -9,6 +9,14 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-04 checkpoint: Iteration 69 is committed in `8a3c765`, superseding its
+uncommitted label below. Iteration 70 final-five paused-rest process acceptance
+passes on the exact copies: 5 seconds/latch retained, locked controls, no replay,
+one Go at the rebased deadline and exact offline result/receipt/pruning. Five
+stages, 9 phone/29 Wear ordinary tests and preservation/inventory audits pass.
+Next: extended paused-rest recovery after actual +30. Stage 19 stays 70/97,
+physical 0/27. This supersedes earlier pending labels.
+
 2026-10-04 Iteration 69 supersedes prior status/next actions: Iteration 68 is
 committed in `ed4ca54`. Voice-enabled paused-rest recovery passes in a fresh
 offline process, preserving exact state/cues/20 seconds remaining beyond the

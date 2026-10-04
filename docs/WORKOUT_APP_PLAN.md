@@ -9,6 +9,14 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 69 is committed in `8a3c765`. Iteration 70 validates final-five
+  paused-rest process recovery: exact latch/5 seconds survive reboot; extensions
+  stay locked, no REST/warning replay and one Go occurs 202 ms after the rebased
+  deadline. Five stages, 9 phone/29 Wear ordinary tests, exact 56 prior records,
+  result/receipt/pruning and original disk/settings/APK audits pass. Stage 19
+  stays 70/97, physical 0/27. Next: extended paused-rest recovery after real +30.
+  This supersedes earlier pending labels; code/emulator acceptance is complete.
+
 - Iteration 68 is committed in `ed4ca54`. Iteration 69 validates voice-enabled
   paused-rest recovery in a fresh offline process. Exact paused state/cues and
   20 seconds remaining survive beyond the old deadline and opening PAUSED UI,
