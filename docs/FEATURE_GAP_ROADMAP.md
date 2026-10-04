@@ -9,6 +9,16 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-04 checkpoint: Iteration 70 is committed in `ceaf53a`. Iteration 71
+validates actual +30/one revision/unchanged ledger and frozen 46 seconds through
+offline reboot beyond the extended deadline. Only Resume creates a new REST/
+deadline, followed by native warning/Go and exact offline result/receipt/pruning.
+All five stages, 9 phone/31 Wear ordinary checks, exact 57 prior records and
+original disk/settings/APK audits pass. Explicit listener readiness supersedes
+a retained pre-mutation timeout. Iteration 71 is validated/uncommitted; Stage 19
+70/97, physical 0/27. Next: early Start now after recovery without a late cue at
+the abandoned deadline. Earlier ready-to-commit/pending labels are historical.
+
 2026-10-04 checkpoint: Iteration 69 is committed in `8a3c765`, superseding its
 uncommitted label below. Iteration 70 final-five paused-rest process acceptance
 passes on the exact copies: 5 seconds/latch retained, locked controls, no replay,

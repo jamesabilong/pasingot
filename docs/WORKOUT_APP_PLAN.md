@@ -9,6 +9,17 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 70 is committed in `ceaf53a`. Iteration 71 validates extended
+  paused-rest recovery after actual +30: exact +30,000 ms/one revision, unchanged
+  ledger, frozen 46 seconds through offline reboot/beyond the extended deadline,
+  then one intentional REST and deadline-bound warning/Go after Resume. All five
+  stages, 9 phone/31 Wear ordinary tests, exact 57 prior records, result/receipt/
+  pruning and disk/settings/APK audits pass. Explicit phone listener readiness
+  resolves a retained pre-mutation setup timeout. New work is validated and
+  uncommitted. Stage 19 stays 70/97, physical 0/27. Next: early Start now after
+  recovery, one immediate Go and no late warning/Go at the abandoned deadline.
+  Earlier pending/checkpoint labels remain historical.
+
 - Iteration 69 is committed in `8a3c765`. Iteration 70 validates final-five
   paused-rest process recovery: exact latch/5 seconds survive reboot; extensions
   stay locked, no REST/warning replay and one Go occurs 202 ms after the rebased

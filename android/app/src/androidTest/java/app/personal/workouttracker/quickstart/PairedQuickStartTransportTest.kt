@@ -57,6 +57,7 @@ class PairedQuickStartTransportTest {
             args.getString("quickStartVoiceRestProcessUiValidation") == "true" ||
             args.getString("quickStartVoicePendingRestProcessUiValidation") == "true" ||
             args.getString("quickStartVoicePausedRestProcessUiValidation") == "true" ||
+            args.getString("quickStartVoiceExtendedRestProcessUiValidation") == "true" ||
             args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true") {
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             val avdName = ParcelFileDescriptor.AutoCloseInputStream(
@@ -66,6 +67,7 @@ class PairedQuickStartTransportTest {
         }
         val peer = requireNotNull(args.getString("peerNodeId"))
         if (args.getString("quickStartVoicePausedRestProcessUiValidation") == "true" ||
+            args.getString("quickStartVoiceExtendedRestProcessUiValidation") == "true" ||
             args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true") withTimeout(30_000) {
             while (Wearable.getNodeClient(context).connectedNodes.await().map { it.id } != listOf(peer)) delay(200)
         }
@@ -136,7 +138,7 @@ class PairedQuickStartTransportTest {
                             completedFixtureId = request.requestId
                             "offered:${request.requestId}"
                         }
-                        "ui_offer", "ui_recovery_offer", "ui_lifecycle_offer", "ui_speech_offer", "ui_voice_matrix_offer", "ui_voice_lifecycle_offer", "ui_voice_process_offer", "ui_voice_rest_process_offer", "ui_voice_pending_rest_process_offer", "ui_voice_paused_rest_process_offer", "ui_voice_locked_rest_process_offer" -> {
+                        "ui_offer", "ui_recovery_offer", "ui_lifecycle_offer", "ui_speech_offer", "ui_voice_matrix_offer", "ui_voice_lifecycle_offer", "ui_voice_process_offer", "ui_voice_rest_process_offer", "ui_voice_pending_rest_process_offer", "ui_voice_paused_rest_process_offer", "ui_voice_locked_rest_process_offer", "ui_voice_extended_rest_process_offer" -> {
                             val recovery = command == "ui_recovery_offer"
                             val lifecycle = command == "ui_lifecycle_offer"
                             val speech = command == "ui_speech_offer"
@@ -146,8 +148,10 @@ class PairedQuickStartTransportTest {
                             val voiceRestProcess = command == "ui_voice_rest_process_offer"
                             val voicePendingRestProcess = command == "ui_voice_pending_rest_process_offer"
                             val voicePausedRestProcess = command == "ui_voice_paused_rest_process_offer"
+                            val voiceExtendedRestProcess = command == "ui_voice_extended_rest_process_offer"
                             val voiceLockedRestProcess = command == "ui_voice_locked_rest_process_offer"
                             check(args.getString(when {
+                                voiceExtendedRestProcess -> "quickStartVoiceExtendedRestProcessUiValidation"
                                 voiceLockedRestProcess -> "quickStartVoiceLockedRestProcessUiValidation"
                                 voicePausedRestProcess -> "quickStartVoicePausedRestProcessUiValidation"
                                 voicePendingRestProcess -> "quickStartVoicePendingRestProcessUiValidation"
@@ -164,12 +168,12 @@ class PairedQuickStartTransportTest {
                             val exercise = source.exercises.first()
                             val now = System.currentTimeMillis()
                             val request = source.copy(requestId = UUID.randomUUID().toString(),
-                                title = when { voiceLockedRestProcess -> "Emulator voice locked rest process"; voicePausedRestProcess -> "Emulator voice paused rest process"; voicePendingRestProcess -> "Emulator voice pending rest process"; voiceRestProcess -> "Emulator voice rest process"; voiceProcess -> "Emulator voice process"; voiceLifecycle -> "Emulator voice lifecycle"; matrix -> "Emulator voice matrix"; speech -> "Emulator UI speech"; lifecycle -> "Emulator lifecycle acceptance"
+                                title = when { voiceExtendedRestProcess -> "Emulator voice extended rest process"; voiceLockedRestProcess -> "Emulator voice locked rest process"; voicePausedRestProcess -> "Emulator voice paused rest process"; voicePendingRestProcess -> "Emulator voice pending rest process"; voiceRestProcess -> "Emulator voice rest process"; voiceProcess -> "Emulator voice process"; voiceLifecycle -> "Emulator voice lifecycle"; matrix -> "Emulator voice matrix"; speech -> "Emulator UI speech"; lifecycle -> "Emulator lifecycle acceptance"
                                     recovery -> "Emulator cue recovery" else -> "Emulator UI acceptance" }, source = QuickStartSource.LIBRARY_SELECTION,
                                 createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
-                                exercises = if (voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess) listOf(
-                                    exercise.copy(itemId = when { voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; voicePendingRestProcess -> "voice-pending-rest-process"; else -> "voice-rest-process" }, exerciseName = "Rest recovery", sets = 2,
-                                        prescription = "8", restSeconds = when { voicePausedRestProcess -> 20; voicePendingRestProcess -> 120; else -> 12 }, loadWeight = null, loadUnit = null)
+                                exercises = if (voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess || voiceExtendedRestProcess) listOf(
+                                    exercise.copy(itemId = when { voiceExtendedRestProcess -> "voice-extended-rest-process"; voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; voicePendingRestProcess -> "voice-pending-rest-process"; else -> "voice-rest-process" }, exerciseName = "Rest recovery", sets = 2,
+                                        prescription = "8", restSeconds = when { voicePausedRestProcess || voiceExtendedRestProcess -> 20; voicePendingRestProcess -> 120; else -> 12 }, loadWeight = null, loadUnit = null)
                                 ) else if (voiceProcess) listOf("Process A", "Process B").mapIndexed { index, name ->
                                     exercise.copy(itemId = "voice-process-$index", exerciseName = name, sets = 1,
                                         prescription = "8", restSeconds = 0, loadWeight = null, loadUnit = null)
@@ -232,8 +236,8 @@ class PairedQuickStartTransportTest {
                                 val folder = File(context.getExternalFilesDir(null), "voice-rest-process-acceptance/${request.requestId}").apply { mkdirs() }
                                 File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
                             }
-                            if (voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess) {
-                                val folder = File(context.getExternalFilesDir(null), "${when { voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; else -> "voice-pending-rest-process" }}-acceptance/${request.requestId}").apply { mkdirs() }
+                            if (voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess || voiceExtendedRestProcess) {
+                                val folder = File(context.getExternalFilesDir(null), "${when { voiceExtendedRestProcess -> "voice-extended-rest-process"; voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; else -> "voice-pending-rest-process" }}-acceptance/${request.requestId}").apply { mkdirs() }
                                 // This witness must survive stopping the copied phone AVD.
                                 File(folder, "before-records.json").outputStream().use { stream ->
                                     stream.write(json.encodeToString(beforeRecords).toByteArray(Charsets.UTF_8))
@@ -268,7 +272,7 @@ class PairedQuickStartTransportTest {
                                 args.getString("quickStartVoiceRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoicePendingRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoicePausedRestProcessUiValidation") == "true" ||
-                                args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true" ||
+                                args.getString("quickStartVoiceExtendedRestProcessUiValidation") == "true" || args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoiceProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoiceLifecycleUiValidation") == "true" ||
                                 args.getString("quickStartVoiceMatrixUiValidation") == "true" ||
@@ -300,7 +304,7 @@ class PairedQuickStartTransportTest {
                         }
                         "finish" -> {
                             if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
-                                args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true" ||
+                                args.getString("quickStartVoiceExtendedRestProcessUiValidation") == "true" || args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoicePausedRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoicePendingRestProcessUiValidation") == "true" ||
                                 args.getString("quickStartVoiceRestProcessUiValidation") == "true" ||
@@ -349,6 +353,9 @@ class PairedQuickStartTransportTest {
             }
         }
         messages.addListener(listener).await()
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, android.os.Bundle().apply {
+            putString("stream", "Transport probe ready\n")
+        })
         try {
             val timeout = if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
                 args.getString("quickStartVoiceLifecycleUiValidation") == "true" ||
@@ -367,8 +374,9 @@ class PairedQuickStartTransportTest {
         val voiceRestProcess = args.getString("quickStartVoiceRestProcessUiValidation") == "true"
         val voicePendingRestProcess = args.getString("quickStartVoicePendingRestProcessUiValidation") == "true"
         val voicePausedRestProcess = args.getString("quickStartVoicePausedRestProcessUiValidation") == "true"
+        val voiceExtendedRestProcess = args.getString("quickStartVoiceExtendedRestProcessUiValidation") == "true"
         val voiceLockedRestProcess = args.getString("quickStartVoiceLockedRestProcessUiValidation") == "true"
-        assumeTrue(args.getString("quickStartLifecycleReceiptValidation") == "true" || voiceProcess || voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess)
+        assumeTrue(args.getString("quickStartLifecycleReceiptValidation") == "true" || voiceProcess || voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess || voiceExtendedRestProcess)
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         val name = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("getprop ro.boot.qemu.avd_name"))
@@ -377,12 +385,12 @@ class PairedQuickStartTransportTest {
         val peer = requireNotNull(args.getString("peerNodeId"))
         assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
         val requestId = UUID.fromString(requireNotNull(args.getString("lifecycleRequestId"))).toString()
-        val folder = File(context.getExternalFilesDir(null), "${when { voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; voicePendingRestProcess -> "voice-pending-rest-process"; voiceRestProcess -> "voice-rest-process"; voiceProcess -> "voice-process"; else -> "lifecycle" }}-acceptance/$requestId")
+        val folder = File(context.getExternalFilesDir(null), "${when { voiceExtendedRestProcess -> "voice-extended-rest-process"; voiceLockedRestProcess -> "voice-locked-rest-process"; voicePausedRestProcess -> "voice-paused-rest-process"; voicePendingRestProcess -> "voice-pending-rest-process"; voiceRestProcess -> "voice-rest-process"; voiceProcess -> "voice-process"; else -> "lifecycle" }}-acceptance/$requestId")
         val before = json.decodeFromString<List<PhoneQuickStartRecord>>(File(folder, "before-records.json").readText())
         val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
         withTimeout(45_000) { while (store.current(requestId)?.resultReceipt == null) delay(100) }
         val record = requireNotNull(store.current(requestId))
-        assertEquals(when { voiceLockedRestProcess -> "Emulator voice locked rest process"; voicePausedRestProcess -> "Emulator voice paused rest process"; voicePendingRestProcess -> "Emulator voice pending rest process"; voiceRestProcess -> "Emulator voice rest process"; voiceProcess -> "Emulator voice process"; else -> "Emulator lifecycle acceptance" }, record.request.title)
+        assertEquals(when { voiceExtendedRestProcess -> "Emulator voice extended rest process"; voiceLockedRestProcess -> "Emulator voice locked rest process"; voicePausedRestProcess -> "Emulator voice paused rest process"; voicePendingRestProcess -> "Emulator voice pending rest process"; voiceRestProcess -> "Emulator voice rest process"; voiceProcess -> "Emulator voice process"; else -> "Emulator lifecycle acceptance" }, record.request.title)
         assertEquals(requireNotNull(args.getString("lifecycleResultId")), record.finalResult?.resultId)
         assertEquals(record.finalResult?.resultId, record.resultReceipt?.resultId)
         assertEquals(2, record.finalResult?.snapshot?.exercises?.sumOf { it.completedSets })
@@ -392,7 +400,7 @@ class PairedQuickStartTransportTest {
         assertEquals(before.size + 1, store.recordsForTransportRecovery().size)
         assertEquals(before.count { it.resultReceipt != null } + 1, store.recordsWithResultReceipts().size)
         File(folder, "after-record.json").writeText(json.encodeToString(record))
-        if (voiceProcess || voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess) File(folder, "after-records.json").writeText(json.encodeToString(store.recordsForTransportRecovery()))
+        if (voiceProcess || voiceRestProcess || voicePendingRestProcess || voicePausedRestProcess || voiceLockedRestProcess || voiceExtendedRestProcess) File(folder, "after-records.json").writeText(json.encodeToString(store.recordsForTransportRecovery()))
     }
 
     private fun requiredRequestId() = completedFixtureId ?: requireNotNull(args.getString("completedRequestId"))

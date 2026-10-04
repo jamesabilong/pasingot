@@ -548,6 +548,45 @@ flags, inventory installed production APKs, inspect screenshots/crashes/settings
 focus, then sync/stop verified copies and audit original disks. Physical acoustic,
 routing, tactile, battery and Play acceptance remain separate.
 
+### Voice-enabled extended paused-rest recovery
+
+Iteration 71 passes all five stages plus 9 phone/31 Wear ordinary tests. Actual
++30 changes only deadline/revision; 46 frozen seconds survive offline reboot
+beyond the extended deadline, with no cue before session Resume. One new REST/
+warning/Go sequence and exact 2/2 offline result/receipt/pruning pass. All 57
+prior records and original disk/settings/preferences/legacy data are preserved.
+The initial pre-mutation probe timeout is retained; explicit registered-listener
+readiness enables successful retry. Final artifacts/audits are recorded in
+implementation progress.
+
+Iteration 71 uses `quickStartVoiceExtendedRestProcessUiValidation=true` on the
+same exact AVD pair. The phone probe stages **Emulator voice extended rest
+process**, one two-set exercise with 20-second rest. Run the phone probe with
+`quickStartPairedValidation` and exact peer, then Wear
+`prepareVoiceEnabledExtendedRestProcessRecovery`. Wait for the phone runner's
+`Transport probe ready` stream marker before starting Wear; peer discovery
+alone does not prove its message listener has registered. During native REST, tap the
+actual +30s control: require +30,000 ms and one revision, exact session copy
+except deadline, unchanged outcomes/progress/interval/ledger and native idle.
+Pause retains 21–50 frozen seconds with no warning latch; Home stays exact.
+
+Use the same synced force-stop/offline reboot protocol. Run Wear
+`recoverExtendedVoiceRestAndCompleteOffline` with the new flag and
+`lifecycleRequestId`. Wait beyond the extended deadline while still PAUSED;
+fresh Home and opened PAUSED UI remain exact and silent. Only session Resume
+rebases from saved seconds, adds one intentional native REST and retains the
+interval/progress. Poll exact native silence until natural final-five warning,
+then native Go; each key binds to the new deadline. Finish 2/2 offline.
+
+Restore airplane mode/phone/bridge and run the shared receipt/pruning methods
+with the new flag, request/result IDs and exact peers. Preserve every prior
+record and compare the full offline result, one new receipt, original entries/
+preferences and original AVD disks. Artifacts live under Wear
+`ui-acceptance/voice-extended-rest-process-REQUEST_UUID` and phone
+`voice-extended-rest-process-acceptance/REQUEST_UUID`. Require all five stages,
+test APK builds, ordinary tests, screenshots/crash/focus/settings/APK audits.
+Physical acoustic/routing/tactile/battery/Play checks remain separate.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

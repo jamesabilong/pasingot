@@ -4659,3 +4659,110 @@ and exact result/receipt. Final Git/doc closure is recorded before committing.
 Final closure: `git diff --check` passes; HEAD remains `8a3c765` and only the
 seven expected test/docs files are modified. All relevant emulator checks pass;
 this iteration is ready for the requested commit, with physical 0/27 separate.
+
+## Iteration 71 — 2026-10-04 — Voice-enabled extended paused-rest recovery
+
+Status: **Code/emulator acceptance validated; uncommitted. Physical acceptance
+remains separate.**
+
+Starting checkpoint: `ceaf53a PST01: Validate voice-enabled locked-rest process
+recovery`, committed at the user's request with a clean tree. This supersedes
+Iteration 70's ready-to-commit label. Stage 19 stays 70/97, physical 0/27.
+
+Scope: extend a 20-second voiced rest using the actual +30 control before Pause.
+Require exactly +30,000 ms/one runtime revision, unchanged progress/outcomes/
+rest interval and cue ledger, with no rest announcement replay. Pause retains
+21–50 seconds with no warning latch. Preserve this exact state through Home,
+process termination and offline reboot. Opening PAUSED UI is silent; explicit
+Resume alone rebases from saved extended seconds. Require one intentional REST,
+then natural warning/Go on the new deadline, offline 2/2 result, exact receipt/
+pruning, prior records and original preferences/entries/disks preserved. Reuse
+guarded shared helpers without relaxing existing modes. Next: implement, build
+and run the five staged checks plus ordinary/preservation/inventory audits.
+
+Implementation adds two guarded Wear methods and a phone offer/receipt mode.
+Actual +30 compares the entire runtime against a copy changing only deadline
+and revision; the ledger stays exact before Pause. Extended recovery waits
+beyond the saved extended deadline while PAUSED, preserves all frozen state,
+and reuses native resumed REST/warning/Go and exact offline receipt assertions.
+Both test APKs build (`iteration-71-test-build.log`, 1m 7s); all 16 original
+source disk hashes match before launch. Only verified AVD copies are running,
+with installed test APKs and the bounded charging-overlay observation. Staged
+acceptance is running; code completion is distinct from pending emulator checks.
+
+First preparation fails before any owned request/folder exists: retained logs
+show a 30-second probe timeout with the expected-count cleanup assertion now
+suppressed. The phone keeps 57 records. A fixed two-second host delay does not
+establish listener readiness during native peer/store initialization. Add an
+instrumentation stream marker only after the phone message listener is
+registered, and require it in the host protocol before Wear sends its offer.
+Keep all first-attempt logs, preserve the diagnostic improvement and rebuild;
+no acceptance assertion or existing record is relaxed/cleared.
+
+Readiness build passes (`iteration-71-ready-test-build.log`, 1m). The phone
+stream marker is observed before Wear starts; both preparation stages pass
+OK (1 test) for `eecfa58d-f483-4c97-aaf2-935f48c52696`. Actual +30/one revision,
+exact unchanged ledger and paused/Home state pass. The host confirms copied
+process termination, syncs/stops only the phone copy and reboots the watch
+offline. Earlier pre-mutation failure remains retained; no failed fixture is
+created. Fresh extended-deadline/Resume/native sequence acceptance is running.
+
+Offline recovery passes OK (1 test), fresh PID **2427** versus preparation
+**2873**, confirmed host-killed PID **3080**. The +30 screen shows 50 seconds;
+Pause freezes **46 seconds**, retained exactly beyond the extended deadline
+through fresh Home and opening PAUSED UI. Actual session Resume rebases from
+those 46 seconds and intentionally plays one REST. **19** hidden and **605**
+foreground observations preserve runtime/ledger/native silence before natural
+warning/Go. Native final success and offline 2/2 Saved/Waiting to sync pass.
+Extended/paused/resumed/offline screenshots are visually inspected. Airplane
+mode is restored and the same copied phone is restarting for exact receipt/
+pruning; independent preservation and final audits remain pending.
+
+Final evidence supersedes those pending labels:
+
+- All **five stages** pass OK (1 test):
+  `iteration-71-preparation-{phone,wear}.log`, `iteration-71-offline-rest.log`
+  and `iteration-71-receipt-{phone,wear}.log`. The retained first pre-mutation
+  timeout is superseded by an explicit registered-listener stream marker and
+  successful retry; no failed owned fixture exists and no prior record changes.
+- Independent `validate-iteration-71.ps1` /
+  `iteration-71-preservation-validated.json` prove the entire extended runtime
+  differs only by **+30,000 ms/one revision**, with the exact original ledger.
+  Frozen **46 seconds** survive **25,093 ms** beyond the extended deadline
+  before opening. Only session Resume commits the new deadline/one REST;
+  native warning occurs **4,760 ms** before it and Go **334 ms** after it.
+  **19** hidden / **605** foreground observations are exact and silent.
+  The **2,205-sample** native timeline includes one Checking sample, **89**
+  REST, **77** warning and **60** Go-speaking samples, with no pre-Resume cue
+  or early warning/Go. All cue keys bind to their correct deadlines.
+- Exact full offline final result and 2/2 completion pass; all **57/57** prior
+  records stay exact, records **57 -> 58**, receipts **34 -> 35**, runtime/cue
+  pruning and acknowledged success tombstone pass. Original legacy entries and
+  restored preferences are byte-exact. Accepted Wear/phone artifacts contain
+  **85/3 files**. Paused/extended/resumed/offline captures are visually reviewed.
+- Both test APK builds pass; ordinary tests without mutation flags pass
+  **9 phone / 31 Wear**. Production/PWA code is unchanged, so the shared
+  78/phone 28/Wear 204 JVM and existing PWA baselines remain applicable.
+  Crash buffers are empty and current native focus released. Airplane 0,
+  absent/disabled accessibility, touch exploration 0 and animator 1.0 are
+  restored. Inventory `20261004T141255893Z-iteration-71-final` verifies phone
+  API 35/Wear API 37, app 1.0/code 1 and installed/local production APK equality:
+  Wear `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`,
+  phone `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+- Synced shutdown stops only verified copies. All **16** original source disk
+  hashes match before/after, and final ADB inventory is empty. Physical acoustic,
+  speaker/Bluetooth, tactile, battery and Play observations remain open.
+
+Completed: actual extension, exact paused extended-state process recovery,
+silent opening, intentional Resume/rest/new deadline, natural warning/Go,
+offline result/receipt/pruning, synchronized phone readiness and preservation.
+No production defect is established. Stage 19 remains **70/97 (72%)**, physical
+Phase 4 **0/27**. Next: voice-enabled Start now after offline paused-rest
+recovery, exactly one immediate Go and no late warning/Go at the abandoned rest
+deadline, then exact offline result/receipt. Closure awaits final Git/doc check.
+
+Final closure: `git diff --check` passes. Git is rechecked at HEAD `ceaf53a`,
+with only the seven expected Iteration 71 test/docs files modified and no
+unrelated changes. All relevant code/emulator checks above pass; this iteration
+is validated and uncommitted. Earlier pending labels and first-attempt failure
+remain historical evidence, superseded by the explicit successful results.
