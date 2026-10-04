@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 68 — Voice-enabled pending-rest process recovery validation complete (uncommitted)**
-Previous checkpoint: `c9d5d1f PST01: Validate voice-enabled expired-rest process recovery`
+Latest checkpoint: **Iteration 69 — Voice-enabled paused-rest process recovery validation complete (uncommitted)**
+Previous checkpoint: `ed4ca54 PST01: Validate voice-enabled pending-rest process recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -181,6 +181,29 @@ Iteration 68 is validated and uncommitted, superseding prior status/next-action
 labels. Physical Phase 4 stays 0/27. Next: voice-enabled paused-rest fresh-
 process recovery, exact saved remaining time, no replay and normal Resume
 deadline/cue behavior.
+
+Iteration 68 is committed in `ed4ca54`. Iteration 69 validates native voice-
+enabled Pause and fresh offline rest recovery. Native REST cancels on actual
+Pause; exact PAUSED state/cues/20 seconds remaining survive Home and reboot.
+Fresh Home and opening PAUSED UI stay silent even 35,705 ms beyond the original
+deadline. Only session Resume commits a new deadline from saved seconds and
+one intentional native REST, retaining progress/outcomes/interval. Native
+warning is observed 4,813 ms before that deadline and Go 242 ms after it, with
+one key/revision each. Nineteen hidden and 182 foreground observations remain
+exact; the 1,156-sample timeline captures initialization and 74 REST/75 warning/
+63 Go speaking samples, without pre-Resume replay or early cue. All 2/2 sets
+save offline with native workout success and exact result/receipt/pruning.
+All 55 prior phone records and original preferences/legacy entries stay exact.
+Five stages, test builds, nine phone/twenty-seven ordinary Wear checks and
+screenshots/crash/settings/focus/matching APK checks pass. The initial empty
+peer-list failure occurs before mutation and is retained; the new bounded
+sole-peer readiness wait preserves strict guards and successful retry passes.
+Synced copied-phone shutdown retains its runner and witness without repair.
+All 16 original source-disk hashes match after verified copied-AVD shutdown.
+No production change is needed. Iteration 69 is validated and uncommitted,
+superseding prior statuses/next actions. Physical Phase 4 stays 0/27. Next:
+voice-enabled paused-rest fresh-process recovery after final-five warning/lock,
+preserving short remaining time without replay, then exactly-once resumed Go.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production

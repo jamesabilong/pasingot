@@ -9,6 +9,21 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-04 Iteration 69 supersedes prior status/next actions: Iteration 68 is
+committed in `ed4ca54`. Voice-enabled paused-rest recovery passes in a fresh
+offline process, preserving exact state/cues/20 seconds remaining beyond the
+old deadline and opening PAUSED UI silently. Only session Resume creates a new
+deadline and intentional REST; native warning occurs 4,813 ms before it and
+Go 242 ms after it. All 2/2 sets save with exact result/receipt/pruning; all 55
+prior phone records and original legacy entries/preferences stay exact. Five
+stages, test builds, nine phone/twenty-seven ordinary Wear checks, screenshots,
+crash/settings/focus/matching APK checks and all 16 original disk hashes pass.
+Retained pre-mutation peer-discovery failure is superseded by bounded exact-peer
+readiness and successful retry. No production change is needed. Iteration 69
+is validated and uncommitted. Stage 19 stays 70/97 (72%), physical 0/27. Next:
+voice-enabled paused-rest process recovery after the final-five latch, exact
+short remaining time/warning lock without replay and exactly-once resumed Go.
+
 2026-10-04 Iteration 68 supersedes prior next actions/uncommitted labels:
 Iteration 67 is committed in `c9d5d1f`. Fresh offline pending-rest recovery
 preserves exact runtime/deadline/cues in Home and actual Resume, without REST

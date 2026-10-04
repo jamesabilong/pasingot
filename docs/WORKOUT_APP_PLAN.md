@@ -9,6 +9,23 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 68 is committed in `ed4ca54`. Iteration 69 validates voice-enabled
+  paused-rest recovery in a fresh offline process. Exact paused state/cues and
+  20 seconds remaining survive beyond the old deadline and opening PAUSED UI,
+  with initialized silence. Only session Resume creates a new deadline from
+  saved seconds and one intentional REST cue; native warning occurs 4,813 ms
+  before it and Go 242 ms after it. All 2/2 sets save offline with exact result/
+  receipt/pruning. All 55 prior phone records and original legacy entries/
+  preferences remain exact. Five stages, test builds, nine phone/twenty-seven
+  ordinary Wear checks, screenshots/crash/settings/focus/matching APK checks
+  and all 16 original disk hashes pass. Initial pre-mutation discovery failure
+  is retained; a bounded exact-peer readiness wait enables successful retry.
+  No production change is needed. Iteration 69 test/docs are validated and
+  uncommitted. Stage 19 stays 70/97, physical 0/27. Next: voice-enabled paused-
+  rest process recovery after the final-five latch, preserving its warning/
+  lock and short remaining time without replay, then exactly-once resumed Go.
+  This supersedes the Iteration 68 uncommitted status/next action below.
+
 - Iteration 67 is committed in `c9d5d1f`. Iteration 68 validates voice-enabled
   fresh-process recovery before a natural rest deadline on the exact copied
   pair. Home/Resume retain exact state/deadline/cues without REST replay;

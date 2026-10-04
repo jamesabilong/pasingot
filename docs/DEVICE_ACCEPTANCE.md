@@ -432,6 +432,69 @@ test APK after copied-phone shutdown before receipt verification. Check
 the copied device before stopping it. Inventory is
 `20261004T082954071Z-iteration-68-final`; physical Phase 4 remains 0/27.
 
+### Voice-enabled paused-rest process recovery
+
+Iteration 69 extends the exact-copy staged protocol with
+`quickStartVoicePausedRestProcessUiValidation=true`. The owned **Emulator voice
+paused rest process** fixture has one two-set exercise with 20-second rest.
+Run `serveProductionTransportProbe` on the phone with `quickStartPairedValidation`,
+the new flag and exact watch peer; run
+`prepareVoiceEnabledPausedRestProcessRecovery` on Wear with the flag/exact phone
+peer. Require OK (1 test) on both. Real Pause targets native REST speech and
+must cancel output/focus, freeze positive remaining seconds, clear the deadline,
+retain rest interval/progress/outcomes and add no cue. Real Home then preserves
+that exact paused runtime/ledger with voice still enabled.
+
+Confirm/force-stop a live copied Home process, remove only the copied bridge,
+sync/stop only the copied phone, save/enable watch airplane mode, sync/reboot
+only the watch copy and dismiss the observed charging overlay after a bounded
+40-second wait. Original rest deadline must pass while the fixture stays paused.
+Never clear app data or rewrite the clock/deadline/remaining time.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverPausedVoiceRestAndCompleteOffline' -e quickStartVoicePausedRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require no native peers, a fresh PID and exact original PAUSED state/cues.
+Fresh Home has no session owner/focus. Its Resume opens PAUSED UI; after native
+initialization, state/remaining time/ledger remain exact and output silent.
+Only the session Resume commits RESTING once. The new deadline must equal the
+saved seconds plus an observed actual Resume time between pre-click and commit
+timestamps. Progress/outcomes/interval remain exact. Production intentionally
+announces this resumed rest once, bound to the new deadline; the old deadline's
+REST key must not replay. Retain `paused-rest-opened`, `paused-rest-resumed`,
+foreground/warning/Go witnesses and the 20 ms native timeline. Natural warning
+and Go must each add one key/revision bound to the new deadline, with no early
+cue and initialized idle after speech. Complete 2/2 normally offline with native
+WORKOUT_SUCCESS, Saved on watch and Waiting to sync.
+
+Restore original airplane mode and the same phone/bridge, then use
+`verifyLifecycleReceiptAfterReconnect` and `verifyLifecyclePrunedAfterReceipt`
+with the new flag, request/result IDs and exact peers. Require exact full offline
+result, one new record/receipt, all prior records unchanged, pruning/tombstone,
+restored original preferences and exact legacy entries. Pull Wear
+`ui-acceptance/voice-paused-rest-process-REQUEST_UUID` and phone
+`voice-paused-rest-process-acceptance/REQUEST_UUID`; verify test runner availability
+after copied-phone boot, repair only its test APK if necessary. Run ordinary
+instrumentation without flags, inventory installed production APKs, inspect
+screenshots/crashes/settings/current focus, then sync/stop verified copies and
+audit all original source disks. Physical acoustic/routing/tactile/battery/Play
+acceptance remains separate.
+
+Iteration 69 request `e076add6-a001-481f-9aae-cfb37daad403` passes all five
+stages, with exact 20 seconds frozen through reboot and opening PAUSED UI
+35,705 ms after the original deadline. Actual session Resume creates a new
+deadline and one intentional native REST; native warning occurs 4,813 ms before
+it and Go 242 ms after it. All 2/2 sets save offline with exact result/receipt/
+pruning, all 55 prior records unchanged, records 55 -> 56 and receipts 32 -> 33.
+Nine phone/twenty-seven ordinary Wear checks, test builds, screenshots, empty
+crashes, restored settings/released focus, matching production APKs and all 16
+original source-disk hashes pass. The initial empty-peer discovery failure
+occurs before mutation; new preparation opt-ins wait up to 30 seconds for the
+sole exact native peer, retaining strict assertions before fixture creation.
+Synced copied-phone shutdown retains the runner and history witness without
+repair. Inventory is `20261004T091754510Z-iteration-69-final`; physical 0/27.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

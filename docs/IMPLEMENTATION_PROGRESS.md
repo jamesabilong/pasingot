@@ -4456,3 +4456,121 @@ test/docs files modified; unrelated changes are absent. `git diff --check`
 passes. All relevant checks above pass, closing this iteration as validated
 and uncommitted. Historical failures/pending observations remain retained and
 are superseded only by the explicitly described successful checks.
+
+## Iteration 69 — 2026-10-04 — Voice-enabled paused-rest process recovery
+
+Status: **Validated on the isolated paired emulators — test/docs uncommitted;
+physical acceptance remains separate.**
+
+Starting checkpoint: `ed4ca54 PST01: Validate voice-enabled pending-rest process
+recovery`, committed at the user's request with a clean working tree. This
+supersedes Iteration 68's uncommitted label. Stage 19 stays 70/97, physical
+Phase 4 0/27.
+
+Scope/findings: real Pause freezes remaining rest seconds, clears its deadline
+and retains the rest interval. Opening Home's Resume enters the paused session
+without resuming its timer. Only the session Resume action commits RESTING,
+creating a new deadline from the saved remaining seconds; production intentionally
+emits one REST cue bound to that new deadline. This differs from replay of the
+old deadline's cue. Validate exact paused state/remaining time/ledger through
+Home, process termination, offline reboot and opening the paused screen after
+the original deadline. Require initialized silence until actual session Resume,
+then one native resumed REST and natural warning/Go bound to the new deadline.
+Complete 2/2 offline with exact result/receipt/pruning and preservation.
+
+Implementation: a new exact-copy/peer opt-in stages one two-set 20-second rest,
+observes native REST and uses actual Pause/Home. Shared preparation/recovery
+helpers add paused mode, with distinct evidence folders and explicit preparation/
+offline methods. Fresh paused witnesses remain exact; resumed deadline must
+equal saved remaining seconds plus an observed actual Resume commit time, with
+exact progress/outcomes/interval and one new REST key. Existing natural boundary
+sampling/checks use that committed rest witness. Phone receipt/pruning restore
+preferences and compare all prior records. Prior-record evidence is synced;
+host shutdown will sync only copied devices. No production change is planned
+without defect evidence. Next: test APK builds, original source audit and staged
+native acceptance, followed by ordinary/UI/preservation/inventory/final audits.
+
+First preparation attempt: both test builds and the 16-disk pre-audit pass.
+Both exact copied identities/boot/install checks pass, but Wear's immediate
+native peer assertion sees an empty list just after bridge setup and fails
+before any fixture/preference mutation. The phone waiter is stopped only on
+its verified copy; no owned request exists. Retain first-attempt logs. Add a
+bounded 30-second exact sole-peer readiness wait to the new paused opt-in on
+both peers, then retain the same strict identity assertions before mutation.
+This addresses bridge discovery timing without relaxing peer requirements.
+No production defect is established; rebuild/retry are next.
+
+Preparation retry passes OK (1 test) on both peers for request
+`e076add6-a001-481f-9aae-cfb37daad403`. Actual Pause cancels observed native REST,
+clears the deadline and freezes remaining time without progress/outcome/ledger
+change. Home retains the exact paused witness and initialized silence. The
+runner exits; relaunch only copied Home, confirm PID **3019**, force-stop it and
+verify empty remaining PID. Sync/stop only the verified phone copy, remove the
+copied bridge, save airplane mode 0 and sync/reboot only the watch copy offline.
+The charging overlay is observed/dismissed before acceptance. Fresh paused
+screen/native Resume/new-deadline acceptance is running. Earlier pre-mutation
+discovery failure remains retained, superseded by this successful preparation.
+
+Offline acceptance passes OK (1 test), preparation PID **2852** and fresh PID
+**2347**. The exact paused runtime/20 seconds remaining/ledger survive reboot,
+fresh Home and opening PAUSED UI after the original deadline; first Home Resume
+occurs **35,705 ms** beyond it. Native initialization and silence are required
+before session Resume. Actual session Resume alone commits a new deadline from
+the saved 20 seconds, with exact progress/outcomes/interval and one new REST
+key/native playback. Natural warning is observed **4,813 ms** before the new
+deadline and Go **242 ms** after it, one key/revision each. **19** hidden and
+**182** foreground observations stay exact/silent before the warning. The
+**1,156-sample** 20 ms timeline captures one Checking-false sample, **74** REST,
+**75** warning and **63** Go native-speaking samples, then initialized idle.
+Actual native WORKOUT_SUCCESS and 2/2 offline Saved/Waiting to sync pass.
+Reviewed paused remaining/resumed rest/final-five/offline summary screenshots.
+Original airplane mode 0 is restored; the same copied phone is reconnected and
+its runner remains installed after synced shutdown. Receipt/pruning and final
+preservation/ordinary/inventory/settings/source audits are next.
+
+Final checks supersede the pending labels above:
+
+- All **five accepted stages** pass OK (1 test):
+  `iteration-69-preparation-{phone,wear}.log`, `iteration-69-offline-rest.log`
+  and `iteration-69-receipt-{phone,wear}.log`. The earlier pre-mutation native
+  discovery failure and stopped waiter remain retained; no failed owned fixture
+  is created and no acceptance assertion is weakened.
+- Independent `validate-iteration-69.ps1` /
+  `iteration-69-preservation-validated.json` prove **55/55** prior records exact,
+  records **55 -> 56**, receipts **32 -> 33**, exact full offline final result,
+  hidden/fresh Home/opened paused runtime/ledger/remaining time, new deadline
+  from real Resume, one new REST/warning/Go bound to that deadline, no pre-
+  Resume or early cue, pruning and acknowledged success tombstone. Original
+  legacy entries/restored preferences are byte-exact. Accepted artifacts are
+  `iteration-69-validated-wear-artifacts` (**80 files**) and
+  `iteration-69-validated-phone-artifacts` (**three files**).
+- Both test APKs build (`iteration-69-final-test-build.log`). Ordinary runs
+  without mutation flags pass **9 phone / 27 Wear**; guarded staged methods
+  skip normally. Production/PWA code is unchanged; shared 78/phone 28/Wear 204
+  JVM and PWA baselines remain applicable and are not rerun.
+- Crash buffers are empty and current native focus released. Original airplane
+  mode 0/accessibility absent and disabled/touch exploration 0/animator 1.0 are
+  restored. Inventory `20261004T091754510Z-iteration-69-final` verifies phone
+  API 35/Wear API 37, app 1.0/code 1 and installed/local production APK equality.
+  Wear stays `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`;
+  phone stays `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+- Sync and stop only verified copies; all **16 original source-disk hashes**
+  match before and after (`iteration-69-source-disk-{before,after}.json`). Final
+  ADB inventory is empty. Synced shutdown retains the copied phone's runner/
+  prior-record witness, superseding the previous iteration's repair need for
+  this run. Physical acoustic/routing/tactile/battery/Play remain separate.
+
+Completed: guarded paused-rest process preparation/recovery, native Pause
+cancellation, exact frozen state through Home/reboot/opening PAUSED UI, actual
+Resume/new REST/deadline, natural warning/Go, offline 2/2 result, exact receipt/
+pruning and preservation audits. No production defect is established. Stage 19
+stays **70/97 (72%)**, physical Phase 4 **0/27**. Next: voice-enabled paused-rest
+fresh-process recovery after the final-five latch, preserving its warning/lock
+and short remaining time without replay, then exactly-once resumed Go and exact
+offline result/receipt. Closure awaits final Git/doc check.
+
+Final closure: `git diff --check` passes and Git still reports `ed4ca54` as HEAD,
+with only the seven Iteration 69 test/docs files modified and no unrelated
+changes. All relevant checks above pass; this iteration is validated and
+uncommitted. Earlier pending statements and the pre-mutation discovery failure
+remain historical evidence, superseded by the explicit successful checks.
