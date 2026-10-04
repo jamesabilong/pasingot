@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ExerciseCatalogItem, PlaylistItem, WorkoutRow } from '../../types';
 import { availabilityText, quickStartBridge, quickStartSupported, type QuickStartAvailability } from './bridge';
-import { activeOffer, buildRequest, fromCatalog, fromPlaylist, fromToday, itemsFromRequest, receiptFromRecord, type PhoneQuickStartRecord, type QuickStartItem, type QuickStartReceipt, type QuickStartSource, validateItems } from './model';
+import { activeOffer, buildRequest, fromCatalog, fromPlaylist, fromToday, isReceiptExpired, itemsFromRequest, receiptFromRecord, type PhoneQuickStartRecord, type QuickStartItem, type QuickStartReceipt, type QuickStartSource, validateItems } from './model';
 
 export interface QuickStartDraft { source: QuickStartSource; items: QuickStartItem[] }
 export function useWatchQuickStart() {
@@ -112,7 +112,7 @@ export function useWatchQuickStart() {
 
   const cancel = useCallback(async () => {
     const bridge = quickStartBridge();
-    if (!bridge || !receipt?.requestId || cancelling ||
+    if (!bridge || !receipt?.requestId || cancelling || isReceiptExpired(receipt) ||
       (receipt.acknowledgement && receipt.acknowledgement.status !== 'ready')) return;
     setCancelling(true); setError(null);
     try {

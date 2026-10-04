@@ -19,6 +19,13 @@ save/cancel and native reopen/restore with all seven stores preserved exactly
 on the Windows API 35 phone emulator. Provider write failure/interruption and
 paired/physical acceptance remain open; Stage 19 stays 65/97 (67%).
 
+2026-10-03 Stage 19 checkpoint supersedes that earlier count: Phases 0–3 are
+complete, **70/97 (72%)** overall. Iteration 57 is committed in `0d48324`;
+Iteration 58 validates emulator phone entry/Start/request states and corrects
+active-workout guidance and expired cancellation. Original AVD disks/history
+are preserved. Physical Phase 4 stays **0/27**; emulator cue/lifecycle checks
+continue under the user's direction. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md).
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

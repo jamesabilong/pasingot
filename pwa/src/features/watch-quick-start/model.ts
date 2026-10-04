@@ -76,11 +76,15 @@ export function buildRequest(items: QuickStartItem[], source: QuickStartSource, 
       ...(item.sourceDate ? { sourceDate: item.sourceDate, sourceWorkoutRowId: item.sourceWorkoutRowId } : {}),
     })) };
 }
+export function isReceiptExpired(receipt: QuickStartReceipt, now = Date.now()): boolean {
+  return receipt.expiresAtMillis != null && now > receipt.expiresAtMillis + 30_000 &&
+    (!receipt.acknowledgement || receipt.acknowledgement.status === 'ready');
+}
 export function statusText(receipt: QuickStartReceipt | null, sending = false, now = Date.now()): string {
   if (sending) return 'Sending to watch…';
   if (!receipt) return 'Confirm the exercises before sending.';
   const ack = receipt.acknowledgement;
-  if (receipt.expiresAtMillis && now > receipt.expiresAtMillis + 30_000 && (!ack || ack.status === 'ready')) return 'Request expired. Send a new one.';
+  if (isReceiptExpired(receipt, now)) return 'Request expired. Send a new one.';
   if (receipt.cancellation && (!ack || ack.status === 'ready')) return 'Cancellation sent. Waiting for watch confirmation…';
   if (!ack) return receipt.transportAcceptedAtMillis ? 'Sent. Waiting for watch confirmation…' : 'Delivery is unconfirmed. Waiting for watch confirmation…';
   switch (ack.status) {

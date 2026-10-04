@@ -62,6 +62,76 @@ outside this fixture's evidence.
 
 ## Phase 4 evidence protocol
 
+### Start and request-state fixture
+
+Iteration 58 extends the entry test classes with separate opted-in methods.
+The Wear driver taps real Start/Complete set controls; the phone drives the
+installed WebView and closes/relaunches MainActivity to verify reconciliation.
+It checks rapid duplicate Send clicks, a new offer rejected during an active
+workout with byte-for-byte equivalent runtime JSON, and expiry against the
+actual five-minute request deadline plus allowed clock skew. It never changes
+device time or substitutes an injected expiry timestamp.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartEntryUiTest#serveStartAndRequestStates' -e quickStartStateUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest#startAndRequestStatesThroughInstalledWebView' -e quickStartStateUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Start Wear first; require **OK (1 test)** on both peers. The real expiry wait
+adds about five and a half minutes. Artifacts are in timestamped
+`files/state-ui-acceptance/` folders. The driver retains two synthetic completion
+receipts plus active-rejected/time-expired records, asserts pre-existing native phone
+records and IndexedDB records are preserved, and requires an idle watch at the
+end. Failure cleanup can end only a runtime owned by requests observed in that
+run, through the normal session engine. Synthetic imported history stays in
+the copied phone profile; it is not removed by broad database clearing.
+The expired phone record may retain its earlier Ready acknowledgement; the UI
+derives expiry from the real deadline. A watch Start after expiry must create no
+runtime or result. This fixture does not require an unsolicited Expired
+acknowledgement or attempt to cancel an already expired request.
+
+For disconnection, record the copied watch's airplane mode and bridge mapping
+state, remove only this session's phone `tcp:5602` forward and watch `tcp:5601`
+reverse, and enable watch airplane mode. Confirm native discovery has no peer;
+Wi-Fi disable alone is automatically reversed by this Wear runtime. In Iteration
+58, removal of mappings and airplane mode still left a connected peer for 45
+seconds. Stop only the verified copied Wear AVD if native discovery still
+reports it; never stop an original or unrelated device. Run while that copy is
+stopped, then cold boot the same copy and restore its bridge mappings:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest#disconnectedWatchBlocksInstalledWebViewSend' -e quickStartDisconnectedUiValidation true app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test)**: actionable connection wording, disabled Send, ignored
+disabled click and exactly unchanged native request records. Restore prior
+airplane mode and owned bridge mappings afterward, including after failure.
+Then run the read-only Wear check to require the verified peer and no stale
+package/runtime after reconnection:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartEntryUiTest#verifyIdleAfterTransportReconnect' -e quickStartDisconnectedUiValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This proves emulator transport behavior, not physical Bluetooth routing.
+
+Iteration 58 also corrects the expired offer's Cancel control. After the full
+state run leaves an actual time-expired Ready record as the phone's latest
+request, build/sync/install the current phone APK and test APK, then run:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest#expiredOfferRestoresWithoutCancellation' -e quickStartExpiredUiValidation true app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+This method requires that real expired record, preserves all native records
+and checks restored expiry wording, disabled Send and absent Cancel in the
+installed WebView. It does not create an artificial expiry timestamp. The
+paired state run, actual disconnected/reconnected checks and this restoration
+check pass **OK (1 test)** each; final ordinary runs pass eight phone/seven
+Wear tests with mutation flags absent. All 199 Wear JVM and 22 Quick Start
+browser checks pass. Final logs/captures and unchanged original disk hashes
+are recorded in Iteration 58's progress log. Physical Phase 4 stays 0/27.
+
 ### Installed phone WebView entry fixture
 
 Iteration 57 adds `PairedQuickStartEntryUiTest` on phone and Wear. This fixture
@@ -76,8 +146,8 @@ Build/install both current Android test APKs. Start the Wear observer first,
 then the phone driver in another terminal:
 
 ```powershell
-adb -s emulator-5554 shell am instrument -w -e class app.personal.workouttracker.wear.quickstart.PairedQuickStartEntryUiTest -e quickStartEntryUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
-adb -s emulator-5556 shell am instrument -w -e class app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest -e quickStartEntryUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartEntryUiTest#observePhoneEntryPackages' -e quickStartEntryUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartEntryUiTest#libraryAndTodayThroughInstalledWebView' -e quickStartEntryUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
 adb -s emulator-5556 pull /sdcard/Android/data/app.personal.workouttracker/files/entry-ui-acceptance output/emulator-validation/phone-entry-ui
 adb -s emulator-5554 pull /sdcard/Android/data/app.personal.workouttracker/files/entry-ui-acceptance output/emulator-validation/wear-entry-ui
 ```

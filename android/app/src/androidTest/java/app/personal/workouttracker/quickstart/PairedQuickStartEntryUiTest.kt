@@ -87,6 +87,210 @@ class PairedQuickStartEntryUiTest {
     }
     private suspend fun sheetItems(): JsonArray = js("[...document.querySelectorAll('[role=dialog] strong')].map(s => { const card=s.parentElement.parentElement; const input=suffix=>card.querySelector('[aria-label$=\" '+suffix+'\"]'); const load=input('load').value; return {name:s.textContent.replace(/^\\d+\\.\\s*/,''),sets:Number(input('sets').value),prescription:input('target').value,restSeconds:Number(input('rest seconds').value),loadWeight:load ? Number(load) : null,loadUnit:load ? input('load unit').value : null}; })").jsonArray
 
+    @Test fun startAndRequestStatesThroughInstalledWebView() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartStateUiPairedValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val avd = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("getprop ro.boot.qemu.avd_name"))
+            .bufferedReader().use { it.readText().trim() }
+        assertEquals("Pasingot_Matrix_Phone", avd)
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        val beforeRecords = store.recordsForTransportRecovery()
+        val beforeIds = beforeRecords.map { it.request.requestId }.toSet()
+        val messages = Wearable.getMessageClient(context)
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val listener = MessageClient.OnMessageReceivedListener { event ->
+            if (event.sourceNodeId == peer && event.path == STATE_REPLY_PATH) replies.trySend(event.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, STATE_PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(if (command.startsWith("expire:")) 380_000 else 30_000) { replies.receive() }
+                .also { assertFalse(it, it.startsWith("error:")) }
+        }
+        output = File(context.getExternalFilesDir(null), "state-ui-acceptance/${System.currentTimeMillis()}").apply { mkdirs() }
+        var scenario: ActivityScenario<MainActivity>? = null
+        var beforeStores: JsonElement? = null
+        var primaryFailure: Throwable? = null
+        suspend fun launch() {
+            scenario = ActivityScenario.launch(Intent(context, MainActivity::class.java))
+            scenario!!.onActivity { web = it.bridge.webView }
+            waitFor("!!document.querySelector('.app-nav')")
+        }
+        suspend fun closeSheet() {
+            js("(() => {document.querySelector('[aria-label=\"Close Quick Start\"]').click();return true;})()")
+            waitFor("!document.querySelector('[role=dialog]')")
+        }
+        suspend fun openSingle() {
+            click("Library", "document.querySelector('.app-nav')")
+            waitFor("document.querySelectorAll('.library-item').length > 0")
+            click("Quick Start on watch", "document.querySelector('.library-item')")
+            waitFor("!!document.querySelector('[role=dialog] input')")
+            val name = sheetItems().single().jsonObject["name"]!!.jsonPrimitive.content
+            setInput("[role=dialog] [aria-label=${q(name + " sets")}]", "1")
+            setInput("[role=dialog] [aria-label=${q(name + " rest seconds")}]", "0")
+        }
+        suspend fun send(duplicate: Boolean = false): PhoneQuickStartRecord {
+            val existing = store.recordsForTransportRecovery().map { it.request.requestId }.toSet()
+            waitFor("!!document.querySelector('[role=dialog] button.primary-action:not(:disabled)')")
+            js("(() => {const b=document.querySelector('[role=dialog] button.primary-action');b.click();${if (duplicate) "b.click();" else ""}return true;})()")
+            val record = withTimeout(20_000) {
+                while (true) {
+                    store.recordsForTransportRecovery().lastOrNull { it.request.requestId !in existing && it.acknowledgement != null }
+                        ?.let { return@withTimeout it }
+                    delay(100)
+                }
+                @Suppress("UNREACHABLE_CODE") error("No acknowledgement")
+            }
+            delay(500)
+            assertEquals("A duplicate tap must reserve only one request", 1,
+                store.recordsForTransportRecovery().count { it.request.requestId !in existing })
+            return record
+        }
+        try {
+            launch()
+            click("Library", "document.querySelector('.app-nav')")
+            waitFor("document.querySelectorAll('.library-item').length > 0")
+            delay(2_000)
+            beforeStores = asyncJs("return await __entryRead();")
+            File(output, "before-indexeddb.json").writeText(beforeStores.toString())
+            openSingle()
+            val first = send(duplicate = true)
+            assertEquals(QuickStartStatus.READY, first.acknowledgement?.status)
+            assertEquals(first.request, json.decodeFromString<QuickStartRequest>(probe("ready:${first.request.requestId}")))
+            assertEquals("started:${first.request.requestId}", probe("start:${first.request.requestId}"))
+            waitFor("document.querySelector('[role=dialog]').innerText.includes('Workout started on watch')")
+            assertEquals(QuickStartStatus.STARTED, store.current(first.request.requestId)?.acknowledgement?.status)
+            capture("01-open-started")
+            val active = probe("snapshot")
+            closeSheet()
+            openSingle()
+            val rejected = send()
+            assertEquals(QuickStartStatus.REJECTED, rejected.acknowledgement?.status)
+            assertEquals(QuickStartRejectionReason.ACTIVE_SESSION, rejected.acknowledgement?.reason)
+            waitFor("document.querySelector('[role=dialog]').innerText.includes('Watch already has an active workout')")
+            assertEquals("Refusal must preserve the original runtime exactly", active, probe("snapshot"))
+            capture("02-active-rejected")
+            assertEquals("completed:${first.request.requestId}", probe("complete:${first.request.requestId}"))
+            assertNotNull(store.current(first.request.requestId)?.resultReceipt)
+            closeSheet()
+
+            openSingle()
+            val closed = send()
+            assertEquals(QuickStartStatus.READY, closed.acknowledgement?.status)
+            assertEquals(closed.request, json.decodeFromString<QuickStartRequest>(probe("ready:${closed.request.requestId}")))
+            scenario!!.close(); scenario = null
+            assertEquals("started:${closed.request.requestId}", probe("start:${closed.request.requestId}"))
+            assertEquals(QuickStartStatus.STARTED, store.current(closed.request.requestId)?.acknowledgement?.status)
+            launch()
+            waitFor("document.body.innerText.includes('Workout started on watch')")
+            click("View")
+            waitFor("document.querySelector('[role=dialog]').innerText.includes('Workout started on watch')")
+            capture("03-reopened-started")
+            assertEquals("completed:${closed.request.requestId}", probe("complete:${closed.request.requestId}"))
+            assertNotNull(store.current(closed.request.requestId)?.resultReceipt)
+            closeSheet()
+
+            openSingle()
+            val expiring = send()
+            assertEquals(QuickStartStatus.READY, expiring.acknowledgement?.status)
+            assertEquals(expiring.request, json.decodeFromString<QuickStartRequest>(probe("ready:${expiring.request.requestId}")))
+            File(output, "expiry-request.json").writeText(Json.encodeToString(expiring.request))
+            assertEquals("expired:${expiring.request.requestId}", probe("expire:${expiring.request.requestId}"))
+            scenario!!.close(); scenario = null
+            launch()
+            waitFor("document.body.innerText.includes('Request expired. Send a new one.')")
+            click("View")
+            capture("04-expired")
+            assertTrue(System.currentTimeMillis() > expiring.request.expiresAtMillis + QUICK_START_CLOCK_SKEW_MILLIS)
+            assertNull(store.current(expiring.request.requestId)?.finalResult)
+            assertEquals("idle", probe("idle"))
+            delay(2_000)
+            val after = asyncJs("return await __entryRead();")
+            File(output, "after-indexeddb.json").writeText(after.toString())
+            beforeStores.jsonObject.forEach { (name, records) ->
+                records.jsonArray.forEach { assertTrue("Existing $name record changed", it in after.jsonObject[name]!!.jsonArray) }
+            }
+            beforeRecords.forEach { assertEquals(it, store.current(it.request.requestId)) }
+            val created = store.recordsForTransportRecovery().filter { it.request.requestId !in beforeIds }
+            assertEquals(4, created.size)
+            assertEquals(2, created.count { it.resultReceipt != null })
+            File(output, "created-records.json").writeText(Json.encodeToString(created))
+        } catch (failure: Throwable) {
+            primaryFailure = failure
+            File(output, "failure-stack.txt").writeText(failure.stackTraceToString())
+            if (scenario != null) capture("failure")
+            throw failure
+        } finally {
+            try {
+                store.recordsForTransportRecovery().filter { it.request.requestId !in beforeIds && it.acknowledgement?.status == QuickStartStatus.READY &&
+                    System.currentTimeMillis() <= it.request.expiresAtMillis + QUICK_START_CLOCK_SKEW_MILLIS }
+                    .forEach { record ->
+                        val local = Wearable.getNodeClient(context).localNode.await().id
+                        WatchQuickStartClient(context).sendCancellation(store.prepareCancellation(record.request.requestId, local, System.currentTimeMillis()))
+                    }
+                try { assertEquals("finished", probe("finish")) }
+                catch (finishFailure: Throwable) { if (primaryFailure == null) throw finishFailure else primaryFailure.addSuppressed(finishFailure) }
+            } finally { scenario?.close(); messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
+    @Test fun expiredOfferRestoresWithoutCancellation() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartExpiredUiValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val avd = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("getprop ro.boot.qemu.avd_name"))
+            .bufferedReader().use { it.readText().trim() }
+        assertEquals("Pasingot_Matrix_Phone", avd)
+        val context = instrumentation.targetContext
+        val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        val before = store.recordsForTransportRecovery()
+        val latest = requireNotNull(store.latest())
+        assertEquals(QuickStartStatus.READY, latest.acknowledgement?.status)
+        assertTrue(System.currentTimeMillis() > latest.request.expiresAtMillis + QUICK_START_CLOCK_SKEW_MILLIS)
+        output = File(context.getExternalFilesDir(null), "expired-ui-acceptance/${System.currentTimeMillis()}").apply { mkdirs() }
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { web = it.bridge.webView }
+            waitFor("document.body.innerText.includes('Request expired. Send a new one.')")
+            click("View")
+            waitFor("document.querySelector('[role=dialog]').innerText.includes('Request expired. Send a new one.')")
+            assertTrue(js("![...document.querySelectorAll('[role=dialog] button')].some(b=>b.textContent.trim()==='Cancel request')").jsonPrimitive.boolean)
+            assertTrue(js("document.querySelector('[role=dialog] button.primary-action').disabled").jsonPrimitive.boolean)
+            capture("expired-without-cancel")
+            assertEquals(before, store.recordsForTransportRecovery())
+        }
+    }
+
+    @Test fun disconnectedWatchBlocksInstalledWebViewSend() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartDisconnectedUiValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val avd = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("getprop ro.boot.qemu.avd_name"))
+            .bufferedReader().use { it.readText().trim() }
+        assertEquals("Pasingot_Matrix_Phone", avd)
+        val context = instrumentation.targetContext
+        withTimeout(45_000) { while (Wearable.getNodeClient(context).connectedNodes.await().isNotEmpty()) delay(250) }
+        val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        val before = store.recordsForTransportRecovery()
+        output = File(context.getExternalFilesDir(null), "disconnected-ui-acceptance/${System.currentTimeMillis()}").apply { mkdirs() }
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { web = it.bridge.webView }
+            waitFor("!!document.querySelector('.app-nav')")
+            click("Library", "document.querySelector('.app-nav')")
+            waitFor("document.querySelectorAll('.library-item').length > 0")
+            click("Quick Start on watch", "document.querySelector('.library-item')")
+            waitFor("document.querySelector('[role=dialog]').innerText.includes('Connect your watch to send a workout.')")
+            assertTrue(js("document.querySelector('[role=dialog] button.primary-action').disabled").jsonPrimitive.boolean)
+            js("(() => {document.querySelector('[role=dialog] button.primary-action').click();return true;})()")
+            delay(1_000)
+            assertEquals(before, store.recordsForTransportRecovery())
+            capture("disconnected-send-blocked")
+        }
+    }
+
     @Test fun libraryAndTodayThroughInstalledWebView() = runBlocking {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("quickStartEntryUiPairedValidation") == "true")
@@ -265,5 +469,7 @@ class PairedQuickStartEntryUiTest {
     companion object {
         const val PROBE_PATH = "/validation/quick-start-entry/probe"
         const val REPLY_PATH = "/validation/quick-start-entry/reply"
+        const val STATE_PROBE_PATH = "/validation/quick-start-state/probe"
+        const val STATE_REPLY_PATH = "/validation/quick-start-state/reply"
     }
 }

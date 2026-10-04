@@ -31,6 +31,13 @@ try {
   check(statusText(pending).includes('Waiting'), 'Transport acceptance is not Ready');
   render({ available: true, watchNodeId: 'watch-1' }, pending);
   check([...document.querySelectorAll('button')].some((button) => button.textContent?.includes('Cancel request')), 'Pending offer exposes explicit cancellation');
+  const expiredReady = { ...pending, expiresAtMillis: Date.now() - 30_001,
+    acknowledgement: { requestId: request.requestId, revision: 1, targetNodeId: 'watch-1', status: 'ready', watchUpdatedAtMillis: 1200 } };
+  render({ available: true, watchNodeId: 'watch-1' }, expiredReady);
+  check(document.querySelector('[role=dialog]').textContent.includes('Request expired'), 'Deadline-expired Ready shows expiry');
+  check(![...document.querySelectorAll('button')].some((button) => button.textContent?.includes('Cancel request')), 'Deadline-expired Ready hides invalid cancellation');
+  render({ available: true, watchNodeId: 'watch-1' }, { ...expiredReady, expiresAtMillis: Date.now() + 100_000 });
+  check([...document.querySelectorAll('button')].some((button) => button.textContent?.includes('Cancel request')), 'Live Ready retains cancellation');
   const mockBridge = { getQuickStartStatus: async ({ requestId }) => ({ ...pending, requestId, acknowledgement: null }) };
   for (const [status, expected] of Object.entries({ ready: 'Ready on watch', started: 'started', dismissed: 'Dismissed', cancelled: 'Cancelled', expired: 'expired', rejected: 'rejected' })) {
     const receipt = { ...pending, acknowledgement: { requestId: request.requestId, revision: 1, targetNodeId: 'watch-1', status, reason: status === 'rejected' ? 'active_session' : undefined, watchUpdatedAtMillis: 1200 } };

@@ -3267,3 +3267,111 @@ test/documentation changes uncommitted on `PST01`.
 Remaining/next action: continue emulator Start acknowledgement in open/reopened phone UI and
 disconnected/active/duplicate/expired entry behavior. Stage 19 remains 70/97;
 physical Phase 4 remains 0/27.
+
+## Iteration 58 — 2026-10-03 — Phone Start reconciliation and request-state acceptance
+
+Status: **Validated — paired request states and both evidenced UI corrections pass;
+physical acceptance remains open.**
+
+Starting checkpoint: `0d48324 PST01: Validate paired phone WebView Quick Start
+entry`. Git is clean after the requested commit. Continue the user's isolated
+emulator direction with Start acknowledgement in open/reopened phone UI,
+duplicate taps, active-workout rejection, real-deadline expiry and actual
+transport disconnection. Preserve original AVD disks, legacy entries and
+existing phone records; synthetic terminal history stays only in the copies.
+Physical Phase 4 remains separate at 0/27.
+
+Findings and changes (pending notes below are superseded by final validation):
+
+- The first paired state run passed duplicate-tap reservation and the open-phone
+  Started UI, then found a production rejection mismatch: another request while
+  a durable Quick Start is STARTING was reported as PENDING_REQUEST. The active
+  runtime was protected, but the phone's guidance described an unsent offer.
+  Map the existing STARTING package to ACTIVE_SESSION; READY retains
+  PENDING_REQUEST. Add a JVM regression for exact package preservation, durable
+  refusal replay after recreation and unchanged same-request replay semantics.
+- All 199 Wear JVM tests and the Wear production/test APK builds pass after
+  the correction. Full paired UI, actual deadline and offline checks remain
+  pending. Initial failed-run artifacts remain historical diagnostics; cleanup
+  ended only that run's owned synthetic workout through the normal engine.
+- The corrected paired run reaches both completions, exact active refusal,
+  reopen reconciliation and actual expiry: the stale watch Start control opens
+  "Could not start / Quick Start is no longer ready", with no runtime. Phone
+  renders expiry. The fixture incorrectly tried to cancel after expiry, then
+  waited for an Expired receipt that this action cannot produce. Native code
+  correctly refuses expired cancellation; remove that invalid expectation and
+  skip expired requests during failure cleanup. Retain this failed fixture run
+  as historical evidence; rerun the full preservation/closure assertions.
+- Airplane mode plus removal of the ADB mappings alone left native discovery
+  reporting a connected peer for 45 seconds in this run. Mapping/airplane
+  state was restored in finally. Stopping only the verified copied Wear AVD
+  closed the actual transport; disconnected phone UI then passes OK (1 test),
+  with actionable wording, disabled Send and unchanged native request records.
+  Restart the same copy and verify no stale package/runtime before the final
+  paired state run. This supersedes socket-removal-only assumptions here.
+- Final paired state run passes OK (1 test) on each peer, with two receipts,
+  exact active runtime preservation, all prior native/IndexedDB records retained,
+  deadline expiry and idle watch. Ordinary instrumentation passes seven tests
+  per peer. Visual review then finds an expired Ready offer still displays
+  Cancel request even though native cancellation correctly rejects expiry.
+  Hide that invalid control and guard the hook with the same expiry predicate
+  used for status wording. Preserve live Ready cancellation and Started status.
+  Add browser deadline-boundary/render checks and opt-in native restoration
+  verification against the already-expired real request. PWA cache version is
+  advanced so installed browser shells receive the correction. Closure awaits
+  browser/native verification and final original-disk audit.
+
+Final validation and closure:
+
+- Full paired state run passes OK (1 test) on both peers in
+  `iteration-58-state-{phone,wear}-final.log`. Two actual Start/Complete flows
+  produce exactly two immutable receipts; duplicate Send creates one offer,
+  active refusal preserves the exact runtime, every prior native/IndexedDB
+  record is retained and watch legacy entries remain equal throughout.
+- Expiry uses the actual five-minute deadline plus thirty-second skew. The
+  stale Wear Start action renders "Could not start / Quick Start is no longer
+  ready", with no runtime/result. Phone expiry is derived from the deadline
+  while its original Ready acknowledgement may remain durable. The fixture's
+  invalid post-expiry cancellation expectation is superseded by this pass.
+- Actual copied-watch shutdown passes disconnected phone UI OK (1 test) in
+  `iteration-58-disconnected-phone-watch-stopped.log`; restart/reconnection
+  passes read-only idle package/runtime verification OK (1 test) in
+  `iteration-58-reconnected-wear.log`. Airplane/mappings were restored.
+- TypeScript, production PWA build/Capacitor sync, three Quick Start Node
+  tests, and all 22 Quick Start browser checks pass. Headless Edge uses a new
+  workspace-only profile and the local fixture; it confirms live cancellation,
+  expired wording and absent expired cancellation. Earlier sandbox subprocess
+  failures are superseded by the approved build/browser runs. Both production
+  APKs and current Android test APKs build; all 199 Wear JVM tests pass. Shared
+  78/phone 28 JVM baselines are unchanged, not newly rerun here.
+- The updated phone APK passes native restoration of the actual expired offer,
+  with no Cancel control and exactly unchanged native records, OK (1 test) in
+  `iteration-58-expired-phone-final.log`. This targeted test validates the
+  later PWA fix; the full paired run preceded that display-only correction.
+  Final ordinary instrumentation passes OK (8 tests) on phone and OK (7 tests)
+  on Wear, with mutation fixtures skipped when flags are absent.
+- Final paired captures are phone `1791040580075` and Wear `1791040570138`
+  under `iteration-58-{phone,wear}-artifacts-final`. Reviewed phone Started,
+  active refusal, reopened Started and expiry screens, and Wear expiry rejection.
+  Updated phone expiry capture `1791041413129` under
+  `iteration-58-expired-artifacts` visibly has no Cancel button. Disconnected
+  capture `1791040476872` shows actionable wording and disabled Send. Earlier
+  failed fixture captures/logs remain historical evidence in ignored output.
+- Inventory `20261003T153052529Z-iteration-58-expiry-final` identifies API 35/
+  API 37 emulator models and app 1.0/code 1; installed/local production APK
+  hashes match on both peers. Stopped only the verified copied AVDs and the
+  owned local fixture server. All 16 original source disk hashes match exactly
+  in `iteration-58-source-disk-audit.json`, preserving original workout/history.
+
+Completed: emulator phone Start/request-state acceptance, actionable active
+rejection and expiry cancellation correction, native/browser regression and
+preservation audits. Relevant checks and git diff --check pass; this iteration's
+code/emulator validation is closed. Physical touch/audio/haptic/routing/TalkBack/
+battery/Play acceptance remains open at 0/27; Stage 19 stays 70/97 (72%). Final
+Git audit confirms 0d48324 as HEAD; only Iteration 58 code/test/docs remain
+uncommitted on PST01.
+
+Remaining/next action: continue isolated emulator short-rest cue sequences,
+success recreation and ambient/screen-off recovery, comparing durable cue
+ledger and session progress. Keep physical audio quality/routing, battery and
+Play evidence separate. Use the opted-in fixtures in DEVICE_ACCEPTANCE.md.

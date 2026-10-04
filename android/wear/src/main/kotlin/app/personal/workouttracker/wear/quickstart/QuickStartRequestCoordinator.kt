@@ -79,7 +79,10 @@ class QuickStartRequestCoordinator(
                 QuickStartPackageState.STARTING -> return null
             }
             is AcceptQuickStartResult.RejectedPending -> rejectValue(pathId, request.revision,
-                localWatchNodeId, QuickStartRejectionReason.PENDING_REQUEST, nowEpochMillis)
+                localWatchNodeId,
+                if (result.existing.state == QuickStartPackageState.STARTING)
+                    QuickStartRejectionReason.ACTIVE_SESSION else QuickStartRejectionReason.PENDING_REQUEST,
+                nowEpochMillis)
             is AcceptQuickStartResult.RejectedInvalid -> {
                 val reason = if (result.issue.code == QuickStartValidationCode.UNSUPPORTED_SCHEMA)
                     QuickStartRejectionReason.UNSUPPORTED_SCHEMA else QuickStartRejectionReason.INVALID_PAYLOAD

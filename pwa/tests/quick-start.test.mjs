@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeOffer, buildRequest, itemsFromRequest, receiptFromRecord, statusText, validateItems } from '../src/features/watch-quick-start/model.ts';
+import { activeOffer, buildRequest, isReceiptExpired, itemsFromRequest, receiptFromRecord, statusText, validateItems } from '../src/features/watch-quick-start/model.ts';
 
 const item = (name, index) => ({ itemId: `item-${index}`, sourceId: index, name, sets: 3, reps: '8-12', rest: 60 });
 
@@ -46,6 +46,10 @@ test('process recovery restores the exact offer and pending state', () => {
   assert.deepEqual(itemsFromRequest(request).map((entry) => entry.name), ['Squat', 'Press']);
   assert.equal(receiptFromRecord(record).requestId, request.requestId);
   assert.equal(activeOffer(record, request.expiresAtMillis + 30_001), false);
+  assert.equal(isReceiptExpired(receiptFromRecord(record), request.expiresAtMillis + 30_000), false);
+  assert.equal(isReceiptExpired(receiptFromRecord(record), request.expiresAtMillis + 30_001), true);
+  assert.equal(isReceiptExpired(receiptFromRecord({ ...record, acknowledgement: { requestId: request.requestId,
+    targetNodeId: 'watch-1', revision: 2, status: 'started', watchUpdatedAtMillis: 1200 } }), request.expiresAtMillis + 30_001), false);
   assert.match(statusText(receiptFromRecord(record), false, request.expiresAtMillis + 30_001), /expired/);
   assert.match(statusText(receiptFromRecord({ ...record, acknowledgement: { requestId: request.requestId,
     targetNodeId: 'watch-1', revision: 1, status: 'ready', watchUpdatedAtMillis: 1200 } }),

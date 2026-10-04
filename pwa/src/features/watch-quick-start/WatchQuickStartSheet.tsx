@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import type { QuickStartDraft } from './useWatchQuickStart';
 import type { QuickStartReceipt } from './model';
-import { statusText, validateItems } from './model';
+import { isReceiptExpired, statusText, validateItems } from './model';
 import type { QuickStartAvailability } from './bridge';
 
 export function WatchQuickStartSheet({ draft, availability, availabilityMessage, checking, sending, cancelling, receipt, error, onDraftChange, onSend, onCancel, onClose }: {
@@ -52,7 +52,7 @@ export function WatchQuickStartSheet({ draft, availability, availabilityMessage,
       <button type="button" className="primary-action mt-4 disabled:cursor-not-allowed disabled:opacity-50" disabled={!!validation || !availability?.available || checking || locked} onClick={onSend}>
         {sending ? 'Sending…' : receipt ? 'Sent to watch' : `Send ${draft.items.length} to watch`}
       </button>
-      {receipt && (!receipt.acknowledgement || receipt.acknowledgement.status === 'ready') &&
+      {receipt && !isReceiptExpired(receipt) && (!receipt.acknowledgement || receipt.acknowledgement.status === 'ready') &&
         <button type="button" className="secondary-action mt-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={cancelling || !!receipt.cancellation} onClick={onCancel}>
           {cancelling ? 'Cancelling…' : receipt.cancellation ? 'Cancellation sent' : 'Cancel request'}
         </button>}

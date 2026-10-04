@@ -135,6 +135,34 @@ class QuickStartRequestCoordinatorTest {
     }
 
     @Test
+    fun `different offer reports active workout after durable start and preserves its package`() = runTest {
+        val persistence = MemoryPersistence()
+        val store = WatchSessionPackageStore(persistence)
+        val coordinator = coordinator(persistence) { }
+        coordinator.receive(json.encodeToString(request()), path(), "phone-node", "watch-node", now)
+        store.markStarting(REQUEST_ID, 1, now + 1)
+        val active = store.current(now + 1)
+        val otherId = "123e4567-e89b-12d3-a456-426614174099"
+        val other = request().copy(requestId = otherId)
+        val otherPath = QuickStartDataLayerPaths.REQUEST_PREFIX + otherId
+
+        val result = coordinator.receive(json.encodeToString(other), otherPath,
+            "phone-node", "watch-node", now + 2)
+
+        assertEquals(QuickStartStatus.REJECTED, result?.status)
+        assertEquals(QuickStartRejectionReason.ACTIVE_SESSION, result?.reason)
+        assertEquals(active, store.current(now + 2))
+        val writes = persistence.writes
+        val replay = coordinator(persistence) { }.receive(json.encodeToString(other), otherPath,
+            "phone-node", "watch-node", now + 3)
+        assertEquals(result, replay)
+        assertEquals(writes, persistence.writes)
+        assertEquals(active, WatchSessionPackageStore(persistence).current(now + 3))
+        assertNull(coordinator.receive(json.encodeToString(request()), path(),
+            "phone-node", "watch-node", now + 3))
+    }
+
+    @Test
     fun `active legacy rejection is durable before receipt and survives blocker clearing`() = runTest {
         val persistence = MemoryPersistence()
         val receipts = mutableListOf<QuickStartAcknowledgement>()

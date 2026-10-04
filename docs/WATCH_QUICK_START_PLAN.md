@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 57 — phone WebView entry acceptance (uncommitted)**
-Previous checkpoint: `d6b4153 PST01: Fix countdown lifecycle and validate emulator UI`
+Latest checkpoint: **Iteration 58 — phone request-state acceptance (validated, uncommitted)**
+Previous checkpoint: `0d48324 PST01: Validate paired phone WebView Quick Start entry`
 Last updated: **2026-10-03**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -20,7 +20,7 @@ completion/Ready/Cancel/replay matrix and real phone launch/resume cleanup on
 isolated AVD copies; 16 unchanged source disk hashes prove original workout
 preservation. The active-session blocker is superseded for this isolated setup.
 Current suites pass 78 shared,
-28 phone and 198 Wear tests with both APKs. Iteration 56 fixes a real countdown
+28 phone and 199 Wear tests with both APKs. Iteration 56 fixes a real countdown
 navigation crash during lifecycle dispatch and extends acceptance to actual
 Wear UI taps, deadline locks, rest recovery, terminal presentation and settings.
 User chose emulator validation; paired UI and ordinary instrumentation pass,
@@ -32,6 +32,12 @@ Ready/Cancel reconciliation, preserving original IndexedDB records, native
 schedule cache and watch legacy entries. All 16 original source disk hashes
 remain unchanged after shutting down the copied AVDs. No production change was needed.
 Physical Phase 4 remains 0/27, separately from emulator acceptance.
+Iteration 57 is committed in `0d48324`. Iteration 58 validates Start in open/
+reopened phone UI, duplicate clicks, exact active runtime preservation, real
+expiry and disconnected Send/reconnection. It fixes active-workout rejection
+guidance and removes invalid expired cancellation. Both paired state peers,
+native expiry restoration, 22 browser checks and eight phone/seven Wear ordinary
+tests pass. All 16 original source AVD disk hashes remain unchanged.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -803,7 +809,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-03, Iteration 57
+### Progress audit — 2026-10-03, Iteration 58
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -815,7 +821,7 @@ stands at **70/97 items (72%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **0/27 (0%) physical** | Connected phone WebView entry and Wear countdown/rest/recovery/summary/settings emulator checks pass; further lifecycle/cue and physical evidence remain open |
+| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone WebView entry/Start/request states and Wear countdown/rest/recovery/summary/settings emulator checks pass; further lifecycle/cue and physical evidence remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1223,8 +1229,11 @@ recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 4 — Paired-device acceptance.
 **Exact next action:** continue on the isolated phone/watch emulators as directed
-by the user. Validate Start acknowledgement through the open/reopened phone UI,
-then disconnected/active/duplicate/expired entry behavior. Iteration 57 closes
+by the user. Validate short-rest cue sequences, success recreation and ambient/
+screen-off recovery with durable cue/progress evidence. Iteration 58 closes
+open/reopened phone Start and disconnected/active/duplicate/expired entry
+behavior, including the evidenced rejection and expired Cancel corrections.
+Iteration 57 closes
 connected Library single/playlist/reordered-selection and Today entry with
 exact durable phone/watch prescription comparisons and UI cancellation.
 Use [Device acceptance](DEVICE_ACCEPTANCE.md) for inventory and UI reproduction;
