@@ -118,6 +118,21 @@ Next: voice-enabled fresh-process rest/deadline recovery
 with no hidden advancement and exactly-once foreground catch-up. Physical
 acceptance stays separate.
 
+2026-10-04 Iteration 67 supersedes that next action and uncommitted status:
+Iteration 66 is committed in `7b2fdc3`. Voice-enabled expired-rest fresh-process
+recovery passes: hidden/fresh Home keep exact runtime/deadline/cues, and actual
+Resume adds only one deadline-bound Go, observed in native playback. All 2/2
+sets complete offline with native workout success; one exact result/receipt
+prunes transient state. All 52 prior phone records and original legacy entries/
+preferences stay exact. Five explicit stages, test APK builds, nine phone/
+twenty-two ordinary Wear checks and visual/crash/settings/focus/matching APK
+checks pass. No production change is needed. All 16 original source-disk hashes
+match after copied-AVD shutdown. Iteration 67 is validated and uncommitted;
+Stage 19 stays 70/97 and physical Phase 4 0/27.
+Next: voice-enabled fresh-process recovery before a rest deadline, exact saved
+deadline/no REST replay and native warning/Go thresholds. Physical acceptance
+stays separate.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

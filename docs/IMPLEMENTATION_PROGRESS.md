@@ -4203,3 +4203,125 @@ these Iteration 66 test/docs changes, validated and uncommitted. All relevant
 build/native/staged/UI/preservation/crash/settings/focus/inventory/source checks
 pass, closing this iteration. Earlier pending labels and the charging-overlay
 failure remain historical evidence.
+
+## Iteration 67 — 2026-10-04 — Voice-enabled fresh-process rest recovery
+
+Status: **Validated on the isolated paired emulators — test/docs uncommitted;
+physical acceptance remains separate.**
+
+Starting checkpoint: `7b2fdc3 PST01: Validate voice-enabled fresh-process success
+recovery`, committed at the user's request with a clean working tree.
+Continue only on the exact copied AVD pair. Stage 19 stays 70/97, physical
+Phase 4 0/27.
+
+Next action: stage actual native rest speech and Home exit, preserve exact
+RESTING state/deadline/cues beyond the hidden deadline, then terminate/reboot
+and verify exact expired-rest preservation in a fresh offline process. Only
+actual foreground Resume may catch up with one deadline-bound Go; cold native
+availability is observed without replacing output. Complete normally offline,
+verify exact result/receipt/pruning and restore original preferences/settings.
+Preserve prior phone records, legacy entries and every original AVD disk.
+
+Implementation: new exact-copy/peer opt-in creates one two-set Rest recovery
+exercise with 12 seconds rest. The shared preparation helper keeps the prior
+success mode unchanged, while the new rest mode observes native REST/focus,
+uses actual Home and polls exact runtime/ledger/native silence beyond the
+deadline. Fresh offline recovery first launches only Home and verifies the
+expired RESTING witness remains exact with no session owner/focus. Real Resume
+must advance once with only deadline-bound Go and exact progress/outcomes/set.
+A read-only 20 ms timeline records cold engine initialization/controller/native
+state; speech need not occur before native initialization. After initialized
+idle, actual offline workout-success speech and 2/2 saved completion are required.
+Existing exact receipt/pruning stages accept the new explicit mode and restore
+original preferences. Original 16-disk audit and verified boot pass; test APK
+builds are pending. No production change is planned without defect evidence.
+
+Preparation acceptance: both test APK builds pass and both paired methods pass
+OK (1 test). Request `01614eea-ac26-469f-b44f-9d68aeed2847` reaches actual native
+REST/focus, then Home cancels output. Exact hidden state/cues persist beyond
+the deadline. The owned expired-rest artifacts remain retained. Runner exit
+removes the app PID; relaunch only copied Home (no Resume), confirm live PID
+3119 and force-stop it with no remaining PID. Remove only copied bridge mappings,
+stop the verified phone copy and enable/reboot only the copied watch's airplane
+mode to clear native peer discovery. Offline fresh-process acceptance is pending.
+
+Offline acceptance passes OK (1 test), process **2130** after preparation
+**2930**. Post-boot charging overlay is observed/dismissed before launch; no
+failed attempt is needed. The expired RESTING witness stays exact through
+fresh Home, with no session controller/focus. Only actual Resume commits ACTIVE
+once, with unchanged progress/outcomes/set and exactly one deadline-bound Go.
+The **219-sample** cold native timeline contains one Checking sample and **61
+GO/native-speaking samples**, followed by initialized idle/no replay. Actual
+WORKOUT_SUCCESS playback and 2/2 offline saved completion pass. Preparation
+retains **101** hidden exact-state/ledger/silence observations beyond its
+deadline. Original airplane mode 0 is restored; the same phone copy is being
+relaunched for exact result/receipt/pruning and preservation checks.
+
+Reconnection environment: the copied phone boot exceeds the initial 50-second
+host wait. Its retained log reports successful boot in 52,627 ms; subsequent
+ADB identity/boot checks pass. Re-establish the same copied bridge without
+another restart. This supersedes the host wait timeout; no acceptance method
+has failed and no production defect is established.
+
+Final acceptance/checks:
+
+- All **five explicit stages** pass OK (1 test): paired preparation on both
+  peers, offline rest recovery and receipt/pruning on both peers. Logs are
+  `iteration-67-preparation-{phone,wear}.log`, `iteration-67-offline-rest.log`
+  and `iteration-67-receipt-{phone,wear}.log`. No failed acceptance attempt occurs;
+  the delayed phone boot and dismissed charging overlay remain environment
+  evidence, separately from acceptance.
+- Preparation process **2930** and fresh offline process **2130** differ.
+  Relaunched copied Home process **3119** is separately confirmed force-stopped
+  with empty remaining PID. This is fresh recovery after durable rest/Home and
+  normal Activity teardown, not termination of speech in flight. Voice remains
+  enabled across saved witnesses. **101** hidden observations retain exact
+  runtime/progress/outcomes/deadline/cues and native silence beyond deadline.
+- Fresh Home retains the exact expired RESTING witness for ten observations,
+  with no session controller/current native focus. Actual Resume alone commits
+  ACTIVE with exactly one new deadline-bound Go and one runtime revision;
+  progress/outcomes/current set stay exact. The **219-sample** 20 ms native
+  timeline contains one Checking sample, **61 Go/controller/native-speaking
+  samples**, then initialized idle without replay. The accepted cold path
+  permits initialization fallback, but this run observes actual Go playback.
+  Normal offline completion also reaches native WORKOUT_SUCCESS/focus and saves
+  **2/2 sets**, one final-success key and Waiting to sync. Native observations
+  are separate from physical acoustic silence/intelligibility.
+- Request `01614eea-ac26-469f-b44f-9d68aeed2847` receives one exact full offline
+  final result/receipt after reconnection; Wear prunes runtime/package/ledger
+  and retains the acknowledged success tombstone. Independent
+  `iteration-67-preservation-validated.json` proves **52/52 prior phone records
+  exact**, records **52 -> 53**, receipts **29 -> 30**, exact hidden/fresh Home
+  witnesses, only deadline-bound Go, exact progress/outcomes/full offline final
+  result and byte-exact original legacy entries/restored preferences. Evidence
+  is in `iteration-67-validated-wear-artifacts` /
+  `iteration-67-validated-phone-artifacts`. Reviewed fresh Home Resume, active
+  set 2/2 and offline 2/2 saved-summary screenshots.
+- Both test APK builds pass. Ordinary instrumentation without mutation flags
+  passes **9 phone / 22 Wear**, guarded methods skipped normally. Crash buffers
+  are empty and native focus released. Airplane mode is restored to 0,
+  accessibility absent/0, touch exploration 0 and animator scale 1.0. Production/
+  PWA code is unchanged; shared 78/phone 28/Wear 204 JVM and PWA baselines remain
+  applicable and are not rerun.
+- Inventory `20261004T080315686Z-iteration-67-final` records phone API 35/
+  Wear API 37, app 1.0/code 1 and matching installed/local production APKs.
+  Wear remains `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`;
+  phone remains `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+  Only verified copies are stopped; final original-disk audit is pending.
+
+Completed code/emulator checks: guarded rest process harness, native Home
+cancellation, hidden exact rest preservation, cold foreground-only Go catch-up,
+offline completion and exact receipt/preservation acceptance. No production
+defect is established. Closure awaits source audit and final Git check.
+Stage 19 remains **70/97 (72%)**, physical Phase 4 **0/27**. Next: voice-enabled
+fresh-process recovery before a rest deadline, preserving the same deadline
+without repeating REST and observing native warning/Go at their thresholds.
+Physical speech quality/overlap, routing, tactile, battery and Play stay separate.
+
+Final closure supersedes the pending disk audit/Git check above: all **16
+original source-disk hashes** match the baseline after stopping only verified
+copies (`iteration-67-source-disk-after.json`); ADB reports no remaining devices.
+`git diff --check` passes. Final Git audit confirms `7b2fdc3` as HEAD with only
+these Iteration 67 test/docs changes, validated and uncommitted. All relevant
+build/native/staged/UI/preservation/crash/settings/focus/inventory/source checks
+pass, closing this iteration. Earlier pending labels remain historical evidence.

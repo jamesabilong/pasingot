@@ -304,6 +304,63 @@ flags, check crashes/settings/installed APKs and audit original disks after
 copied-AVD shutdown. Native sampling does not establish physical acoustic
 silence, intelligibility, routing, tactile, battery or Play acceptance.
 
+### Voice-enabled expired-rest process recovery
+
+Iteration 67 adds `prepareVoiceEnabledRestProcessRecovery` and
+`recoverExpiredVoiceRestAndCompleteOffline`, explicitly guarded by
+`quickStartVoiceRestProcessUiValidation=true`, emulator hardware and exact
+copied AVD identity. Preparation requires the sole exact peer and no existing
+runtime/package/active legacy workout. Its owned **Emulator voice rest process**
+fixture has one two-set exercise with 12 seconds rest. Start the phone waiter:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe' -e quickStartPairedValidation true -e quickStartVoiceRestProcessUiValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#prepareVoiceEnabledRestProcessRecovery' -e quickStartVoiceRestProcessUiValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require OK on both peers. Actual Home targets observed native REST speech;
+output/focus releases and exact runtime/ledger/native silence are polled beyond
+the hidden deadline. Voice remains enabled. Close the Activity normally,
+confirm/force-stop a live copied app process (launch only Home if runner exit
+already removed its PID), remove bridge mappings and stop only the copied phone.
+Record original watch airplane mode, enable it only on the copy and reboot to
+clear cached native peer discovery. Dismiss a known post-boot charging overlay
+with Home/Wake before testing. Never reset app data/history or original disks.
+Use the UUID from `voice-rest-process-REQUEST_UUID`:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverExpiredVoiceRestAndCompleteOffline' -e quickStartVoiceRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require no native peers, a fresh PID and exact expired RESTING state/cues at
+entry. Home must retain that witness without creating a session controller or
+owning focus. Only actual Resume opens the session and catches up once: one
+deadline-bound Go, no late warning/rest, exact progress/outcomes/set and one
+runtime revision. `cold-native-timeline.tsv` samples existing production native
+initialization/controller/speech every 20 ms around Resume. The adapter permits
+haptic fallback while TTS initializes; cold Go playback is observed, not
+required. After native initialization, output/controller must settle idle
+without replay. Normal completion must then reach native WORKOUT_SUCCESS and
+save 2/2 sets offline with Waiting to sync and one final-success key.
+
+Restore the original airplane setting, same phone copy and bridge. Use RESULT_ID
+from the full offline final witness and run the existing receipt methods with
+the new explicit flag:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#verifyLifecycleReceiptAfterReconnect' -e quickStartVoiceRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID -e lifecycleResultId RESULT_ID -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#verifyLifecyclePrunedAfterReceipt' -e quickStartVoiceRestProcessUiValidation true -e lifecycleRequestId REQUEST_UUID -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require OK per stage, exact full offline result, exactly one new result/receipt,
+every prior phone record unchanged, pruning/tombstone and original preference/
+legacy-entry equality. Pull Wear `ui-acceptance/voice-rest-process-REQUEST_UUID`
+and phone `voice-rest-process-acceptance/REQUEST_UUID`. Retain PID/force-stop
+proof, timeline, snapshots, screenshots and native focus checks. Ordinary tests
+run without mutation flags; inventory APKs, restore settings and audit original
+disks after copied-AVD shutdown. These emulator observations remain separate
+from physical speech quality/routing/tactile/battery/Play acceptance.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

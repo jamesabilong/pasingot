@@ -9,6 +9,21 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 66 is committed in `7b2fdc3`. Iteration 67 voice-enabled expired-
+  rest process recovery passes on the exact copied emulators. Hidden and fresh
+  Home preserve exact runtime/deadline/cues; actual Resume catches up once with
+  only deadline-bound Go, observed in native playback after initialization.
+  All 2/2 sets save offline with one exact result/receipt and pruning. All 52
+  prior phone records and original legacy entries/preferences stay exact.
+  Five explicit stages, test builds, nine phone/twenty-two ordinary Wear checks,
+  screenshots and crash/settings/focus/matching APK checks pass. No production
+  change is needed. All 16 original source-disk hashes match after stopping
+  only verified copies; Iteration 67 is validated and uncommitted.
+  Stage 19 stays 70/97, physical Phase 4 0/27. Next: voice-enabled
+  fresh-process recovery before a rest deadline, exact deadline/no rest replay
+  and native warning/Go thresholds. This supersedes the
+  Iteration 66 uncommitted status and next action below.
+
 - Iteration 65 is committed in `f02974d`. Iteration 66 voice-enabled
   fresh-process exercise/final-success recovery passes on the exact copied
   emulators, with native silence/no replay while voice stays enabled. All 2/2
@@ -346,10 +361,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 66 voice-enabled
-  fresh-process success recovery acceptance validated in the working tree.
-  Latest commit: Iteration 65 voice-enabled ambient/background recovery
-  acceptance, `f02974d`.
+- Latest implementation checkpoint: Stage 19 Iteration 67 voice-enabled expired-
+  rest process recovery acceptance validated in the working tree. Latest commit:
+  Iteration 66 fresh-process success acceptance, `7b2fdc3`.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.

@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 66 — Voice-enabled fresh-process success recovery validation complete (uncommitted)**
-Previous checkpoint: `f02974d PST01: Validate voice-enabled ambient and background recovery`
+Latest checkpoint: **Iteration 67 — Voice-enabled expired-rest process recovery validation complete (uncommitted)**
+Previous checkpoint: `7b2fdc3 PST01: Validate voice-enabled fresh-process success recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -140,6 +140,24 @@ established. All 16 original source-disk hashes match after stopping only verifi
 copies. Iteration 66 is validated and uncommitted.
 Physical Phase 4 remains 0/27. Next: voice-enabled fresh-process rest/deadline
 recovery, no hidden advancement and exactly-once foreground catch-up.
+
+Iteration 66 is committed in `7b2fdc3`. Iteration 67 validates voice-enabled
+expired-rest recovery in a fresh offline process. Actual Home cancels native
+REST; 101 hidden observations preserve exact runtime/deadline/cues and silence.
+Fresh Home retains that expired witness without a session owner; actual Resume
+commits once with only deadline-bound Go and unchanged progress/outcomes/set.
+A 219-sample native timeline observes initialization, 61 Go/playback samples
+and settled idle without replay. All 2/2 sets complete offline with native
+workout success, one exact result/receipt and pruning. All 52 prior phone records
+and original legacy entries/preferences remain exact. Five explicit stages,
+test APK builds, nine phone/twenty-two ordinary Wear checks and visual/crash/
+settings/focus/matching APK checks pass. The post-boot charging overlay is
+dismissed before acceptance; a 52.6-second phone boot supersedes its 50-second
+host wait. No production change is needed. All 16 original source-disk hashes
+match after stopping only verified copies. Iteration 67 is validated and
+uncommitted. Physical Phase 4 stays 0/27. Next:
+voice-enabled fresh-process recovery before a rest deadline, exact deadline/
+no REST replay and native warning/Go thresholds.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
