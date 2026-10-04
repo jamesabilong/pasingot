@@ -45,7 +45,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PairedQuickStartUiTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
-    private val automation get() = instrumentation.uiAutomation
+    private val automation by lazy { instrumentation.uiAutomation }
     private val artifacts by lazy { File(instrumentation.targetContext.getExternalFilesDir(null), "ui-acceptance").apply { mkdirs() } }
 
     private fun nodes(): List<AccessibilityNodeInfo> {
@@ -117,6 +117,10 @@ class PairedQuickStartUiTest {
             automation.executeShellCommand("getprop ro.boot.qemu.avd_name")
         ).bufferedReader().use { it.readText().trim() }
         assertEquals("Use the isolated UI validation AVD", "Pasingot_Matrix_Wear", avdName)
+        fun presentationShell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
+            automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+        val beforeAnimatorScale = if (args.getString("reducedMotionValidation") == "true")
+            presentationShell("settings get global animator_duration_scale") else null
         val context = instrumentation.targetContext
         val peer = requireNotNull(args.getString("peerNodeId"))
         assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
@@ -138,7 +142,32 @@ class PairedQuickStartUiTest {
             return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
         }
         var scenario: ActivityScenario<WearMainActivity>? = null
+        suspend fun assertReducedMotion() {
+            if (args.getString("reducedMotionValidation") != "true") return
+            presentationShell("settings put global animator_duration_scale 0")
+            var attempts = 0
+            withTimeout(5_000) {
+                while (true) {
+                    var reduced = false
+                    requireNotNull(scenario).onActivity { activity ->
+                        val field = WearMainActivity::class.java.getDeclaredField("presentationPolicy").apply { isAccessible = true }
+                        @Suppress("UNCHECKED_CAST")
+                        val policy = (field.get(activity) as androidx.compose.runtime.State<WatchPresentationPolicy>).value
+                        reduced = policy.reducedMotion
+                        if (!reduced && attempts++ < 3) println("Reduced-motion diagnostic: policy=$policy nativeScale=${android.provider.Settings.Global.getFloat(activity.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, -1f)} lifecycle=${activity.lifecycle.currentState}")
+                        if (reduced) { assertFalse(policy.showDecorativeProgress); assertTrue(policy.allowInteraction) }
+                    }
+                    if (reduced) break
+                    if (attempts <= 3) println("Reduced-motion shell scale=${presentationShell("settings get global animator_duration_scale")}")
+                    delay(50)
+                }
+            }
+            assertEquals("0", presentationShell("settings get global animator_duration_scale"))
+        }
         try {
+            // UiAutomation itself can reset animation scales when it connects.
+            // Apply the acceptance setting after that connection, then restore it.
+            if (beforeAnimatorScale != null) presentationShell("settings put global animator_duration_scale 0")
             runtime.current()?.let { interrupted ->
                 assertEquals("Preserve unrelated workouts", "Emulator UI acceptance", interrupted.sessionPackage.request.title)
                 val models = ViewModelStore()
@@ -154,6 +183,9 @@ class PairedQuickStartUiTest {
                 } finally { withContext(Dispatchers.Main) { models.clear() } }
             }
             assertNull(runtime.current())
+            if (args.getString("unavailableVoiceUiValidation") == "true") {
+                cues.setPreferences(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true))
+            }
             val pending = packages.current(System.currentTimeMillis())
             if (pending != null) {
                 assertEquals("Preserve unrelated offers", "Emulator UI acceptance", pending.request.title)
@@ -161,9 +193,15 @@ class PairedQuickStartUiTest {
                 assertEquals("pending:cleared", probe("ui_cancel_pending"))
                 withTimeout(15_000) { while (packages.current(System.currentTimeMillis()) != null) delay(100) }
             }
+            if (args.getString("reducedMotionValidation") == "true") assertEquals("cleanup:preserved", probe("ui_cleanup_complete"))
             val request = Json.decodeFromString<QuickStartRequest>(probe("ui_offer"))
             withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(100) }
             scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            if (beforeAnimatorScale != null) {
+                presentationShell("settings put global animator_duration_scale 0")
+                assertEquals("0", presentationShell("settings get global animator_duration_scale"))
+            }
+            assertReducedMotion()
             awaitLabel("Emulator UI acceptance")
             awaitLabel("Start")
             capture("01-ready")
@@ -175,6 +213,7 @@ class PairedQuickStartUiTest {
             assertNull("Countdown must not start unseen", runtime.current())
             assertEquals(QuickStartPackageState.READY, packages.current(System.currentTimeMillis())?.state)
             scenario.moveToState(Lifecycle.State.RESUMED)
+            assertReducedMotion()
             tap("Start")
             withTimeout(12_000) { while (runtime.current()?.session?.status != SessionStatus.ACTIVE) delay(100) }
             assertEquals("started:${request.requestId}", probe("ui_started"))
@@ -188,6 +227,7 @@ class PairedQuickStartUiTest {
                 withTimeout(5_000) { while (runtime.current()?.session?.restUntilEpochMillis == prior) delay(50) }
                 assertEquals(prior + seconds * 1_000L, runtime.current()?.session?.restUntilEpochMillis)
             }
+            assertReducedMotion()
             capture("04-rest-extensions")
             withTimeout(65_000) { while (runtime.current()?.session?.restFinalCountdownStarted != true) delay(150) }
             val deadline = runtime.current()?.session?.restUntilEpochMillis
@@ -208,12 +248,14 @@ class PairedQuickStartUiTest {
             withTimeout(10_000) { while (runtime.current()?.session?.exerciseIndex != 1) delay(100) }
             awaitLabel("EXERCISE COMPLETE")
             awaitLabel("Emulator UI B")
+            assertReducedMotion()
             capture("06-exercise-success")
             tap("Pause")
             withTimeout(10_000) { while (runtime.current()?.session?.status != SessionStatus.PAUSED) delay(100) }
             val paused = runtime.current()
             scenario.moveToState(Lifecycle.State.CREATED)
             scenario.moveToState(Lifecycle.State.RESUMED)
+            assertReducedMotion()
             assertEquals(paused, runtime.current())
             tap("Resume")
             withTimeout(5_000) { while (runtime.current()?.session?.status != SessionStatus.RESTING) delay(100) }
@@ -234,10 +276,16 @@ class PairedQuickStartUiTest {
             awaitLabel("Saved on watch")
             withTimeout(15_000) { while (runtime.current() != null) delay(100) }
             assertNull("Synced summary must stop claiming pending sync", find("Waiting to sync"))
+            assertReducedMotion()
             capture("08-saved-summary")
             assertEquals(beforeEntries, repository.entries.first())
             tap("Back to workouts")
             tap("Schedule")
+            if (args.getString("unavailableVoiceUiValidation") == "true") {
+                awaitLabel("No system voice service")
+                awaitLabel("Visual cues and haptics stay active", contains = true)
+                capture("09-voice-unavailable")
+            }
             if (!cues.state().preferences.voiceEnabled) tap("Voice cues")
             withTimeout(5_000) { while (!cues.state().preferences.voiceEnabled) delay(100) }
             val categories = listOf(
@@ -255,6 +303,7 @@ class PairedQuickStartUiTest {
             val disabledCategories = cues.state().preferences
             scenario.recreate()
             awaitLabel("Voice cues")
+            assertReducedMotion()
             assertEquals(disabledCategories, cues.state().preferences)
             for ((name, _) in categories) awaitChecked(name, false)
             tap("Voice cues")
@@ -266,11 +315,17 @@ class PairedQuickStartUiTest {
             assertFalse(cues.state().preferences.voiceEnabled)
             awaitChecked("Voice cues", false)
         } catch (failure: Throwable) {
+            failure.printStackTrace()
             capture("failure")
             throw failure
         } finally {
             scenario?.close()
             cues.setPreferences(beforePreferences)
+            if (beforeAnimatorScale != null) {
+                presentationShell(if (beforeAnimatorScale == "null") "settings delete global animator_duration_scale"
+                    else "settings put global animator_duration_scale $beforeAnimatorScale")
+                assertEquals(beforeAnimatorScale, presentationShell("settings get global animator_duration_scale"))
+            }
             try { assertEquals("finished", probe("finish")) }
             finally { messages.removeListener(listener).await(); replies.close() }
         }

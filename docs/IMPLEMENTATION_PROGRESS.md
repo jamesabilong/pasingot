@@ -3574,3 +3574,106 @@ category/TalkBack suppression, plus reduced-motion rest/success presentation.
 Keep speech intelligibility/overlap, physical speaker/Bluetooth routing,
 tactile delivery, battery and Play acceptance separate. This iteration uses
 voice disabled for driven transitions and restores preferences per stage.
+
+## Iteration 61 — 2026-10-04 — Foreground voice and reduced-motion acceptance
+
+Status: **Validated — native voice/TalkBack/fallback and paired reduced-motion
+UI pass; physical acceptance remains open.**
+
+Starting checkpoint: `965becd PST01: Validate ambient and offline process
+recovery`, committed at the user's request with a clean working tree.
+Continue on the exact isolated AVD copies. Stage 19 stays 70/97; physical
+Phase 4 stays 0/27.
+
+Next action: exercise actual Android TTS availability and native accessibility
+suppression, category gating and duplicate prevention; run the existing real
+paired session/settings UI flow with system animator scale zero and verify
+rest/success presentation and unchanged session timing. Preserve source disks,
+existing workout data and system preferences. Record emulator limitations
+separately from physical speech, haptics, routing and battery acceptance.
+
+Findings in progress:
+
+- Source pre-launch audit passes all 16 hashes. Native foreground and actual
+  Google TalkBack runs each pass one test: six enabled cues report SPOKEN;
+  category/voice suppression retains native haptic calls and duplicate
+  controller/store recreation emits nothing. These initial runs precede the
+  production fix below and will be repeated on the final APK.
+- Disabling only the copied image's Google TTS package exposes a real defect:
+  availability stays CHECKING and the native test times out. Installed SDK
+  TextToSpeech source confirms missing-engine failure can call onInit inside
+  construction. The old callback reads an unassigned tts field and returns;
+  the later init block reports CHECKING. Move CHECKING before construction and
+  defer callback processing to the main handler, ignoring closed owners.
+  Relevant builds/JVM/native/UI checks remain pending. Original package,
+  accessibility and animator settings will be restored before shutdown.
+- Fixed APK passes the missing-engine regression (one native test) and all
+  199 Wear JVM tests, with production/test APK builds passing. Reduced-motion
+  UI attempts exposed harness resets of system animator scale across automation/
+  lifecycle changes and legitimate cleanup of the earlier owned synthetic
+  fixture. Retain these failures. Apply actual scale zero at each validation
+  point, wait for the Activity observer, use a stable automation connection,
+  and baseline phone preservation only after exact checks of unrelated records
+  and normal owned-fixture cancellation/ended-result receipt. Final paired UI
+  and final-APK available-engine/TalkBack runs remain pending.
+
+Final validation and closure:
+
+- Final production APK passes **OK (1 test)** in each of
+  `iteration-61-native-{foreground-fixed,talkback-fixed,unavailable-fixed}.log`.
+  Available TTS reports AVAILABLE and all six enabled cue kinds return SPOKEN.
+  Category-disabled and voice-disabled kinds make no speech calls; all 18
+  events reserve before native haptic output. Each duplicate is rejected after
+  controller/store recreation without speech or haptic output. Real Google
+  TalkBack with native touch exploration makes zero speech calls for all 18
+  events while retaining haptic calls. Missing-engine discovery reports
+  SERVICE_UNAVAILABLE; initialization promptly reports INITIALIZATION_FAILED,
+  and all requested speech falls back. Isolated serialized persistence and
+  short Go utterances cover dispatch, not full-script intelligibility or
+  physical tactile quality. No production preferences/session state is changed
+  by the native controller fixture.
+- Final paired presentation passes **OK (1 test) per peer** in
+  `iteration-61-diagnostic-{phone,wear}.log` (final successful diagnostic run).
+  Actual zero-scale Activity policy suppresses decorative progress at rest,
+  exercise/final success and recreated settings validation points. Exact
+  +5/+10/+30 deadlines, final-five extension lock, paused progress, complete
+  result, receipt and pruning still pass with voice enabled and TTS unavailable.
+  Real settings display No system voice service and visual/haptic fallback.
+  Category/voice preferences persist across recreation and are restored.
+  Earlier scale-reset timeouts and owned-fixture cleanup failures remain
+  historical harness evidence, superseded by stable connection, actual setting
+  application, asynchronous policy observation and scoped cleanup baselining.
+- Phone full-JSON comparison independently confirms all **43 prior records**
+  exact, **44 after**, receipts **20 -> 21**, for final request
+  `d7c46fae-e2fd-49f0-a410-a153c87d48de`. Only owned interrupted synthetic
+  fixtures are normally ended/cancelled before the preservation baseline.
+  Wear legacy entries remain exact. Retained artifacts are
+  `iteration-61-ui-artifacts`, `iteration-61-phone-artifacts` and
+  `iteration-61-native-final-artifacts`; reviewed static rest, success/saved
+  summary and unavailable-voice guidance. Exercise-success heading semantics
+  pass; that capture is scrolled to the next exercise/rest controls.
+- Production Wear and both final test APK builds pass. All **199 Wear JVM
+  tests** pass with zero failures/errors. Ordinary instrumentation passes
+  **9 phone / 13 Wear tests**, mutation fixtures skipped without flags. Crash
+  buffers are empty. PWA/shared/phone production code is unchanged; their prior
+  baselines remain applicable rather than freshly rerun.
+- Inventory `20261004T015904012Z-iteration-61-final` records API 35/API 37,
+  app 1.0/code 1, matching installed/local production APK hashes. Original
+  Google TTS package state is restored to default (enabled=0), accessibility
+  service setting to absent, accessibility/touch exploration to 0, animator
+  scale to 1.0 and airplane mode to 0. Only exact verified copied AVDs are
+  stopped; all **16 source disk hashes** remain unchanged in
+  `iteration-61-source-disk-after.json` and ADB reports no remaining devices.
+
+Completed: synchronous TTS initialization correction and repeatable native
+availability/category/voice/TalkBack/duplicate/fallback acceptance, plus paired
+reduced-motion rest/success/settings and exact record preservation. Relevant
+build/JVM/native/visual/settings/preservation checks pass, closing Iteration 61
+code/emulator validation. Stage 19 stays **70/97 (72%)**, physical Phase 4
+stays **0/27**. Final Git audit keeps `965becd` as HEAD; Iteration 61 changes
+are validated and uncommitted.
+
+Remaining/next action: continue emulator native speech cancellation on pause,
+Start now, navigation and end, followed by audio-focus/language fallback.
+Full-script speech intelligibility/overlap, physical speaker/Bluetooth routing,
+tactile delivery, battery and Play acceptance retain separate physical evidence.

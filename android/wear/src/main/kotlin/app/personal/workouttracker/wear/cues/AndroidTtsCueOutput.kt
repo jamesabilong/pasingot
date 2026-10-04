@@ -7,6 +7,8 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.speech.tts.TextToSpeech
@@ -43,26 +45,33 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     @Volatile private var closed = false
     @Volatile private var languageSupported = false
     private var audioCallbackRegistered = false
-    private var tts: TextToSpeech? = TextToSpeech(appContext, this)
+    private val initializationHandler = Handler(Looper.getMainLooper())
+    private var tts: TextToSpeech? = null
 
     init {
         VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.CHECKING)
+        tts = TextToSpeech(appContext, this)
     }
 
     override val talkBackEnabled: Boolean
         get() = accessibilityManager?.isEnabled == true && accessibilityManager.isTouchExplorationEnabled
 
     override fun onInit(status: Int) {
-        val engine = tts ?: return
-        initialized = status == TextToSpeech.SUCCESS
-        languageSupported = initialized && engine.setLanguage(Locale.getDefault()) !in
-            setOf(TextToSpeech.LANG_MISSING_DATA, TextToSpeech.LANG_NOT_SUPPORTED)
-        if (initialized && languageSupported) {
-            engine.setAudioAttributes(audioAttributes)
-            audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
-            audioCallbackRegistered = true
+        // Missing engines can call onInit synchronously inside the constructor.
+        // Defer until tts is assigned, and ignore callbacks after owner teardown.
+        initializationHandler.post {
+            if (closed) return@post
+            val engine = tts ?: return@post
+            initialized = status == TextToSpeech.SUCCESS
+            languageSupported = initialized && engine.setLanguage(Locale.getDefault()) !in
+                setOf(TextToSpeech.LANG_MISSING_DATA, TextToSpeech.LANG_NOT_SUPPORTED)
+            if (initialized && languageSupported) {
+                engine.setAudioAttributes(audioAttributes)
+                audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
+                audioCallbackRegistered = true
+            }
+            reportAvailability()
         }
-        reportAvailability()
     }
 
     override suspend fun speak(utteranceId: String, text: String): Boolean {

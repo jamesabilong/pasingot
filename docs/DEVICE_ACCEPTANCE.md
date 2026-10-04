@@ -62,6 +62,50 @@ outside this fixture's evidence.
 
 ## Phase 4 evidence protocol
 
+### Native voice and reduced-motion emulator checks
+
+Iteration 61 adds `NativeVoiceCueAcceptanceTest`, gated by
+`nativeVoiceCueValidation=true`, emulator hardware and `Pasingot_Matrix_Wear`.
+It wraps the actual Android output to count speech/haptic calls, using isolated
+serialized cue persistence rather than changing production session/preferences.
+Each of six cue kinds is emitted enabled, category-disabled and voice-disabled;
+controller/store recreation must reject each duplicate. Short `Go.` utterances
+exercise native completion; they do not establish prescription intelligibility.
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class app.personal.workouttracker.wear.cues.NativeVoiceCueAcceptanceTest -e nativeVoiceCueValidation true -e expectTalkBack false app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+For actual TalkBack suppression, record original accessibility settings, enable
+the installed TalkBack service only on the verified copy, then pass
+`expectTalkBack=true`. The test uses
+`UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES` and requires an actual
+enabled TalkBack package plus native touch exploration. Restore settings before
+the normal UI flow. Record the installed TTS package's original enabled state;
+temporarily disable it only on the copy and pass `expectUnavailableVoice=true`
+to verify SERVICE_UNAVAILABLE discovery, initialization failure and fallback.
+Restore the exact original package state afterward. Evidence is written under
+external files `voice-acceptance/{foreground,talkback,unavailable}.txt`.
+
+Run the existing paired `serveProductionTransportProbe` and
+`countdownRestAndRecoveryThroughRealUi` methods with their usual UI/peer flags
+and add `reducedMotionValidation=true` on both peers. With TTS disabled, also
+pass `unavailableVoiceUiValidation=true` on Wear. The driver enables voice for
+the fallback run, restores preferences, sets actual system animator scale zero
+at validation points, verifies Activity policy/decorative-progress suppression,
+and restores the original scale. Automation/lifecycle transitions can reset
+the scale, so assertions wait for the real observer rather than injecting policy.
+Rest extension deadlines, final-five locks, exercise/final success, receipts,
+legacy entries and category preference recreation must still pass. The phone
+checks exact prior records and one new result/receipt; only an explicitly owned
+interrupted UI fixture may be normally ended/cancelled before the new baseline.
+Before/after records are retained under `presentation-acceptance/REQUEST_UUID`.
+
+Require **OK (1 test)** for each explicit run. Ordinary instrumentation skips
+these mutation checks without flags. Retain failures as historical evidence;
+review rest/success/fallback screenshots and audit source disks after shutdown.
+Physical speech quality, tactile delivery, routing and battery remain separate.
+
 ### Staged countdown, active ambient and process-death recovery
 
 Iteration 60 extends the existing paired UI/probe classes with explicit staged

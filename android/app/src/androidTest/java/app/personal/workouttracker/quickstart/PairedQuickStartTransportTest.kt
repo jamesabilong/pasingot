@@ -48,7 +48,8 @@ class PairedQuickStartTransportTest {
         assumeTrue(args.getString("quickStartPairedValidation") == "true")
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
         if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
-            args.getString("quickStartLifecycleUiPairedValidation") == "true") {
+            args.getString("quickStartLifecycleUiPairedValidation") == "true" ||
+            args.getString("reducedMotionValidation") == "true") {
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             val avdName = ParcelFileDescriptor.AutoCloseInputStream(
                 automation.executeShellCommand("getprop ro.boot.qemu.avd_name")
@@ -61,19 +62,42 @@ class PairedQuickStartTransportTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val messages = Wearable.getMessageClient(context)
         val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
-        val beforeReceipts = store.recordsWithResultReceipts()
-        val beforeRecords = store.recordsForTransportRecovery()
+        var beforeReceipts = store.recordsWithResultReceipts()
+        var beforeRecords = store.recordsForTransportRecovery()
         // Prefer an explicit seed; otherwise use the newest completion bound to this peer.
         completedFixtureId = args.getString("completedRequestId") ?: store.recordsWithResultReceipts()
             .lastOrNull { it.request.targetNodeId == peer }?.request?.requestId
         requireNotNull(completedFixtureId) { "Complete a Quick Start on this paired watch before running the matrix" }
         var cancelledFixtureId: String? = null
+        var cancelledPriorUiRecord: PhoneQuickStartRecord? = null
         val listener = MessageClient.OnMessageReceivedListener { event ->
             if (event.sourceNodeId != peer || event.path != PROBE_PATH) return@OnMessageReceivedListener
             scope.launch {
                 val command = event.data.toString(Charsets.UTF_8)
                 val reply = try {
                     when (command) {
+                        "ui_cleanup_complete" -> {
+                            check(args.getString("reducedMotionValidation") == "true")
+                            for (record in beforeRecords) {
+                                if (record.request.title == "Emulator UI acceptance" &&
+                                    record.request.targetNodeId == peer &&
+                                    record.acknowledgement?.status == QuickStartStatus.STARTED && record.finalResult == null) {
+                                    withTimeout(15_000) {
+                                        while (store.current(record.request.requestId)?.resultReceipt == null) delay(100)
+                                    }
+                                    val ended = requireNotNull(store.current(record.request.requestId))
+                                    assertEquals(record.request, ended.request)
+                                    assertNotNull(ended.finalResult?.endedSummary)
+                                } else {
+                                    val expected = cancelledPriorUiRecord?.takeIf { it.request.requestId == record.request.requestId } ?: record
+                                    assertEquals(expected, store.current(record.request.requestId))
+                                }
+                            }
+                            beforeRecords = store.recordsForTransportRecovery()
+                            beforeReceipts = store.recordsWithResultReceipts()
+                            cancelledPriorUiRecord = null
+                            "cleanup:preserved"
+                        }
                         "availability" -> when (val value = WatchQuickStartClient(context).availability()) {
                             is WatchQuickStartAvailability.Available -> "available:${value.watchNodeId}"
                             is WatchQuickStartAvailability.Unavailable -> "unavailable:${value.reason}"
@@ -127,6 +151,10 @@ class PairedQuickStartTransportTest {
                                 while (store.current(request.requestId)?.acknowledgement?.status != QuickStartStatus.READY) delay(200)
                             }
                             completedFixtureId = request.requestId
+                            if (args.getString("reducedMotionValidation") == "true") {
+                                val folder = File(context.getExternalFilesDir(null), "presentation-acceptance/${request.requestId}").apply { mkdirs() }
+                                File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
+                            }
                             if (lifecycle) {
                                 val folder = File(context.getExternalFilesDir(null), "lifecycle-acceptance/${request.requestId}").apply { mkdirs() }
                                 File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
@@ -146,6 +174,7 @@ class PairedQuickStartTransportTest {
                                 withTimeout(15_000) {
                                     while (store.current(pending.request.requestId)?.acknowledgement?.status != QuickStartStatus.CANCELLED) delay(100)
                                 }
+                                cancelledPriorUiRecord = store.current(pending.request.requestId)
                             }
                             "pending:cleared"
                         }
@@ -178,11 +207,19 @@ class PairedQuickStartTransportTest {
                         }
                         "finish" -> {
                             if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
-                                args.getString("quickStartLifecycleUiPairedValidation") == "true") {
-                                for (record in beforeRecords) assertEquals(record, store.current(record.request.requestId))
+                                args.getString("quickStartLifecycleUiPairedValidation") == "true" ||
+                                args.getString("reducedMotionValidation") == "true") {
+                                for (record in beforeRecords) {
+                                    val expected = cancelledPriorUiRecord?.takeIf { it.request.requestId == record.request.requestId } ?: record
+                                    assertEquals(expected, store.current(record.request.requestId))
+                                }
                                 assertEquals(beforeRecords.size + 1, store.recordsForTransportRecovery().size)
                                 store.current(requiredRequestId())?.resultReceipt?.let {
                                     assertEquals(beforeReceipts.size + 1, store.recordsWithResultReceipts().size)
+                                }
+                                if (args.getString("reducedMotionValidation") == "true") {
+                                    val folder = File(context.getExternalFilesDir(null), "presentation-acceptance/${requiredRequestId()}")
+                                    File(folder, "after-records.json").writeText(json.encodeToString(store.recordsForTransportRecovery()))
                                 }
                             }
                             "finished"

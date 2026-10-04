@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 60 — staged lifecycle/process-death validation complete (uncommitted)**
-Previous checkpoint: `573ad28 PST01: Fix ambient session visibility and validate cue recovery`
+Latest checkpoint: **Iteration 61 — native voice and reduced-motion validation complete (uncommitted)**
+Previous checkpoint: `965becd PST01: Validate ambient and offline process recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -53,6 +53,19 @@ twelve Wear ordinary checks and all 16 original disk hashes pass. A stopped-
 phone stale-discovery timeout is superseded by airplane/mapping isolation and
 copied-watch reboot; original settings are restored. No production change is
 needed. Physical Phase 4 remains 0/27.
+
+Iteration 60 is committed in `965becd`. Iteration 61 fixes synchronous missing-
+engine initialization leaving voice status at Checking. Final native tests pass
+actual TTS completion, category/voice suppression, real Google TalkBack touch-
+exploration suppression and unavailable-engine fallback, with duplicate output
+prevented after controller/store recreation. Paired UI passes actual zero-scale
+policy and static rest/success, unchanged deadline locks, saved summary and
+unavailable-voice guidance; 43 prior phone records stay exact and one new result/
+receipt is added. Both test builds, production Wear build, all 199 Wear JVM
+tests, nine phone/thirteen Wear ordinary checks, visual review, settings restore
+and 16 original source disk hashes pass. Historical failed harness attempts are
+retained; acceptance applies actual scale at validation points because automation/
+lifecycle transitions can reset it. Physical Phase 4 remains 0/27.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -824,7 +837,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-04, Iteration 60
+### Progress audit — 2026-10-04, Iteration 61
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -836,7 +849,7 @@ stands at **70/97 items (72%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone entry/request states, cue ledger, actual countdown/active/rest ambient and Activity/fresh-process success recovery pass on emulators; audible cues and physical evidence remain open |
+| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback and reduced-motion rest/success pass on emulators; physical audio, routing, tactile and battery evidence remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1244,8 +1257,10 @@ recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 4 — Paired-device acceptance.
 **Exact next action:** continue on the isolated phone/watch emulators as directed
-by the user. Validate foreground voice availability, category/TalkBack
-suppression and reduced-motion rest/success presentation. Iteration 60 closes
+by the user. Validate native speech cancellation on pause, Start now, navigation
+and end, then native audio-focus/language fallback. Iteration 61 closes actual
+foreground availability, category/voice/TalkBack suppression, unavailable-
+engine fallback and reduced-motion rest/success presentation. Iteration 60 closes
 actual countdown ambient cancellation/retry, active-set screen-off and staged
 exercise/final-success fresh-process recovery before the phone receipt.
 Iteration 59 closes short-rest durable cue sequences, success Activity

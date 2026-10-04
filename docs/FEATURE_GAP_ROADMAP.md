@@ -43,6 +43,17 @@ is committed in `573ad28`; Iteration 60 test/docs are validated and uncommitted.
 Stage 19 stays 70/97 and physical Phase 4 stays 0/27. Emulator voice/category/
 TalkBack and reduced-motion checks remain next.
 
+2026-10-04 Iteration 61 supersedes those next actions and uncommitted checkpoint
+labels: Iteration 60 is committed in `965becd`. Native TTS availability, actual
+TalkBack/category/voice suppression, duplicate recreation and missing-engine
+fallback pass on the copied Wear image. It fixes synchronous initialization
+failure stuck at Checking. Paired reduced-motion rest/success/settings, exact
+prior records plus one receipt, 199 Wear JVM tests, nine phone/thirteen Wear
+ordinary tests, builds and all 16 source disk hashes pass. Settings are restored.
+Iteration 61 is validated and uncommitted. Stage 19 stays 70/97 and physical
+Phase 4 stays 0/27; emulator speech cancellation and focus/language fallback
+are next. Physical audio, routing, tactile and battery acceptance remain open.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/
