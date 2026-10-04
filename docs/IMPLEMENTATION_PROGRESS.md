@@ -3860,3 +3860,130 @@ Iteration 63 test/docs changes remain, validated and uncommitted. Completed:
 real voice-enabled UI interruption/replacement, exact Back/rest recovery and
 safe partial End/receipt acceptance, with native focus and preservation
 witnesses. Stage 19 remains **70/97 (72%)**, physical Phase 4 **0/27**.
+
+## Iteration 64 — 2026-10-04 — Voice-enabled short-rest and transition acceptance
+
+Status: **Complete — code/emulator validation passed; physical Phase 4 remains open.**
+
+Starting checkpoint: `02ee2f7 PST01: Validate voice-enabled Wear UI interruption`,
+committed at the user's request with a clean working tree. Continue on the
+exact copied AVD pair; Stage 19 remains 70/97, physical Phase 4 remains 0/27.
+
+Next action: enable all production cue categories and drive 0/3/5/6/8/10/12/20-
+second rests and exercise transitions through the actual Wear UI. Observe the
+existing native TTS owner/controller without replacing output or scripts;
+verify durable cue/countdown order, unchanged deadlines/progress, terminal
+receipt and no success replay after recreation. Preserve prior records,
+legacy entries/preferences and original source disks. Native playback ordering
+is emulator evidence, separately from physical intelligibility/overlap,
+routing, tactile, battery and Play acceptance.
+
+Implementation: the guarded phone fixture creates eight two-set exercises
+with 0/3/5/6/8/10/12/20-second rests. Wear uses real controls and natural
+countdown expiry, with every voice category enabled. A read-only 20-ms sampler
+records native isSpeaking and the production controller's current cue key;
+these are correlated observations, not physical overlap/quality measurements.
+The harness checks exact cue sequences/deadlines, native warning/Go/rest
+playback, naturally preempted short success, full result/receipt, terminal
+recreation silence and preservation. The first compile exposed a nullable
+sampler reference; it is corrected in test code, with rebuild pending.
+All 16 original source disks match before launch; copied AVD identities,
+boot completion, bridge and Wear accessibility/animator baselines are verified.
+
+First paired attempt: durable Started arrived while the countdown Go overlay
+was still opening the session screen, so the read-only observer found no
+SessionViewModel yet. Add the actual Complete set readiness wait before native
+observation; this is a harness synchronization correction, not a production
+defect. The owned fixture is normally ended with a receipt and preferences
+restored; first logs/artifacts are retained as superseded evidence. Native
+matrix acceptance remains pending.
+
+Production finding: second paired run passes rests 0/3 and same-exercise 5,
+but the five-second exercise transition reserves its warning while the native
+queue remains speaking with controllerKey=null. The timeline retains the
+old success -> null/speaking -> idle -> Go sequence. Android QUEUE_FLUSH can
+deliver an old stop callback to the newly installed listener; the current
+adapter finishes/unfocuses on any stop/error and even treats old Done as failure.
+This is a production callback ownership defect, not a script/ledger assertion
+to relax. Fix every callback to match its utterance and finish once, and guard
+native stop/focus release with a unique speech lease under one lock so old
+completion/cancellation cannot affect a replacement. Add JVM regression cases
+for stale/absent IDs and completion/cancellation duplicates. Rebuild production
+Wear and test APKs, rerun Wear JVM/native interruption and the paired matrix.
+The owned failed fixture is normally ended/receipted; earlier logs/artifacts
+and original preferences/history remain preserved. Acceptance stays pending.
+
+Fix validation: the production Wear APK and both test APK builds pass;
+all **204 Wear JVM tests** pass with zero failures/errors (three added callback
+regression cases). Native adapter callbacks now match their utterance, complete
+once, and only the current unique lease releases focus. Explicit cancellation
+finishes the owned coroutine without relying on delivery to a replaced
+listener; old completion/timeout cannot stop a newer queue. Focus-loss/route
+cancellation uses the same ownership path. The production APK and Wear test
+APK are installed only on the verified copy. Native regression and final
+paired matrix acceptance are pending; earlier failed artifacts remain retained.
+
+Final acceptance/checks:
+
+- Final paired runs pass **OK (1 test)** on both peers in
+  `iteration-64-phone-voice-matrix.log` and `iteration-64-wear-voice-matrix.log`.
+  Request `adcc7833-1c57-4924-818c-eb7668fcc894` completes all eight exercises,
+  **16/16 sets**, a completed summary and the exact phone result receipt.
+  Runtime/package/ledger prune and terminal success does not replay through
+  actual Activity recreation, with native output/focus idle.
+- **15 phase checks** cover eight same-exercise rests and seven natural
+  exercise transitions. Same-exercise <=10 seconds omit REST; 12/20 require
+  REST/FIVE_SECONDS/GO. Transitions reserve EXERCISE_SUCCESS/FIVE_SECONDS/GO
+  (zero rest has only success), allowing short success preemption at <=5.
+  All required native playback samples occur with the corresponding production
+  controller key. The previously failing five-second transition now observes
+  the real warning through playback and then Go. Final native observations
+  cover **36 distinct cue keys**, including workout success. Independent
+  `iteration-64-native-thresholds.json` validates all **26 warning/Go samples**
+  against their thresholds across both rest and transition phases. Sampling
+  correlates native state/controller identity; it does not measure physical
+  sound intelligibility, acoustic overlap or latency.
+- Independent `iteration-64-preservation-validated.json` proves **48/48 prior
+  phone records exact**, records **48 -> 49**, receipts **25 -> 26**, exact
+  original legacy-entry JSON and exact restored preference JSON. The two
+  normally ended failed synthetic fixtures remain in that baseline/history;
+  data is never cleared. Wear/phone evidence is retained in
+  `iteration-64-validated-wear-artifacts` / `iteration-64-validated-phone-artifacts`.
+- Native regression passes **OK (3 tests)** with both explicit flags after
+  installing the fix. Pause/Start now/navigation/end stop actual speech and
+  allow fresh SPOKEN output; priority replacement returns old HAPTIC_ONLY/new
+  SPOKEN, rejecting duplicates. Real focus loss/locked denial and language
+  fallback/recovery pass. All three cue/runtime/legacy before/after witnesses
+  remain exact in `iteration-64-native-preservation.json`; native focus lock
+  and shell identity are released. No call is made. Reported cancel-plus-short-
+  recovery times are 675/678/657/657 ms, separately from UI action timing.
+- Final production Wear/test builds and all **204 Wear JVM tests** pass;
+  three new cases cover stale IDs, null IDs and duplicate/cancellation
+  completion. Ordinary checks with flags absent pass **9 phone / 18 Wear**;
+  guarded mutation methods skip normally. Both crash buffers are empty,
+  screenshots show readable exercise success and 16/16 saved completion,
+  and `git diff --check` passes. Shared 78/phone 28 JVM and PWA baselines remain
+  applicable, not rerun because this production change is confined to Wear TTS.
+- Paired inventory `20261004T053503122Z-iteration-64-final` records phone API 35/
+  Wear API 37, app 1.0/code 1 and matching installed/local production APKs.
+  Wear hash is now `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`;
+  phone hash remains `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+  Wear accessibility remains absent/0, touch exploration 0, animator scale 1.0,
+  and final native focus has no production owner. Only the verified copied
+  AVD pair is stopped. Final source-disk audit is pending.
+
+Completed code/emulator checks: native callback/ownership fix, stale-callback
+regressions, natural voice-enabled rest/transition/result/recreation acceptance
+and preservation witnesses. Closure awaits the disk audit/final Git check;
+Stage 19 stays **70/97 (72%)**, physical Phase 4 **0/27**. Next: voice-enabled
+ambient/background cancellation and deadline recovery with actual native
+playback/silence, exact saved progress/ledger and result checks. Physical
+intelligibility/overlap, speaker/Bluetooth/call routing, tactile, battery and
+Play acceptance remain separate.
+
+Final closure supersedes the pending disk audit above: all **16 original disk
+hashes** match the baseline after stopping only the verified copies, in
+`iteration-64-source-disk-after.json`. ADB reports no remaining devices.
+Final Git audit confirms `02ee2f7` as HEAD; only Iteration 64 source/tests/docs
+remain, validated and uncommitted. All relevant build/JVM/native/paired/UI/
+preservation/crash/settings/focus/source checks pass, closing this iteration.

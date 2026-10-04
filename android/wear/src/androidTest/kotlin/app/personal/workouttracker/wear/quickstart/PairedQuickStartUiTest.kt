@@ -25,6 +25,9 @@ import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
 import java.io.File
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -523,7 +526,7 @@ class PairedQuickStartUiTest {
         automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
 
     /** Read the on-screen production owner's native state; never substitute its output/listener. */
-    private fun productionSpeechOwner(scenario: ActivityScenario<WearMainActivity>): Any {
+    private fun productionCueController(scenario: ActivityScenario<WearMainActivity>): Any {
         var owner: Any? = null
         scenario.onActivity { activity ->
             val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<ViewModelStore, Boolean>())
@@ -539,7 +542,7 @@ class PairedQuickStartUiTest {
                         assertNull("Multiple session speech owners", owner)
                         fun field(instance: Any, name: String): Any = instance.javaClass.getDeclaredField(name)
                             .apply { isAccessible = true }.get(instance)!!
-                        owner = field(field(field(model, "cueEmitter"), "controller"), "output")
+                        owner = field(field(model, "cueEmitter"), "controller")
                     } else if (model.javaClass.simpleName == "NavControllerViewModel") {
                         values(model).filterIsInstance<ViewModelStore>().forEach(::visit)
                     }
@@ -547,10 +550,12 @@ class PairedQuickStartUiTest {
             }
             visit(activity.viewModelStore)
         }
-        return requireNotNull(owner) { "No on-screen production SessionViewModel" }.also {
-            assertEquals("AndroidTtsCueOutput", it.javaClass.simpleName)
-        }
+        return requireNotNull(owner) { "No on-screen production SessionViewModel" }
     }
+
+    private fun productionSpeechOwner(scenario: ActivityScenario<WearMainActivity>): Any =
+        productionCueController(scenario).let { requireNotNull(it.javaClass.getDeclaredField("output").apply { isAccessible = true }.get(it)) }
+            .also { assertEquals("AndroidTtsCueOutput", it.javaClass.simpleName) }
 
     @Test fun voiceEnabledCancellationThroughRealUi() = runBlocking {
         val args = InstrumentationRegistry.getArguments()
@@ -743,6 +748,224 @@ class PairedQuickStartUiTest {
             runCatching { scenario?.close(); scenario = null; endOwnedFixture() }.exceptionOrNull()?.let(failure::addSuppressed)
             throw failure
         } finally {
+            scenario?.close()
+            cues.setPreferences(originalPreferences)
+            assertEquals(originalPreferences, cues.state().preferences)
+            folder?.let { File(it, "after-preferences.json").writeText(Json.encodeToString(cues.state().preferences)) }
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
+    @Test fun voiceEnabledShortRestsAndTransitionsThroughRealUi() = runBlocking {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(args.getString("quickStartVoiceMatrixUiValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        val beforeEntries = repository.entries.first()
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val originalPreferences = cues.state().preferences
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH)
+                replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        suspend fun state(predicate: (QuickStartRuntimeState) -> Boolean): QuickStartRuntimeState = withTimeout(35_000) {
+            while (true) {
+                runtime.current()?.takeIf(predicate)?.let { return@withTimeout it }
+                delay(25)
+            }
+            @Suppress("UNREACHABLE_CODE") error("Missing voice matrix state")
+        }
+        fun field(instance: Any, name: String): Any? = instance.javaClass.getDeclaredField(name)
+            .apply { isAccessible = true }.get(instance)
+        fun engine(owner: Any) = field(owner, "tts") as? android.speech.tts.TextToSpeech
+        fun active(controller: Any) = field(controller, "active") as? app.personal.workouttracker.wear.cues.WatchCueEvent
+        fun focusStack(dump: String) = dump.substringAfter("Audio Focus stack entries (last is top of stack):")
+            .substringBefore("No external focus policy").substringBefore("External focus policy")
+        data class Observation(val wall: Long, val elapsed: Long, val key: String?, val speaking: Boolean)
+        val trace = mutableListOf<Observation>()
+        var sampler: kotlinx.coroutines.Job? = null
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        var folder: File? = null
+        suspend fun idle(controller: Any, owner: Any) {
+            withTimeout(7_000) { while (active(controller) != null || engine(owner)?.isSpeaking == true) delay(25) }
+            assertFalse("Cue focus must release after native output", focusStack(lifecycleShell("dumpsys audio"))
+                .contains("pack: app.personal.workouttracker"))
+        }
+        suspend fun evidence(name: String) = lifecycleEvidence(requireNotNull(folder), name)
+        suspend fun endOwnedFixture() {
+            runtime.current()?.let { interrupted ->
+                assertEquals("Preserve unrelated workouts", "Emulator voice matrix", interrupted.sessionPackage.request.title)
+                val models = ViewModelStore()
+                val model = withContext(Dispatchers.Main) {
+                    SessionViewModel.QuickStartFactory(interrupted.sessionPackage.request.requestId, context)
+                        .create(SessionViewModel::class.java).also { models.put("voice-matrix-cleanup", it) }
+                }
+                try {
+                    withTimeout(15_000) { while (model.uiState.value.loading) delay(100) }
+                    assertNull(model.uiState.value.error)
+                    withContext(Dispatchers.Main) { model.onEndWorkout() }
+                    withTimeout(15_000) { while (runtime.current() != null) delay(100) }
+                } finally { withContext(Dispatchers.Main) { models.clear() } }
+            }
+        }
+        try {
+            endOwnedFixture()
+            packages.current(System.currentTimeMillis())?.let {
+                assertEquals("Emulator voice matrix", it.request.title)
+                assertEquals(QuickStartPackageState.READY, it.state)
+                assertEquals("pending:cleared", probe("ui_cancel_pending"))
+                withTimeout(15_000) { while (packages.current(System.currentTimeMillis()) != null) delay(100) }
+            }
+            assertEquals("cleanup:preserved", probe("ui_voice_matrix_cleanup_complete"))
+            cues.setPreferences(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_voice_matrix_offer"))
+            folder = File(artifacts, "voice-matrix-${request.requestId}").apply { mkdirs() }
+            File(folder, "request.json").writeText(Json.encodeToString(request))
+            File(folder, "before-entries.json").writeText(Json.encodeToString(beforeEntries))
+            File(folder, "before-preferences.json").writeText(Json.encodeToString(originalPreferences))
+            withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(50) }
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator voice matrix")
+            tap("Start")
+            state { it.session.status == SessionStatus.ACTIVE }
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            awaitLabel("Complete set")
+            val controller = productionCueController(scenario)
+            val owner = requireNotNull(field(controller, "output"))
+            assertEquals("AndroidTtsCueOutput", owner.javaClass.simpleName)
+            withTimeout(10_000) {
+                while (field(owner, "initialized") != true || field(owner, "languageSupported") != true) delay(25)
+            }
+            idle(controller, owner)
+            sampler = launch {
+                while (isActive) {
+                    val observation = withContext(Dispatchers.Main) {
+                        Observation(System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime(),
+                            active(controller)?.key, engine(owner)?.isSpeaking == true)
+                    }
+                    val prior = trace.lastOrNull()
+                    if (prior == null || prior.key != observation.key || prior.speaking != observation.speaking) trace += observation
+                    delay(20)
+                }
+            }
+            val checks = mutableListOf<String>()
+            for ((index, seconds) in listOf(0, 3, 5, 6, 8, 10, 12, 20).withIndex()) {
+                val prior = state { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index && it.session.currentSet == 1 }
+                idle(controller, owner)
+                val beforeRest = cues.state().ledger.deliveredKeys
+                val traceStart = trace.size
+                tap("Complete set")
+                val entered = state { it.session.exerciseIndex == index && it.session.currentSet == 2 }
+                val deadline = entered.session.restUntilEpochMillis
+                val expectedRest = when { seconds == 0 -> emptyList()
+                    seconds > 10 -> listOf("REST", "FIVE_SECONDS", "GO")
+                    else -> listOf("FIVE_SECONDS", "GO") }
+                val afterRest = state { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index && it.session.currentSet == 2 }
+                assertEquals(prior.outcomes.exercises[index].completedSets + 1, afterRest.outcomes.exercises[index].completedSets)
+                withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.filter { it !in beforeRest }.size < expectedRest.size) delay(25) }
+                val restKeys = cues.state().ledger.deliveredKeys.filter { it !in beforeRest }
+                assertEquals("Same-exercise rest $seconds", expectedRest, restKeys.map { it.split('|')[4] })
+                assertEquals(restKeys.size, restKeys.distinct().size)
+                if (seconds > 0) {
+                    assertNotNull(deadline)
+                    assertTrue("Rest must not advance before its deadline", System.currentTimeMillis() >= requireNotNull(deadline))
+                    assertTrue(restKeys.all { it.endsWith("|$deadline") })
+                }
+                idle(controller, owner)
+                val samples = trace.drop(traceStart)
+                for (kind in expectedRest) {
+                    assertTrue("Native playback missing for rest $seconds $kind: $samples", samples.any { it.speaking && it.key?.split('|')?.get(4) == kind })
+                }
+                if (deadline != null) {
+                    assertTrue(samples.filter { it.speaking && it.key?.contains("|GO|") == true }.all { it.wall >= deadline })
+                    assertTrue(samples.filter { it.speaking && it.key?.contains("|FIVE_SECONDS|") == true }.all { it.wall >= deadline - 5_000 })
+                }
+                checks += "same-exercise rest=$seconds deadline=$deadline keys=${restKeys.joinToString()} nativeKinds=${samples.filter { it.speaking }.mapNotNull { it.key?.split('|')?.get(4) }.distinct()}"
+                evidence("rest-$seconds")
+                val beforeSuccess = cues.state().ledger.deliveredKeys
+                val transitionTrace = trace.size
+                tap("Complete set")
+                if (index == 7) break
+                val advanced = state { it.session.exerciseIndex == index + 1 }
+                assertEquals(index, advanced.session.progress?.successExerciseIndex)
+                val transitionDeadline = advanced.session.restUntilEpochMillis
+                state { it.session.status == SessionStatus.ACTIVE && it.session.exerciseIndex == index + 1 }
+                val expectedSuccess = if (seconds == 0) listOf("EXERCISE_SUCCESS") else listOf("EXERCISE_SUCCESS", "FIVE_SECONDS", "GO")
+                withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.filter { it !in beforeSuccess }.size < expectedSuccess.size) delay(25) }
+                val successKeys = cues.state().ledger.deliveredKeys.filter { it !in beforeSuccess }
+                assertEquals("Exercise transition rest $seconds", expectedSuccess, successKeys.map { it.split('|')[4] })
+                if (seconds > 0) assertTrue(successKeys.drop(1).all { it.endsWith("|$transitionDeadline") })
+                idle(controller, owner)
+                val transitionSamples = trace.drop(transitionTrace)
+                // Short success speech may be preempted by the warning. Its
+                // durable reservation must exist even when it has no playback sample.
+                for (kind in expectedSuccess.filter { it != "EXERCISE_SUCCESS" || seconds == 0 || seconds > 5 }) {
+                    assertTrue("Native transition $seconds $kind missing: $transitionSamples", transitionSamples.any { it.speaking && it.key?.split('|')?.get(4) == kind })
+                }
+                checks += "exercise-transition rest=$seconds deadline=$transitionDeadline keys=${successKeys.joinToString()} nativeKinds=${transitionSamples.filter { it.speaking }.mapNotNull { it.key?.split('|')?.get(4) }.distinct()}"
+                if (seconds >= 8) evidence("transition-$seconds")
+                File(folder, "checks.txt").writeText(checks.joinToString("\n"))
+            }
+            File(folder, "checks.txt").writeText(checks.joinToString("\n"))
+            assertEquals("completed:${request.requestId}", probe("await_completed"))
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            idle(controller, owner)
+            assertTrue("Final success must reach native playback", trace.any { it.speaking && it.key?.contains("|WORKOUT_SUCCESS|") == true })
+            withTimeout(15_000) { while (runtime.current() != null || !cues.state().acknowledgedWorkoutSuccess) delay(50) }
+            assertNull(packages.current(System.currentTimeMillis()))
+            val record = Json.parseToJsonElement(probe("record")).jsonObject
+            val result = Json.decodeFromString<FinalQuickStartResult>(requireNotNull(record["finalResult"]).toString())
+            assertEquals(request.requestId, result.requestId)
+            assertNotNull(result.summary)
+            assertNull(result.endedSummary)
+            assertEquals(16, result.snapshot.exercises.sumOf { it.completedSets })
+            File(folder, "phone-record.json").writeText(record.toString())
+            val terminal = cues.state()
+            assertTrue(terminal.ledger.deliveredKeys.isEmpty())
+            evidence("completed")
+            sampler.cancelAndJoin()
+            sampler = null
+            scenario.recreate()
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            val recoveredController = productionCueController(scenario)
+            val recoveredOwner = requireNotNull(field(recoveredController, "output"))
+            repeat(100) {
+                assertNull("Terminal success replayed after recreation", active(recoveredController))
+                assertFalse(engine(recoveredOwner)?.isSpeaking == true)
+                delay(25)
+            }
+            idle(recoveredController, recoveredOwner)
+            assertEquals(terminal, cues.state())
+            assertEquals(record, Json.parseToJsonElement(probe("record")).jsonObject)
+            assertEquals(beforeEntries, repository.entries.first())
+            File(folder, "after-entries.json").writeText(Json.encodeToString(repository.entries.first()))
+            evidence("completed-recreated")
+            println("Voice matrix request: ${request.requestId}")
+        } catch (failure: Throwable) {
+            folder?.let { evidence("failure") }
+            runCatching { scenario?.close(); scenario = null; endOwnedFixture() }.exceptionOrNull()?.let(failure::addSuppressed)
+            throw failure
+        } finally {
+            sampler?.cancelAndJoin()
+            folder?.let { File(it, "native-timeline.tsv").writeText("wallMillis\telapsedMillis\tcontrollerKey\tnativeIsSpeaking\n" +
+                trace.joinToString("\n") { row -> "${row.wall}\t${row.elapsed}\t${row.key.orEmpty()}\t${row.speaking}" }) }
             scenario?.close()
             cues.setPreferences(originalPreferences)
             assertEquals(originalPreferences, cues.state().preferences)

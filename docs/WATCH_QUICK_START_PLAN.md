@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 63 — actual voice-enabled UI interruption/recovery validation complete (uncommitted)**
-Previous checkpoint: `f14785e PST01: Validate native speech interruption and fallback`
+Latest checkpoint: **Iteration 64 — TTS callback ownership fix and voice-enabled rest/transition validation complete (uncommitted)**
+Previous checkpoint: `02ee2f7 PST01: Validate voice-enabled Wear UI interruption`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -20,7 +20,7 @@ completion/Ready/Cancel/replay matrix and real phone launch/resume cleanup on
 isolated AVD copies; 16 unchanged source disk hashes prove original workout
 preservation. The active-session blocker is superseded for this isolated setup.
 Current suites pass 78 shared,
-28 phone and 201 Wear tests; both production APK baselines remain applicable.
+28 phone and 204 Wear tests; Iteration 64 updates the installed production Wear APK.
 Iteration 56 fixes a real countdown
 navigation crash during lifecycle dispatch and extends acceptance to actual
 Wear UI taps, deadline locks, rest recovery, terminal presentation and settings.
@@ -93,6 +93,21 @@ Paired tests, both test builds, nine phone/seventeen ordinary Wear checks,
 visual/crash/inventory checks and all 16 source disk hashes pass. The first
 incorrect Back-pause harness assertion is preserved as superseded evidence;
 no production defect is established. Physical Phase 4 remains 0/27.
+
+Iteration 63 is committed in `02ee2f7`. Iteration 64 fixes a native TTS callback
+ownership defect exposed by a five-second exercise transition: a stale stop
+callback could complete/unfocus the replacement warning while it still played.
+Callback IDs now match the owned utterance and finish once; a unique token
+guards native stop/focus release, with explicit old-operation cancellation.
+The final real voice-enabled matrix passes 0/3/5/6/8/10/12/20-second natural
+rests and seven exercise transitions, with 36 cue keys observed in native
+playback and all 26 warning/Go samples at valid thresholds. All 16 sets save,
+receive a phone receipt and prune; terminal success stays silent after Activity
+recreation. All 48 prior phone records and original legacy entries/preferences
+stay exact. Production/test builds, 204 Wear JVM tests, all three native
+interruption/focus/language regressions, nine phone/eighteen ordinary Wear
+checks, visual/crash/inventory checks and all 16 original disks pass. Historical
+readiness/transition failures remain evidence. Physical Phase 4 stays 0/27.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -864,7 +879,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-04, Iteration 63
+### Progress audit — 2026-10-04, Iteration 64
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -876,7 +891,7 @@ stands at **70/97 items (72%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback, reduced-motion rest/success and actual voice-enabled UI interruption/recovery pass on emulators; physical audio, routing, tactile and battery evidence remain open |
+| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback, reduced-motion rest/success and voice-enabled UI interruption/rest/transition/recreation pass on emulators; physical audio, routing, tactile and battery evidence remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1284,8 +1299,11 @@ recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 4 — Paired-device acceptance.
 **Exact next action:** continue on the isolated phone/watch emulators as directed
-by the user. Validate voice-enabled short-rest/exercise-transition UI with
-native playback/countdown ordering and exact result/history checks. Iteration
+by the user. Validate voice-enabled ambient/background cancellation and deadline
+recovery with actual native playback/silence and exact saved progress/ledger.
+Iteration 64 closes natural voice-enabled short-rest/exercise-transition
+ordering, native terminal playback and recreation without replay, fixing stale
+TTS callback ownership. Iteration
 63 closes actual Pause/Start now/Back cancellation, exact saved-rest recovery
 without replay and safe paused End/partial receipt acceptance. Iteration 62 closes native output/controller
 interruption, replacement, focus-loss/denial and language fallback/restoration.

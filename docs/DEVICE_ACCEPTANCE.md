@@ -147,6 +147,55 @@ physical intelligibility/overlap, routing, tactile, battery and Play remain
 separate evidence. Iteration 62's direct native END interruption remains the
 in-flight native End evidence; this method validates the actual paused UI path.
 
+### Voice-enabled natural rest and exercise transitions
+
+Iteration 64 adds `voiceEnabledShortRestsAndTransitionsThroughRealUi`, guarded
+by `quickStartVoiceMatrixUiValidation=true`, emulator hardware, exact copied
+AVD names and the sole exact connected peer. Build/install the current production
+Wear APK and both test APKs on the copies. Existing phone production installation
+may remain when its inventory hash matches. The driver rejects unrelated
+runtime/Ready/downloaded active workouts; it may normally end/cancel only its
+prior **Emulator voice matrix** fixture before establishing a fresh baseline.
+Never reset data/history. Start the phone waiter before Wear:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe' -e quickStartPairedValidation true -e quickStartVoiceMatrixUiValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#voiceEnabledShortRestsAndTransitionsThroughRealUi' -e quickStartVoiceMatrixUiValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test)** on each peer. The fixture has eight two-set exercises
+with 0/3/5/6/8/10/12/20-second rests and all voice categories enabled. Real
+Start and Complete set controls drive the session; each countdown expires
+naturally. Same-exercise rests <=10 seconds omit REST; longer rests require
+REST/FIVE_SECONDS/GO. Exercise transitions reserve EXERCISE_SUCCESS before
+warning/Go, with brief success allowed to be preempted at <=5-second rests.
+Read-only sampling correlates the production controller's active key with
+native TTS isSpeaking every 20 ms, retaining changes in `native-timeline.tsv`.
+It never replaces output/listener/scripts or changes speech rate. Require
+native playback for expected rest/warning/Go, permitted success playback,
+deadline-bound keys and no warning/Go before their thresholds. Native queue
+and focus must become idle between phases. Final success must reach playback,
+save all 16 sets and a phone receipt, prune runtime/package/ledger, and remain
+silent with exact terminal state after Activity recreation.
+
+Pull Wear `ui-acceptance/voice-matrix-REQUEST_UUID` and phone
+`voice-matrix-acceptance/REQUEST_UUID` from external app files. Preserve
+`checks.txt`, native timeline, result/receipt, runtime/cue snapshots and round
+screenshots. Compare every prior phone record and legacy-entry/preference JSON;
+require exactly one new result/receipt. Run ordinary instrumentation without
+mutation flags, inventory installed APKs, and audit all 16 original source disks
+after copied-AVD shutdown. Retain failed runs as historical evidence.
+
+Iteration 64's first observed five-second transition exposed an old success
+stop callback completing/unfocusing the replacement warning. The production
+adapter now matches callback IDs, completes once, and uses a unique ownership
+token so old completion/cancellation cannot stop or unfocus a newer cue.
+Cancellation explicitly finishes the old operation because its listener may
+already have been replaced. JVM stale-ID/duplicate checks and the native
+interruption/focus/language suite accompany the natural paired matrix. Timeline
+samples establish emulator playback/controller ordering, separately from
+physical intelligibility/overlap, routing, tactile, battery and Play acceptance.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

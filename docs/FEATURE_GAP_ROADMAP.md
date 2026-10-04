@@ -76,6 +76,19 @@ stays 70/97 and physical Phase 4 stays 0/27. Next: voice-enabled short-rest/
 exercise-transition UI with native playback/countdown ordering. Physical
 speech quality, routing, tactile, battery and Play remain separate evidence.
 
+2026-10-04 Iteration 64 supersedes that next action and uncommitted status:
+Iteration 63 is committed in `02ee2f7`. Native voice-enabled natural rest/
+exercise-transition acceptance reveals and fixes stale TTS callbacks completing
+and unfocusing replacement speech. Callbacks now match their utterance and
+finish once, with ownership guarding old completion/cancellation. Eight rest
+lengths, seven transitions, all 16 sets, receipt and terminal recreation pass;
+48 prior phone records, legacy entries/preferences and all 16 original disks
+stay exact. Production/test builds, 204 Wear JVM tests, three native regression
+methods and nine phone/eighteen ordinary Wear checks pass. Iteration 64 is
+validated and uncommitted; Stage 19 stays 70/97, physical Phase 4 0/27. Next:
+voice-enabled ambient/background cancellation and deadline recovery with
+native playback/silence and exact saved state. Physical acceptance stays separate.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

@@ -32,7 +32,7 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
         .setAudioAttributes(audioAttributes)
         .setOnAudioFocusChangeListener { change ->
             if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                tts?.stop()
+                cancel(WatchCueCancellation.AUDIO_ROUTE)
             }
         }
         .build()
@@ -47,6 +47,9 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     private var audioCallbackRegistered = false
     private val initializationHandler = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
+    private val speechLock = Any()
+    private var speechLease: Any? = null
+    private var finishSpeech: (() -> Unit)? = null
 
     init {
         VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.CHECKING)
@@ -80,33 +83,61 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
             reportAvailability()
             return false
         }
-        if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AUDIO_FOCUS_UNAVAILABLE)
-            return false
-        }
-        VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AVAILABLE)
         return suspendCancellableCoroutine { continuation ->
-            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(id: String?) = Unit
-                override fun onDone(id: String?) = finish(id == utteranceId)
-                override fun onStop(id: String?, interrupted: Boolean) = finish(false)
-                @Deprecated("Deprecated in Android")
-                override fun onError(id: String?) = finish(false)
-                override fun onError(id: String?, errorCode: Int) = finish(false)
-
-                private fun finish(success: Boolean) {
+            val lease = Any()
+            val completion = TtsUtteranceCompletion(utteranceId)
+            fun finish(callbackId: String?, success: Boolean) = synchronized(speechLock) {
+                // QUEUE_FLUSH can deliver the previous utterance's callback to
+                // this new listener. It must not finish or unfocus the replacement.
+                if (!completion.accept(callbackId)) return@synchronized
+                if (speechLease === lease) {
+                    speechLease = null
+                    finishSpeech = null
                     audioManager.abandonAudioFocusRequest(focusRequest)
-                    if (continuation.isActive) continuation.resume(success)
                 }
-            })
-            continuation.invokeOnCancellation {
-                engine.stop()
-                audioManager.abandonAudioFocusRequest(focusRequest)
+                if (continuation.isActive) continuation.resume(success)
             }
-            val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), utteranceId)
-            if (result == TextToSpeech.ERROR && continuation.isActive) {
-                audioManager.abandonAudioFocusRequest(focusRequest)
-                continuation.resume(false)
+            val listener = object : UtteranceProgressListener() {
+                override fun onStart(id: String?) = Unit
+                override fun onDone(id: String?) = finish(id, true)
+                override fun onStop(id: String?, interrupted: Boolean) = finish(id, false)
+                @Deprecated("Deprecated in Android")
+                override fun onError(id: String?) = finish(id, false)
+                override fun onError(id: String?, errorCode: Int) = finish(id, false)
+            }
+            continuation.invokeOnCancellation {
+                synchronized(speechLock) {
+                    if (!completion.accept(utteranceId)) return@synchronized
+                    // A cancelled old coroutine must not stop/unfocus a newer cue.
+                    if (speechLease === lease) {
+                        speechLease = null
+                        finishSpeech = null
+                        engine.stop()
+                        audioManager.abandonAudioFocusRequest(focusRequest)
+                    }
+                }
+            }
+            synchronized(speechLock) {
+                if (!continuation.isActive) return@synchronized
+                if (closed || tts !== engine) {
+                    finish(utteranceId, false)
+                    return@synchronized
+                }
+                speechLease = lease
+                finishSpeech = { finish(utteranceId, false) }
+                try {
+                    if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                        VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AUDIO_FOCUS_UNAVAILABLE)
+                        finish(utteranceId, false)
+                        return@synchronized
+                    }
+                    VoiceCueAvailabilityRegistry.report(VoiceCueAvailability.AVAILABLE)
+                    engine.setOnUtteranceProgressListener(listener)
+                    if (engine.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), utteranceId) == TextToSpeech.ERROR)
+                        finish(utteranceId, false)
+                } catch (_: Exception) {
+                    finish(utteranceId, false)
+                }
             }
         }
     }
@@ -125,8 +156,15 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     }
 
     override fun cancel(reason: WatchCueCancellation) {
-        tts?.stop()
-        audioManager.abandonAudioFocusRequest(focusRequest)
+        synchronized(speechLock) {
+            val finishCurrent = finishSpeech
+            speechLease = null
+            finishSpeech = null
+            tts?.stop()
+            audioManager.abandonAudioFocusRequest(focusRequest)
+            // Do not depend on onStop reaching the old listener after replacement.
+            finishCurrent?.invoke()
+        }
     }
 
     override fun close() {
@@ -136,16 +174,17 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
             audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
             audioCallbackRegistered = false
         }
-        tts?.shutdown()
-        tts = null
+        synchronized(speechLock) {
+            tts?.shutdown()
+            tts = null
+        }
         initialized = false
         languageSupported = false
     }
 
     private fun audioRouteChanged() {
         if (closed || !initialized || !languageSupported) return
-        tts?.stop()
-        audioManager.abandonAudioFocusRequest(focusRequest)
+        cancel(WatchCueCancellation.AUDIO_ROUTE)
         reportAvailability()
     }
 
