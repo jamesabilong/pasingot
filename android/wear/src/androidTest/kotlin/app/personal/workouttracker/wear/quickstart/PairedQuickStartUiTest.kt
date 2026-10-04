@@ -1237,14 +1237,135 @@ class PairedQuickStartUiTest {
     }
 
     private fun requireLifecycleCopy() {
-        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true")
+        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true" || voiceProcessValidation())
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
         assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
     }
 
     private fun lifecycleFolder(): File {
         val id = java.util.UUID.fromString(requireNotNull(InstrumentationRegistry.getArguments().getString("lifecycleRequestId"))).toString()
-        return File(artifacts, "lifecycle-$id").also { require(it.isDirectory) }
+        return File(artifacts, "${if (voiceProcessValidation()) "voice-process" else "lifecycle"}-$id").also { require(it.isDirectory) }
+    }
+
+    private fun voiceProcessValidation() =
+        InstrumentationRegistry.getArguments().getString("quickStartVoiceProcessUiValidation") == "true"
+
+    private fun voiceProcessField(instance: Any, name: String) =
+        instance.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(instance)
+
+    private fun voiceProcessFocus(dump: String) =
+        dump.substringAfter("Audio Focus stack entries (last is top of stack):")
+            .substringBefore("No external focus policy").substringBefore("External focus policy")
+            .contains("pack: app.personal.workouttracker")
+
+    private suspend fun voiceProcessOutput(scenario: ActivityScenario<WearMainActivity>): Pair<Any, Any> {
+        val controller = productionCueController(scenario)
+        val output = requireNotNull(voiceProcessField(controller, "output"))
+        assertEquals("AndroidTtsCueOutput", output.javaClass.simpleName)
+        withTimeout(10_000) {
+            while (voiceProcessField(output, "initialized") != true || voiceProcessField(output, "languageSupported") != true) delay(25)
+        }
+        return controller to output
+    }
+
+    private suspend fun voiceProcessSpeaking(scenario: ActivityScenario<WearMainActivity>, folder: File,
+        kind: String, name: String) {
+        val (controller, output) = voiceProcessOutput(scenario)
+        withTimeout(10_000) {
+            while ((voiceProcessField(output, "tts") as? android.speech.tts.TextToSpeech)?.isSpeaking != true ||
+                (voiceProcessField(controller, "active") as? app.personal.workouttracker.wear.cues.WatchCueEvent)?.kind?.name != kind) delay(10)
+        }
+        val audio = lifecycleShell("dumpsys audio")
+        assertTrue(voiceProcessFocus(audio))
+        File(folder, "$name-speaking-audio.txt").writeText(audio)
+        File(folder, "$name-speaking-cues.json").writeText(Json.encodeToString(WatchCueStore(DataStoreWatchCuePersistence(instrumentation.targetContext)).state()))
+    }
+
+    private suspend fun voiceProcessSilent(scenario: ActivityScenario<WearMainActivity>, folder: File,
+        name: String, timeout: Long = 1_500) {
+        val (controller, output) = voiceProcessOutput(scenario)
+        fun silent() = voiceProcessField(controller, "active") == null &&
+            (voiceProcessField(output, "tts") as? android.speech.tts.TextToSpeech)?.isSpeaking != true
+        withTimeout(timeout) { while (!silent() || voiceProcessFocus(lifecycleShell("dumpsys audio"))) delay(25) }
+        repeat(20) { assertTrue("Fresh process must not replay success", silent()); delay(100) }
+        val audio = lifecycleShell("dumpsys audio")
+        assertFalse(voiceProcessFocus(audio))
+        File(folder, "$name-silent-audio.txt").writeText(audio)
+        File(folder, "checks.txt").appendText("$name initialized native output/controller silent for 20 observations; focus released\n")
+    }
+
+    @Test fun prepareVoiceEnabledProcessSuccessRecovery() = runBlocking {
+        assumeTrue(voiceProcessValidation())
+        requireLifecycleCopy()
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(InstrumentationRegistry.getArguments().getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        val entries = repository.entries.first()
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        assertNull("Preserve existing runtime", runtime.current())
+        assertNull("Preserve existing package", packages.current(System.currentTimeMillis()))
+        val originalPreferences = cues.state().preferences
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH) replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        var folder: File? = null
+        var prepared = false
+        try {
+            cues.setPreferences(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_voice_process_offer"))
+            folder = File(artifacts, "voice-process-${request.requestId}").apply { mkdirs() }
+            File(folder, "request.json").writeText(Json.encodeToString(request))
+            File(folder, "legacy-entries.json").writeText(Json.encodeToString(entries))
+            File(folder, "before-preferences.json").writeText(Json.encodeToString(originalPreferences))
+            withTimeout(15_000) { while (packages.current(System.currentTimeMillis())?.request != request) delay(50) }
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator voice process")
+            tap("Start")
+            awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            awaitLabel("Complete set")
+            voiceProcessSilent(scenario, folder, "start-idle", 6_000)
+            tap("Complete set")
+            awaitLifecycleState { it.session.exerciseIndex == 1 && it.session.status == SessionStatus.ACTIVE }
+            voiceProcessSpeaking(scenario, folder, "EXERCISE_SUCCESS", "exercise")
+            val beforePauseCues = cues.state()
+            tap("Pause")
+            awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            awaitLabel("PAUSED")
+            voiceProcessSilent(scenario, folder, "exercise-paused")
+            assertEquals(beforePauseCues, cues.state())
+            lifecycleEvidence(folder, "exercise-paused")
+            scenario.close()
+            scenario = null
+            lifecycleEvidence(folder, "before-exercise-process-death")
+            File(folder, "before-exercise-pid.txt").writeText(android.os.Process.myPid().toString())
+            assertEquals(entries, repository.entries.first())
+            assertEquals(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true), cues.state().preferences)
+            prepared = true
+            println("Voice process request: ${request.requestId}")
+        } catch (failure: Throwable) {
+            folder?.let { lifecycleEvidence(it, "prepare-failure") }
+            throw failure
+        } finally {
+            scenario?.close()
+            // Successful staging deliberately retains enabled voice through fresh-process
+            // acceptance; the final receipt stage restores the persisted original witness.
+            if (!prepared) cues.setPreferences(originalPreferences)
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
     }
 
     private suspend fun awaitLifecycleState(predicate: (QuickStartRuntimeState) -> Boolean): QuickStartRuntimeState {
@@ -1279,6 +1400,7 @@ class PairedQuickStartUiTest {
     }
 
     @Test fun prepareCountdownAmbientAndActiveSleepRecovery() = runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true")
         requireLifecycleCopy()
         val context = instrumentation.targetContext
         val peer = requireNotNull(InstrumentationRegistry.getArguments().getString("peerNodeId"))
@@ -1384,27 +1506,40 @@ class PairedQuickStartUiTest {
         assertEquals(priorCues, cues.state())
         val preferences = cues.state().preferences
         try {
-            cues.setPreferences(preferences.copy(voiceEnabled = false, voicePromptResolved = true))
-            ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use {
+            if (voiceProcessValidation()) assertEquals(WatchCuePreferences(voiceEnabled = true, voicePromptResolved = true), preferences)
+            else cues.setPreferences(preferences.copy(voiceEnabled = false, voicePromptResolved = true))
+            ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use { scenario ->
                 tap("Resume")
                 awaitLabel("PAUSED")
                 awaitLabel("Resume")
                 assertEquals(prior, runtime.current())
+                if (voiceProcessValidation()) {
+                    voiceProcessSilent(scenario, folder, "exercise-reopened-paused")
+                    assertEquals(prior, runtime.current())
+                    assertEquals(priorCues, cues.state())
+                    lifecycleEvidence(folder, "exercise-reopened-paused")
+                }
                 val beforeResume = cues.state()
                 tap("Resume")
                 awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
                 awaitLabel("EXERCISE COMPLETE")
                 assertEquals(prior.session.progress, runtime.current()?.session?.progress)
                 assertEquals(beforeResume, cues.state())
+                if (voiceProcessValidation()) {
+                    voiceProcessSilent(scenario, folder, "exercise-resumed")
+                    assertEquals(beforeResume, cues.state())
+                }
                 lifecycleEvidence(folder, "exercise-success-process-recovered")
                 tap("Complete set")
                 val completed = awaitLifecycleState { it.finalResult != null }
                 assertEquals(2, completed.finalResult?.snapshot?.exercises?.sumOf { it.completedSets })
+                if (voiceProcessValidation()) voiceProcessSpeaking(scenario, folder, "WORKOUT_SUCCESS", "offline-final")
                 awaitLabel("Workout complete")
                 awaitLabel("Saved on watch")
                 awaitLabel("Waiting to sync")
                 withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.none { "|WORKOUT_SUCCESS|" in it }) delay(50) }
                 assertEquals(1, cues.state().ledger.deliveredKeys.count { "|WORKOUT_SUCCESS|" in it })
+                if (voiceProcessValidation()) voiceProcessSilent(scenario, folder, "offline-final-idle", 6_000)
                 lifecycleEvidence(folder, "offline-completed")
             }
         } finally { cues.setPreferences(preferences) }
@@ -1427,11 +1562,12 @@ class PairedQuickStartUiTest {
         assertNotNull(prior.finalResult)
         assertEquals(prior, runtime.current())
         assertEquals(priorCues, cues.state())
-        ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use {
+        ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use { scenario ->
             tap("Resume")
             awaitLabel("Workout complete")
             awaitLabel("Saved on watch")
             awaitLabel("Waiting to sync")
+            if (voiceProcessValidation()) voiceProcessSilent(scenario, folder, "final-reopened")
             assertEquals(prior, runtime.current())
             assertEquals(priorCues, cues.state())
             lifecycleEvidence(folder, "final-success-process-recovered")
@@ -1459,5 +1595,12 @@ class PairedQuickStartUiTest {
         assertEquals(priorCues.preferences, cues.state().preferences)
         assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), WorkoutRepository(context).entries.first())
         lifecycleEvidence(folder, "receipt-pruned")
+        if (voiceProcessValidation()) {
+            val original = Json.decodeFromString<WatchCuePreferences>(File(folder, "before-preferences.json").readText())
+            cues.setPreferences(original)
+            assertEquals(original, cues.state().preferences)
+            File(folder, "after-preferences.json").writeText(Json.encodeToString(cues.state().preferences))
+            File(folder, "after-entries.json").writeText(Json.encodeToString(WorkoutRepository(context).entries.first()))
+        }
     }
 }

@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 65 — Voice-enabled ambient/background recovery validation complete (uncommitted)**
-Previous checkpoint: `c7bdf5a PST01: Fix TTS callback ownership and validate rest speech`
+Latest checkpoint: **Iteration 66 — Voice-enabled fresh-process success recovery validation complete (uncommitted)**
+Previous checkpoint: `f02974d PST01: Validate voice-enabled ambient and background recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -125,6 +125,21 @@ copies. Iteration 65 is validated and uncommitted; physical Phase 4 stays 0/27.
 Next: voice-enabled fresh-process success recovery with exact offline state,
 no replay and one receipt. Shared/phone/Wear JVM baselines remain 78/28/204;
 unchanged production code does not require rerunning those suites here.
+
+Iteration 65 is committed in `f02974d`. Iteration 66 stages actual native exercise-
+success/Pause and offline workout success, then validates exact recovery in
+fresh processes with voice still enabled. Paused reopening/real Resume and
+offline final reopening remain silent after native engine initialization,
+without new cue keys. All 2/2 sets complete offline; reconnecting the same phone
+adds one exact result/receipt and prunes transient watch state. All 51 prior
+phone records and original legacy entries/preferences stay exact. Six explicit
+stages, test APK builds, nine phone/twenty ordinary Wear checks and visual/crash/
+settings/focus/matching APK checks pass. The delayed charging-overlay timeout
+is retained as superseded environment evidence. No production defect is
+established. All 16 original source-disk hashes match after stopping only verified
+copies. Iteration 66 is validated and uncommitted.
+Physical Phase 4 remains 0/27. Next: voice-enabled fresh-process rest/deadline
+recovery, no hidden advancement and exactly-once foreground catch-up.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production

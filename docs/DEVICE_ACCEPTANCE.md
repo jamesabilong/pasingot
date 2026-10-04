@@ -237,6 +237,73 @@ audit original source disks after stopping only verified copies. Preserve
 failed-run evidence. Physical speech quality, routing, tactile, battery and
 Play acceptance remain separate.
 
+### Voice-enabled fresh-process success recovery
+
+Iteration 66 adds `prepareVoiceEnabledProcessSuccessRecovery` and a voice mode
+for the existing three staged lifecycle recovery methods. Every stage requires
+`quickStartVoiceProcessUiValidation=true`, emulator hardware and exact copied
+AVD identity. Connected stages require the sole exact peer; offline stages
+require no native connected nodes. Never reset app data/history or original
+AVDs. Preparation rejects existing runtime, pending packages and active legacy
+workouts. Its owned **Emulator voice process** fixture has Process A/B, one set
+each and zero rest. Run the phone waiter before Wear preparation:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe' -e quickStartPairedValidation true -e quickStartVoiceProcessUiValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#prepareVoiceEnabledProcessSuccessRecovery' -e quickStartVoiceProcessUiValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require OK on each peer. Preparation observes production native exercise-success
+speech/current controller kind/focus, then real Pause stops output and saves
+the exact paused runtime/cues. Original preferences are retained in the artifact;
+voice remains explicitly enabled through all fresh-process stages. Close the
+Activity normally, confirm and force-stop a live copied app process, remove
+bridge mappings and stop only the verified phone copy. Record the watch's
+original airplane setting, enable airplane mode only on its copy and cold
+reboot it to clear cached Data Layer discovery. This tests recovery after
+durable success and normal Activity teardown, separately from killing speech
+in flight. Require no native connected nodes before offline acceptance.
+If runner exit already removed its process, launch only the copied app Home
+without Resume before confirming/force-stopping a live PID. After reboot,
+check for a delayed charging overlay and dismiss it with Home/Wake before UI
+acceptance; retain any interrupted attempt and verify its exact saved witness.
+
+Extract REQUEST_UUID from the retained `voice-process-REQUEST_UUID` directory,
+then run each method separately; force-stop a confirmed live copied app process
+again between the two offline stages:
+
+```powershell
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverExerciseSuccessAndCompleteOffline' -e quickStartVoiceProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#recoverOfflineFinalSuccessAfterProcessDeath' -e quickStartVoiceProcessUiValidation true -e lifecycleRequestId REQUEST_UUID app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require fresh process IDs and exact persisted runtime/cues at each entry. Real
+Resume opens paused success, then resumes the session without replay. Read the
+existing production output after actual TTS initialization; require 20 idle
+observations at 100 ms, no current controller cue/native speech and no native
+focus. Offline completion must first reach actual workout-success speech,
+then save 2/2 sets with Waiting to sync and one final-success key. A further
+fresh process must reopen that exact saved final result/ledger silently.
+
+Restore the watch's original airplane setting, relaunch only the same phone
+copy and re-establish the bridge. Use RESULT_ID from the offline final witness:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#verifyLifecycleReceiptAfterReconnect' -e quickStartVoiceProcessUiValidation true -e lifecycleRequestId REQUEST_UUID -e lifecycleResultId RESULT_ID -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#verifyLifecyclePrunedAfterReceipt' -e quickStartVoiceProcessUiValidation true -e lifecycleRequestId REQUEST_UUID -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require OK per stage, exact offline result on the phone, exactly one new record/
+receipt and every prior phone record unchanged. Wear must prune runtime/package/
+ledger, retain the acknowledged success tombstone and restore original
+preferences; legacy entries stay exact. Pull Wear
+`ui-acceptance/voice-process-REQUEST_UUID` and phone
+`voice-process-acceptance/REQUEST_UUID`. Retain PID/force-stop proof, native
+focus dumps, snapshots, screenshots and `checks.txt`. Run ordinary tests without
+flags, check crashes/settings/installed APKs and audit original disks after
+copied-AVD shutdown. Native sampling does not establish physical acoustic
+silence, intelligibility, routing, tactile, battery or Play acceptance.
+
 ### Native speech interruption, focus and language checks
 
 Iteration 62 adds `NativeSpeechInterruptionTest`, gated by

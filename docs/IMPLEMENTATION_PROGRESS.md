@@ -4084,3 +4084,122 @@ hashes match and both crash buffers are empty. `git diff --check` passes;
 final Git audit confirms `c7bdf5a` as HEAD with only these Iteration 65 test/docs
 changes, validated and uncommitted. All relevant checks pass, closing this
 iteration. The earlier pending labels remain historical evidence.
+
+## Iteration 66 — 2026-10-04 — Voice-enabled fresh-process success recovery
+
+Status: **Validated on the isolated paired emulators — test/docs uncommitted;
+physical acceptance remains separate.**
+
+Starting checkpoint: `f02974d PST01: Validate voice-enabled ambient and background
+recovery`, committed at the user's request with a clean working tree.
+Continue the documented emulator lane on only the exact copied AVD pair.
+Stage 19 stays 70/97, physical Phase 4 0/27.
+
+Next action: stage actual voice-enabled exercise success and offline final
+success, terminate the app process between stages, then verify fresh PID,
+exact saved runtime/cues/result, native silence/no replay and one receipt after
+reconnection. Preserve every prior phone record, legacy workout, preference,
+source AVD disk and failed-run evidence. Production changes require evidence
+of a defect; physical speech quality/routing/tactile/battery/Play remain separate.
+
+Implementation: a new exact-copy/peer opt-in creates an owned two-set Process
+A/B fixture and records original preferences/legacy entries. Preparation
+observes production EXERCISE_SUCCESS speech/focus then real Pause, saving exact
+paused runtime/cues with voice still enabled. Existing staged process methods
+accept the new explicit mode while preserving their historical voice-off path.
+Fresh initialized production output must remain idle for 20 observations on
+paused reopen/Resume and offline final reopen, with exact ledger/no replay.
+Offline final completion must first reach native WORKOUT_SUCCESS playback.
+The final exact-result receipt stage restores original preferences and compares
+every prior phone record. No production change is planned. Original 16-disk
+audit and verified copy boot pass; both test APK builds are pending.
+
+Preparation checks: both test APK builds and final Wear build pass. Both paired
+preparation methods pass OK (1 test). Request
+`927613b4-043b-40e4-936a-ac1913948f3b` reaches native EXERCISE_SUCCESS/focus,
+then actual Pause saves exact progress/cues with enabled voice and no replay.
+The instrumentation runner leaves no live app PID at exit; explicitly relaunch
+only the copied app's Home (no Resume), confirm a live PID and force-stop that
+process. This is a harness/process boundary finding, not a production defect.
+Retain that proof separately from the preparation PID, then isolate/reboot the
+copied watch to clear cached peer discovery. Offline recovery remains pending.
+
+First offline attempt: native peer isolation and initial exact paused runtime/
+cue reads pass, but a delayed cold-boot `ChargingComposeActivity` opens over
+the app and changes its lifecycle to STOPPED during UI recovery. The method
+times out waiting for its control; no fresh-output/recovery checks run. Logs,
+power/Activity dumps and the first artifact set are preserved. Dismiss the
+observed system overlay with Home/Wake and retry the same unchanged owned
+paused witness. This environment failure is separate from production behavior.
+
+Offline acceptance: corrected exercise recovery passes OK (1 test), process
+2268 after preparation 3000. Exact paused runtime/cues survive; initialized
+native output stays silent through paused reopen and real Resume with no new
+keys. Actual WORKOUT_SUCCESS speech/focus occurs before 2/2 offline completion.
+The runner again removes its process; only copied Home is relaunched and live
+PID 2521 is confirmed force-stopped with no remaining PID. Final-success
+recovery passes OK (1 test) in another process, with exact saved final runtime/
+cues and native silence while voice remains enabled. Original airplane mode 0
+is restored and the same phone copy is being relaunched for exact receipt checks.
+
+Final acceptance/checks:
+
+- All six explicit stages pass **OK (1 test)**: paired preparation on phone/
+  Wear, offline exercise recovery, offline final recovery and receipt checks
+  on both peers. Logs are `iteration-66-preparation-{phone,wear}.log`,
+  `iteration-66-offline-exercise.log`, `iteration-66-offline-final.log` and
+  `iteration-66-receipt-{phone,wear}.log`. The interrupted charging-overlay
+  attempt remains preserved in `iteration-66-offline-exercise-first.log` and
+  `iteration-66-offline-first-wear-artifacts` with logcat/power/Activity witnesses.
+- Voice stays enabled in all saved recovery witnesses. Preparation process
+  **3000** and exercise-recovery process **2268** differ; final recovery uses
+  **2589**. Relaunched Home processes **3143/2521** are separately confirmed
+  force-stopped with empty remaining PID. This establishes actual fresh-process
+  recovery after durable success and normal Activity teardown, not killing
+  speech in flight. No app data or runtime is reset.
+- Read-only native observations verify live EXERCISE_SUCCESS and offline
+  WORKOUT_SUCCESS with their production controller kind/current focus.
+  Six silence phases each sample initialized output/controller **20 times at
+  100 ms**. Fresh paused reopening, real Resume and fresh offline final reopening
+  add no cue keys or replay; current native focus is released. Exact paused
+  runtime/cues and exact final runtime/cues survive across processes. Native
+  state sampling does not establish physical acoustic silence/intelligibility.
+- Request `927613b4-043b-40e4-936a-ac1913948f3b` completes **2/2 sets** offline
+  with one final-success key, saved summary and Waiting to sync. Reconnection
+  produces the exact full saved final result and one receipt; Wear prunes
+  runtime/package/ledger, retains the acknowledged success tombstone and restores
+  original preferences. Independent `iteration-66-preservation-validated.json`
+  proves **51/51 prior phone records exact**, records **51 -> 52**, receipts
+  **28 -> 29**, byte-exact original legacy entries/preferences, exact fresh
+  recovery witnesses/Resume ledger and full offline final-result equality.
+  Final Wear/phone artifacts are in `iteration-66-validated-wear-artifacts` /
+  `iteration-66-validated-phone-artifacts`. Reviewed paused Process B,
+  recovered Process A success and offline 2/2 saved-summary screenshots.
+- Both test APK builds/final Wear build pass. Ordinary instrumentation without
+  mutation flags passes **9 phone / 20 Wear**; guarded methods skip normally.
+  Crash buffers are empty, native focus has no production owner, airplane mode
+  is restored to **0**, accessibility absent/0, touch exploration 0 and animator
+  scale 1.0. Production/PWA code is unchanged, so shared 78/phone 28/Wear 204
+  JVM and PWA baselines remain applicable and are not rerun.
+- Inventory `20261004T065701444Z-iteration-66-final` records phone API 35/
+  Wear API 37, app 1.0/code 1 and matching installed/local production APKs.
+  Wear remains `46F8C23A388D37E144C7DA2E2FC5B58E3E0977A5D472D6CCF8F73C8E3DF12C27`;
+  phone remains `21F9C264A1311BED0BD0FD94FD3BA52DAE730E4158CE90140B2DE02A0C6DF0C0`.
+  Only verified copies are stopped; final original-disk audit is pending.
+
+Completed code/emulator checks: guarded voice-enabled staged success recovery,
+fresh native no-replay observations, offline exact completion and receipt/
+preservation acceptance. No production defect is established. Closure awaits
+source-disk audit and final Git check. Stage 19 stays **70/97 (72%)**, physical
+Phase 4 **0/27**. Next: voice-enabled fresh-process rest/deadline recovery,
+including no hidden advancement and exactly-once foreground catch-up. Physical
+speech quality/overlap, routing, tactile, battery and Play remain separate.
+
+Final closure supersedes the pending disk audit/Git check above: all **16
+original source-disk hashes** match the baseline after stopping only verified
+copies (`iteration-66-source-disk-after.json`); ADB reports no remaining devices.
+`git diff --check` passes. Final Git audit confirms `f02974d` as HEAD with only
+these Iteration 66 test/docs changes, validated and uncommitted. All relevant
+build/native/staged/UI/preservation/crash/settings/focus/inventory/source checks
+pass, closing this iteration. Earlier pending labels and the charging-overlay
+failure remain historical evidence.

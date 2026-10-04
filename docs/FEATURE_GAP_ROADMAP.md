@@ -103,6 +103,21 @@ is validated and uncommitted, with no production change needed. Stage 19 stays
 Next: voice-enabled fresh-process exercise/final-success recovery with exact
 offline state, no replay and one receipt. Physical acceptance stays separate.
 
+2026-10-04 Iteration 66 supersedes that next action and uncommitted status:
+Iteration 65 is committed in `f02974d`. Voice-enabled fresh-process exercise/
+final-success recovery passes with exact saved state/ledger and initialized
+native silence/no replay. All 2/2 sets complete offline; one exact result/receipt
+prunes watch state after reconnection. All 51 prior phone records and original
+legacy entries/preferences stay exact. Six explicit stages, test APK builds,
+nine phone/twenty ordinary Wear checks and visual/crash/settings/focus/matching
+APK checks pass. A retained charging-overlay timeout is superseded by the
+successful untouched-state retry. No production change is needed. All 16
+original source-disk hashes match after copied-AVD shutdown. Iteration 66 is
+validated and uncommitted; Stage 19 stays 70/97 and physical Phase 4 0/27.
+Next: voice-enabled fresh-process rest/deadline recovery
+with no hidden advancement and exactly-once foreground catch-up. Physical
+acceptance stays separate.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

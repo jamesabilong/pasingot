@@ -9,6 +9,21 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 65 is committed in `f02974d`. Iteration 66 voice-enabled
+  fresh-process exercise/final-success recovery passes on the exact copied
+  emulators, with native silence/no replay while voice stays enabled. All 2/2
+  sets complete offline; the exact final result receives one receipt and prunes.
+  All 51 prior phone records and original legacy entries/preferences stay exact.
+  Six explicit stages, test APK builds, nine phone/twenty ordinary Wear checks,
+  screenshots and crash/settings/focus/installed APK checks pass. The retained
+  charging-overlay failure is superseded by the successful untouched-state
+  retry. No production change is needed. All 16 original source-disk hashes
+  match after stopping only verified copies. Iteration 66 is validated and
+  uncommitted. Stage 19 stays 70/97, physical Phase 4 0/27.
+  Next: voice-enabled fresh-process rest/deadline recovery with no hidden
+  advancement and exactly-once foreground catch-up. This supersedes the
+  Iteration 65 uncommitted status and next action below.
+
 - Iteration 64 is committed in `c7bdf5a`. Iteration 65 passes voice-enabled
   actual Sleep/Home interruption and deadline recovery: hidden runtime/cues
   remain exact and silent, foreground recovery adds only Go, and Home during
@@ -331,10 +346,10 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 65 voice-enabled
-  ambient/background recovery acceptance validated in the working tree.
-  Latest commit: Iteration 64 TTS callback ownership fix
-  and voice-enabled rest validation, `c7bdf5a`.
+- Latest implementation checkpoint: Stage 19 Iteration 66 voice-enabled
+  fresh-process success recovery acceptance validated in the working tree.
+  Latest commit: Iteration 65 voice-enabled ambient/background recovery
+  acceptance, `f02974d`.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
