@@ -62,6 +62,65 @@ outside this fixture's evidence.
 
 ## Phase 4 evidence protocol
 
+### Staged countdown, active ambient and process-death recovery
+
+Iteration 60 extends the existing paired UI/probe classes with explicit staged
+methods. They require `quickStartLifecycleUiPairedValidation=true`, emulator
+hardware and the exact copied AVD names. Build/install both test APKs. Run the
+phone probe first and the watch preparation second:
+
+```powershell
+adb -s emulator-5556 shell am instrument -w -e class 'app.personal.workouttracker.quickstart.PairedQuickStartTransportTest#serveProductionTransportProbe' -e quickStartPairedValidation true -e quickStartLifecycleUiPairedValidation true -e peerNodeId cc1f21d2 app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+adb -s emulator-5554 shell am instrument -w -e class 'app.personal.workouttracker.wear.quickstart.PairedQuickStartUiTest#prepareCountdownAmbientAndActiveSleepRecovery' -e quickStartLifecycleUiPairedValidation true -e peerNodeId 3710eec app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Require **OK (1 test) on both peers** and pull the timestamped/request-specific
+artifacts under `ui-acceptance/lifecycle-REQUEST_UUID`. This preparation cancels
+the actual countdown by entering ambient, retries Start, preserves an active
+set through actual ambient sleep/wake, and pauses after the first exercise's
+success. It leaves only its owned synthetic runtime for the next stage.
+
+Verify exact AVD identities again, stop only the copied phone, and force-stop
+only Pasingot on the copied watch. Run these Wear methods individually with
+`-e quickStartLifecycleUiPairedValidation true -e lifecycleRequestId REQUEST_UUID`:
+
+1. `#recoverExerciseSuccessAndCompleteOffline`: assert empty native connected
+   nodes, exact paused runtime/cues and a different process ID; reopen with real
+   Resume controls and recover exercise success without a new cue; complete
+   offline and preserve the final result and exactly one success reservation.
+2. Force-stop Pasingot again, then `#recoverOfflineFinalSuccessAfterProcessDeath`:
+   require another process ID and exact runtime/cues; reopen the real saved
+   summary with Waiting to sync. This stage does not reconnect the phone.
+3. Restart the same copied phone and re-establish the ADB bridge. Run phone
+   `PairedQuickStartTransportTest#verifyLifecycleReceiptAfterReconnect` with
+   `-e quickStartLifecycleReceiptValidation true -e peerNodeId WATCH_NODE
+   -e lifecycleRequestId REQUEST_UUID -e lifecycleResultId RESULT_ID`.
+   Run Wear `#verifyLifecyclePrunedAfterReceipt` with the lifecycle flag,
+   request ID and `-e peerNodeId PHONE_NODE`. Require **OK (1 test)** from both.
+
+The receipt phase verifies the same two completed sets, exactly one new phone
+record/receipt, exact prior native records, pruned runtime/package/cues and
+unchanged legacy watch entries. Each stage restores original cue preferences;
+voice is disabled only during driven transitions. Process IDs and immutable
+JSON witnesses are retained per request. Iteration 60 passes every explicit
+stage **OK (1 test)**, ordinary phone **OK (9 tests)** and Wear **OK (12 tests)**,
+both test APK builds, visual review and all 16 original disk hashes.
+Preparation and recovered process IDs are 2889/2113/2301; live-process
+force-stop evidence is also retained. Exact final runtime/cue hashes and full
+phone result JSON match. Final artifacts are
+`lifecycle-81d99292-af13-4464-bb9b-35557f5de63d` under
+`iteration-60-ui-artifacts-final`, with phone records in
+`iteration-60-phone-artifacts-final`. The original airplane setting 0 is
+restored before shutdown. Physical Phase 4 remains separate at 0/27.
+
+Iteration 60's initial stopped-phone attempt left Wear discovery claiming a
+connected node for 45 seconds, so its offline phase did not run. For this copied
+setup, record the watch's existing airplane setting, enable airplane mode,
+remove its reverse mapping and reboot only that verified copied watch. The
+offline methods still require native empty connected nodes; do not bypass that
+gate. Restore the recorded airplane setting and mappings before the receipt
+phase. This changes only copied runtime setup and preserves source profiles.
+
 ### Short-rest cue ledger and screen-off recovery fixture
 
 Iteration 59 adds a separate opt-in method to the existing paired UI classes.

@@ -9,13 +9,23 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 59 is committed in `573ad28`. Iteration 60 validates emulator
+  countdown ambient cancellation/retry, active-set sleep/wake and staged
+  exercise/final-success fresh-process recovery before receipt. Exact offline
+  runtime/cues and final phone result match; one receipt prunes watch state.
+  All explicit stages, both test APK builds, nine phone/twelve Wear ordinary
+  checks and all 16 original disk hashes pass. No new production defect is
+  found. Iteration 60 test/docs are validated and uncommitted; Stage 19 stays
+  70/97 and physical Phase 4 stays 0/27. Next: emulator foreground voice,
+  category/TalkBack suppression and reduced-motion rest/success presentation.
+
 - Iteration 58 is committed in `b9b8431`. Iteration 59 validates isolated
   emulator short-rest cue ledger, success Activity recreation and actual ambient
   rest recovery. It fixes foreground timers continuing while Wear is RESUMED
   in ambient; exact runtime/cues now survive the hidden deadline and wake adds
   one Go. Both paired peers, all 199 Wear JVM tests, APK builds and eight
   ordinary tests per peer pass; all 16 source disk hashes remain unchanged.
-  Iteration 59 is validated and uncommitted. Stage 19 remains 70/97 and physical
+  Iteration 59 is committed in `573ad28`. Stage 19 remains 70/97 and physical
   Phase 4 stays 0/27. Next: countdown ambient cancellation, active-set screen-off
   and process-death success recovery before receipt.
 
@@ -262,9 +272,9 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 59 cue/lifecycle
-  acceptance validated in the working tree. Latest commit: Iteration 58 request-state checks and
-  corrections, `b9b8431`, after paired native/browser validation.
+- Latest implementation checkpoint: Stage 19 Iteration 60 staged lifecycle
+  validation completed in the working tree. Latest commit: Iteration 59 ambient correction and
+  cue recovery, `573ad28`, after paired native/JVM validation.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
@@ -334,7 +344,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone entry/request states, short-rest cue ledger, success Activity recreation, ambient rest recovery and legacy regression pass on isolated emulators. Physical Phase 4 is **0/27** | Follow the user's emulator direction: countdown ambient cancellation, active-set screen-off and process-death success recovery. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone entry/request states, cue ledger, countdown/active/rest ambient, Activity/fresh-process success recovery and legacy regression pass on isolated emulators. Physical Phase 4 is **0/27** | Follow the user's emulator direction: foreground voice, category/TalkBack suppression and reduced-motion rest/success. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

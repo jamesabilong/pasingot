@@ -34,6 +34,15 @@ Iteration 59 is validated and uncommitted. Stage 19 stays 70/97 and physical
 Phase 4 stays 0/27; countdown/active-set ambient and process-death success
 checks remain next.
 
+2026-10-04 Iteration 60 supersedes that next action: countdown/active ambient
+and staged exercise/final-success fresh-process recovery pass on the isolated
+emulators, including offline exact-result preservation, reconnection receipt
+and pruning. Nine phone/twelve Wear ordinary checks, test APK builds and all
+16 original disk hashes pass; no new production defect is found. Iteration 59
+is committed in `573ad28`; Iteration 60 test/docs are validated and uncommitted.
+Stage 19 stays 70/97 and physical Phase 4 stays 0/27. Emulator voice/category/
+TalkBack and reduced-motion checks remain next.
+
 - Weekly day/time schedule (playlist of exercises: sets, reps, rest, and now
   optional load weight/unit — Stage 12).
 - Exercise catalog (wger.de sourced), filterable by level/muscle/

@@ -24,12 +24,14 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.UUID
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -45,7 +47,8 @@ class PairedQuickStartTransportTest {
     fun serveProductionTransportProbe() = runBlocking {
         assumeTrue(args.getString("quickStartPairedValidation") == "true")
         assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
-        if (args.getString("quickStartRecoveryUiPairedValidation") == "true") {
+        if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
+            args.getString("quickStartLifecycleUiPairedValidation") == "true") {
             val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
             val avdName = ParcelFileDescriptor.AutoCloseInputStream(
                 automation.executeShellCommand("getprop ro.boot.qemu.avd_name")
@@ -91,16 +94,25 @@ class PairedQuickStartTransportTest {
                             completedFixtureId = request.requestId
                             "offered:${request.requestId}"
                         }
-                        "ui_offer", "ui_recovery_offer" -> {
+                        "ui_offer", "ui_recovery_offer", "ui_lifecycle_offer" -> {
                             val recovery = command == "ui_recovery_offer"
-                            check(args.getString(if (recovery) "quickStartRecoveryUiPairedValidation" else "quickStartUiPairedValidation") == "true")
+                            val lifecycle = command == "ui_lifecycle_offer"
+                            check(args.getString(when {
+                                lifecycle -> "quickStartLifecycleUiPairedValidation"
+                                recovery -> "quickStartRecoveryUiPairedValidation"
+                                else -> "quickStartUiPairedValidation"
+                            }) == "true")
                             val source = requireNotNull(store.current(requiredRequestId())).request
                             val exercise = source.exercises.first()
                             val now = System.currentTimeMillis()
                             val request = source.copy(requestId = UUID.randomUUID().toString(),
-                                title = if (recovery) "Emulator cue recovery" else "Emulator UI acceptance", source = QuickStartSource.LIBRARY_SELECTION,
+                                title = when { lifecycle -> "Emulator lifecycle acceptance"
+                                    recovery -> "Emulator cue recovery" else -> "Emulator UI acceptance" }, source = QuickStartSource.LIBRARY_SELECTION,
                                 createdAtMillis = now, expiresAtMillis = now + QUICK_START_TTL_MILLIS,
-                                exercises = if (recovery) listOf(0, 3, 5, 6, 8, 10, 12, 20).mapIndexed { index, rest ->
+                                exercises = if (lifecycle) listOf("Lifecycle A", "Lifecycle B").mapIndexed { index, name ->
+                                    exercise.copy(itemId = "lifecycle-$index", exerciseName = name, sets = 1,
+                                        prescription = "8", restSeconds = 0, loadWeight = null, loadUnit = null)
+                                } else if (recovery) listOf(0, 3, 5, 6, 8, 10, 12, 20).mapIndexed { index, rest ->
                                     exercise.copy(itemId = "recovery-$index", exerciseName = "Rest $rest", sets = 2,
                                         prescription = "8", restSeconds = rest, loadWeight = null, loadUnit = null)
                                 } else listOf(
@@ -115,6 +127,10 @@ class PairedQuickStartTransportTest {
                                 while (store.current(request.requestId)?.acknowledgement?.status != QuickStartStatus.READY) delay(200)
                             }
                             completedFixtureId = request.requestId
+                            if (lifecycle) {
+                                val folder = File(context.getExternalFilesDir(null), "lifecycle-acceptance/${request.requestId}").apply { mkdirs() }
+                                File(folder, "before-records.json").writeText(json.encodeToString(beforeRecords))
+                            }
                             json.encodeToString(request)
                         }
                         "ui_cancel_pending" -> {
@@ -135,7 +151,8 @@ class PairedQuickStartTransportTest {
                         }
                         "ui_started" -> {
                             check(args.getString("quickStartUiPairedValidation") == "true" ||
-                                args.getString("quickStartRecoveryUiPairedValidation") == "true")
+                                args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
+                                args.getString("quickStartLifecycleUiPairedValidation") == "true")
                             withTimeout(15_000) {
                                 while (store.current(requiredRequestId())?.acknowledgement?.status != QuickStartStatus.STARTED) delay(200)
                             }
@@ -160,7 +177,8 @@ class PairedQuickStartTransportTest {
                             "replay:passed"
                         }
                         "finish" -> {
-                            if (args.getString("quickStartRecoveryUiPairedValidation") == "true") {
+                            if (args.getString("quickStartRecoveryUiPairedValidation") == "true" ||
+                                args.getString("quickStartLifecycleUiPairedValidation") == "true") {
                                 for (record in beforeRecords) assertEquals(record, store.current(record.request.requestId))
                                 assertEquals(beforeRecords.size + 1, store.recordsForTransportRecovery().size)
                                 store.current(requiredRequestId())?.resultReceipt?.let {
@@ -188,6 +206,33 @@ class PairedQuickStartTransportTest {
             messages.removeListener(listener).await()
             scope.cancel()
         }
+    }
+
+    @Test fun verifyLifecycleReceiptAfterReconnect() = runBlocking {
+        assumeTrue(args.getString("quickStartLifecycleReceiptValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val name = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("getprop ro.boot.qemu.avd_name"))
+            .bufferedReader().use { it.readText().trim() }
+        assertEquals("Pasingot_Matrix_Phone", name)
+        val peer = requireNotNull(args.getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val requestId = UUID.fromString(requireNotNull(args.getString("lifecycleRequestId"))).toString()
+        val folder = File(context.getExternalFilesDir(null), "lifecycle-acceptance/$requestId")
+        val before = json.decodeFromString<List<PhoneQuickStartRecord>>(File(folder, "before-records.json").readText())
+        val store = QuickStartPhoneStore(DataStoreQuickStartPhonePersistence(context))
+        withTimeout(45_000) { while (store.current(requestId)?.resultReceipt == null) delay(100) }
+        val record = requireNotNull(store.current(requestId))
+        assertEquals("Emulator lifecycle acceptance", record.request.title)
+        assertEquals(requireNotNull(args.getString("lifecycleResultId")), record.finalResult?.resultId)
+        assertEquals(record.finalResult?.resultId, record.resultReceipt?.resultId)
+        assertEquals(2, record.finalResult?.snapshot?.exercises?.sumOf { it.completedSets })
+        assertNotNull(record.finalResult?.summary)
+        assertNull(record.finalResult?.endedSummary)
+        for (prior in before) assertEquals(prior, store.current(prior.request.requestId))
+        assertEquals(before.size + 1, store.recordsForTransportRecovery().size)
+        assertEquals(before.count { it.resultReceipt != null } + 1, store.recordsWithResultReceipts().size)
+        File(folder, "after-record.json").writeText(json.encodeToString(record))
     }
 
     private fun requiredRequestId() = completedFixtureId ?: requireNotNull(args.getString("completedRequestId"))

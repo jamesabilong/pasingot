@@ -11,6 +11,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.shared.DownloadedWorkoutEntry
 import app.personal.workouttracker.shared.quickstart.*
 import app.personal.workouttracker.wear.WearMainActivity
 import app.personal.workouttracker.wear.data.WorkoutRepository
@@ -18,6 +19,8 @@ import app.personal.workouttracker.wear.session.SessionViewModel
 import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
 import app.personal.workouttracker.wear.cues.WatchCuePreferences
 import app.personal.workouttracker.wear.cues.WatchCueStore
+import app.personal.workouttracker.wear.cues.PersistedWatchCueState
+import app.personal.workouttracker.wear.ui.WatchPresentationPolicy
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.Wearable
 import java.io.File
@@ -459,5 +462,233 @@ class PairedQuickStartUiTest {
             try { assertEquals("finished", probe("finish")) }
             finally { messages.removeListener(listener).await(); replies.close() }
         }
+    }
+
+    private fun lifecycleShell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
+        automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+
+    private fun requireLifecycleCopy() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("quickStartLifecycleUiPairedValidation") == "true")
+        assumeTrue(Build.HARDWARE in listOf("ranchu", "goldfish"))
+        assertEquals("Pasingot_Matrix_Wear", lifecycleShell("getprop ro.boot.qemu.avd_name"))
+    }
+
+    private fun lifecycleFolder(): File {
+        val id = java.util.UUID.fromString(requireNotNull(InstrumentationRegistry.getArguments().getString("lifecycleRequestId"))).toString()
+        return File(artifacts, "lifecycle-$id").also { require(it.isDirectory) }
+    }
+
+    private suspend fun awaitLifecycleState(predicate: (QuickStartRuntimeState) -> Boolean): QuickStartRuntimeState {
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(instrumentation.targetContext))
+        return withTimeout(20_000) {
+            while (true) {
+                runtime.current()?.takeIf(predicate)?.let { return@withTimeout it }
+                delay(50)
+            }
+            @Suppress("UNREACHABLE_CODE") error("Missing lifecycle state")
+        }
+    }
+
+    private suspend fun assertLifecycleAmbient(scenario: ActivityScenario<WearMainActivity>, expected: Boolean) {
+        withTimeout(10_000) {
+            var ambient = !expected
+            while (ambient != expected) {
+                scenario.onActivity { activity ->
+                    val field = WearMainActivity::class.java.getDeclaredField("presentationPolicy").apply { isAccessible = true }
+                    ambient = ((field.get(activity) as androidx.compose.runtime.State<*>).value as WatchPresentationPolicy).ambient
+                }
+                if (ambient != expected) delay(100)
+            }
+        }
+    }
+
+    private suspend fun lifecycleEvidence(folder: File, name: String) {
+        val context = instrumentation.targetContext
+        File(folder, "$name-runtime.json").writeText(Json.encodeToString(QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context)).current()))
+        File(folder, "$name-cues.json").writeText(Json.encodeToString(WatchCueStore(DataStoreWatchCuePersistence(context)).state()))
+        capture("${folder.name}/$name")
+    }
+
+    @Test fun prepareCountdownAmbientAndActiveSleepRecovery() = runBlocking {
+        requireLifecycleCopy()
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(InstrumentationRegistry.getArguments().getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val repository = WorkoutRepository(context)
+        assertTrue(WorkoutRepositorySessionSnapshotSource(repository).entries().blockingSessions().isEmpty())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        assertNull(runtime.current())
+        assertNull(packages.current(System.currentTimeMillis()))
+        val originalPreferences = cues.state().preferences
+        val replies = Channel<String>(Channel.UNLIMITED)
+        val messages = Wearable.getMessageClient(context)
+        val listener = MessageClient.OnMessageReceivedListener {
+            if (it.sourceNodeId == peer && it.path == PairedQuickStartTransportTest.REPLY_PATH) replies.trySend(it.data.toString(Charsets.UTF_8))
+        }
+        messages.addListener(listener).await()
+        suspend fun probe(command: String): String {
+            messages.sendMessage(peer, PairedQuickStartTransportTest.PROBE_PATH, command.toByteArray()).await()
+            return withTimeout(30_000) { replies.receive() }.also { assertFalse(it, it.startsWith("error:")) }
+        }
+        var scenario: ActivityScenario<WearMainActivity>? = null
+        var folder: File? = null
+        try {
+            cues.setPreferences(originalPreferences.copy(voiceEnabled = false, voicePromptResolved = true))
+            val request = Json.decodeFromString<QuickStartRequest>(probe("ui_lifecycle_offer"))
+            folder = File(artifacts, "lifecycle-${request.requestId}").apply { mkdirs() }
+            File(folder, "request.json").writeText(Json.encodeToString(request))
+            File(folder, "legacy-entries.json").writeText(Json.encodeToString(repository.entries.first()))
+            scenario = ActivityScenario.launch(Intent(context, WearMainActivity::class.java))
+            awaitLabel("Emulator lifecycle acceptance")
+            tap("Start")
+            awaitLabel("Starting in", contains = true, allowScroll = false)
+            lifecycleShell("input keyevent KEYCODE_SLEEP")
+            assertLifecycleAmbient(scenario, true)
+            delay(6_000)
+            assertNull("Ambient countdown must not start unseen", runtime.current())
+            assertEquals(QuickStartPackageState.READY, packages.current(System.currentTimeMillis())?.state)
+            val cancelledKeys = cues.state().ledger.deliveredKeys
+            assertTrue(cancelledKeys.none { "|GO|" in it })
+            File(folder, "countdown-ambient-power.txt").writeText(lifecycleShell("dumpsys power"))
+            lifecycleEvidence(folder, "countdown-ambient-cancelled")
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            assertLifecycleAmbient(scenario, false)
+            awaitLabel("Start")
+            tap("Start")
+            val active = awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+            assertEquals(request, active.sessionPackage.request)
+            assertEquals("started:${request.requestId}", probe("ui_started"))
+            awaitLabel("Complete set")
+            val retryKeys = cues.state().ledger.deliveredKeys.filter { it !in cancelledKeys }
+            assertEquals(listOf("BRIEFING", "FIVE_SECONDS", "GO"), retryKeys.map { it.split('|')[4] })
+            val activeCues = cues.state()
+            lifecycleShell("input keyevent KEYCODE_SLEEP")
+            assertLifecycleAmbient(scenario, true)
+            delay(8_000)
+            assertEquals("Ambient must preserve the active set", active, runtime.current())
+            assertEquals(activeCues, cues.state())
+            lifecycleEvidence(folder, "active-ambient")
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            assertLifecycleAmbient(scenario, false)
+            awaitLabel("Complete set")
+            assertEquals(active, runtime.current())
+            assertEquals(activeCues, cues.state())
+            tap("Complete set")
+            awaitLifecycleState { it.session.exerciseIndex == 1 }
+            awaitLabel("EXERCISE COMPLETE")
+            withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.none { "|EXERCISE_SUCCESS|" in it }) delay(50) }
+            tap("Pause")
+            awaitLifecycleState { it.session.status == SessionStatus.PAUSED }
+            scenario.close()
+            scenario = null
+            cues.setPreferences(originalPreferences)
+            lifecycleEvidence(folder, "before-exercise-process-death")
+            File(folder, "before-exercise-pid.txt").writeText(android.os.Process.myPid().toString())
+            assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), repository.entries.first())
+            println("Lifecycle request: ${request.requestId}")
+        } catch (failure: Throwable) {
+            lifecycleShell("input keyevent KEYCODE_WAKEUP")
+            folder?.let { lifecycleEvidence(it, "prepare-failure") }
+            throw failure
+        } finally {
+            scenario?.close()
+            cues.setPreferences(originalPreferences)
+            try { assertEquals("finished", probe("finish")) }
+            finally { messages.removeListener(listener).await(); replies.close() }
+        }
+    }
+
+    @Test fun recoverExerciseSuccessAndCompleteOffline() = runBlocking {
+        requireLifecycleCopy()
+        val context = instrumentation.targetContext
+        withTimeout(45_000) { while (Wearable.getNodeClient(context).connectedNodes.await().isNotEmpty()) delay(200) }
+        val folder = lifecycleFolder()
+        assertNotEquals(File(folder, "before-exercise-pid.txt").readText(), android.os.Process.myPid().toString())
+        File(folder, "exercise-recovered-pid.txt").writeText(android.os.Process.myPid().toString())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val prior = Json.decodeFromString<QuickStartRuntimeState>(File(folder, "before-exercise-process-death-runtime.json").readText())
+        val priorCues = Json.decodeFromString<PersistedWatchCueState>(File(folder, "before-exercise-process-death-cues.json").readText())
+        assertEquals(prior, runtime.current())
+        assertEquals(priorCues, cues.state())
+        val preferences = cues.state().preferences
+        try {
+            cues.setPreferences(preferences.copy(voiceEnabled = false, voicePromptResolved = true))
+            ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use {
+                tap("Resume")
+                awaitLabel("PAUSED")
+                awaitLabel("Resume")
+                assertEquals(prior, runtime.current())
+                val beforeResume = cues.state()
+                tap("Resume")
+                awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
+                awaitLabel("EXERCISE COMPLETE")
+                assertEquals(prior.session.progress, runtime.current()?.session?.progress)
+                assertEquals(beforeResume, cues.state())
+                lifecycleEvidence(folder, "exercise-success-process-recovered")
+                tap("Complete set")
+                val completed = awaitLifecycleState { it.finalResult != null }
+                assertEquals(2, completed.finalResult?.snapshot?.exercises?.sumOf { it.completedSets })
+                awaitLabel("Workout complete")
+                awaitLabel("Saved on watch")
+                awaitLabel("Waiting to sync")
+                withTimeout(5_000) { while (cues.state().ledger.deliveredKeys.none { "|WORKOUT_SUCCESS|" in it }) delay(50) }
+                assertEquals(1, cues.state().ledger.deliveredKeys.count { "|WORKOUT_SUCCESS|" in it })
+                lifecycleEvidence(folder, "offline-completed")
+            }
+        } finally { cues.setPreferences(preferences) }
+        lifecycleEvidence(folder, "before-final-process-death")
+        File(folder, "before-final-pid.txt").writeText(android.os.Process.myPid().toString())
+        assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), WorkoutRepository(context).entries.first())
+    }
+
+    @Test fun recoverOfflineFinalSuccessAfterProcessDeath() = runBlocking {
+        requireLifecycleCopy()
+        val context = instrumentation.targetContext
+        assertTrue(Wearable.getNodeClient(context).connectedNodes.await().isEmpty())
+        val folder = lifecycleFolder()
+        assertNotEquals(File(folder, "before-final-pid.txt").readText(), android.os.Process.myPid().toString())
+        File(folder, "final-recovered-pid.txt").writeText(android.os.Process.myPid().toString())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        val prior = Json.decodeFromString<QuickStartRuntimeState>(File(folder, "before-final-process-death-runtime.json").readText())
+        val priorCues = Json.decodeFromString<PersistedWatchCueState>(File(folder, "before-final-process-death-cues.json").readText())
+        assertNotNull(prior.finalResult)
+        assertEquals(prior, runtime.current())
+        assertEquals(priorCues, cues.state())
+        ActivityScenario.launch<WearMainActivity>(Intent(context, WearMainActivity::class.java)).use {
+            tap("Resume")
+            awaitLabel("Workout complete")
+            awaitLabel("Saved on watch")
+            awaitLabel("Waiting to sync")
+            assertEquals(prior, runtime.current())
+            assertEquals(priorCues, cues.state())
+            lifecycleEvidence(folder, "final-success-process-recovered")
+        }
+        assertEquals(prior, runtime.current())
+        assertEquals(priorCues, cues.state())
+        assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), WorkoutRepository(context).entries.first())
+    }
+
+    @Test fun verifyLifecyclePrunedAfterReceipt() = runBlocking {
+        requireLifecycleCopy()
+        val context = instrumentation.targetContext
+        val peer = requireNotNull(InstrumentationRegistry.getArguments().getString("peerNodeId"))
+        assertEquals(listOf(peer), Wearable.getNodeClient(context).connectedNodes.await().map { it.id })
+        val folder = lifecycleFolder()
+        val prior = Json.decodeFromString<QuickStartRuntimeState>(File(folder, "before-final-process-death-runtime.json").readText())
+        val runtime = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
+        val packages = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
+        val cues = WatchCueStore(DataStoreWatchCuePersistence(context))
+        withTimeout(45_000) { while (runtime.current() != null || cues.state().acknowledgedSessionId != prior.session.workoutEntryId) delay(100) }
+        assertNull(packages.current(System.currentTimeMillis()))
+        assertTrue(cues.state().ledger.deliveredKeys.isEmpty())
+        assertTrue(cues.state().acknowledgedWorkoutSuccess)
+        val priorCues = Json.decodeFromString<PersistedWatchCueState>(File(folder, "before-final-process-death-cues.json").readText())
+        assertEquals(priorCues.preferences, cues.state().preferences)
+        assertEquals(Json.decodeFromString<List<DownloadedWorkoutEntry>>(File(folder, "legacy-entries.json").readText()), WorkoutRepository(context).entries.first())
+        lifecycleEvidence(folder, "receipt-pruned")
     }
 }

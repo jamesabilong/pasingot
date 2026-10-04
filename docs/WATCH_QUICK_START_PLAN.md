@@ -3,8 +3,8 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 59 — short-rest/ambient recovery validated (uncommitted)**
-Previous checkpoint: `b9b8431 PST01: Validate Quick Start states and fix expiry controls`
+Latest checkpoint: **Iteration 60 — staged lifecycle/process-death validation complete (uncommitted)**
+Previous checkpoint: `573ad28 PST01: Fix ambient session visibility and validate cue recovery`
 Last updated: **2026-10-04**
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
@@ -44,6 +44,15 @@ and actual Dozing/ambient rest recovery. It fixes the lifecycle-only foreground
 timer gate, preserving exact runtime/cues while ambient and catching up once
 on wake. Both paired peers, 199 Wear JVM tests, APK builds and eight ordinary
 tests per peer pass; all 16 original source disk hashes remain unchanged.
+Iteration 59 is committed in `573ad28`. Iteration 60 validates actual countdown
+ambient cancellation/retry and active-set sleep/wake, plus staged exercise/
+final-success fresh-process recovery before receipt. Exact offline runtime/
+cues and final phone result survive; reconnection produces one receipt and
+prunes watch state. Every explicit stage, both test APK builds, nine phone/
+twelve Wear ordinary checks and all 16 original disk hashes pass. A stopped-
+phone stale-discovery timeout is superseded by airplane/mapping isolation and
+copied-watch reboot; original settings are restored. No production change is
+needed. Physical Phase 4 remains 0/27.
 
 **Historical closure (Iteration 35, superseded by Iteration 48):** Iteration 35 passes 78 shared, 16 phone, and 191 Wear JVM
 tests plus both debug APK builds, TypeScript, Capacitor sync, the production
@@ -815,7 +824,7 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-04, Iteration 59
+### Progress audit — 2026-10-04, Iteration 60
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
@@ -827,7 +836,7 @@ stands at **70/97 items (72%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone entry/request states, short-rest cue ledger, success Activity recreation and actual ambient rest recovery pass on emulators; process-death success, audible cues and physical evidence remain open |
+| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone entry/request states, cue ledger, actual countdown/active/rest ambient and Activity/fresh-process success recovery pass on emulators; audible cues and physical evidence remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1235,8 +1244,10 @@ recovery, cancellation races, cleanup, and physical-device acceptance remain
 open.
 **Current phase:** Phase 4 — Paired-device acceptance.
 **Exact next action:** continue on the isolated phone/watch emulators as directed
-by the user. Validate actual countdown ambient cancellation/retry, active-set
-screen-off recovery and process-death success recovery before the phone receipt.
+by the user. Validate foreground voice availability, category/TalkBack
+suppression and reduced-motion rest/success presentation. Iteration 60 closes
+actual countdown ambient cancellation/retry, active-set screen-off and staged
+exercise/final-success fresh-process recovery before the phone receipt.
 Iteration 59 closes short-rest durable cue sequences, success Activity
 recreation and actual ambient rest recovery, correcting the foreground timer
 gate. Iteration 58 closes

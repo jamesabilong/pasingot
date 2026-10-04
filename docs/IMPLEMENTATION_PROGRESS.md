@@ -3469,3 +3469,108 @@ intelligibility, TalkBack/route changes, physical haptics, battery and Play
 acceptance still require separate evidence. The cue fixture deliberately uses
 voice disabled, restores original preferences and claims durable reservation
 and visual recovery only.
+
+## Iteration 60 — 2026-10-04 — Countdown ambient and process-death success recovery
+
+Status: **Validated — countdown/active ambient, staged success process recovery
+and exact reconnection receipt pass; physical acceptance remains open.**
+
+Starting checkpoint: `573ad28 PST01: Fix ambient session visibility and validate
+cue recovery`. Iteration 59 was committed at the user's request and Git was
+clean afterward. Continue on the exact dedicated AVD copies; preserve source
+disks, legacy entries and original phone records. Stage 19 remains 70/97 and
+physical Phase 4 stays 0/27.
+
+Next action: add staged opt-in UI checks for actual countdown ambient
+cancellation/retry and active-set sleep/wake, then force-stop between stages
+to verify exercise-success and offline final-success recovery. Reconnect for
+an exact final receipt/preservation check. Code and emulator acceptance remain
+pending until build/native/visual/source-disk checks pass.
+
+Findings/validation in progress:
+
+- Added staged opt-in methods to the paired UI/phone probe classes. Exact AVD
+  gates, prior-record/legacy equality, changed process-ID assertions and
+  request-specific durable runtime/cue witnesses prevent conflating Activity
+  recreation with process death. Transitions use real UI controls; only the
+  caller force-stops the exact copied app between stages. Voice preferences
+  are restored per stage.
+- Both updated Android test APKs build; source-disk pre-launch audit passes
+  all 16 hashes. Exact copied AVDs boot and the bridge is restored. Countdown/
+  active-ambient paired preparation is running; later offline/reconnect stages
+  and closure remain pending.
+- Paired preparation passes OK (1 test) on both peers: actual ambient cancels
+  countdown before zero, retry reserves one Briefing/Five seconds/Go sequence,
+  and active ambient sleep/wake preserves exact runtime/cues. An owned paused
+  exercise-success witness is retained for the next phase. The first offline
+  stage stops at its empty-connected-nodes precondition: Wear discovery still
+  claims the stopped copied phone after 45 seconds. No session action occurs.
+  Retain that environment failure; enable airplane mode only on the copied
+  watch, remove its bridge mapping and cold-restart it before retry. Restore
+  its recorded airplane setting and bridge for final receipt acceptance.
+- After copied-watch airplane mode/mapping isolation and reboot, the offline
+  exercise stage passes OK (1 test): a different process reads the exact paused
+  witness, restores exercise-success through real Resume and adds no success
+  reservation. It completes two sets offline and saves one final result/cue.
+  A subsequent confirmed force-stop kills a live copied app process; the final
+  recovery stage passes OK (1 test) in another process with exact runtime/cues
+  and real Workout complete / Saved on watch / Waiting to sync UI. Reconnecting
+  the same copied phone for final receipt/preservation is pending.
+
+Final validation and closure:
+
+- Paired preparation passes **OK (1 test) per peer** in
+  `iteration-60-preparation-{phone,wear}.log`. Actual ambient entry cancels
+  countdown before zero with READY/no runtime/no Go; retry reserves one new
+  Briefing/Five seconds/Go sequence and the phone acknowledges Started. Actual
+  active-set ambient sleep/wake preserves exact runtime and cue ledger.
+- Offline exercise recovery passes **OK (1 test)** in
+  `iteration-60-offline-exercise-isolated.log`. Cold-restarted copied Wear has
+  no native connected nodes and reads the exact paused exercise-success witness
+  in process **2113**, after preparation process **2889**. Real Resume restores
+  the success header without a new reservation, and normal Complete set saves
+  two completed sets and one final result while the phone is stopped.
+- A live copied app process **2236** is confirmed killed by force-stop, with
+  no remaining PID. Final-success recovery then passes **OK (1 test)** in
+  `iteration-60-offline-final.log`, process **2301**, preserving the exact
+  final runtime/cues and rendered Saved on watch / Waiting to sync summary.
+  Independent SHA-256 comparisons of before/after runtime and cue witnesses
+  match exactly. Exercise-phase live-process force-stop evidence (PID 3066)
+  is retained too; the later reboot clears stale native connectivity. This
+  establishes real fresh-process recovery, separately from Activity recreation.
+- Restoring the same phone copy, original airplane setting **0** and bridge
+  passes **OK (1 test) per peer** in `iteration-60-receipt-{phone,wear}.log`.
+  The phone receives the exact offline final result, independently compared
+  as full JSON, and has exactly one new request/result receipt. Every prior
+  native record stays exact. Wear prunes runtime/package/transient cues,
+  retains the acknowledged success tombstone and original preferences, and
+  preserves every legacy workout entry. No duplicate completion is created.
+- Both test APK builds pass. Ordinary instrumentation passes **OK (9 tests)**
+  on phone and **OK (12 tests)** on Wear, skipping mutation fixtures without
+  their explicit flags. Crash buffers are empty and `git diff --check` passes.
+  Production/PWA/JVM code is unchanged; Iteration 59's 199 Wear JVM tests and
+  existing shared/phone/browser baselines remain applicable, not freshly rerun.
+  No additional production defect is established by this iteration.
+- Artifacts are `lifecycle-81d99292-af13-4464-bb9b-35557f5de63d` under ignored
+  `iteration-60-ui-artifacts-final`, with phone before/after records under
+  `iteration-60-phone-artifacts-final`. Reviewed cancelled ambient placeholder,
+  active ambient, recovered exercise-success and offline final-summary captures.
+  Initial stale-discovery timeout remains historical environment evidence.
+- Inventory `20261004T012816837Z-iteration-60-final` records API 35/API 37,
+  app 1.0/code 1 and matching installed/local production APK hashes per peer.
+  Airplane setting restoration is checked before shutdown. Stop only exact
+  verified copies; all **16 source disk hashes** remain unchanged in
+  `iteration-60-source-disk-after.json`. ADB reports no remaining devices.
+
+Completed: repeatable actual countdown/active ambient acceptance and staged
+exercise/final-success fresh-process recovery, offline completion and exact
+reconnection receipt/pruning. Relevant build/native/visual/preservation checks
+pass, closing code/emulator validation for Iteration 60. Stage 19 stays
+**70/97 (72%)** and physical Phase 4 stays **0/27**. Final Git audit confirms
+`573ad28` as HEAD; only Iteration 60 test/docs are validated and uncommitted.
+
+Remaining/next action: continue emulator foreground voice availability and
+category/TalkBack suppression, plus reduced-motion rest/success presentation.
+Keep speech intelligibility/overlap, physical speaker/Bluetooth routing,
+tactile delivery, battery and Play acceptance separate. This iteration uses
+voice disabled for driven transitions and restores preferences per stage.
