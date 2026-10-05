@@ -76,6 +76,8 @@ class QuickStartRuntimeStoreTest {
             initialSession().copy(status = SessionStatus.PAUSED),
             initialSession().copy(accumulatedElapsedMillis = 100),
             initialSession().copy(elapsedStartedAtEpochMillis = NOW + 1),
+            initialSession().copy(timedSetDeadlineEpochMillis = -1),
+            initialSession().copy(pausedTimedSetRemainingMillis = 1_000),
         )
         for (session in invalidSessions) {
             val disk = RuntimeMemoryPersistence()

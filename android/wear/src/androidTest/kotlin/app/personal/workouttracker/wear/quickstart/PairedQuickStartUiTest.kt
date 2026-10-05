@@ -1533,8 +1533,17 @@ class PairedQuickStartUiTest {
     }
 
     @Test fun recoverEarlyVoiceRestAndCompleteOffline() = runBlocking {
-        assumeTrue(voiceEarlyRestProcessValidation())
+        assumeTrue(voiceEarlyRestProcessValidation() && !interruptRestSpeechValidation())
         recoverVoiceRestAndCompleteOffline(expired = false, pausedRest = true, earlyRest = true)
+    }
+
+    private fun interruptRestSpeechValidation() =
+        InstrumentationRegistry.getArguments().getString("quickStartVoiceInterruptRestSpeech") == "true"
+
+    @Test fun recoverSpeakingVoiceRestAndCompleteOffline() = runBlocking {
+        assumeTrue(voiceEarlyRestProcessValidation() && interruptRestSpeechValidation())
+        recoverVoiceRestAndCompleteOffline(expired = false, pausedRest = true,
+            earlyRest = true, interruptRestSpeech = true)
     }
 
     @Test fun completeExpiredPendingRestFixtureOffline() = runBlocking {
@@ -1545,7 +1554,9 @@ class PairedQuickStartUiTest {
     }
 
     private suspend fun recoverVoiceRestAndCompleteOffline(expired: Boolean, pausedRest: Boolean = false,
-        lockedRest: Boolean = false, extendedRest: Boolean = false, earlyRest: Boolean = false) = kotlinx.coroutines.coroutineScope {
+        lockedRest: Boolean = false, extendedRest: Boolean = false, earlyRest: Boolean = false,
+        interruptRestSpeech: Boolean = false) = kotlinx.coroutines.coroutineScope {
+        require(!interruptRestSpeech || (earlyRest && pausedRest))
         requireLifecycleCopy()
         val context = instrumentation.targetContext
         withTimeout(45_000) { while (Wearable.getNodeClient(context).connectedNodes.await().isNotEmpty()) delay(200) }
@@ -1636,21 +1647,30 @@ class PairedQuickStartUiTest {
                     assertEquals(if (lockedRest) emptyList<String>() else listOf("REST"), addedRest.map { it.split('|')[4] })
                     if (lockedRest) assertEquals(ledger, resumedLedger)
                     else assertTrue(addedRest.single().endsWith("|$deadline"))
-                    lifecycleEvidence(folder, "$restPrefix-resumed")
+                    if (!interruptRestSpeech) lifecycleEvidence(folder, "$restPrefix-resumed")
                     // Boundary checks use the new deadline committed by real Resume.
                     prior = resumed
                     ledger = resumedLedger
                 }
                 if (earlyRest) {
                     awaitLabel("REST · SET 2 / 2")
-                    voiceProcessSilent(scenario, folder, "$restPrefix-resumed-idle", 6_000)
+                    if (!interruptRestSpeech) voiceProcessSilent(scenario, folder, "$restPrefix-resumed-idle", 6_000)
                     assertEquals(prior, runtime.current())
                     assertEquals(ledger, cues.state())
                     assertTrue("Start now must precede final five", System.currentTimeMillis() < deadline - 5_000)
-                    lifecycleEvidence(folder, "$restPrefix-before-start-now")
+                    val startNowControl = if (interruptRestSpeech) clickable(awaitLabel("Start now")) else null
+                    if (interruptRestSpeech) {
+                        val (controller, output) = voiceProcessOutput(scenario)
+                        assertEquals("REST", (voiceProcessField(controller, "active") as?
+                            app.personal.workouttracker.wear.cues.WatchCueEvent)?.kind?.name)
+                        assertTrue("Start now must interrupt actual native REST speech",
+                            (voiceProcessField(output, "tts") as android.speech.tts.TextToSpeech).isSpeaking)
+                        File(folder, "start-now-rest-speaking-wall.txt").writeText(System.currentTimeMillis().toString())
+                    } else lifecycleEvidence(folder, "$restPrefix-before-start-now")
                     val startNowWall = System.currentTimeMillis()
                     File(folder, "start-now-wall.txt").writeText(startNowWall.toString())
-                    tap("Start now")
+                    if (startNowControl != null) assertTrue(startNowControl.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+                    else tap("Start now")
                     val active = awaitLifecycleState { it.session.status == SessionStatus.ACTIVE }
                     val committedWall = System.currentTimeMillis()
                     File(folder, "start-now-committed-wall.txt").writeText(committedWall.toString())
@@ -1662,6 +1682,8 @@ class PairedQuickStartUiTest {
                     val goWall = System.currentTimeMillis()
                     File(folder, "go-wall.txt").writeText(goWall.toString())
                     assertTrue(goWall in startNowWall until deadline - 5_000)
+                    if (interruptRestSpeech) assertTrue("Replacement Go must start within two seconds",
+                        goWall - startNowWall <= 2_000)
                     val activeLedger = cues.state()
                     val goKeys = activeLedger.ledger.deliveredKeys.filter { it !in ledger.ledger.deliveredKeys }
                     assertEquals(listOf("GO"), goKeys.map { it.split('|')[4] })
@@ -1694,6 +1716,7 @@ class PairedQuickStartUiTest {
                         assertTrue(it.contains("mWakefulness=Awake"))
                     })
                     lifecycleEvidence(folder, "$restPrefix-after-abandoned-deadline")
+                    if (interruptRestSpeech) File(folder, "checks.txt").appendText("Start now targeted native in-flight resumed REST; replacement GO observed; old REST never replayed\n")
                     File(folder, "checks.txt").appendText("actual Start now before final five; exactly one immediate native Go/revision; exact active runtime/ledger/native silence for $observations observations beyond abandoned deadline; no late warning/Go\n")
                 } else if (lockedRest) {
                     // The persisted warning latch must keep every extension disabled.
@@ -1780,6 +1803,23 @@ class PairedQuickStartUiTest {
             } finally {
                 sampler.cancelAndJoin()
                 File(folder, "cold-native-timeline.tsv").writeText("wallMillis\tinitialized\tlanguageSupported\tcontrollerKind\tnativeSpeaking\n" + timeline.joinToString("\n"))
+            }
+            if (interruptRestSpeech) {
+                val samples = timeline.map { it.split('\t') }
+                val startWall = File(folder, "start-now-wall.txt").readText().toLong()
+                val restWall = File(folder, "start-now-rest-speaking-wall.txt").readText().toLong()
+                assertTrue("In-flight REST witness must immediately precede the action",
+                    startWall - restWall in 0..250)
+                assertTrue("Timeline must observe actual REST playback before Start now",
+                    samples.any { it[0].toLong() <= startWall && it[3] == "REST" && it[4] == "true" })
+                val firstGo = samples.firstOrNull { it[3] == "GO" && it[4] == "true" }
+                assertNotNull("Timeline must observe native replacement Go", firstGo)
+                val goWall = requireNotNull(firstGo)[0].toLong()
+                assertTrue(goWall >= startWall)
+                assertTrue("Rest/warning must never return after replacement Go",
+                    samples.none { it[0].toLong() >= goWall && it[3] in listOf("REST", "FIVE_SECONDS") })
+                File(folder, "speech-interruption-validated.txt").writeText(
+                    "native REST before actual Start now; Go within 2000 ms; no REST/warning after Go; exact ledger and awake abandoned-deadline checks passed\n")
             }
             tap("Complete set")
             val completed = awaitLifecycleState { it.finalResult != null }

@@ -136,6 +136,10 @@ data class SessionState(
     val restIntervalId: String? = null,
     /** Irreversible latch: extensions stay blocked once five seconds is reached. */
     val restFinalCountdownStarted: Boolean = false,
+    /** Active timed set deadline; absent in old records and repetition-based sets. */
+    val timedSetDeadlineEpochMillis: Long? = null,
+    /** Exact frozen timed-set remainder, including zero at a pause boundary. */
+    val pausedTimedSetRemainingMillis: Long? = null,
     val accumulatedElapsedMillis: Long = 0,
     val elapsedStartedAtEpochMillis: Long? = null,
     val lastStopReason: String? = null,

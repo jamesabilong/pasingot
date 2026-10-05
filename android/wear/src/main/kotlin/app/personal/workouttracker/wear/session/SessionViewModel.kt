@@ -63,6 +63,7 @@ data class SessionUiState(
     val session: SessionState? = null,
     val restRemainingSeconds: Int = 0,
     val elapsedSeconds: Int = 0,
+    val timedSetRemainingMillis: Long? = null,
     val loading: Boolean = true,
     val blockedReason: String? = null,
     val saving: Boolean = false,
@@ -73,6 +74,7 @@ data class SessionUiState(
     val awaitingPhoneSync: Boolean = false,
 ) {
     val currentExercise get() = entry?.exercises?.getOrNull(session?.exerciseIndex ?: 0)
+    val timedSetDurationMillis get() = currentExercise?.reps?.let(::timedSetDurationMillis)
     val totalExercises get() = entry?.exercises?.size ?: 0
     val isResting get() = session?.status == SessionStatus.RESTING
     val isPaused get() = session?.status == SessionStatus.PAUSED
@@ -113,7 +115,8 @@ class SessionViewModel(
                 // fresh at exerciseIndex = 0 (Prompt 4 req 3).
                 val storedSession = entry?.sessionState
                 val session = entry?.let {
-                    ensureSessionPresentation(it, ensureRestLock(storedSession ?: newSession(it)))
+                    updateTimedSetCountdown(it, storedSession,
+                        ensureSessionPresentation(it, ensureRestLock(storedSession ?: newSession(it))), nowEpochMillis())
                 }
                 if (legacyStartGate != null && entry != null && session != null && session.status != SessionStatus.COMPLETED &&
                     session.status != SessionStatus.ENDED) {
@@ -142,6 +145,7 @@ class SessionViewModel(
                     entry = entry?.copy(sessionState = session),
                     session = session,
                     elapsedSeconds = session?.let(::elapsedSeconds) ?: 0,
+                    timedSetRemainingMillis = session?.let { timedSetRemainingMillis(it, nowEpochMillis()) },
                     loading = false,
                     canAdjustSets = canAdjustSets,
                     canRestart = canRestart,
@@ -174,7 +178,11 @@ class SessionViewModel(
     }
 
     /** Completes the current set. The row is logged only after its final set. */
-    fun onCompleteSet() = mutate(expected = _uiState.value.session) { entry, session ->
+    fun onCompleteSet() = completeSet(_uiState.value.session, automatic = false)
+
+    private fun completeSet(expected: SessionState?, automatic: Boolean) = mutate(expected = expected) { entry, session ->
+        // A slow write may queue expiry behind another action; re-check visibility at admission.
+        if (automatic && !screenVisible) return@mutate null
         if (session.status != SessionStatus.ACTIVE) return@mutate null
         val exercise = entry.exercises.getOrNull(session.exerciseIndex) ?: return@mutate null
         val finalSet = session.currentSet >= exercise.sets
@@ -323,7 +331,10 @@ class SessionViewModel(
 
     fun onDowngrade() = adjustSets(-1)
 
-    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+        synchronizeRestTimer()
+    }
 
     /** Called from the screen's exit hooks (back press / lifecycle ON_STOP).
      *  A no-op if the session isn't currently "active" (e.g. already paused
@@ -721,8 +732,15 @@ class SessionViewModel(
             while (true) {
                 val current = _uiState.value.session ?: return@launch
                 if (current.status != SessionStatus.ACTIVE) return@launch
-                _uiState.value = _uiState.value.copy(elapsedSeconds = elapsedSeconds(current))
-                delay(1_000L)
+                val remaining = timedSetRemainingMillis(current, nowEpochMillis())
+                _uiState.value = _uiState.value.copy(elapsedSeconds = elapsedSeconds(current),
+                    timedSetRemainingMillis = remaining)
+                if (remaining != null && remaining <= 0) {
+                    completeSet(current, automatic = true)
+                    return@launch
+                }
+                // Four foreground updates per second keep the ring responsive without disk writes.
+                delay(if (remaining != null) 250L else 1_000L)
             }
         }
     }
@@ -755,10 +773,13 @@ class SessionViewModel(
                     onCommitted?.invoke(false)
                     return@withLock
                 }
-                val change = transform(entry, session) ?: run {
+                val requested = transform(entry, session) ?: run {
                     onCommitted?.invoke(true)
                     return@withLock
                 }
+                val change = requested.copy(session = updateTimedSetCountdown(
+                    entry.copy(exercises = requested.exercises ?: entry.exercises),
+                    if (restarting) null else session, requested.session, nowEpochMillis()))
                 val updated = entry.copy(sessionState = change.session,
                     exercises = change.exercises ?: entry.exercises)
                 if (updated == entry && change.effects == null && change.action == null) {
@@ -777,7 +798,9 @@ class SessionViewModel(
                             LegacySessionGateResult.Started) { "Another workout owns the session" }
                     } else commit()
                     _uiState.value = _uiState.value.copy(entry = updated, session = change.session,
-                        elapsedSeconds = elapsedSeconds(change.session), saving = false, error = null,
+                        elapsedSeconds = elapsedSeconds(change.session),
+                        timedSetRemainingMillis = timedSetRemainingMillis(change.session, nowEpochMillis()),
+                        saving = false, error = null,
                         canExtendRest = canExtendRest(change.session))
                     sendSessionSnapshot(updated, change.session)
                     flushPendingHistory()

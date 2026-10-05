@@ -9,6 +9,29 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 78 (2026-10-05), audited and committed in the Wear timer/recovery
+  checkpoint: Wear timed-exercise circular
+  countdown with automatic set completion/rest at zero. Explicit durations get
+  durable deadlines, exact frozen pause time, new-set reset and foreground-only
+  expiry through the existing outcome/history path. Repetition targets remain
+  manual. All 324 JVM tests, four APK builds and native round-UI acceptance
+  pass on a new disposable AVD; original profiles remain untouched.
+  Iterations 73–77 coverage is included in the same audited commit;
+  their paired speech-interruption run remains pending. Stage 19 stays 70/97,
+  physical 0/27. Next: physical/paired timed-device acceptance, then paired
+  speech validation.
+
+- Iterations 73–77 (2026-10-05) continue the planned resumed-REST speech
+  interruption case: opt-in native fixture, delayed-completion controller tests,
+  real emitter/ledger recovery, recreated session/duplicate action/failed-write
+  coverage, and evidence/commit review. All 315 JVM tests and four APK builds pass;
+  paired execution is pending because this Mac has no connected devices.
+  Iteration 72 is committed in `7dc85f8`; earlier uncommitted labels are
+  historical. Stage 19 remains 70/97 (72%); physical Phase 4 remains 0/27.
+  Next: run the five explicit speech-interruption stages on an isolated pair,
+  then complete physical acceptance. No elapsed-time completion estimate is
+  established by this item-count ratio.
+
 - Iteration 71 is committed in `9764243`. Iteration 72 validates Start now
   after offline paused-rest recovery: one Go 159 ms after the action, exact
   transition/progress/ledger and no late warning/Go through an awake abandoned
@@ -427,9 +450,13 @@ Update that log during every implementation iteration, not only at handoff.
   `df0f94d PST01: Capacitor Packaging and Device Check`.
 - Stage 7: complete and committed as
   `55c17bb PST01: Watch Data-Layer Contract Hardening`.
-- Latest implementation checkpoint: Stage 19 Iteration 67 voice-enabled expired-
-  rest process recovery acceptance validated in the working tree. Latest commit:
-  Iteration 66 fresh-process success acceptance, `7b2fdc3`.
+- Latest implementation checkpoint: Iteration 78 Wear timed-set circular
+  countdown and automatic rest; code/JVM/native round-UI checks pass,
+  committed on 2026-10-05 in the audited timer/recovery checkpoint;
+  physical/paired timer acceptance pending. Previous commit: Iteration 72
+  early-rest recovery, `7dc85f8`. The prior
+  Iteration 67 working-tree / `7b2fdc3` latest-commit summary is superseded; its
+  acceptance evidence remains in the progress log.
   Historical Iteration 35 covered the paired-environment prerequisite audit
   and legacy watch-transfer error correction. Iteration 34
   closed the Phase 2 round-screen check and reconciled the first Phase 3 paths.
@@ -494,12 +521,12 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-10-03
+## Delivery board — reviewed 2026-10-05
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Follow the user's emulator direction: voice-enabled ambient/background cancellation and deadline recovery with native playback/silence and exact saved state. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Wear timed-set code/native round UI is validated; run physical/paired timed-set and resumed-REST speech acceptance next. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

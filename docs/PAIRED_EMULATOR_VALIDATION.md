@@ -195,3 +195,61 @@ On this Windows phone AVD, the Google Pixel Watch companion crashed with
 Nearby devices permissions. This was a companion setup failure; Pasingot had
 no fatal crash or system ANR in that boot. Grant permissions only when the
 operator authorizes that emulator setup change.
+
+
+## Resumed REST speech interruption — Iterations 73–77
+
+**Code/build and headless checks only; paired execution pending on this Mac.**
+The existing early-rest fixture now supports an explicit in-flight speech
+recovery case. Use a new owned request on the verified isolated copied pair,
+not original AVDs or a historical completed request. Do not run the whole test
+class with mutation flags. Preserve source-disk hashes, legacy entries, prior
+phone records and preferences, and keep physical acceptance separate.
+
+Use `quickStartVoiceEarlyRestProcessUiValidation=true` on all five stages.
+Start the phone `PairedQuickStartTransportTest#capabilityBindingAndTerminalReplay`
+probe first with its exact `peerNodeId`, and wait for its registered-listener
+stream marker. Run Wear
+`PairedQuickStartUiTest#prepareVoiceEnabledEarlyRestProcessRecovery` with the
+phone node ID. Preserve the returned request UUID and its artifact folder.
+Perform the existing exact-copy force-stop/offline reboot protocol, requiring
+a genuinely fresh process and original rest deadline elapsed while paused.
+
+Run Wear `PairedQuickStartUiTest#recoverSpeakingVoiceRestAndCompleteOffline`
+with `lifecycleRequestId=UUID` and **both** the early-rest flag and
+`quickStartVoiceInterruptRestSpeech=true`. It opens the paused session silently,
+explicitly resumes, verifies native in-flight REST immediately before clicking
+Start now, and requires one Go within two seconds. It checks exact transition/
+ledger, native REST/Go timeline ordering, no returning REST/warning, awake
+silence through the abandoned deadline and offline 2/2 completion. The idle
+`recoverEarlyVoiceRestAndCompleteOffline` method skips when the speech flag is
+set, preventing accidental coverage substitution.
+
+Restore only the copied bridge/airplane baseline, then run phone
+`PairedQuickStartTransportTest#verifyLifecycleReceiptAfterReconnect` and Wear
+`PairedQuickStartUiTest#verifyLifecyclePrunedAfterReceipt` with `lifecycleRequestId=UUID`,
+the early-rest flag and exact peer IDs. Supply the phone receipt stage
+`lifecycleResultId` from `finalResult.resultId` in the retained Wear
+`before-final-process-death-runtime.json`; never guess the result identity. All five stages must report `OK (1 test)`; inspect
+JUnit output, not merely adb exit codes. Retain the native timeline,
+`start-now-rest-speaking-wall.txt`, `start-now-wall.txt`, `go-wall.txt` and
+`speech-interruption-validated.txt`, plus the full original preservation/
+result/receipt/pruning artifacts. Re-run ordinary mutation-free tests, audit
+settings/focus/APK identity and compare source disks after stopping only copies.
+No paired or physical item closes until these stages actually pass.
+
+
+## Timed-set round UI — Iteration 78
+
+Use only the disposable blank `Pasingot_Timed_UI` AVD for the detached fixture:
+`TimedExerciseUiTest#countdownPauseResumeAutoRestAndRepLayout` with
+`timedExerciseUiValidation=true`. Build/install current Wear production and
+Android-test APKs. It injects a detached in-memory workout into the real
+SessionScreen/ViewModel, captures active/paused/final-five/rest/repetition
+screens and asserts exact paused state, automatic one-set completion and
+return to manual repetition controls. It does not send transport or mutate
+normal workout history/cue preferences, and does not establish native TTS,
+paired Quick Start result/receipt, physical acoustics or battery acceptance.
+Artifacts are under the app's external files `timed-ui` folder. Ordinary
+instrumentation skips without the explicit flag; original AVDs must remain
+untouched. Retain failure and accepted-run logs separately.

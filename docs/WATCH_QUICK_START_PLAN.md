@@ -3,9 +3,30 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 72 — Voice-enabled early rest exit after recovery validated and committed on 2026-10-05**
-Previous checkpoint: `9764243 PST01: Validate voice-enabled extended-rest process recovery`
+Latest checkpoint: **Iteration 78 — Wear timed-exercise countdown/automatic rest; code/JVM/native round UI validated and committed on 2026-10-05 in the audited timer/recovery checkpoint; paired/physical validation pending**
+Previous checkpoint: `7dc85f8 PST01: Validate voice-enabled early-rest process recovery`
 Last updated: **2026-10-05**
+
+Iteration 78 extends the common downloaded/Quick Start session engine with
+explicit-duration automatic timed sets and a circular countdown. Exact deadline
+and frozen milliseconds persist alongside existing outcomes; only foreground
+expiry completes a set, wake catches up one set, and Pause preserves the timer.
+All 324 JVM tests, four APK builds and detached native round-UI acceptance pass;
+paired result/receipt and physical acceptance stay open. This user-promoted work supersedes the immediate next
+implementation action below, while preserving the speech fixture for later use.
+
+Iterations 73–77 add a native in-flight resumed-REST/Start now acceptance mode,
+delayed-completion controller and emitter/ledger recovery tests, recreated
+session/duplicate-action/rejected-write checks, and native timeline validation.
+All 78 shared/28 phone/209 Wear JVM checks and both production/test APK builds
+pass. This supersedes the historical 204-Wear headless suite count below.
+The current Mac has no connected devices: new code/build/headless evidence does
+not supersede the prior Windows paired evidence or close physical items.
+Next: run the five explicit stages documented in
+[paired validation](PAIRED_EMULATOR_VALIDATION.md#resumed-rest-speech-interruption--iterations-7377)
+on verified isolated copies, then continue the 27 physical acceptance items.
+The 72% ratio counts checklist items, not remaining engineering time; a reliable
+finish date requires device availability and physical/Play/battery results.
 
 **Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
 emulators verify Ready/process restart/Start, Cancel/Dismiss, offline queued

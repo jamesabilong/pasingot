@@ -9,6 +9,25 @@ plan entries in `docs/WORKOUT_APP_PLAN.md`.
 
 ## Current baseline (already built, for reference)
 
+2026-10-05 Iteration 78: user promotes Wear timed-exercise countdown ahead of
+pending paired acceptance. Implemented in the audited timer/recovery commit:
+a timer-focused circular active-set
+screen, automatic durable completion/rest, exact pause/recovery and per-set
+reset. Explicit seconds/minutes prescriptions qualify; ambiguous ranges and
+repetition targets remain manual. All 324 JVM tests, four APK builds and detached native round-UI acceptance pass;
+physical and paired acceptance remain separate. Iterations 73–77 coverage is
+included in the same 2026-10-05 commit; historical uncommitted labels are
+superseded. Earlier next actions stay historical.
+
+2026-10-05 checkpoint: Iteration 72 is committed in `7dc85f8`. Iterations 73–77
+add the guarded native resumed-REST interruption fixture and focused JVM
+replacement/emitter/recreation/persistence coverage. All 315 JVM tests and four
+APK builds pass; paired execution is pending on this Mac (no connected devices).
+Stage 19 remains **70/97 (72%)**; physical Phase 4 **0/27**. Next: execute the
+five documented stages on an isolated pair and retain full preservation,
+result/receipt/pruning and native evidence. Earlier latest/next labels below
+are historical and superseded by this checkpoint.
+
 2026-10-04 checkpoint: Iteration 71 is committed in `9764243`. Iteration 72
 validates Start now after paused-rest process recovery: one Go 159 ms after the
 action and no late warning/Go through an awake abandoned deadline. Five stages,
@@ -306,6 +325,7 @@ apps (Seconds Pro) do during a rest period:
 
 | Wanted? | Refinement | What it is | Reference | Priority | Notes |
 |---|---|---|---|---|---|
+| 🚧 In progress | Wear timed-set circular countdown | Explicit-duration sets use a dynamic ring, big mm:ss, final-five state and automatic completion/rest; exact Pause/Resume and per-set reset | Samsung Health timer/routine interaction | High | User-promoted Iteration 78: code, 324 JVM tests, all APK builds and detached round-native UI pass. Repetition targets remain manual. Real paired timed-result/receipt and physical watch acceptance remain open; PWA unchanged. |
 | | Voice on by default | Flip `voiceEnabled` default to `true` (or prompt once on first workout) | — | Medium | Currently defaults off (`initialWorkoutCueSettings`); a user who never opens the cue toggles never hears it. |
 | | Announce the upcoming exercise at the *start* of rest, not just the end | "Up next: push-ups" spoken as rest begins, so the user knows what's coming without looking at the screen | Peloton, Nike Training Club | Medium | Today's `playWorkoutCue` only fires once, when rest hits 0 ("Rest complete. Next set: X"). |
 | | Spoken/audible final countdown | "3, 2, 1, go" in the last few seconds of rest | Nike Training Club, Seconds Pro, most interval timers | Medium | Cheap addition to the existing 1-second `syncTimers` tick — trigger extra cues at `restSeconds` 3/2/1. |

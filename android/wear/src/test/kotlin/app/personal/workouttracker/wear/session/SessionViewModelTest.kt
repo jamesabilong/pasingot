@@ -339,6 +339,228 @@ class SessionViewModelTest {
         assertEquals(listOf("rest:30", "five", "cancel:START_NOW", "go"), cues.events)
     }
 
+    @Test fun `recreated paused rest exits once and abandoned deadline cannot mutate active state`() = runSessionTest {
+        val original = createSession()
+        original.onScreenVisibilityChanged(true)
+        runCurrent()
+        original.onCompleteSet()
+        runCurrent()
+        advanceTimeBy(10_000)
+        original.onPause()
+        runCurrent()
+        val frozen = repository.entry.sessionState!!
+        assertEquals(20, frozen.pausedRestRemainingSeconds)
+        viewModels.clear()
+        runCurrent()
+        cues.events.clear()
+        val frozenWrites = repository.sessionWrites
+        advanceTimeBy(60_000)
+        val recovered = createSession()
+        recovered.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(frozen, repository.entry.sessionState)
+        // Legacy start-gate admission re-persists the identical recovered state.
+        assertEquals(frozenWrites + 1, repository.sessionWrites)
+        assertTrue(cues.events.isEmpty())
+
+        recovered.onResume()
+        runCurrent()
+        val resumed = repository.entry.sessionState!!
+        assertEquals(1_000_000L + dispatcher.scheduler.currentTime + 20_000,
+            resumed.restUntilEpochMillis)
+        assertEquals(listOf("rest:20"), cues.events)
+        val resumedWrites = repository.sessionWrites
+        recovered.onStartNow()
+        recovered.onStartNow()
+        runCurrent()
+        val active = resumed.copy(status = SessionStatus.ACTIVE, restUntilEpochMillis = null,
+            pausedRestRemainingSeconds = null, restIntervalId = null, restFinalCountdownStarted = false)
+        assertEquals(active, repository.entry.sessionState)
+        assertEquals(resumedWrites + 1, repository.sessionWrites)
+        assertEquals(listOf("rest:20", "cancel:START_NOW", "go"), cues.events)
+        advanceTimeBy(21_500)
+        runCurrent()
+        assertEquals(active, repository.entry.sessionState)
+        assertEquals(resumedWrites + 1, repository.sessionWrites)
+        assertEquals(listOf("rest:20", "cancel:START_NOW", "go"), cues.events)
+
+        viewModels.clear()
+        runCurrent()
+        cues.events.clear()
+        val reopened = createSession()
+        reopened.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(active, repository.entry.sessionState)
+        assertEquals(resumedWrites + 2, repository.sessionWrites)
+        assertTrue(cues.events.isEmpty())
+    }
+
+    @Test fun `failed early exit emits no Go and retry cancels exactly one rest`() = runSessionTest {
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        viewModel.onCompleteSet()
+        runCurrent()
+        val resting = repository.entry.sessionState
+        val writes = repository.sessionWrites
+        cues.events.clear()
+        repository.failWrites = true
+        viewModel.onStartNow()
+        runCurrent()
+        assertEquals(resting, repository.entry.sessionState)
+        assertEquals(resting, viewModel.uiState.value.session)
+        assertEquals(writes, repository.sessionWrites)
+        assertTrue(cues.events.isEmpty())
+        repository.failWrites = false
+        viewModel.onStartNow()
+        runCurrent()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertEquals(writes + 1, repository.sessionWrites)
+        assertEquals(listOf("cancel:START_NOW", "go"), cues.events)
+        advanceTimeBy(31_500)
+        runCurrent()
+        assertEquals(writes + 1, repository.sessionWrites)
+        assertEquals(listOf("cancel:START_NOW", "go"), cues.events)
+    }
+
+    @Test fun `timed sets auto complete once enter rest and reset next countdown`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "10 sec", 2, 6)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(10_000L, viewModel.uiState.value.timedSetRemainingMillis)
+        val writes = repository.sessionWrites
+        advanceTimeBy(9_750)
+        runCurrent()
+        assertEquals(250L, viewModel.uiState.value.timedSetRemainingMillis)
+        assertEquals(writes, repository.sessionWrites)
+        advanceTimeBy(250)
+        runCurrent()
+        assertEquals(SessionStatus.RESTING, repository.entry.sessionState?.status)
+        assertEquals(2, repository.entry.sessionState?.currentSet)
+        assertEquals(1, repository.entry.sessionState?.progress?.completedSets?.single())
+        assertEquals(writes + 1, repository.sessionWrites)
+        advanceTimeBy(6_000)
+        runCurrent()
+        assertEquals(SessionStatus.ACTIVE, repository.entry.sessionState?.status)
+        assertEquals(10_000L, viewModel.uiState.value.timedSetRemainingMillis)
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals(SessionStatus.COMPLETED, repository.entry.sessionState?.status)
+        assertEquals(listOf(LogStatus.DONE), sender.logs)
+        assertEquals(1, cues.events.count { it == "workout-success" })
+        assertEquals(2, repository.entry.sessionState?.progress?.completedSets?.single())
+    }
+
+    @Test fun `timed pause persists exact milliseconds through recreation and resume`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "10 sec", 2, 6)))
+        val original = createSession()
+        original.onScreenVisibilityChanged(true)
+        runCurrent()
+        advanceTimeBy(1_250)
+        original.onPause()
+        runCurrent()
+        val frozen = repository.entry.sessionState!!
+        assertEquals(8_750L, frozen.pausedTimedSetRemainingMillis)
+        viewModels.clear()
+        runCurrent()
+        advanceTimeBy(60_000)
+        val recovered = createSession()
+        recovered.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(frozen, repository.entry.sessionState)
+        assertEquals(8_750L, recovered.uiState.value.timedSetRemainingMillis)
+        recovered.onResume()
+        runCurrent()
+        assertEquals(1_000_000L + dispatcher.scheduler.currentTime + 8_750,
+            repository.entry.sessionState?.timedSetDeadlineEpochMillis)
+        advanceTimeBy(8_750)
+        runCurrent()
+        assertEquals(SessionStatus.RESTING, repository.entry.sessionState?.status)
+        assertEquals(1, repository.entry.sessionState?.progress?.completedSets?.single())
+    }
+
+    @Test fun `hidden timed set does not advance and wake catches up only that set`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "2 sec", 3, 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        val original = repository.entry.sessionState
+        viewModel.onScreenVisibilityChanged(false)
+        runCurrent()
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(original, repository.entry.sessionState)
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(2, repository.entry.sessionState?.currentSet)
+        assertEquals(2_000L, viewModel.uiState.value.timedSetRemainingMillis)
+        assertEquals(1, repository.entry.sessionState?.progress?.completedSets?.single())
+    }
+
+    @Test fun `rejected timed completion remains retryable without log or cue escaping`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "2 sec", 1, 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        val original = repository.entry.sessionState
+        repository.failWrites = true
+        advanceTimeBy(2_000)
+        runCurrent()
+        assertEquals(original, repository.entry.sessionState)
+        assertTrue(sender.logs.isEmpty())
+        assertTrue(cues.events.isEmpty())
+        repository.failWrites = false
+        viewModel.clearError()
+        runCurrent()
+        assertEquals(SessionStatus.COMPLETED, repository.entry.sessionState?.status)
+        assertEquals(listOf(LogStatus.DONE), sender.logs)
+        assertEquals(listOf("workout-success"), cues.events)
+    }
+
+    @Test fun `manual finish racing timed expiry cannot consume two zero rest sets`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "2 sec", 3, 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        val writes = repository.sessionWrites
+        advanceTimeBy(2_000)
+        viewModel.onCompleteSet()
+        runCurrent()
+        assertEquals(2, repository.entry.sessionState?.currentSet)
+        assertEquals(1, repository.entry.sessionState?.progress?.completedSets?.single())
+        assertEquals(writes + 1, repository.sessionWrites)
+        assertEquals(2_000L, viewModel.uiState.value.timedSetRemainingMillis)
+    }
+
+    @Test fun `expiry queued behind a slow write cannot complete after screen hides`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Plank", "2 sec", 3, 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        val original = repository.entry.sessionState
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        repository.beforeCommit = { entered.complete(Unit); release.await() }
+        viewModel.onUpgrade()
+        runCurrent()
+        entered.await()
+        advanceTimeBy(2_000)
+        runCurrent()
+        viewModel.onScreenVisibilityChanged(false)
+        release.complete(Unit)
+        repository.beforeCommit = {}
+        runCurrent()
+        assertEquals(original, repository.entry.sessionState)
+        assertEquals(4, repository.entry.exercises.single().sets)
+        assertEquals(0, repository.entry.sessionState?.progress?.completedSets?.single())
+        assertTrue(sender.logs.isEmpty())
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(2, repository.entry.sessionState?.currentSet)
+        assertEquals(1, repository.entry.sessionState?.progress?.completedSets?.single())
+    }
+
     @Test fun `final countdown lock survives pause and resume`() = runSessionTest {
         val viewModel = createSession()
         viewModel.onScreenVisibilityChanged(true)

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -162,6 +164,15 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         return
     }
 
+    if (state.timedSetDurationMillis != null && state.timedSetRemainingMillis != null) {
+        TimedExerciseView(state,
+            onFinish = { cueAction(viewModel::onCompleteSet) },
+            onPause = { cueAction(viewModel::onPause) },
+            onSkip = { cueAction(viewModel::onSkip) },
+            onCancel = { cueAction { cancelSession(viewModel, onCancel) } })
+        return
+    }
+
     WatchPage {
         state.progress?.successExerciseIndex?.let { completedIndex ->
             val completedName = state.entry?.exercises?.getOrNull(completedIndex)?.exercise
@@ -213,6 +224,43 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
             }
         }
         item { WatchAction("Save & close", { cueAction { cancelSession(viewModel, onCancel) } }) }
+    }
+}
+
+@Composable
+private fun TimedExerciseView(state: SessionUiState, onFinish: () -> Unit,
+    onPause: () -> Unit, onSkip: () -> Unit, onCancel: () -> Unit) {
+    val exercise = state.currentExercise ?: return
+    val session = state.session ?: return
+    val duration = state.timedSetDurationMillis ?: return
+    val remaining = state.timedSetRemainingMillis ?: return
+    val seconds = ((remaining + 999) / 1_000).toInt()
+    val progress = (remaining.toFloat() / duration).coerceIn(0f, 1f)
+    val presentation = LocalWatchPresentationPolicy.current
+    val animated by animateFloatAsState(progress, tween(if (presentation.reducedMotion) 0 else 250),
+        label = "Timed exercise countdown")
+    val color = if (seconds <= 5) MaterialTheme.colors.error else MaterialTheme.colors.primary
+    Box(Modifier.fillMaxSize()) {
+        CircularProgressIndicator(progress = if (presentation.reducedMotion) progress else animated,
+            modifier = Modifier.fillMaxSize().padding(4.dp), strokeWidth = 5.dp,
+            indicatorColor = color)
+        WatchPage {
+            item { WatchHeading("TIME · SET ${session.currentSet} / ${exercise.sets}",
+                exerciseDisplayName(exercise.exercise)) }
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.semantics { contentDescription = "$seconds seconds remaining" }) {
+                    Text(formatElapsedSeconds(seconds), fontSize = 48.sp,
+                        fontWeight = FontWeight.Bold, color = color, textAlign = TextAlign.Center)
+                    Text(if (seconds <= 5) "Finishing" else "Remaining", color = color)
+                }
+            }
+            item { WatchAction("Pause", onPause, primary = true) }
+            item { WatchNote("${formatSetTarget(exercise.reps)} · Exercise ${session.exerciseIndex + 1} of ${state.totalExercises}") }
+            item { WatchAction("Finish early", onFinish) }
+            item { WatchAction("Skip exercise", onSkip) }
+            item { WatchAction("Save & close", onCancel) }
+        }
     }
 }
 
@@ -439,6 +487,9 @@ private fun PausedView(
             item { WatchAction("Resume", onResume, primary = true) }
             session.pausedRestRemainingSeconds?.let { seconds ->
                 item { WatchNote("${formatRestSeconds(seconds)} rest remaining") }
+            }
+            session.pausedTimedSetRemainingMillis?.let { remaining ->
+                item { WatchNote("${formatElapsedSeconds(((remaining + 999) / 1_000).toInt())} exercise remaining") }
             }
             item { WatchAction("Save & close", onCancel) }
             if (state.canRestart) {

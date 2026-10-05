@@ -4914,3 +4914,310 @@ and commit as `PST01: Validate voice-enabled early-rest process recovery`.
 This supersedes Iteration 72's earlier uncommitted labels. The validated source
 has not changed since acceptance; only checkpoint documentation is updated.
 The next implementation remains planned, not started by this commit request.
+
+
+## Iteration 73 — 2026-10-05 — Start now during recovered REST speech
+
+Status: **Implementation in progress; paired/device acceptance pending.**
+
+Starting checkpoint: `7dc85f8`, clean tree. Iteration 72 is committed; this
+supersedes its historical uncommitted closure. Stage 19 remains 70/97 (72%),
+physical Phase 4 0/27. The current Mac has no connected ADB devices; the
+Windows copied-pair evidence remains historical and is not reproducible here
+without preparing a new isolated pair. Do not mutate the original Mac AVDs.
+
+Scope: extend the existing guarded early-rest recovery fixture with a distinct
+recovery method that clicks Start now while native resumed REST is demonstrably
+in flight. Retain exact transition, one deadline-bound Go, awake abandoned-
+deadline silence, offline completion and receipt/preservation assertions.
+Five requested iterations will cover this fixture, controller replacement,
+native callback ownership, recovered runtime boundaries and final integration
+review. Code/JVM/build results will be separated from pending paired execution.
+Next: implement the in-flight recovery method and build the test APKs.
+
+Validation/closure: `:app:assembleDebugAndroidTest
+:wear:assembleDebugAndroidTest --offline --no-daemon` passes (1m 30s). The
+baseline Wear JVM suite passes (54s). The new opt-in
+`recoverSpeakingVoiceRestAndCompleteOffline` shares early-rest preparation and
+receipt stages, requires `quickStartVoiceInterruptRestSpeech=true` alongside
+the existing early-rest flag, excludes the idle recovery method, and records
+the native REST witness immediately before the accessibility click. It skips
+slow resumed screenshots in this mode and retains all subsequent exact Go,
+awake late-cue, result and preservation assertions. Production code is unchanged.
+Code/build checkpoint complete; paired execution is **pending**, not closed.
+Next: deterministic controller replacement regression coverage.
+
+## Iteration 74 — 2026-10-05 — Delayed REST completion during Go
+
+Status: **Implementation complete; focused JVM validation running.**
+
+Findings: native callbacks can finish the old REST after Go has become active.
+Add two controlled-completion tests covering priority replacement and explicit
+START_NOW cancellation. Require the old completion to leave Go pending, lower
+priority cues refused without ledger/haptic changes, duplicates suppressed and
+the replacement completing normally. No production defect is assumed.
+Next: run the controller suite and retain its result before closure.
+
+Validation/closure: focused `WatchCueControllerTest` passes (8 tests, 23s),
+including both new delayed-completion schedules. No controller defect is
+established and no production change is needed. Code/JVM checkpoint complete;
+this does not establish native playback or device acceptance. Next: exercise
+the real session cue emitter and recovered ledger across replacement.
+
+## Iteration 75 — 2026-10-05 — Session emitter replacement and ledger recovery
+
+Status: **Implementation in progress; JVM validation pending.**
+
+Scope: connect the production session emitter/controller/store to a controlled
+speech output. Keep REST outstanding while real emitter Go cancels it, then
+deliver the old completion after Go admission. Verify exact prescribed scripts,
+deadline-bound keys, haptics, cancellation, no active-session warning and
+recreation replay suppression. The fake output only controls callback timing;
+it supplies no evidence of native TTS/focus/acoustics. Next: focused JVM check.
+
+Validation/closure: `SessionCueRecoveryTest` passes (1 integration test, 18s).
+The production emitter emits exactly `Rest for 20 seconds.` and `Go. Set 2.`,
+retains the two exact deadline-bound keys, cancels via START_NOW, ignores
+rest/warning calls carrying ACTIVE state, and suppresses both replays with a
+new store/controller. No production defect is established. Code/JVM checkpoint
+complete; native/device validation remains pending. Next: recovered session
+timer, duplicate action and persistence checks through the abandoned deadline.
+
+## Iteration 76 — 2026-10-05 — Recreated session and abandoned deadline
+
+Status: **Implementation in progress; focused JVM validation pending.**
+
+Scope: recreate the real session ViewModel from a frozen paused-rest repository
+after the old deadline, require silent exact recovery, then explicit Resume and
+two immediate Start now taps. Observe the whole ACTIVE state and persistence/
+cue counts beyond the new abandoned deadline, then recreate ACTIVE state again.
+Also inject a rejected Start now commit: no Go or runtime change may escape;
+a later successful retry must transition once. Next: run SessionViewModel tests.
+
+First focused run: 26/27 pass; the new recreation test incorrectly expected
+zero writes at legacy start-gate admission. Inspection shows the existing gate
+re-persists the identical recovered session once; the complete session equality
+assertion already passes. Correct the write-count expectations for both opens
+while retaining exact state, one Start now commit, no abandoned-deadline writes
+and no cue replay. This is a fixture expectation error, not a production defect.
+Next: rerun the focused suite before closing this iteration.
+
+Validation/closure: corrected focused `SessionViewModelTest` passes **27/27**
+(31s), including both new cases. Whole paused/active state, exact rebased
+deadline, one duplicate-safe exit write, no timer writes/cues through deadline
++1,500 ms and silent reopened ACTIVE state pass. Rejected commit emits nothing;
+retry succeeds once. Existing legacy admission's identical write is explicitly
+accounted for. Code/JVM checkpoint complete; physical/native checks stay open.
+Next: strengthen the native fixture's own evidence validation, run combined
+suites/builds and review the exact commit diff.
+
+## Iteration 77 — 2026-10-05 — Native evidence checks and commit-readiness audit
+
+Status: **Implementation/review in progress; integration validation pending.**
+
+Scope: make the opt-in speech-interruption fixture validate its own native
+timeline and bound replacement Go latency below the controller speech timeout.
+Document explicit preparation/recovery/receipt methods and isolation guards.
+Reconcile stale latest-checkpoint/next-action summaries while preserving prior
+evidence. Run all three JVM suites, production/test APK builds and whitespace
+review; inspect final Git again. Stage 19 counts remain unchanged because these
+headless improvements cannot close physical acceptance. Next: final validation.
+
+Final validation/closure — supersedes the pending code-check labels above:
+
+- Combined Gradle command passes in **1m 20s**:
+  `:shared:test :app:testDebugUnitTest :wear:testDebugUnitTest
+  :app:assembleDebug :wear:assembleDebug :app:assembleDebugAndroidTest
+  :wear:assembleDebugAndroidTest --offline --no-daemon --console=plain`.
+  XML reports prove **78 shared / 28 phone / 209 Wear**, **315 total**, zero
+  failures/errors/skips. Five new meaningful JVM cases cover two controller
+  schedules, emitter/ledger recovery and two session persistence/timer cases.
+- Phone/Wear production and instrumentation APKs build successfully. Existing
+  AGP deprecation and two accessibility-node warnings remain; no build failure.
+  PWA/production sources are unchanged, so no new browser/native behavior is
+  claimed and no redundant PWA test cycle is needed for this test/docs slice.
+- New native recovery method validates observed REST within 250 ms before the
+  click, Go within two seconds, sampled REST/Go ordering, no REST/warning return
+  and existing exact ledger/awake late-cue checks. It is **built, not executed**.
+  The host has no connected ADB devices; original Mac AVDs and user data are
+  untouched. Native speech/focus, five-stage result/receipt preservation, disk
+  audits and physical acceptance remain pending for this new mode.
+- Review corrects the documented phone receipt method name and includes its
+  required exact `lifecycleResultId`. Roadmaps identify `7dc85f8` as the latest
+  commit, preserve historical evidence and use the actual next action.
+  Checklist recount remains **70 checked / 27 open / 97 total** (72%),
+  Phases 0–3 complete, physical Phase 4 **0/27**. Stages 17/18 also retain their
+  separate device-acceptance work. There is no defensible whole-plan ETA from
+  these counts; the physical battery item alone needs a 60–90 minute run.
+
+Completed: five requested code/review iterations (73–77), guarded planned native
+fixture, five JVM regressions, self-validating native evidence and actionable
+paired protocol, full tests/APK builds, plan reconciliation and commit review.
+No production defect is established. **Code/test/docs checkpoint complete and
+uncommitted; new paired/device acceptance is not complete.**
+
+Next: execute all five explicit resumed-REST interruption stages on verified
+isolated copies, with complete native/result/receipt/preservation evidence;
+then continue the 27 physical items. Suggested test/docs commit:
+`PST01: Add recovered rest speech interruption coverage`.
+Final Git and whitespace verification follow this documentation update.
+
+Final Git audit: HEAD remains `7dc85f8` on `PST01`; `git diff --check`
+passes. Exactly **nine expected files** are changed (four Wear test sources,
+including the new untracked emitter integration test, and five documentation
+files). No unrelated changes or production sources are modified. Review finds
+no commit-blocking code/test issue. Ready for the suggested **test/docs** commit;
+no commit is created because the request is to check changes for commit.
+Paired execution stays explicitly pending.
+
+
+## Iteration 78 — 2026-10-05 — Timed exercise circular countdown on Wear
+
+Status: **Code/native round-UI validated; committed on 2026-10-05 in the audited
+timer/recovery checkpoint. Paired and physical acceptance pending.**
+
+User promotes timed-exercise UX ahead of the pending paired speech fixture:
+Wear first, a circular dynamic countdown, and automatic set completion/rest
+at zero. Preserve all nine uncommitted Iterations 73–77 files. Samsung's
+official workout guide confirms countdown/workout-timer and routine flows;
+public examples support timer-focused watch layouts, but the exact modern
+timed-set circular treatment is not established by official screenshots.
+Implement the user's requested interaction using Pasingot's design language.
+
+Plan: recognize explicit unambiguous duration prescriptions; add backward-
+compatible durable timed-set deadline/frozen-millisecond fields; initialize/reset
+each timed set, freeze on Pause, resume exact time, and auto-complete through the
+existing atomic set/history/outcome path only while foreground/interactive.
+Ambient stops ticking; wake catches up once rather than advancing unseen through
+multiple sets. Rep prescriptions remain manual. Render a prominent ring/time,
+final-five state and paused remaining time, respecting reduced motion/ambient.
+Validate parser/recovery/duplicate/failure/boundary behavior and full JVM/APK
+builds. Native/round-layout and physical battery/cue acceptance stay separate.
+Next: implement durable timer and focused watch UI.
+
+Implementation: additive deadline/frozen-millisecond fields in shared SessionState,
+strict duration recognition (`30 sec`, `2 min`, `1 min 30 sec`, fractions),
+atomic timer initialization/reset/pause/resume in the shared Wear session engine,
+250 ms foreground UI ticks without persistence writes, existing durable
+completion/rest/cue path and retry after a failed zero-boundary commit. Native
+Quick Start validation rejects illegal timer field/status combinations. Timed
+UI adds perimeter progress, large mm:ss, final-five color/state and paused time;
+rep UI stays manual. Seven focused JVM cases and a detached native round-UI
+fixture are added; the new blank `Pasingot_Timed_UI` AVD uses only its own disks.
+
+Initial combined build finds duplicate generated `... 2.dex` artifacts in Wear
+build intermediates, not duplicate source declarations. Retain the failure;
+use Gradle `:wear:clean` and rebuild all affected tests/APKs. No user data or
+source files are removed. Validation is running; no acceptance claim yet.
+
+Clean rebuild additionally finds a cross-module Kotlin smart-cast/type-range
+error in the newly added Quick Start timer validation. Correct it using local
+nullable values and explicit Long ranges. Native fixture constructor and sender
+seams are corrected before acceptance. Eight focused JVM cases now cover parser,
+old-record decoding, timer reducer, auto-rest/reset, exact paused recreation,
+hidden one-set catch-up, failed-save retry and manual/expiry race. The default
+native run skips this detached fixture unless explicitly opted in, and requires
+only the new `Pasingot_Timed_UI` profile. Next: finish clean builds and native UI.
+
+Clean combined validation passes (6m 50s) with `--max-workers=2`: shared **78**,
+phone **28**, Wear **217**, total **323**, zero failures/errors/skips. Both
+production and both instrumentation APKs build. Generated duplicate dex/report
+artifacts and initial compiler errors are superseded by the clean pass; no
+acceptance assertion is relaxed. Original non-timer suites, prior five regression
+cases and eight new timer cases pass. Test APK is installing on the verified
+disposable 480x480/API 37 Wear AVD for the explicit detached UI fixture.
+Next: inspect native screenshots and exact UI pause/auto-rest/reps assertions.
+
+First native fixture retains all five captures but ends with a label lookup
+timeout on rep-mode Pause, whose control is below the visible success header.
+Timed Pause/Resume, exact frozen state, one automatic set/rest and manual rep
+mode already pass. Visual inspection confirms the large ring/countdown and
+paused remainder, but the final-five capture shows a stale six-second green
+frame rather than proving the intended warning state. Keep the failed log and
+first captures. Improve the fixture with cache-cleared current accessibility
+trees, scrolling for off-screen controls and an explicit visible `Finishing`
+label before capturing the final-five state. Do not change production behavior
+or relax any timer assertion. Rebuild the test APK and repeat acceptance.
+
+Final review adds a visibility re-check inside serialized automatic completion:
+a slow set-adjustment save can hold the transition mutex while timer expiry is
+queued and the screen subsequently hides. The queued expiry must not complete
+unseen after that write releases. Manual completion keeps its existing path;
+wake catches up normally. A ninth focused JVM case holds a real fake-store
+commit, queues expiry, hides, releases, and checks exact unchanged progress
+until wake. Rebuild/check the final production/test APKs before native rerun.
+
+Final evidence — supersedes pending validation labels for Iteration 78:
+
+- Final Wear JVM/production/test APK command passes in **1m 17s** after the
+  visibility guard: **218 Wear** tests, zero failures/errors/skips. Earlier
+  clean shared **78**/phone **28** results and both phone APK builds remain
+  applicable because subsequent source changes are Wear-only. Total **324**
+  JVM tests pass; all four APK builds pass. Nine new focused timer cases cover
+  durable clock and concurrency boundaries. `git diff --check` passes.
+- Native accepted log `output/emulator-validation/iteration-78-ui-accepted.log`
+  reports **OK (1 test)** in **38.25s** on the verified fresh blank
+  `Pasingot_Timed_UI` API 37/480x480 profile. Current production/test APKs are
+  installed. UI taps exercise timed Pause/Resume and rep Pause; exact frozen
+  state, one automatic completion/rest, and manual rep mode pass. Six artifacts
+  under `iteration-78-accepted` include five visually reviewed screenshots and
+  `checks.txt`: full-size active ring/time/Pause; paused 0:19; warning-colored
+  0:04 `Finishing` ring; automatic 0:08 rest/success; manual 8 reps/Complete set.
+  The retained first failure and stale capture are superseded by cache-cleared
+  lookups, scrolling and explicit rendered-state observation.
+- Detached native fixture uses the real screen/session engine with an in-memory
+  store and NoOp cues; it does **not** establish native TTS/haptics, DataStore
+  process-death/reboot, paired timed Quick Start result/receipt or physical
+  battery/ambient/acoustic acceptance. JVM tests establish additive old-record
+  decoding and paused recreation. Original AVD disks/profile settings and
+  workout/history data are never opened for mutation; only the new profile
+  receives installs/UI work. Exact AVD name is rechecked before owned shutdown.
+- Existing Iterations 73–77 uncommitted changes remain intact. PWA is untouched
+  per the user's Wear-first choice. Stage 19's existing checklist remains
+  **70/97**, physical **0/27**; this shared-session timer enhancement has its
+  own follow-up device checks and does not close a physical item.
+
+Completed: user-requested watch countdown/ring, final-five treatment, automatic
+set/rest through atomic outcomes, per-set reset, exact Pause/Resume/recovery,
+foreground/queued-expiry safety, error retry, rep/manual distinction, nine JVM
+regressions, native round-UI acceptance and all APK builds. **Code/emulator UI
+checkpoint validated, uncommitted; paired and physical timer acceptance pending.**
+Next: test timed sets on a physical watch and with the paired production
+Quick Start store/result/receipt path, then return to resumed-REST speech
+interruption acceptance. Suggested feature commit:
+`PST01: Add Wear timed-set circular countdown and automatic rest`.
+Final Git/AVD shutdown audit follows the documentation update.
+
+Final closure: rechecked Git at HEAD `7dc85f8`, with 17 expected source/test/docs
+files changed across preserved Iterations 73–77 and new Iteration 78; no
+unrelated edits are reverted and no commit is made. `git diff --check` passes.
+Owned `Pasingot_Timed_UI` shutdown succeeds and final ADB inventory is empty.
+Iteration 78 code/emulator UI validation is complete; the listed paired/
+physical follow-ups remain open.
+
+
+Commit audit — 2026-10-05
+
+The user authorizes committing the existing changes after audit. Inspect all
+17 expected source/test/docs files across Iterations 73–78, including the four
+new files. Review additive timer persistence and validation, exact pause/reset,
+foreground/queued-expiry protection, atomic completion/history ordering,
+duplicate/failed-write coverage, round UI, guarded native fixtures and roadmap
+accuracy. No commit-blocking finding or unrelated change is found. Production
+source is unchanged since the accepted timer/native checkpoint.
+
+Combined shared/phone/Wear JVM plus both production/test APK validation passes
+in **18s**, all tasks up-to-date against the audited sources. XML reports remain
+**78 shared / 28 phone / 218 Wear**, **324 total**, zero failures/errors/skips.
+Retained exact native timer UI evidence is **OK (1 test)**, 38.25s; no repeat
+is needed because visible production source is unchanged. `git diff --check`
+passes. Existing AGP warnings remain non-fatal. Paired speech interruption and
+real timed-result/receipt, process/reboot and physical acceptance stay open;
+Stage 19 remains 70/97, physical 0/27.
+
+Commit the full audited checkpoint as
+`PST01: Add Wear timed-set countdown and recovery coverage`. This supersedes
+Iterations 73–78's historical uncommitted/no-commit labels; prior evidence and
+failed attempts remain preserved. No additional implementation iteration is
+started by this commit request. Next: paired/physical timed-device acceptance,
+then resumed-REST speech acceptance. Recheck staged content and Git after commit.

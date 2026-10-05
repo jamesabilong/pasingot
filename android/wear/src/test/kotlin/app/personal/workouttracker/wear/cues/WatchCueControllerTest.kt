@@ -2,12 +2,15 @@ package app.personal.workouttracker.wear.cues
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class WatchCueControllerTest {
     @Test fun `voice is disabled until opt in but haptics remain available`() = runTest {
         val persistence = MemoryCuePersistence()
@@ -92,6 +95,54 @@ class WatchCueControllerTest {
         assertEquals(WatchCueResult.DUPLICATE, WatchCueController(store, FakeCueOutput()).emit(first, "Done"))
     }
 
+    @Test fun `late rest completion cannot release active replacement Go or admit a warning`() = runTest {
+        val store = enabledStore()
+        val output = ControlledCueOutput()
+        val controller = WatchCueController(store, output)
+        val rest = event(WatchCueKind.REST)
+        val go = rest.copy(kind = WatchCueKind.GO)
+        val resting = async { controller.emit(rest, "Rest") }
+        runCurrent()
+        val going = async { controller.emit(go, "Go") }
+        runCurrent()
+        assertEquals(listOf(rest.key, go.key), output.pending.keys.toList())
+        assertEquals(listOf(WatchCueCancellation.AUDIO_ROUTE), output.cancellations)
+
+        output.pending.getValue(rest.key).complete(false)
+        assertEquals(WatchCueResult.HAPTIC_ONLY, resting.await())
+        assertEquals(WatchCueResult.LOWER_PRIORITY,
+            controller.emit(rest.copy(kind = WatchCueKind.FIVE_SECONDS), "Five"))
+        assertEquals(WatchCueResult.DUPLICATE, controller.emit(go, "Go"))
+        assertFalse(going.isCompleted)
+        assertEquals(listOf(rest.key, go.key), store.state().ledger.deliveredKeys)
+        assertEquals(listOf(WatchCueKind.REST, WatchCueKind.GO), output.haptics)
+        output.pending.getValue(go.key).complete(true)
+        assertEquals(WatchCueResult.SPOKEN, going.await())
+    }
+
+    @Test fun `explicit Start now cancellation permits Go while old rest finishes later`() = runTest {
+        val store = enabledStore()
+        val output = ControlledCueOutput()
+        val controller = WatchCueController(store, output)
+        val rest = event(WatchCueKind.REST)
+        val go = rest.copy(kind = WatchCueKind.GO)
+        val resting = async { controller.emit(rest, "Rest") }
+        runCurrent()
+        controller.cancel(WatchCueCancellation.START_NOW)
+        val going = async { controller.emit(go, "Go") }
+        runCurrent()
+        output.pending.getValue(rest.key).complete(false)
+        resting.await()
+        assertFalse(going.isCompleted)
+        assertEquals(WatchCueResult.LOWER_PRIORITY,
+            controller.emit(rest.copy(revision = 8), "Obsolete rest"))
+        output.pending.getValue(go.key).complete(true)
+        assertEquals(WatchCueResult.SPOKEN, going.await())
+        assertEquals(listOf(WatchCueCancellation.START_NOW), output.cancellations)
+        assertEquals(WatchCueResult.DUPLICATE, controller.emit(rest, "Rest"))
+        assertEquals(WatchCueResult.DUPLICATE, controller.emit(go, "Go"))
+    }
+
     private suspend fun enabledStore(): WatchCueStore = WatchCueStore(MemoryCuePersistence()).also {
         it.setPreferences(WatchCuePreferences(voiceEnabled = true))
     }
@@ -136,4 +187,11 @@ private class BlockingCueOutput : FakeCueOutput() {
 private class NeverCompletesCueOutput : FakeCueOutput() {
     override suspend fun speak(utteranceId: String, text: String): Boolean =
         CompletableDeferred<Boolean>().await()
+}
+
+/** Completion order is controlled independently of cancellation, like delayed native callbacks. */
+private class ControlledCueOutput : FakeCueOutput() {
+    val pending = linkedMapOf<String, CompletableDeferred<Boolean>>()
+    override suspend fun speak(utteranceId: String, text: String): Boolean =
+        CompletableDeferred<Boolean>().also { pending[utteranceId] = it }.await()
 }

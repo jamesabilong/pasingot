@@ -319,9 +319,15 @@ private fun SessionState.matches(outcomes: WorkoutOutcomeState): Boolean {
     val elapsedStartedAt = elapsedStartedAtEpochMillis
     val restUntil = restUntilEpochMillis
     val pausedRest = pausedRestRemainingSeconds
+    val timedDeadline = timedSetDeadlineEpochMillis
+    val pausedTimed = pausedTimedSetRemainingMillis
     if (schemaVersion != CURRENT_SCHEMA_VERSION || workoutEntryId != outcomes.sessionId ||
         exerciseIndex !in outcomes.exercises.indices || accumulatedElapsedMillis < 0 ||
         (elapsedStartedAt != null && elapsedStartedAt < 0) ||
+        (timedDeadline != null && timedDeadline < 0) ||
+        (pausedTimed != null && pausedTimed !in 0L..86_400_000L) ||
+        (timedDeadline != null && status != SessionStatus.ACTIVE) ||
+        (pausedTimed != null && (status != SessionStatus.PAUSED || pausedRest != null)) ||
         currentSet !in 1..outcomes.exercises[exerciseIndex].plannedSets
     ) return false
     when (status) {
