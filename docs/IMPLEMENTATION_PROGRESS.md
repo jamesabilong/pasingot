@@ -5225,7 +5225,7 @@ then resumed-REST speech acceptance. Recheck staged content and Git after commit
 
 ## Iteration 79 — 2026-10-06 — Durable first timed Quick Start deadline
 
-Status: **Implementation in progress; validation pending.**
+Status: **Code/JVM validated; committed as `faea1df`. Device acceptance pending.**
 
 Progress audit: clean PST01 at `39a3835`, the committed Iterations 73–78
 checkpoint. Stage 19 remains 70/97; physical acceptance remains 0/27. ADB
@@ -5250,7 +5250,7 @@ Next: real-file active/paused timer and final-result/receipt recovery coverage.
 
 ## Iteration 80 — 2026-10-06 — Real-file timed Quick Start recovery
 
-Status: **Implementation in progress; validation pending.**
+Status: **Code/JVM validated; committed as `61bc734`. Device acceptance pending.**
 
 Iteration 79 is committed as `faea1df`. Add two real Preferences DataStore
 regressions, closing/joining each writer scope before reopening the same
@@ -5270,3 +5270,51 @@ validated Iteration 79. `git diff --check` passes. Iteration 80 is code/storage
 validated and ready to commit; native/paired/physical acceptance remains open.
 Next: run the actual SessionViewModel timer through QuickStartSessionStore,
 covering hidden fresh-instance recovery and failed expiry persistence/retry.
+
+
+## Iteration 81 — 2026-10-06 — Production timer engine/Quick Start adapter integration
+
+Status: **Code/JVM/build validated; committed in the timer-integration checkpoint. Device acceptance pending.**
+
+Iteration 80 is committed as `61bc734`. Exercise the real SessionViewModel,
+QuickStartSessionStore and serialized QuickStartRuntimeStore together. Add
+three cases: expired hidden fresh-instance recovery admits one set only when
+foreground; subsecond paused runtime recreates/resumes exactly; failed expiry
+write emits no result/success, retries once with durable offline final result,
+and completed recreation/manual duplicate cannot replay success. Private
+in-memory serialized persistence and a controlled clock make these headless
+integration checks, separate from Iteration 80 real-file evidence.
+Next: combined shared/phone/Wear JVM checks and all four APK builds, audit and
+commit; refresh paired acceptance protocol and current roadmap evidence.
+
+Closure/audit: combined Gradle validation passes in **51s** using offline
+existing caches and two workers. XML reports prove **78 shared / 28 phone /
+225 Wear = 331 JVM tests**, zero failures/errors/skips. All four production/
+instrumentation APK build targets pass. Seven meaningful regressions are added
+across Iterations 79–81. `git diff --check` passes. Existing AGP deprecation
+warnings remain non-fatal. No PWA changes require browser validation.
+
+Review verifies atomic initial deadline before receipt/Go, unchanged runtime
+on retry, exact DataStore scope teardown, outcome/result identity, stale write
+and wrong-receipt refusal, visibility admission and exactly-once retry/success.
+No further commit-blocking defect is found. Plans distinguish current 331-JVM
+proof from historical Iteration 78 native UI acceptance; updated native,
+paired, reboot and physical acceptance remains pending. Current device protocol
+records the required first-deadline/pause/hidden/receipt evidence.
+
+Completed: Iterations 79–81 code/storage/integration checkpoint and audit;
+79 is committed in `faea1df`, 80 in `61bc734`, 81 ready to commit. This run
+closes at three iterations within the user's maximum of five, with the next
+plan action at device acceptance. No original AVDs, settings, workout data or
+history are mutated; no device execution is claimed. Stage 19 stays 70/97,
+physical 0/27. Next: current-APK native/paired timed process/reboot/result/
+receipt validation, then physical timer acceptance and resumed-REST speech
+interruption. Final Git verification follows commit.
+
+Commit closure — 2026-10-06: audited Iterations 79–81 are committed under
+`PST01: Persist timed Quick Start deadline before receipt and Go`,
+`PST01: Verify timed Quick Start recovery across DataStore scopes`, and
+`PST01: Validate timed Quick Start session integration and recovery`.
+This supersedes their historical pending/ready-to-commit labels. Relevant
+checks pass as recorded above; no additional implementation iteration is
+started by commit closure. Paired and physical acceptance stays open.

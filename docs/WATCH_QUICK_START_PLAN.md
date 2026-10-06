@@ -3,9 +3,22 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iteration 78 — Wear timed-exercise countdown/automatic rest; code/JVM/native round UI validated and committed on 2026-10-05 in the audited timer/recovery checkpoint; paired/physical validation pending**
-Previous checkpoint: `7dc85f8 PST01: Validate voice-enabled early-rest process recovery`
-Last updated: **2026-10-05**
+Latest checkpoint: **Iterations 79–81 — durable first timed Quick Start deadline and file/engine recovery coverage; 331 JVM tests/all four APK build targets pass; current native/paired/physical acceptance pending**
+Previous checkpoint: `39a3835 PST01: Add Wear timed-set countdown and recovery coverage`
+Last updated: **2026-10-06**
+
+Iteration 79 (`faea1df`) fixes first-set deadline creation at the durable ACTIVE
+transition before Started receipt/Go latency. Iteration 80 (`61bc734`) verifies
+real-file active/paused/resumed runtime and final-result/receipt tombstones.
+Iteration 81 adds production engine/adapter hidden-expiry, paused subsecond and
+failed-write retry integration. Current headless evidence is **78 shared / 28
+phone / 225 Wear = 331 tests**, zero failures/errors/skips, with all four APK
+build targets passing. This supersedes earlier headless suite counts only.
+Iteration 78 native round-UI evidence remains historical; current APK native
+acceptance, actual process/reboot, paired transport and physical checks are
+pending. Next: execute the
+[timed device protocol](PAIRED_EMULATOR_VALIDATION.md#timed-quick-start-persistence-and-receipt--iterations-7981),
+then resumed-REST speech acceptance. Stage 19 remains 70/97, physical 0/27.
 
 Iteration 78 extends the common downloaded/Quick Start session engine with
 explicit-duration automatic timed sets and a circular countdown. Exact deadline

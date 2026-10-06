@@ -9,6 +9,16 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 81 (2026-10-06), validated timer integration/audit checkpoint:
+  real engine/Quick Start adapter proves hidden one-set recovery, exact paused
+  subsecond resume and failed expiry write/retry with durable offline result
+  and no success replay. All **331 JVM tests** (78 shared/28 phone/225 Wear),
+  all four APK build targets and whitespace/audit checks pass. Iteration 79 is
+  committed in `faea1df`, 80 in `61bc734`; 81 is committed in the timer-integration checkpoint. Native/
+  paired/reboot/physical timer acceptance remains pending; Stage 19 stays
+  70/97, physical 0/27. Next: current-APK device acceptance using the timed
+  protocol in `PAIRED_EMULATOR_VALIDATION.md`, then resumed-REST speech checks.
+
 - Iteration 80 (2026-10-06), real-file timer recovery checkpoint validated:
   222 Wear JVM tests pass. Independent DataStore scopes preserve deadline,
   exact frozen milliseconds, resumed deadline, Started identity, two outcomes,

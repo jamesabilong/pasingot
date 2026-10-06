@@ -253,3 +253,40 @@ paired Quick Start result/receipt, physical acoustics or battery acceptance.
 Artifacts are under the app's external files `timed-ui` folder. Ordinary
 instrumentation skips without the explicit flag; original AVDs must remain
 untouched. Retain failure and accepted-run logs separately.
+
+
+## Timed Quick Start persistence and receipt — Iterations 79–81
+
+Headless evidence: the Started coordinator saves the first explicit-duration
+deadline before receipt transport/Go. Real-file DataStore scopes preserve
+active/paused/resumed runtime and final-result/receipt tombstones. Production
+engine/adapter integration covers foreground expiry, exact pause and failed
+writes. These checks do not execute paired transport, reboot, native cues or
+physical acceptance. Iteration 78's detached UI evidence remains historical;
+rerun with current APKs before claiming updated native acceptance.
+
+Next device run (pending; no new native fixture or completed run is claimed):
+
+1. Use verified isolated phone/watch copies, recording exact AVD names, source
+   disk hashes, installed APK hashes, legacy entries, phone history and cue/
+   device settings before mutation. Never install or write fixtures to original
+   user profiles. Record the exact timed request and request/result identity.
+2. Send a timed two-set workout through the actual phone selection/Ready/Start
+   flow. Capture persisted ACTIVE, Started acknowledgement and first timed
+   deadline at zero. Confirm the deadline starts with runtime, survives delayed
+   receipt/Go and is not rebased by screen entry or reopening.
+3. Pause mid-set; retain exact frozen milliseconds. Disconnect both transport
+   peers, close bridge sockets and reboot the isolated watch beyond the old
+   deadline. Fresh Home and paused Resume UI must retain exact runtime/outcomes
+   and silence until explicit session Resume; then derive deadline from saved
+   milliseconds. Retain screenshots and exact runtime snapshots.
+4. Separately hide an active timed set beyond its deadline; verify no hidden
+   outcome changes. Foreground admits exactly one completion/rest. Verify each
+   subsequent timed set gets its own duration and a repetition exercise retains
+   manual completion. Preserve exact cue ledger and native playback evidence.
+5. Complete offline, retain exact final result and prior phone history, then
+   reconnect. Require one matching phone record/receipt and runtime/package/cue
+   pruning; mismatched or stale receipts must not clear the result. Re-run
+   ordinary instrumentation, audit original history/settings, shut down only
+   verified copies and compare source disk hashes. Native timing/cue, transport
+   and physical items remain open until this evidence passes.
