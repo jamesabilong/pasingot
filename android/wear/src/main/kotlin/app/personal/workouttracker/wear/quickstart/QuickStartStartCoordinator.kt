@@ -2,6 +2,7 @@ package app.personal.workouttracker.wear.quickstart
 
 import app.personal.workouttracker.shared.SessionState
 import app.personal.workouttracker.shared.SessionStatus
+import app.personal.workouttracker.wear.session.timedSetDurationMillis
 import kotlinx.coroutines.CancellationException
 
 /** Commits READY -> STARTING, runtime creation, then best-effort Started receipt. */
@@ -31,6 +32,10 @@ class QuickStartStartCoordinator(
                 currentSet = 1,
                 status = SessionStatus.ACTIVE,
                 elapsedStartedAtEpochMillis = startedAt,
+                // Start the first set with the durable runtime, before receipt/Go latency.
+                timedSetDeadlineEpochMillis = timedSetDurationMillis(
+                    starting.request.exercises.first().prescription,
+                )?.let { startedAt + it },
             ),
             startedAt,
         )

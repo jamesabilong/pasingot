@@ -5221,3 +5221,28 @@ Iterations 73–78's historical uncommitted/no-commit labels; prior evidence and
 failed attempts remain preserved. No additional implementation iteration is
 started by this commit request. Next: paired/physical timed-device acceptance,
 then resumed-REST speech acceptance. Recheck staged content and Git after commit.
+
+
+## Iteration 79 — 2026-10-06 — Durable first timed Quick Start deadline
+
+Status: **Implementation in progress; validation pending.**
+
+Progress audit: clean PST01 at `39a3835`, the committed Iterations 73–78
+checkpoint. Stage 19 remains 70/97; physical acceptance remains 0/27. ADB
+inventory confirms no connected devices. Original AVD profiles are untouched.
+
+Finding: Quick Start initialized ACTIVE elapsed time before receipt transport
+and Go playback, but deferred first-set timer creation until SessionViewModel
+opened. Slow transport/speech or process interruption could start the timer
+late. Save the explicit-duration deadline with the initial runtime. Existing
+runtime retry preserves its original deadline; repetition prescriptions remain
+manual. Add delayed-receipt/offline-retry and mixed-prescription regressions.
+Next: run Wear JVM checks and production/test APK builds, audit, then commit.
+
+Closure: Wear JVM suite passes **220 tests**, zero failures/errors/skips;
+production and instrumentation APK builds pass (1m 23s). `git diff --check`
+passes. Audit confirms the deadline is created atomically with ACTIVE, only
+for the first explicit-duration prescription; retries return existing runtime
+without another write. Two new regressions pass. No UI/PWA changes or device
+acceptance claims. Iteration 79 code/checkpoint validated and ready to commit.
+Next: real-file active/paused timer and final-result/receipt recovery coverage.

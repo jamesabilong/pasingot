@@ -9,6 +9,13 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 79 (2026-10-06), validated for the durable-first-timer checkpoint:
+  first timed Quick Start deadline now saves with ACTIVE before Started receipt
+  and Go playback; retry preserves it. All 220 Wear JVM tests and both Wear APK
+  builds pass; code audit and whitespace checks pass. Device acceptance remains
+  pending: no connected devices, Stage 19 70/97, physical 0/27. Next: real-file
+  timer recovery and production session-adapter regression coverage.
+
 - Iteration 78 (2026-10-05), audited and committed in the Wear timer/recovery
   checkpoint: Wear timed-exercise circular
   countdown with automatic set completion/rest at zero. Explicit durations get
