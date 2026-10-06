@@ -5246,3 +5246,27 @@ for the first explicit-duration prescription; retries return existing runtime
 without another write. Two new regressions pass. No UI/PWA changes or device
 acceptance claims. Iteration 79 code/checkpoint validated and ready to commit.
 Next: real-file active/paused timer and final-result/receipt recovery coverage.
+
+
+## Iteration 80 — 2026-10-06 — Real-file timed Quick Start recovery
+
+Status: **Implementation in progress; validation pending.**
+
+Iteration 79 is committed as `faea1df`. Add two real Preferences DataStore
+regressions, closing/joining each writer scope before reopening the same
+TemporaryFolder file. Cover active deadline, exact 28,750 ms pause, delayed
+resume, unchanged Started receipt/outcomes, atomic two-set completion,
+stale duplicate rejection, offline final-result transport, wrong-revision
+receipt rejection, exact cleanup, and non-resurrection after another reopen.
+Use the production runtime store and session adapter. This is JVM file/storage
+evidence, not native process death, reboot, paired transport or physical proof.
+Next: run Wear JVM suite, audit file-scope isolation and commit.
+
+Closure: all **222 Wear JVM tests** pass, zero failures/errors/skips (1m 12s).
+Both new file-scope cases pass. Review verifies private temporary files, joined
+DataStore scopes, exact complete runtime comparisons, immutable Started/result
+identity and mismatch-safe cleanup. Production sources/APKs are unchanged from
+validated Iteration 79. `git diff --check` passes. Iteration 80 is code/storage
+validated and ready to commit; native/paired/physical acceptance remains open.
+Next: run the actual SessionViewModel timer through QuickStartSessionStore,
+covering hidden fresh-instance recovery and failed expiry persistence/retry.

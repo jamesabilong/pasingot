@@ -9,6 +9,14 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iteration 80 (2026-10-06), real-file timer recovery checkpoint validated:
+  222 Wear JVM tests pass. Independent DataStore scopes preserve deadline,
+  exact frozen milliseconds, resumed deadline, Started identity, two outcomes,
+  offline final result and exact receipt tombstone. Iteration 79 is committed
+  in `faea1df`. JVM storage evidence does not close native/paired/physical
+  acceptance; Stage 19 stays 70/97, physical 0/27. Next: production session
+  engine/Quick Start adapter expiry and failure/retry integration coverage.
+
 - Iteration 79 (2026-10-06), validated for the durable-first-timer checkpoint:
   first timed Quick Start deadline now saves with ACTIVE before Started receipt
   and Go playback; retry preserves it. All 220 Wear JVM tests and both Wear APK
