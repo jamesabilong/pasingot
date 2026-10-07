@@ -3,9 +3,23 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iterations 79–81 — durable first timed Quick Start deadline and file/engine recovery coverage; 331 JVM tests/all four APK build targets pass; current native/paired/physical acceptance pending**
-Previous checkpoint: `39a3835 PST01: Add Wear timed-set countdown and recovery coverage`
-Last updated: **2026-10-06**
+Latest checkpoint: **Iterations 82–86 — current timed round UI and private native runtime/engine recovery across three reboots validated; 331 JVM tests/four APK targets pass; committed in the native reboot checkpoint; actual paired/native-cue/physical acceptance pending**
+Previous checkpoint: `5c4df77 PST01: Validate timed Quick Start session integration and recovery`
+Last updated: **2026-10-07**
+
+Iterations 82–86 rerun current timed round UI successfully and add four opt-in
+private native runtime/engine stages across three actual Android reboots. Exact
+paused/hidden snapshots, one foreground completion, per-set reset, durable
+2/2 offline result, success non-replay, mismatch-safe receipt and rebooted
+receipt tombstone pass. Android boot IDs change and installed APK hashes match
+current builds. Clock, request initialization, cues and receipt transport are
+controlled; this evidence does not establish actual phone Ready/Start, native
+playback, natural wall-clock recovery or paired runtime/package/cue pruning.
+See the [native fixture protocol](PAIRED_EMULATOR_VALIDATION.md#isolated-native-timed-runtime-reboot-fixture--iterations-8385).
+Current-APK round UI and this private native reboot slice supersede their
+historical pending labels below. The actual paired timed protocol and resumed
+REST speech remain next. Stage 19 stays 70/97, physical 0/27. Five iterations
+are validated and committed in the native reboot checkpoint; no finish-date estimate is established.
 
 Iteration 79 (`faea1df`) fixes first-set deadline creation at the durable ACTIVE
 transition before Started receipt/Go latency. Iteration 80 (`61bc734`) verifies

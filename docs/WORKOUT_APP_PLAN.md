@@ -9,6 +9,24 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
+- Iterations 82–86 (2026-10-07), **validated and committed in the native reboot checkpoint**: current Wear
+  round-UI acceptance passes (33.102s). New private native production-store/
+  engine fixture passes four explicit stages across three actual reboots:
+  exact 28,750 ms pause/resume, unchanged hidden runtime, one foreground set,
+  one durable offline final result/success, duplicate/recreation non-replay,
+  wrong-revision refusal and exact receipt tombstone/non-resurrection.
+  Controlled clock/NoOp native cues/synthetic receipt are explicit boundaries;
+  actual phone Start, paired transport/package/cue pruning, natural timing and
+  physical checks remain pending. All **331 JVM tests**, four APK targets,
+  installed APK hash comparisons and whitespace checks pass; ordinary Wear
+  runner reports OK (39 tests), with opt-in mutation cases skipped.
+  Iteration 81 is committed as `5c4df77`. Stage 19 stays **70/97 (72%)**,
+  physical **0/27**; this is item progress, not an elapsed-time estimate.
+  Next: actual paired timed Ready/Start and result/receipt validation, native
+  timing/cues, resumed-REST speech interruption, then physical acceptance.
+  This supersedes prior current-native/purely-headless pending labels only
+  within the private fixture and current round-UI evidence described here.
+
 - Iteration 81 (2026-10-06), validated timer integration/audit checkpoint:
   real engine/Quick Start adapter proves hidden one-set recovery, exact paused
   subsecond resume and failed expiry write/retry with durable offline result
@@ -546,12 +564,12 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-10-05
+## Delivery board — reviewed 2026-10-07
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Wear timed-set code/native round UI is validated; run physical/paired timed-set and resumed-REST speech acceptance next. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Current timed round UI and private native store/engine reboot fixture are validated; run actual paired timed Start/result/receipt, native timing/cues and resumed-REST speech acceptance next. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

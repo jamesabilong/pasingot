@@ -290,3 +290,56 @@ Next device run (pending; no new native fixture or completed run is claimed):
    ordinary instrumentation, audit original history/settings, shut down only
    verified copies and compare source disk hashes. Native timing/cue, transport
    and physical items remain open until this evidence passes.
+
+
+## Isolated native timed runtime reboot fixture — Iterations 83–85
+
+Use `TimedQuickStartRecoveryTest` only on a fresh, workspace-owned blank
+`Pasingot_Timed_UI` AVD. It never opens the normal runtime DataStore, starts
+an Activity, calls a phone client or writes legacy history/preferences. Its
+production Preferences DataStore lives under the private owned directory
+`files/timed-recovery-validation`; `preparePausedRuntime` refuses to overwrite
+existing evidence. Native session engine and Quick Start adapter are real;
+clock, cue emitter, request initialization and offline result client are
+controlled seams. This proves native file/engine recovery across actual reboot,
+not actual phone Ready/Start, Started delivery, natural wall-clock waiting,
+Data Layer receipt/package/cue pruning, native playback, or physical acceptance.
+
+Build and install current production/test APKs, verify the exact AVD name with
+`adb -s SERIAL emu avd name`, and select each method explicitly. Never run the
+whole class with the mutation flag. Each run uses:
+
+```sh
+adb -s SERIAL shell am instrument -w \
+  -e class 'app.personal.workouttracker.wear.quickstart.TimedQuickStartRecoveryTest#METHOD' \
+  -e timedQuickStartRecoveryValidation true \
+  app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Run these stages in order, with an actual `adb -s SERIAL reboot` between each
+and a bounded wait for `sys.boot_completed=1` plus exact AVD-name recheck:
+
+1. `preparePausedRuntime`: private two-set 30-second runtime, durable active
+   deadline/Started identity, production Pause at +1,250 ms, exact 28,750 ms
+   remainder and no outcomes/result/success. Saves full active/paused snapshots.
+2. `recoverPausedAndPrepareHiddenRuntime`: at controlled +90,000 ms, compare
+   full paused runtime, remain paused on opening, explicitly Resume to
+   the exact +118,750 ms deadline, hide, retain full hidden snapshot.
+3. `recoverHiddenCompleteOfflineAndReceipt`: at controlled +200,000 ms, hidden
+   opening preserves full runtime without outcomes; foreground completes one
+   set only and gives the next its own 30-second duration. Final expiry saves
+   exactly 2/2 and one durable offline result/success. Duplicate completion and
+   recreated engine do not replay; wrong revision preserves result, exact
+   synthetic receipt clears the private runtime.
+4. `verifyReceiptAfterFreshProcess`: no runtime resurrection after reboot;
+   exact receipt is already cleared and reinitialization returns the tombstone.
+
+Require **OK (1 test)** for each stage, not merely adb success. The fixture
+records Android boot IDs and process IDs; recovery stages assert that the prior
+boot ID changed. Retain logs, full snapshots and receipt/boot markers using
+`adb shell run-as app.personal.workouttracker` against the owned directory.
+Do not clear app data to repeat; use a new disposable AVD/run directory while
+preserving prior failure evidence. Also run current timed round-UI acceptance
+and ordinary instrumentation without mutation flags. Shut down only the owned
+AVD after identity verification. This supplements the pending paired protocol
+above; Stage 19/physical item counts do not change from private fixture evidence.

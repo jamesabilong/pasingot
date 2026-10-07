@@ -5318,3 +5318,173 @@ Commit closure — 2026-10-06: audited Iterations 79–81 are committed under
 This supersedes their historical pending/ready-to-commit labels. Relevant
 checks pass as recorded above; no additional implementation iteration is
 started by commit closure. Paired and physical acceptance stays open.
+
+
+## Iteration 82 — 2026-10-07 — Progress audit and isolated native readiness
+
+Status: **Validated; uncommitted. Actual paired/native-cue/physical acceptance pending.**
+
+Clean baseline `5c4df77`; Iterations 79–81 are committed. Stage 19 is
+70/97 (72%), physical 0/27. The plan has 2,027 lines/13,573 words and the
+progress log 5,320 lines/42,797 words before this run; these include historical
+evidence, not remaining task counts. No defensible elapsed-time estimate exists.
+ADB inventory is empty after starting its local bridge with sandbox approval.
+Only the two original profiles are registered; neither is booted or modified.
+Create a fresh workspace-owned `Pasingot_Timed_UI` profile from read-only
+hardware configuration, with new disks, for current-APK round UI acceptance.
+Five iterations in this run: readiness/current UI, native paused fixture,
+fresh-process paused recovery, hidden expiry/result/receipt recovery, final
+combined validation and commit review. Private native fixtures use production
+DataStore/engine with controlled time; paired transport/native cues/physical
+acceptance remain separate. Next: boot the disposable profile and build APKs.
+
+Iteration 82 retained failure: cached Wear dex intermediates contain duplicate
+`QuickStartStartCoordinator$1 2.dex`; production source is not duplicated.
+Run `:wear:clean` before rebuilding. Disposable AVD boots and exact name is
+verified. New fixture source is being prepared for Iterations 83–85; no native
+acceptance is claimed until current APKs build and explicit stages pass.
+
+Retained first current-UI attempt times out after 17.608s: `active.png` shows
+the fresh-install POST_NOTIFICATIONS system prompt covering the screen. Grant
+that permission only on the owned disposable AVD and retry; preserve the log
+and capture. Early install attempt before the clean test APK existed failed
+without starting instrumentation; retry uses the completed 1m46s build.
+
+## Iteration 83 — 2026-10-07 — Native durable paused runtime fixture
+
+Status: **Validated with full fixture audit; uncommitted. Actual paired/native-cue/physical acceptance pending.**
+
+Add opt-in `TimedQuickStartRecoveryTest` with exact blank-AVD guard, private
+Preferences DataStore file, production engine/adapter, full runtime snapshots
+and boot/PID markers. Preparation refuses to overwrite prior owned evidence.
+No normal runtime store, legacy history, Activity or phone transport is used.
+First explicit `preparePausedRuntime` passes **OK (1 test), 0.494s**: durable
+30-second active deadline, exact Pause at +1,250 ms leaves 28,750 ms, unchanged
+Started identity and zero outcomes/results/success. Clock/cues/initialization
+are controlled seams; no native speech or real phone Start claim.
+Next: reboot the owned AVD and compare exact paused runtime before explicit
+Resume, then save hidden active runtime for another reboot.
+
+Iteration 82 closure (supersedes initial failed/pending UI labels): current
+Wear production/test APKs build after generated-artifact clean. Explicit
+round-UI retry passes **OK (1 test), 33.102s**; six accepted artifacts retained
+under `output/emulator-validation/iteration-82-ui-accepted`. Screenshots are
+reviewed for active, paused, final-five, rest and manual-rep layout. Permission
+prompt failure/capture remains in `iteration-82-ui`; only disposable AVD
+permission is changed. Current UI/readiness checkpoint validated.
+
+## Iteration 84 — 2026-10-07 — Native paused recovery after actual reboot
+
+Status: **Validated; uncommitted. Actual paired/native-cue/physical acceptance pending.**
+
+Execute only the owned `Pasingot_Timed_UI` reboot. Host and fixture independently
+require changed Android boot ID; each method also records process ID. Compare
+full paused runtime from the private file, not only countdown text. Controlled
+clock +90,000 ms represents being beyond the abandoned deadline. Explicit
+Resume must derive +118,750 ms from the saved 28,750 ms, retain Started identity,
+and remain without outcomes while hidden. Next: inspect explicit native result,
+then reboot again for hidden-expiry/final-result/receipt acceptance.
+
+Iteration 84 closure: explicit stage passes **OK (1 test), 1.511s** after
+actual reboot (boot ID `c228b99d…` -> `97c071ef…`). Exact paused snapshot
+survives; visible opening leaves it unchanged, Resume derives saved remainder,
+Started identity stays exact, no completion/success/transport occurs. Hidden
+runtime snapshot is retained. Native controlled-clock reboot checkpoint
+validated; actual paired/native-cue/physical acceptance remains open.
+
+## Iteration 85 — 2026-10-07 — Native hidden expiry, offline result and receipt reboot
+
+Status: **Validated; uncommitted. Actual paired/native-cue/physical acceptance pending.**
+
+Reboot the owned AVD again, open beyond the timed deadline with controlled
+clock, require exact unchanged hidden runtime and zero outcomes. Foreground
+may complete one set and initialize the next duration; final expiry must save
+one exact offline result/success, reject duplicate completion/replay and wrong
+receipt revision. Exact synthetic receipt clears only the private runtime.
+Reboot a third time and require the receipt tombstone/no resurrection.
+Next: retain exact native snapshots and explicit logs, ordinary instrumentation,
+APK identity and final source/docs/commit review.
+
+Iteration 85 first explicit stage passes **OK (1 test), 2.677s** after changed
+boot ID `97c071ef…` -> `84367cc7…`. Full hidden snapshot remains exact until
+foreground, which commits one set/revision and resets the next deadline.
+Final expiry durably saves 2/2 and one offline result/success; duplicate
+completion and recreated engine preserve the entire terminal runtime without
+replay. Wrong receipt revision preserves it, exact synthetic receipt clears it.
+Third reboot/tombstone stage is running; closure waits for that explicit pass.
+
+Iteration 85 closure: tombstone stage passes **OK (1 test), 0.541s** after
+third reboot (`84367cc7…` -> `26376e61…`). Runtime stays absent; exact receipt
+is already cleared and replay initialization returns the retained receipt.
+All four explicit private-store native stages pass across three actual reboots.
+Full native snapshots, receipt and boot/PID files are retained in
+`output/emulator-validation/iteration-85-native-evidence.tar` and extracted
+owned evidence directory. This validates native storage/engine controlled-clock
+reboot behavior; real paired delivery/package/cue pruning, natural wall-clock
+timing, native acoustics and physical checks remain pending.
+
+## Iteration 86 — 2026-10-07 — Combined validation and commit-readiness audit
+
+Status: **Validated; uncommitted. Actual paired/native-cue/physical acceptance pending.**
+
+Review the new guarded fixture and all docs, requiring private file ownership,
+joined DataStore scopes, main-thread model cleanup, immutable full snapshots,
+changed boot identity, exact foreground/outcome/result/receipt comparisons and
+accurate evidence boundaries. Production/PWA source is unchanged.
+Combined Gradle validation passes **30s**, **78 shared / 28 phone / 225 Wear
+= 331 JVM tests**, zero failures/errors/skips; all four APK targets pass.
+Retain the initial command failure (`:shared:testDebugUnitTest` does not exist
+in this plain Kotlin module); corrected `:shared:test` command passes.
+Current round-UI and four explicit native stages pass as recorded above.
+Ordinary mutation-free instrumentation is running; final installed APK/hash,
+crash, evidence, whitespace and Git review follows. No commit requested/made;
+prepare reviewable changes and a suggested commit message. Next after closure:
+paired actual timed Ready/Start and result/receipt/package/cue pruning, native
+wall-clock/cue checks, then resumed-REST speech and 27 physical acceptance items.
+
+Iteration 86 validation/audit closure: ordinary Wear instrumentation reports
+**OK (39 tests), 0.333s** with opt-in mutation cases skipped; it is guard/discovery
+evidence, not 39 newly executed device behaviors. Both installed/current Wear
+APK SHA-256 comparisons pass (recorded in `iteration-86-audit.txt`), and
+post-final-reboot crash buffer has no FATAL EXCEPTION. All five accepted UI
+screens are visually reviewed; active Pause, paused Resume/remainder, warning
+ring/Finishing, automatic rest and manual rep controls are visible.
+
+Review finds no commit-blocking issue. Production source and PWA are unchanged;
+new code is the four-stage guarded native fixture. Private DataStore scopes
+join after main-thread ViewModel cleanup; atomic clock and volatile observations
+support exact assertions. Baseline/full runtime comparisons preserve outcome/
+Started/result identity; recovery requires actual changed boot ID and receipt
+revision matching. No actual native acoustic silence/playback is claimed from
+NoOp output. Plans/acceptance docs now distinguish this completed private native
+slice from real paired Start/transport, natural timing, cues and physical work.
+`git diff --check` passes. Iterations **82–86 (five)** are validated, uncommitted,
+with prior failure/pending labels preserved and superseded by the accepted
+results above. Suggested commit: `PST01: Validate native timed runtime recovery across reboots`.
+Next: actual paired timed Ready/Start and result/receipt/package/cue pruning,
+native timing/cues, resumed-REST speech interruption and physical acceptance.
+Stage 19 remains 70/97 (72%), physical 0/27. Final Git, private-file guard and
+owned AVD permission/shutdown audit follows; no commit is made by this request.
+
+Final closure: private runtime file SHA-256 is unchanged by ordinary no-flag
+instrumentation, confirming the guarded fixture did not mutate its retained
+tombstone. Temporary notification permission is revoked on the disposable
+AVD; exact `Pasingot_Timed_UI` identity is rechecked before owned shutdown.
+Current Git remains HEAD `5c4df77`, with six expected files (one new native
+test and five docs), no unrelated tracked changes and no commit. Original
+AVDs/settings/workout histories are not opened for mutation. Whitespace and
+final Git/device inventory checks follow this log update. All five iterations
+are complete within their stated native/code evidence boundaries.
+
+Final device inventory is empty after owned shutdown. Final tracked diff and
+new native-file whitespace checks pass; Git HEAD and the six-file scope remain
+unchanged. Checkpoint is ready for commit, with no commit-blocking findings.
+
+
+Commit closure — 2026-10-07: user authorizes committing Iterations 82–86.
+The six expected files match the validated/audited scope; retained 331-JVM,
+four-APK, current round-UI/four-stage native reboot and installed-hash evidence
+remains applicable. No source changed after that validation. Commit as
+`PST01: Validate native timed runtime recovery across reboots`. This supersedes
+historical uncommitted/no-commit labels; actual paired/native-cue/physical
+acceptance remains pending. Five further iterations begin after this commit.

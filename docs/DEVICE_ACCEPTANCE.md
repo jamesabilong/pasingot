@@ -6,6 +6,23 @@ from Phase 4's physical-device exit checks. Audio intelligibility, physical
 haptics, Bluetooth routing, battery consumption and Play delivery require their
 own evidence; a native fixture or inventory does not establish those results.
 
+## Current timed native checkpoint — 2026-10-07
+
+Iterations 82–86 pass current timed round-UI acceptance and four private native
+runtime/engine stages across three actual reboots on a fresh workspace-owned
+`Pasingot_Timed_UI` AVD. Full paused/hidden/outcome/result snapshots, receipt
+and boot/PID markers are retained in ignored validation output. Both installed
+Wear APK hashes match current builds; 331 JVM checks and all four APK targets
+pass. Ordinary Wear instrumentation reports OK (39 tests); guarded opt-in
+mutation cases skip without flags. See the [explicit staged protocol](PAIRED_EMULATOR_VALIDATION.md#isolated-native-timed-runtime-reboot-fixture--iterations-8385).
+
+Controlled clock, NoOp cue output, synthetic initialization/receipt and private
+DataStore keep this evidence separate from actual paired Ready/Start, natural
+wall-clock timing, native speech, package/cue pruning and physical acceptance.
+Stage 19 remains 70/97, physical 0/27. Actual paired timed transport and native
+cue/timing validation, then resumed-REST speech and physical checks remain next.
+Original AVDs/workout history are not opened for mutation.
+
 ## Record the tested installation
 
 Run from the repository root with the Android SDK's adb available. The collector
