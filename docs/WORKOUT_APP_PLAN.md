@@ -9,7 +9,25 @@ Update that log during every implementation iteration, not only at handoff.
 
 ## Current State
 
-- Iterations 82–86 (2026-10-07), **validated and committed in the native reboot checkpoint**: current Wear
+- Iterations 87–91 (2026-10-07), **validated and committed in the real-clock native checkpoint**: five explicit
+  native stages use actual wall time, private production package/runtime/cue
+  stores, Start gate/coordinator, SessionScreen/engine and Android TTS. Natural
+  warning is observed 4,699 ms before rest deadline, Go 287 ms after; hidden
+  Activity expiry admits one foreground set, terminal reopening cannot replay.
+  Real paused reboot retains exact runtime/cues and 16,916 ms; Resume uses
+  an exact recorded real-clock origin, native success is 249 ms after expiry.
+  Retained caller-timestamp and charging-overlay failures are superseded by
+  exact transition measurement and fresh awake acceptance; no production fix.
+  All **331 JVM tests**, four APK targets, installed hashes, focus/crash and
+  whitespace audits pass. Ordinary runner OK (44 tests) is guard/discovery,
+  with opt-in cases skipped. Prior checkpoint is committed as `4da1e87`.
+  Connected phone inventory is empty: actual paired Ready/Start/result/receipt/
+  package/cue pruning and resumed-REST speech interruption remain next;
+  physical acceptance stays **0/27**, Stage 19 **70/97 (72%)**. Emulator native
+  speech/haptic calls do not establish physical acoustics/tactile/battery
+  results or a reliable elapsed-time completion estimate.
+
+- Iterations 82–86 (2026-10-07), **validated and committed as `4da1e87`**: current Wear
   round-UI acceptance passes (33.102s). New private native production-store/
   engine fixture passes four explicit stages across three actual reboots:
   exact 28,750 ms pause/resume, unchanged hidden runtime, one foreground set,
@@ -569,7 +587,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Current timed round UI and private native store/engine reboot fixture are validated; run actual paired timed Start/result/receipt, native timing/cues and resumed-REST speech acceptance next. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **70/97 checklist items (72%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **0/27** | Current timed round UI, native real-clock cues and private store/engine reboot are validated; run actual paired timed Start/result/receipt and resumed-REST speech acceptance next. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

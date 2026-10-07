@@ -343,3 +343,65 @@ preserving prior failure evidence. Also run current timed round-UI acceptance
 and ordinary instrumentation without mutation flags. Shut down only the owned
 AVD after identity verification. This supplements the pending paired protocol
 above; Stage 19/physical item counts do not change from private fixture evidence.
+
+
+## Native wall-clock timed sets and speech — Iterations 87–91
+
+`TimedQuickStartNativeCueTest` uses the actual system clock, private Preferences
+DataStore for package/runtime/cue records, production Ready/Start gate,
+coordinator, SessionViewModel, SessionScreen and ControllerSessionCueEmitter.
+AndroidTtsCueOutput is wrapped to retain native `isSpeaking`, completion,
+haptic calls and wall-clock timestamps. Only the workspace-owned disposable
+`Pasingot_Timed_UI` is allowed. No actual phone Start/receipt transport or
+physical acoustics/haptics/battery is established by this fixture.
+
+Build/install current Wear test APK, verify the exact AVD identity and use:
+
+```sh
+adb -s SERIAL shell am instrument -w \
+  -e class 'app.personal.workouttracker.wear.quickstart.TimedQuickStartNativeCueTest#METHOD' \
+  -e timedNativeCueValidation true -e timedNativeRunId RUN_ID \
+  app.personal.workouttracker.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Select methods explicitly; never run the class with mutation flags. RUN_ID is
+an alphanumeric/hyphen identifier; default is `initial`. Each stage refuses to
+overwrite its own directory, so retain failed attempts and use a new RUN_ID for
+retry. Preparation and paused recovery must use the same RUN_ID. Owned evidence
+is under `files/native-timed-validation/RUN_ID/STAGE`, retrievable with run-as.
+
+- `nativeReadiness`: retain real connected phone-node inventory; require native
+  TTS availability and observed/completed `Go.`. Empty node inventory means
+  paired delivery remains pending even when native speech passes.
+- `naturalTimedSetsRestAndNativeCues`: two actual eight-second sets and a
+  twelve-second rest. Started seam delays 750 ms after verifying durable first
+  deadline; opening cannot rebase it. One set/rest commit, next duration,
+  native REST/five-second/Go/workout-success ordering, bounded warning/Go
+  timestamps, 2/2 durable offline result and one success.
+- `hiddenActivityExpiryAndTerminalNonReplay`: Activity STARTED pauses foreground
+  ticking without ON_STOP save; exact private runtime/cues stay unchanged beyond
+  the old real deadline. RESUMED admits one set and a fresh next duration. Final
+  native success occurs once; duplicate completion/recreated engine stay silent.
+  This is Activity lifecycle evidence, separate from actual Wear ambient mode.
+- `prepareNativePausedRuntime`: start actual twenty-second set, explicitly Pause,
+  retain exact frozen milliseconds/full runtime/cues and Android boot ID.
+- Reboot only the verified owned AVD. Observe/dismiss the post-boot charging
+  overlay and wake the display before `recoverNativePausedRuntime`. When the
+  overlay keeps reclaiming foreground, record owned battery state, temporarily
+  use `cmd battery unplug` plus wake/Home only on the disposable AVD, then
+  restore simulation with `cmd battery reset` at closure. Do not substitute
+  visibility overrides or remove the native lifecycle assertions.
+  Then run `recoverNativePausedRuntime`:
+  changed boot ID is mandatory. Opening beyond the abandoned real deadline
+  retains exact paused state/cues without native output. Explicit Resume derives
+  its deadline from exact frozen milliseconds and completes with one native
+  success and durable offline result. A recording clock callback returns actual
+  System.currentTimeMillis; deadline minus frozen milliseconds must equal a
+  recorded transition clock read, independent of caller scheduling latency.
+
+Require OK (1 test) from each stage; native speech must actually be observed and
+complete, not just be requested. Retain speech/haptic/focus files and full
+runtime/cue snapshots. Run ordinary instrumentation without flags, compare
+installed APK hashes, restore owned notification permission, audit focus/crash
+state and shut down only the verified disposable AVD. Current pass/failure
+status belongs in IMPLEMENTATION_PROGRESS.md; this protocol alone is not proof.

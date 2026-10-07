@@ -6,7 +6,27 @@ from Phase 4's physical-device exit checks. Audio intelligibility, physical
 haptics, Bluetooth routing, battery consumption and Play delivery require their
 own evidence; a native fixture or inventory does not establish those results.
 
-## Current timed native checkpoint — 2026-10-07
+## Current real-clock native checkpoint — 2026-10-07
+
+Iterations 87–91 pass five explicit native stages on the owned disposable
+`Pasingot_Timed_UI`: actual TTS availability, natural timed sets/rest cues,
+hidden Activity expiry/success non-replay, paused preparation and actual reboot
+recovery. Warning/Go native observations are -4,699/+287 ms relative to the
+rest deadline; resumed exact 16,916 ms yields native success +249 ms after
+expiry. Full private runtime/cues, real-clock reads, native speech/haptic/focus
+and changed-boot evidence are retained in `iteration-91-native-evidence.tar`.
+Caller-time and charging-overlay failures are preserved; exact transition
+measurement and awake retry pass without production changes.
+
+All 331 JVM tests/four APK targets and installed hashes pass; ordinary runner
+OK (44 tests) verifies guard/discovery with mutation cases skipped and all
+private file hashes preserved. Native output releases focus; final boot has no
+fatal crash. Paired phone inventory is empty. Actual paired timed Start/result/
+receipt/package/cue pruning, resumed-REST speech interruption and physical
+acoustics/haptics/battery remain open. Stage 19 stays 70/97, physical 0/27.
+See the [native real-clock protocol](PAIRED_EMULATOR_VALIDATION.md#native-wall-clock-timed-sets-and-speech--iterations-8791).
+
+## Prior controlled-clock native checkpoint — 2026-10-07
 
 Iterations 82–86 pass current timed round-UI acceptance and four private native
 runtime/engine stages across three actual reboots on a fresh workspace-owned

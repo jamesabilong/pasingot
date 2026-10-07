@@ -3,9 +3,26 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iterations 82–86 — current timed round UI and private native runtime/engine recovery across three reboots validated; 331 JVM tests/four APK targets pass; committed in the native reboot checkpoint; actual paired/native-cue/physical acceptance pending**
-Previous checkpoint: `5c4df77 PST01: Validate timed Quick Start session integration and recovery`
+Latest checkpoint: **Iterations 87–91 — native real-clock timed cues, hidden Activity and paused reboot validated; 331 JVM tests/four APK targets pass; committed in the real-clock native checkpoint; actual paired/speech-interruption/physical acceptance pending**
+Previous checkpoint: `4da1e87 PST01: Validate native timed runtime recovery across reboots`
 Last updated: **2026-10-07**
+
+Iterations 87–91 use actual wall time and Android TTS in a guarded private
+production package/runtime/cue-store, Start coordinator and SessionScreen/
+engine fixture. Five explicit stages pass: native availability with empty
+phone inventory, natural timed/rest cue ordering, hidden Activity one-set
+catch-up/terminal non-replay, paused preparation and actual reboot recovery.
+Observed native warning/Go are -4,699/+287 ms relative to rest deadline;
+rebooted exact 16,916 ms Resume leads to native success +249 ms after expiry.
+Caller scheduling and post-boot charging overlay failures remain retained;
+precise real transition-clock measurement and awake retry supersede them.
+331 JVM checks/four APK targets, ordinary no-flag guard run, installed hashes,
+private-file preservation, focus release and crash/whitespace checks pass.
+No production behavior is changed. See the [native real-clock protocol](PAIRED_EMULATOR_VALIDATION.md#native-wall-clock-timed-sets-and-speech--iterations-8791).
+This supersedes earlier native timing/cue pending labels only for this private
+emulator slice. Actual paired timed Ready/Start/result/receipt/package/cue
+pruning and resumed-REST speech interruption remain next; physical 0/27 and
+Stage 19 70/97 are unchanged. Checkpoint is validated and committed in the real-clock native checkpoint.
 
 Iterations 82–86 rerun current timed round UI successfully and add four opt-in
 private native runtime/engine stages across three actual Android reboots. Exact

@@ -5488,3 +5488,208 @@ remains applicable. No source changed after that validation. Commit as
 `PST01: Validate native timed runtime recovery across reboots`. This supersedes
 historical uncommitted/no-commit labels; actual paired/native-cue/physical
 acceptance remains pending. Five further iterations begin after this commit.
+
+
+## Iteration 87 — 2026-10-07 — Committed checkpoint and native timing readiness
+
+Status: **Validated; uncommitted. Actual paired/speech-interruption/physical acceptance pending.**
+
+User-authorized Iterations 82–86 commit is `4da1e87`; Git is clean afterward.
+Stage 19 remains 70/97, physical 0/27; documents are roughly 2,045 plan /
+5,490 progress lines, mostly retained history. No reliable finish-time estimate
+is established. Original phone/watch AVDs remain untouched. Boot only the
+existing workspace-owned blank `Pasingot_Timed_UI` to discover actual connected
+peers/native TTS readiness. Paired acceptance requires a connected phone and
+cannot be replaced by private fixtures. Advance the independently available
+native timer/cue path while keeping the actual paired protocol pending.
+Five iterations: native readiness, natural deadlines with native TTS, hidden
+Activity expiry, actual-clock paused reboot/recovery, combined commit audit.
+Next: add guarded private production-store/gate/engine/emitter native fixture.
+
+Iteration 87 closure: native readiness passes **OK (1 test), 5.247s**;
+current test APK builds in 21s. Actual TTS is AVAILABLE, `Go.` is observed
+with native isSpeaking and completes. Connected-peer inventory is retained;
+paired acceptance remains pending without an exact connected phone. Private
+production-store/gate/engine/emitter fixture and reproducible staged protocol
+are added. Initial non-escalated build could not write Gradle's wrapper cache;
+normal approved build succeeds. Native readiness checkpoint validated.
+
+## Iteration 88 — 2026-10-07 — Natural timer/rest deadlines with native speech
+
+Status: **Validated; uncommitted. Actual paired/speech-interruption/physical acceptance pending.**
+
+Run two actual eight-second timed sets with twelve-second rest. Production
+Ready/Start coordinator saves the first deadline before a 750 ms delayed,
+intentionally offline Started client. Real SessionScreen/engine entry must not
+rebase it. Verify first expiry/rest commit, next-set duration, native REST /
+five-second / Go / workout-success ordering and bounded actual timestamps.
+Private package/runtime/cues share owned DataStore; no normal data, phone
+transport, physical haptics/acoustics or battery result is claimed.
+Next: inspect native timeline and exact 2/2 offline result; then hidden Activity
+expiry without state/cue changes and terminal speech non-replay.
+
+Iteration 88 initial run passes **OK (1 test), 33.225s** with native observed/
+completed REST, warning, Go and success. Review tightens timestamp evidence:
+record first native isSpeaking time separately from speak-admission time and
+assert warning/Go thresholds against actual observed playback. Retain the first
+pass; rebuild and rerun in a new owned run directory without overwriting it.
+This strengthens measurement, not a production change or relaxed assertion.
+
+Iteration 88 closure: strengthened playback-timestamp run passes
+**OK (1 test), 34.276s** in retained `playback/natural` directory. Actual
+native isSpeaking timestamps satisfy warning (3,000–5,500 ms before rest
+deadline) and Go (0–2,000 ms after) bounds. All four cues are observed and
+complete, with one native haptic call each, exact 2/2 offline result and
+first/new-set deadline checks. Both earlier and final passes are retained.
+No production defect is found; natural native timer/cue checkpoint validated.
+
+## Iteration 89 — 2026-10-07 — Hidden Activity expiry and native success non-replay
+
+Status: **Validated; uncommitted. Actual paired/speech-interruption/physical acceptance pending.**
+
+Use actual SessionScreen lifecycle: move Activity to STARTED (ON_PAUSE without
+ON_STOP save), preserve full runtime and private cue ledger beyond the real
+first deadline, require no haptic/speech output. RESUMED must admit one set
+only and initialize the next duration. Final native success must occur once;
+duplicate completion and recreated engine cannot replay speech/haptics/result.
+This validates real Activity lifecycle, not actual ambient/sleep. Next: native
+paused runtime through an actual reboot and abandoned real deadline.
+
+Iteration 89 closure: **OK (1 test), 24.056s**. Actual Activity STARTED
+preserves full runtime/cue ledger beyond the real timed deadline with no
+output; RESUMED commits one set/revision, initializes the next timer and
+naturally completes 2/2 offline. One native workout-success speech/haptic is
+observed/completed; duplicate completion and new engine/native output instance
+retain exact terminal state with no replay or extra result send. Validated.
+
+## Iteration 90 — 2026-10-07 — Actual-clock paused timer reboot with native cues
+
+Status: **Validated; uncommitted. Actual paired/speech-interruption/physical acceptance pending.**
+
+Start one actual twenty-second timed set, Pause through the real engine and
+retain full private runtime, exact frozen milliseconds, cue state and Android
+boot ID. Reboot only the owned AVD. Fresh SessionScreen/native output must
+leave state/cues exact and silent beyond the abandoned actual deadline.
+Explicit Resume derives its deadline from saved milliseconds; natural expiry
+saves one exact offline final result and one observed/completed native success.
+No mocked clock is used. Next: inspect both explicit stages/boot identity and
+retained evidence; combined validation, ordinary guard/APK/focus/crash audit.
+
+Iteration 90 preparation passes **OK (1 test), 15.347s**. Exact paused
+runtime/frozen milliseconds/private cue state and boot marker are durable;
+no native output occurs. Actual reboot recovery is running and must pass
+before this iteration closes. Initial timer deadlines use real epoch time,
+independent of Iterations 83–85's controlled-clock evidence.
+
+Iteration 90 retained failed recovery (18.501s): paused full state/cues and
+silence survive reboot, but fixture's `delta <= 500 ms` compares deadline
+origin to the caller's pre-queue wall time. Actual main-thread scheduling
+latency is 1,194 ms. That assertion does not establish a duration error.
+Repair measurement with a recording clock callback that returns unmodified
+System.currentTimeMillis; require deadline minus exact frozen milliseconds
+to equal a real transition clock read, plus one revision/unchanged outcomes/
+Started identity and cleared frozen field. No duration assertion is weakened,
+no clock is mocked, and no production source changes. Retain failed runtime/
+logs; prepare and reboot a fresh `retry` run directory rather than overwriting.
+
+Retained accepted natural timeline: first observed native warning is
+**4,699 ms before** the rest deadline; observed Go is **287 ms after**.
+All retained focus-after files show no remaining Pasingot audio focus owner.
+The failed paused run's frozen duration is 12,938 ms; it is retained intact
+as first-attempt evidence, not used to seed the fresh retry.
+
+Iteration 90 fresh `retry` preparation passes **OK (1 test), 11.55s**;
+repaired test APK builds successfully. Final combined Gradle command passes
+in **27s**: all 331 JVM tests and four APK targets remain validated against
+current source. Fresh owned reboot/recovery is running with exact recorded
+real-clock assertions; failed first-run archive is preserved separately.
+
+Iteration 90 second recovery retained failure (29.857s): exact recorded-clock
+Resume assertions pass; completion times out. Evidence identifies actual
+charging-overlay foreground ownership (`ChargingComposeActivity`) and the
+private engine durably PAUSED with `app_closed`, 6,171 ms remaining and zero
+outcomes/output. Production correctly handles foreground loss; no production
+fix is justified. Preserve `iteration-90-retry-evidence.tar` and logs. Record
+owned battery baseline, temporarily use `cmd battery unplug` and wake/Home
+only on the disposable AVD to dismiss the known post-boot overlay. Repeat
+preparation/reboot in fresh `awake` directory, resetting battery simulation
+at closure. Timing/state/cue assertions remain unchanged.
+
+Iteration 90 fresh awake preparation passes **OK (1 test), 5.141s**.
+Post-boot charging-overlay removal/wake is included in the owned reboot
+protocol; final strict recovery is running against the unchanged repaired
+source and installed test APK. No visibility override is used.
+
+Iteration 90 final closure: awake recovery passes **OK (1 test), 24.434s**,
+with changed boot ID `b406e2e4…` -> `8b27175b…`. Full paused runtime/cues
+stay exact without output beyond original real deadline. Resume deadline
+minus saved frozen milliseconds exactly matches a recorded real transition
+clock read; one revision/unchanged outcomes/Started identity pass. Natural
+expiry saves one offline final result and observed/completed native success.
+Both earlier failures and archives remain retained and are superseded only
+by this successful awake fixture. No production change or relaxed native
+visibility/state/duration assertion is needed. Native real-clock reboot slice
+is validated; paired/physical/speech-interruption acceptance remains open.
+
+## Iteration 91 — 2026-10-07 — Final native evidence and commit-readiness audit
+
+Status: **Validated; uncommitted. Actual paired/speech-interruption/physical acceptance pending.**
+
+All five explicit native stages pass within Iterations 87–90; measured natural
+warning/Go times, Activity hidden-state/success non-replay and real paused
+reboot recovery are retained. Production/PWA code is unchanged. Final combined
+Gradle command passes in 27s, all 331 JVM reports remain zero failures/errors/
+skips and all four APK targets pass. Export all private native fixture evidence
+into `iteration-91-native-evidence.tar` and extracted directory, preserving
+first/retry failures. Audit exact resumed duration/native success threshold,
+audio-focus release, ordinary guard/discovery, installed APK hashes, crash
+buffer and every changed source/docs file. Next: restore owned battery/
+notification permission, verified shutdown and final Git/whitespace review.
+Suggested commit: `PST01: Validate native timed cues and wall-clock recovery`.
+Actual paired timed Ready/Start/result/receipt/package/cue pruning, resumed-
+REST speech interruption and physical 0/27 remain next.
+
+Iteration 91 closure: exact real paused fixture freezes **16,916 ms**; resumed
+deadline origin equals a recorded real clock read. Native success is observed
+**249 ms after** resumed deadline. Ordinary runner reports **OK (44 tests),
+0.353s**, with opt-in cases skipped; all six retained private DataStore files
+match their pre-run SHA-256. Both installed Wear APK hashes match current
+builds; all retained stages release Pasingot audio focus, final boot crash
+buffer has no FATAL EXCEPTION. Audit files and full fixture snapshots are
+retained in ignored validation output. Source review finds no commit blocker:
+exact AVD/run guards, refusal to overwrite, joined DataStore/model teardown,
+real clock/volatile observations, durable-before-output checks and evidence
+boundaries are intact. Production/PWA source remains unchanged.
+
+Five iterations **87–91** are complete within stated native boundaries.
+Prior Iterations 82–86 are committed in `4da1e87`; this new checkpoint is
+validated and uncommitted. Plans and acceptance protocol record current native
+real-time/speech proof separately from pending paired transport, resumed-REST
+speech and physical acceptance. Stage 19 remains 70/97 (72%), physical 0/27;
+no reliable finish-time estimate is inferred from that ratio. Suggested commit:
+`PST01: Validate native timed cues and wall-clock recovery`. Next: actual paired
+timed Ready/Start/result/receipt/package/cue pruning, resumed-REST speech
+interruption and physical validation. Restore owned battery/notification
+permission and verify shutdown/Git after the final doc/whitespace update.
+
+Final closure: owned battery simulation is reset (updates are no longer
+stopped), temporary POST_NOTIFICATIONS permission is revoked, and exact
+`Pasingot_Timed_UI` identity is checked before shutdown. No original AVD or
+workout history is opened for mutation. Git still has the six expected new
+checkpoint files at HEAD `4da1e87`; no unrelated edits are reverted and no
+second commit is made. New test and tracked diff whitespace checks pass.
+Final inventory and Git recheck follow; checkpoint is ready for commit.
+
+Final ADB inventory is empty. Git/whitespace recheck confirms unchanged
+HEAD `4da1e87` and the six expected uncommitted files. Five new iterations
+are validated and ready for commit; no commit-blocking finding remains.
+
+
+Commit closure — 2026-10-07: user authorizes committing Iterations 87–91.
+Six expected files match the validated/audited scope. Retained 331 JVM tests,
+four APK builds, native real-clock/speech/hidden/paused-reboot evidence and
+installed/private-file/focus/crash audits remain applicable; source has not
+changed since final validation. Commit as
+`PST01: Validate native timed cues and wall-clock recovery`. This supersedes
+historical uncommitted labels; actual paired, resumed-REST speech and physical
+acceptance remain pending. Begin five further iterations after commit.
