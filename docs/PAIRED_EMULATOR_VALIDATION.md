@@ -4,6 +4,36 @@ These opt-in Android instrumentation checks use the production Data Layer
 services. They require two running, connected emulators with matching debug
 app signatures and application ID `app.personal.workouttracker`.
 
+## Owned-pair readiness before acceptance — Iterations 97–101
+
+The isolated phone `Pasingot_Pair_Phone` and watch `Pasingot_Timed_UI` have
+matching debug signatures and current installed APK hashes. Native inventory
+currently reports phone **Wearable.API unavailable (API_UNAVAILABLE)** and no
+local node; watch local `f81011dd` has no connected peers. Creating/removing
+only owned vacant bridge endpoints and refreshing the emulator connection did
+not resolve this. The phone has no watch companion. Complete installation and
+setup using the [official Android pairing guide](https://developer.android.com/training/wearables/get-started/connect-phone),
+then rerun native discovery. Original AVDs and their data remain untouched.
+
+Build/install the current production and instrumentation APKs on the exact
+owned profiles before running from the repository root (verify serials):
+
+```sh
+python3 scripts/paired_preflight.py --phone-serial emulator-5582 --wear-serial emulator-5580 --output output/emulator-validation/paired-preflight-new
+```
+
+The output directory must be new. The tool refuses original profiles before
+running probes, records native inventories and instrumentation logs, compares
+installed production APK hashes and native signing certificates, rejects stale
+native markers using the device-clock capture window, and requires
+exact reciprocal sole nearby peers. It creates no bridges or workout requests.
+Exit 0 means transport prerequisites ready; exit 2 means blocked prerequisites;
+exit 1 means capture failure. `acceptanceValidated` always remains false.
+Inventory OK is evidence that the probe executed, not proof that pairing or
+Ready/Start/result/receipt behavior passed. Keep no-flag discovery runs separate
+from explicit opt-in inventory. Actual paired timed and resumed-REST acceptance
+and all physical checks remain open.
+
 ## Quick Start matrix
 
 The phone must have a completed Quick Start with its exact phone receipt. Use

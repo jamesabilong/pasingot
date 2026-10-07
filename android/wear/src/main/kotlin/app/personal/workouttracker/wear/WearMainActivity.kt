@@ -1,5 +1,13 @@
 package app.personal.workouttracker.wear
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.runtime.LaunchedEffect
+import app.personal.workouttracker.wear.ongoing.WorkoutOngoingActivity
+import app.personal.workouttracker.wear.ongoing.ongoingWorkout
+import app.personal.workouttracker.wear.quickstart.DataStoreQuickStartRuntimePersistence
+import app.personal.workouttracker.wear.quickstart.QuickStartRuntimeStore
+import app.personal.workouttracker.shared.CURRENT_SCHEMA_VERSION
 import android.Manifest
 import android.database.ContentObserver
 import android.content.pm.PackageManager
@@ -51,6 +59,14 @@ import kotlinx.coroutines.launch
  */
 class WearMainActivity : ComponentActivity() {
 
+    private val ongoingLaunch = mutableStateOf<Intent?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ongoingLaunch.value = intent
+    }
+
     private val prefsName = "workout_tracker_wear_prefs"
     private val notificationPermissionAskedKey = "notification_permission_requested"
     private val presentationPolicy = mutableStateOf(WatchPresentationPolicy())
@@ -88,6 +104,7 @@ class WearMainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ongoingLaunch.value = intent
         lifecycle.addObserver(ambientObserver)
         maybeRequestNotificationPermission()
 
@@ -117,6 +134,30 @@ class WearMainActivity : ComponentActivity() {
             CompositionLocalProvider(LocalWatchPresentationPolicy provides presentationPolicy.value) {
                 PasingotTheme {
                     val navController = rememberSwipeDismissableNavController()
+
+                    LaunchedEffect(ongoingLaunch.value) {
+                        val launch = ongoingLaunch.value ?: return@LaunchedEffect
+                        val kind = launch.getStringExtra(WorkoutOngoingActivity.KIND_EXTRA)
+                        val id = launch.getStringExtra(WorkoutOngoingActivity.ID_EXTRA)
+                        if (kind != null && id != null) {
+                            val target = when (kind) {
+                                "session" -> repository.getEntry(id)?.let { entry ->
+                                    if (entry.schemaVersion != CURRENT_SCHEMA_VERSION ||
+                                        entry.sessionState?.workoutEntryId != id) null
+                                    else ongoingWorkout(kind, id, entry.label, entry.sessionState)
+                                }
+                                "quick-start" -> QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(applicationContext))
+                                    .current()?.takeIf { it.sessionPackage.request.requestId == id }?.let { state ->
+                                        ongoingWorkout(kind, id, state.sessionPackage.request.title ?: "Workout", state.session)
+                                    }
+                                else -> null
+                            }
+                            target?.let {
+                                navController.navigate("${it.kind}/${Uri.encode(it.id)}") { launchSingleTop = true }
+                            }
+                        }
+                        ongoingLaunch.value = null
+                    }
 
                     SwipeDismissableNavHost(navController = navController, startDestination = "list") {
                     composable("list") {
@@ -205,6 +246,12 @@ class WearMainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A notification permission grant can return without a repository change.
+        WorkoutOngoingActivity.refresh(this)
     }
 
     override fun onStart() {

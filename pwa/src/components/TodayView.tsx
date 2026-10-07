@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
 import { WatchSyncPanel } from './WatchSyncPanel';
 import { WeeklyPlan } from './WeeklyPlan';
@@ -23,6 +23,7 @@ export function TodayView({
   progress,
   statuses,
   setLogCount,
+  playerFocusRequest = 0,
   activeSession,
   activeRows,
   elapsedSeconds,
@@ -56,6 +57,7 @@ export function TodayView({
   progress: PlanProgress;
   statuses: Map<number, WorkoutLog['status']>;
   setLogCount: number;
+  playerFocusRequest?: number;
   activeSession: WorkoutPlayerSession | null;
   activeRows: WorkoutRow[];
   elapsedSeconds: number;
@@ -79,6 +81,14 @@ export function TodayView({
   quickStartReceipt?: QuickStartReceipt | null;
   onViewQuickStart?: () => void;
 }) {
+  const playerTarget = useRef<HTMLDivElement>(null);
+  const handledFocusRequest = useRef(0);
+  useEffect(() => {
+    if (!playerFocusRequest || playerFocusRequest === handledFocusRequest.current || !playerTarget.current) return;
+    handledFocusRequest.current = playerFocusRequest;
+    playerTarget.current.scrollIntoView({ block: 'start' });
+    playerTarget.current.focus({ preventScroll: true });
+  }, [playerFocusRequest, activeSession, activeRows.length]);
   const hasWorkout = workouts.length > 0;
   const [queueFilter, setQueueFilter] = useState<'all' | 'pending' | 'done' | 'skipped'>('all');
   const visibleWorkouts = workouts.filter((row) => {
@@ -136,7 +146,7 @@ export function TodayView({
         </div>
       )}
 
-      {activeSession && activeRows.length > 0 && <WorkoutPlayer
+      {activeSession && activeRows.length > 0 && <div ref={playerTarget} tabIndex={-1} className="scroll-mt-24"><WorkoutPlayer
         session={activeSession}
         rows={activeRows}
         elapsedSeconds={elapsedSeconds}
@@ -154,7 +164,7 @@ export function TodayView({
         onStartNow={onStartNow}
         onAddRestSeconds={onAddRestSeconds}
         onClose={onClosePlayer}
-      />}
+      /></div>}
 
       {hasWorkout && <div className="plan-section">
         <div className="section-heading">

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -104,7 +104,8 @@ fun WatchAction(label: String, onClick: () -> Unit, primary: Boolean = false, en
             )
         },
         colors = if (primary) ChipDefaults.primaryChipColors() else ChipDefaults.secondaryChipColors(),
-        modifier = Modifier.fillMaxWidth().height(44.dp),
+        // Allow long labels to wrap on small round watches and at larger font scales.
+        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
     )
 }
 

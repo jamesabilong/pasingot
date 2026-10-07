@@ -1,5 +1,70 @@
 # Workout App Plan
 
+Commit checkpoint — 2026-10-07: user authorizes committing the validated
+readiness, physical layout/Continue fixes and Ongoing Activity implementation
+as PST01: Fix physical workout controls and ongoing activity. This supersedes
+historical uncommitted labels below. Counts remain 71/97, physical 1/27;
+Iteration 105 timed timeout/ambient behavior is still unverified. Next: in-place
+reinstall of this checkpoint on both physical devices, verify installed APKs,
+startup/current peer connection and retained state, then the timed test.
+
+Latest usability fix — Iteration 106, 2026-10-07: mobile content now scrolls
+above fixed footer, selected Quick Start moves above catalog. TypeScript/PWA/
+phone build, real-component mobile/desktop/modal smoke and physical S25 WebView
+hit tests pass. In-place update/hash verified; selected action opens sheet and
+Send is enabled/hit-testable. No personal workout sent; sheet is open for the
+short timed test. Ongoing Activity timeout/ambient acceptance (Iteration105)
+remains next. Changes uncommitted, counts 71/97 and physical1/27 unchanged.
+
+Latest implementation — Iteration 105, 2026-10-07: workout-scoped Ongoing
+Activity now observes durable legacy/Quick Start state and returns to an exact
+validated saved workout. Completion/end clears the indicator; permission grant
+refresh is supported, with no polling/wake lock/background workout engine.
+335 native JVM tests and four APK builds pass. In-place Watch7 update/hash,
+startup/no-error, unchanged private stores and no indicator on completed workout
+are verified. Timed-session natural timeout/ambient/return/cleanup acceptance
+is still pending user readiness; this iteration remains open for device checks.
+Next: short physical timed Quick Start. Counts remain 71/97 overall, 1/27 physical.
+
+Latest physical fix — Iteration 104, 2026-10-07: completed watch history now
+reconciles the matching stale phone player; Continue scrolls/focuses a genuine
+active player. 27 browser integrity checks, full-app mobile smoke, TypeScript/
+PWA build, 28 phone JVM tests and phone APK build pass. In-place physical S25
+update is verified: stale Continue removed, completed training retained, all
+workouts/history/other app state unchanged. Changes uncommitted. Remaining
+plan starts with Ongoing Activity/physical timeout; counts stay 71/97, 1/27.
+
+Acceptance inventory audit — 2026-10-07: actual physical phone/watch models,
+OS/API and app versions are recorded with installed APK/signature evidence.
+Close inventory exit item 26 only: Stage 19 **71/97 (73%)**, physical **1/27**,
+26 checks remaining. Device availability is resolved. Next implementation:
+workout-scoped Ongoing Activity visibility; then natural timeout/ambient and
+paired Ready/Start/result/receipt tests. Completed 5/5 and button fix evidence
+remain partial behavior observations; other acceptance items stay open. Earlier
+0/27 checkpoint counts below are historical and superseded by this audit.
+
+Physical continuation — 2026-10-07, Iteration 102 in progress: connected Galaxy
+S25 (SM-S931B) and Watch7 (SM-L300), Android 16/API 36, report reciprocal
+nearby Bluetooth nodes. The isolated-emulator blocker below does not apply to
+this physical pair. Older installed APKs require in-place current-build updates;
+both updates pass and installed hashes/signatures match. Physical acceptance is now 1/27
+(inventory); behavior items remain open until their full evidence is collected. User completed 5/5; physical
+completion screen is captured (9/9 sets, Saved on watch). Iteration 103 fixes
+a reproduced clipped Back to workouts label; in-place update and physical
+visual recheck pass. Both lines fit and completed history is retained. Remaining
+paired/physical acceptance continues separately.
+
+Current update — 2026-10-07, Iterations 97–101: prior speech/receipt checkpoint
+is committed as `f2658ad`. Isolated paired-environment inspection, native
+readiness probes and a fail-closed preflight tool are validated. Actual pairing
+is blocked: phone Wearable API unavailable, no companion installed, zero
+reciprocal peers. Owned bridge attempt is restored to its original mappings.
+Next: complete official companion setup on the isolated phone, rerun preflight,
+then actual paired timed and resumed-REST UI/transport acceptance. Stage 19
+remains **70/97 (72%)**, physical **0/27**. No reliable finish ETA until a
+connected pair and physical validation are available. Current tooling changes
+are uncommitted; historical checkpoint labels below are preserved.
+
 This is the tracked plan for the personal Workout Tracker app. Keep this file
 updated at each checkpoint so the plan is visible from every device.
 

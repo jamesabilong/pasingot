@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quick Start footer regression</title><div id="root"></div>
+<script type="module">
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { AppShell } from '/src/components/AppShell.tsx';
+import { LibraryView } from '/src/components/LibraryView.tsx';
+import { WatchQuickStartSheet } from '/src/features/watch-quick-start/WatchQuickStartSheet.tsx';
+import '/src/styles.css';
+const noop = () => {};
+const catalog = Array.from({ length: 25 }, (_, at) => ({ schemaVersion: 1, sourceId: at + 1, name: `Exercise ${at + 1}`, displayName: `Exercise ${at + 1}`, category: 'Bodyweight', primaryMuscles: [], secondaryMuscles: [], equipment: [], featured: true, minimumLevel: 'beginner', progressionGroup: '', progressionLevel: '', license: '', licenseUrl: '', author: '', sourceUrl: '' }));
+function Harness() {
+ const [modal, setModal] = useState(null);
+ const open = (items) => setModal({ source: 'library_selection', items: items.map((i) => ({ ...i, itemId: String(i.sourceId) })) });
+ return React.createElement(AppShell, { tab: 'library', toasts: [], notificationPermission: 'denied', activeWorkout: null, todayPendingCount: 0, questReady: false, healthSyncState: 'off', onTabChange: noop, onWorkoutAction: noop, onRequestNotificationPermission: noop },
+  React.createElement(LibraryView, { catalog, filteredCatalog: catalog, categories: ['Bodyweight'], levelCounts: { beginner: 25, intermediate: 25, advanced: 25 }, levels: ['beginner'], levelLabels: { beginner: 'Beginner' }, maxPlaylistItems: 20, draft: { day: 'Wednesday', time: '07:00', level: 'beginner', items: [] }, search: '', category: '', featuredOnly: false, draftEstimate: '', playlistResult: null, customExerciseDraft: { name: '', category: 'Bodyweight', level: 'beginner', imageUrl: '', videoUrl: '' }, customExerciseResult: null, defaultPrescriptionFor: () => ({ sets: 1, reps: '3 min', rest: 0 }), onSearchChange: noop, onCategoryChange: noop, onFeaturedOnlyChange: noop, onDraftChange: noop, onAddCatalogExercise: noop, onUpdateDraftItem: noop, onReorderDraftItem: noop, onSavePlaylistToSchedule: noop, onClearPlaylistResult: noop, onCustomExerciseDraftChange: noop, onSaveCustomExercise: noop, onEditCustomExercise: noop, onDeleteCustomExercise: noop, onQuickStartSingle: (item, prescription) => open([{ sourceId: item.sourceId, name: item.displayName, ...prescription }]), onQuickStartSelection: open }),
+  React.createElement(WatchQuickStartSheet, { draft: modal, availability: { available: true }, availabilityMessage: null, checking: false, sending: false, cancelling: false, receipt: null, error: null, onDraftChange: setModal, onSend: () => { window.sendClicks = (window.sendClicks || 0) + 1; }, onCancel: noop, onClose: () => setModal(null) }));
+}
+createRoot(document.getElementById('root')).render(React.createElement(Harness));
+</script></html>

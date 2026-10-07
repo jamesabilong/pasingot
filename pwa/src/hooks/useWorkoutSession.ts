@@ -4,7 +4,7 @@ import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEv
 import { getAll, getRecord, STORES } from '../lib/db';
 import { todayDateKey } from '../lib/history-stats';
 import { todayName, workoutStatusesOnDate } from '../lib/workout-planning';
-import { closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutSessionEvent, workoutStepTransition, type WorkoutSessionTransition } from '../lib/workout-session-persistence';
+import { closeHandledWorkoutSession, closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutSessionEvent, workoutStepTransition, type WorkoutSessionTransition } from '../lib/workout-session-persistence';
 import { ACTIVE_SESSION_IDLE_TIMEOUT_MS, ACTIVE_WORKOUT_SESSION_KEY, currentSetInput, defaultSetInput, elapsedSecondsForSession, finishElapsedSession, newPwaSession, normalizeActiveWorkoutSession, restCueKey, restSecondsForSession, setInputKey, startElapsedSession, stopElapsedSession, touchSession, type ActiveWorkoutSession } from '../lib/workout-session';
 
 interface WorkoutSessionOptions {
@@ -66,10 +66,21 @@ export function useWorkoutSession(options: WorkoutSessionOptions) {
     if (!stored || stored.schemaVersion !== SCHEMA_VERSION) { publish(null); return; }
     const value = normalizeActiveWorkoutSession(stored);
     const rows = rowsFor(value, await getAll<WorkoutRow>(STORES.workouts));
-    const stale = closeStaleWorkoutSession(value, rows, todayDateKey());
+    const stale = closeHandledWorkoutSession(value, await getAll<WorkoutLog>(STORES.logs))
+      ?? closeStaleWorkoutSession(value, rows, todayDateKey());
     if (stale) await apply(value, stale, rows);
     else publish(value);
   }), [apply, enqueue, publish, rowsFor]);
+
+  useEffect(() => {
+    if (!session) return;
+    void enqueue(async () => {
+      const value = current.current;
+      if (!value) return;
+      const closure = closeHandledWorkoutSession(value, latest.current.logs);
+      if (closure) await apply(value, closure);
+    });
+  }, [apply, enqueue, options.logs, session]);
 
   const clear = useCallback(() => userAction(async () => { await apply(current.current, { session: null }); }), [apply, userAction]);
   const start = useCallback(() => userAction(async () => {

@@ -123,6 +123,7 @@ export function LibraryView({
           Common movements only
         </label>
 
+        {onQuickStartSelection && quickSelection.length > 0 && <button type="button" className="secondary-action" onClick={() => onQuickStartSelection(quickSelection.flatMap((sourceId) => { const item = catalog.find((entry) => entry.sourceId === sourceId); return item ? [{ sourceId, name: item.displayName, ...defaultPrescriptionFor(item, draft.level) }] : []; }))}>Quick Start selected ({quickSelection.length})</button>}
         {filteredCatalog.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No exercises match these filters.</p> : <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
           {filteredCatalog.map((item) => {
             const addedIndex = draft.items.findIndex((entry) => entry.sourceId === item.sourceId);
@@ -179,7 +180,6 @@ export function LibraryView({
             );
           })}
         </div>}
-        {onQuickStartSelection && quickSelection.length > 0 && <button type="button" className="secondary-action" onClick={() => onQuickStartSelection(quickSelection.flatMap((sourceId) => { const item = catalog.find((entry) => entry.sourceId === sourceId); return item ? [{ sourceId, name: item.displayName, ...defaultPrescriptionFor(item, draft.level) }] : []; }))}>Quick Start selected ({quickSelection.length})</button>}
       </div>
 
       <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900 p-4">

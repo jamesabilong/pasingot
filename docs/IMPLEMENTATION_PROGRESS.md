@@ -5865,3 +5865,398 @@ crash audits remain applicable. No source changed after validation. Commit as
 `PST01: Validate resumed REST speech and receipt cleanup recovery`. This
 supersedes historical uncommitted labels; actual paired UI/transport and
 physical acceptance remain open. Begin five paired-readiness iterations next.
+
+
+## Iteration 97 — 2026-10-07 — Committed checkpoint and isolated paired environment
+
+Status: **Environment audited; paired acceptance pending companion setup.**
+
+Iterations 92–96 commit is `f2658ad`; Git is clean afterward. Stage 19 remains
+70/97 (72%), physical 0/27. Plan/progress are 2,081/5,858 lines before commit
+closure, primarily historical evidence; no reliable time-to-finish estimate.
+Next actual paired acceptance needs exact connected phone/watch nodes and
+matching installed signatures, not another private runtime fixture. Prepare a
+fresh workspace-owned `Pasingot_Pair_Phone` (API 37.1 Play Store, 1 GB RAM)
+and reuse only owned `Pasingot_Timed_UI`. Original profiles/disks/history remain
+stopped and untouched; source config is read solely for hardware/image paths.
+Official Android pairing guide requires companion app; inspect installed
+phone package/SDK/IDE prerequisites before claiming connectivity. Five
+iterations: environment, native readiness inventory, owned bridge/connectivity
+attempt, repeatable preflight tooling, validation/commit audit. Device acceptance
+may remain blocked by external setup; keep code/tooling and paired proof separate.
+Next: boot the owned phone/watch and inspect actual prerequisites.
+
+Iteration 97 closure: both owned profiles boot and exact names are verified;
+new phone disks are workspace-owned, shared system-image resources remain
+read-only. Phone has Google Play Store/GMS but no Pixel Watch or legacy Wear
+companion. Android Studio's installed primary implementation queries GMS
+EMULATOR get-pairing-status; owned Wear reports local `f81011dd` with null
+peer, phone broadcast reports no pairing status. No actual pairing is claimed.
+Official guide requires companion installation/setup; no bundled companion
+APK exists in this installed IDE. Environment inspection is complete, with
+external companion setup still pending. Next: native application API/signature
+inventory on both owned peers, then exact bridge/readiness diagnosis.
+
+## Iteration 98 — 2026-10-07 — Native paired readiness inventory
+
+Status: **Inventory validated; actual connectivity unavailable.**
+
+Add opt-in read-only instrumentation probes on phone/watch, bound to exact
+owned AVD names. Record actual local/connected nodes, Wearable API failures,
+API level, app/debug signature digests and companion installation into owned
+external evidence without creating requests or modifying runtime/history.
+Do not equate inventory OK with a connected pair. Current phone APK installs
+only on fresh owned phone. Next: build/install probes and inspect native API
+results on both peers.
+
+Iteration 98 closure: both new test APKs build in **54s**. Phone inventory
+passes **OK (1 test), 3.679s**; watch **OK (1 test), 1.444s**. Inventories
+record matching app signing SHA-256 `f49623d0…`; watch local `f81011dd` and
+zero peers, phone local null/zero peers with actual **Wearable.API unavailable
+(ApiException 17 / API_UNAVAILABLE)**. Inventory execution passes; connectivity
+acceptance does not. No user request/runtime/history is mutated by probes.
+Evidence is retained in `iteration-98-{phone,wear}.json` and explicit logs.
+
+## Iteration 99 — 2026-10-07 — Owned bridge and actual connection diagnosis
+
+Status: **Experiment validated; connectivity blocked.**
+
+Capture existing forwards/reverses, verify exact owned AVD identities, create
+only vacant 5602/5601 endpoints with no-rebind, then use installed Studio's
+refresh-emulator-connection operation and rerun both native read-only probes.
+Always remove only endpoints created by this attempt and compare original
+bridge state. Missing companion/phone Wearable API is an external prerequisite;
+bridge alone must not be claimed as pairing or trigger synthetic acceptance.
+Next: inspect actual results and build repeatable fail-closed preflight tooling.
+
+Iteration 99 closure: explicit owned bridge/refresh produces the same native
+result: phone Wearable API unavailable, watch has zero peers. Before/after
+forward/reverse inventories are identical after removing only newly created
+endpoints. No original mappings or device data are changed. Connectivity
+experiment is complete; actual pairing remains blocked by companion setup.
+Next: provide a repeatable preflight that fails closed on these prerequisites.
+
+## Iteration 100 — 2026-10-07 — Repeatable paired preflight
+
+Status: **Tooling validated; paired acceptance pending.**
+
+Add standard-library `scripts/paired_preflight.py` with exact owned-AVD guards,
+explicit native inventory probes, schema/package/signature checks, reciprocal
+sole nearby peers and installed/current APK hashes. Refuse existing evidence
+folders. Exit 0 means transport prerequisites ready, exit 2 means blocked,
+exit 1 means capture failure; acceptanceValidated remains false in all cases.
+Add meaningful tests for original-profile/evidence preservation and false-ready
+conditions. Initial test-path attempt failed because root tests directory did
+not exist; use scripts/tests and retain that setup failure as superseded.
+Next: execute decision/safety tests and capture actual owned preflight.
+
+Iteration 100 closure: **10 decision/safety tests pass**, including rejection
+of original profiles before probe/evidence creation and preserving existing
+evidence. Actual preflight exits **2**, correctly recording transportReady
+false/acceptanceValidated false, current installed APK hashes and matching
+native signatures. Blockers: phone API unavailable/local node missing, no
+reciprocal peers, companion absent. `iteration-100-preflight` retains reports
+and logs. Protocol explains setup and exit semantics; no acceptance item closes.
+
+## Iteration 101 — 2026-10-07 — Final checks and commit review
+
+Status: **Validated; ready for commit. Actual pairing blocked.**
+
+Run all JVM suites and four APK targets, ordinary no-flag instrumentation
+(discovery/guard only), review owned changes and preserve native blocker
+reports. Confirm exact owned devices before shutdown, update current roadmap
+status without replacing historical evidence, then recheck Git. Next actual
+acceptance still requires external companion setup and native reciprocal peers.
+
+Iteration 101 closure: combined offline Gradle verification **BUILD SUCCESSFUL
+in 19s**, all four APK targets current. Retained JVM reports total **331 tests
+(78 shared / 28 phone / 225 wear), zero failures/errors/skips**. No-flag phone
+runner **OK (10 tests), 0.105s** and Wear **OK (49 tests), 0.41s** validate
+ordinary discovery/guards; opt-in fixtures skipped, not behavior acceptance.
+Review adds missing identity/digest rejection and checks native observation
+against the device-clock capture window so stale markers cannot claim ready.
+Expanded Python suite **11 tests passes**; final native preflight exits **2**
+with current APK hashes, matching signing and the same real pairing blockers.
+Evidence: `iteration-101-gradle.log`, both no-flag logs and
+`iteration-101-preflight-final`. Whitespace/source review passes; no production
+source or PWA changes. No commit-blocking code findings remain.
+
+Only exact owned phone/watch profiles are stopped after identity verification;
+bridge mappings were already restored. Workspace-owned profiles/evidence are
+retained for companion setup, original AVDs/data remain untouched. Five
+iterations 97–101 complete tooling/environment checks; actual paired and
+physical acceptance remain open. Stage 19 stays 70/97 (72%), physical 0/27.
+Next: install/setup official companion on the isolated phone, rerun preflight,
+then actual paired timed Start/result/receipt and resumed-REST UI/transport.
+This checkpoint is validated and uncommitted, following prior commit f2658ad.
+
+## Iteration 102 — 2026-10-07 — Physical paired readiness
+
+Status: **In progress; physical behavior acceptance remains open.**
+
+User supplies physical Galaxy S25/Watch7 and authorizes continuing checks.
+Watch debugging is rediscovered via mDNS and reconnects at its advertised
+endpoint; phone remains authorized. Read-only inventory compares models/OS,
+installed versions/APK hashes/signatures and actual reciprocal nearby nodes.
+Existing emulator-only fixture guards remain intact: do not run mutation
+fixtures on personal hardware or treat skipped tests as device acceptance.
+Next: verify current installed builds and guide actual UI/physical observations.
+
+Iteration 102 findings: physical S25 SM-S931B and Watch7 SM-L300 both run
+Android 16/API 36. Native service inventories confirm phone local 1a3ea2de
+and watch local 6b45442a as reciprocal nearby peers with active Bluetooth
+connections. This supersedes the isolated-emulator companion/API blocker for
+this physical pair only; emulator findings remain historical evidence.
+Installed APKs date from September 10 and hashes differ from validated current
+builds. Begin in-place `install -r` updates (phone also -t), preserving app data;
+never uninstall/reset if signing or installation rejects. Initial read-only APK
+pull timed out after 40s; device-side SHA-256 succeeds instead. Partial host APK
+is not validation evidence. No physical behavior checklist closes on connection
+inventory alone. Await active-session preservation answer before test workout.
+
+Iteration 102 update: user confirms no active workout and ready to test.
+Phone in-place update returns Success; app launch intent succeeds, but native
+UI inventory shows the phone lock screen. Await user unlock; no lock bypass.
+Watch update remains transferring over wireless ADB; both devices are online.
+No installation reset/uninstall or workout mutation is performed. All current
+behavior rows remain open pending normal UI observations and completed update.
+
+Iteration 102 latest: watch in-place install also returns Success. Device-side
+SHA-256 on both installed base APKs exactly matches current validated local
+builds, whose apksigner certificates match f49623d0… on both components.
+`updated-builds.json` retains proof. Both app launch intents succeed. Readiness
+checks pass; physical behavior acceptance still pending user unlock and actual
+Library → Ready prescription observation. Iteration stays open until that check
+passes. Next: send one exercise (2 sets / 10 reps / 15s rest), compare exact
+watch Ready before Start, then continue Started/result/receipt observations.
+
+## Iteration 103 — 2026-10-07 — Physical completion button clipping
+
+Status: **Code/build and physical clipping fix validated; uncommitted.**
+
+User reports completing a 5/5 workout and a chopped Back to workout(s) button.
+This is user-reported completion evidence, not a captured full acceptance run.
+Terminal views use shared WatchAction, whose exact 44dp height can constrain
+wrapped text on small round screens/font scales. Replace fixed height with a
+52dp minimum allowing content to grow. Actual watch capture currently shows
+the charging overlay despite wake/app-launch, not the reported button;
+request normal completion-screen visibility before claiming visual validation.
+Preserve completed workout/history and prior readiness edits. Initial edit
+command used android cwd with repository-relative paths and failed without
+changing source; corrected at repository root. Next: Wear build/JVM checks,
+in-place update and physical completion-screen visual check.
+
+Iteration 103 physical reproduction: waking/reopening after charging overlay
+clears captures the actual completion view. `foreground-before.png/xml` shows
+5/5 completed, Completed 5 / Skipped 0 / Pending 0, Sets 9/9, Saved on watch.
+Back to workouts wraps onto two lines; lower line clips inside fixed-height
+chip. Installed AndroidX 1.4.0 Chip source documents automatic content growth,
+52dp default minimum and intrinsic sizing; our exact height overrides that.
+Current fix restores unconstrained growth with minimum 52dp. Wear build/test
+APK targets pass (45s); 225 Wear JVM tests, zero failures/errors/skips.
+In-place physical fix installation underway; retain before image/history.
+Next: verify installed hash, reopen completed view and inspect label fit.
+
+Iteration 103 closure: in-place Wear install returns Success. Installed APK
+SHA-256 f760fb2d… exactly matches the fixed local build. Physical Watch7
+font_scale=1.0; completed Foundation A survives update (5/5, 9/9 sets,
+Elapsed 1:24, Saved on watch). Reopen the saved completed card and scroll to
+the terminal action: `fixed-button-final.png` visually confirms both text
+lines fully inside the button, including complete lower-line glyphs and bottom
+padding. `foreground-before.png` retains original cropped lower line.
+Intermediate asleep/charging screenshots and a null-root UI dump are not
+layout validation; dump failure left stale XML, explicitly superseded by fresh
+awake screenshots after navigation. No synthetic fixture, new workout, reset,
+uninstall or history clearing is used. 225 JVM tests and both Wear APK targets
+pass; Git whitespace check passes. Code and observed physical defect fix are
+complete; broader paired/physical checklist remains open, counts unchanged.
+Next: continue actual Ready/Started/result/receipt and audio/haptic observations.
+
+Persistence/visibility diagnosis — 2026-10-07, after Iteration 103:
+User clarifies workout countdown reopens paused after app is replaced by watch
+face; no claim of lost progress. Read-only durable Preferences store confirms
+five completed exercise statuses, completedSets [1,2,2,2,2], resultSaved=true.
+Watch is currently not charging; system watch UI is foreground while app PID
+9343 remains alive. Earlier charging overlay is captured, but no lifecycle trace
+of the original interruption establishes charging as its sole trigger.
+SessionScreen ON_STOP/disposal calls saveOnExitIfActive; active sessions persist
+PAUSED with APP_CLOSED reason. Ambient-only visibility handling does not pause
+that state; resting sessions retain deadlines. Existing unit tests explicitly
+cover active exit pause and hidden-rest recovery. No OngoingActivity integration
+exists in Wear source/dependencies. Official Android always-on guidance states
+watch-face timeout can hide apps, and Ongoing Activity keeps workout UI visible
+through that timeout (https://developer.android.com/training/wearables/always-on).
+Diagnosis: saved-data persistence works for captured completion; current exit
+policy explains reported pause, with missing ongoing-workout visibility support.
+Next: add session-scoped Ongoing Activity and validate natural timeout/ambient
+on physical Watch7, preserving deliberate exit pause; no new runtime-policy or
+personal settings change made during this diagnostic check.
+
+
+Next-plan audit — 2026-10-07: device availability resolved; inventory evidence
+from Iterations 102–103 satisfies Phase 4 item 26 (actual models/OS/app versions).
+Close only that exit item: physical 1/27, Stage 19 71/97 (73%), remaining 26.
+Historical 0/27 checkpoints remain preserved and explicitly superseded. No
+other checkbox closes from partial 5/5 completion or layout evidence.
+Next implementation is workout-scoped Ongoing Activity visibility, followed
+by physical timeout/ambient proof. Then collect paired entries/Started/result/
+receipt, offline/reboot/duplicate/expiry/nonreplacement regression, physical
+speech/haptics/TalkBack/routing/fallback, 60–90 minute battery and Play internal
+install/update/mixed compatibility evidence. Code completion and complete
+physical acceptance must still close separately. No new runtime change in this
+audit; uncommitted readiness/layout work remains preserved.
+
+## Iteration 104 — 2026-10-07 — Completed watch history leaves phone Continue blocked
+
+Status: **Code/browser and physical stale-session fix validated; uncommitted.**
+
+Physical S25 screenshot shows 100% handled / five completed and Completed
+watch snapshot, yet header Continue remains. Read-only verified WebView capture
+records a separate active phone cursor for row IDs 1–5 at exercise 0/set 1;
+player exists below the watch panel. Header only switches to Today, so tapping
+while already on Today leaves viewport unchanged. Retain full before IndexedDB
+and screenshot under phone-continue-20261007; no personal history reset.
+Promote this observed defect ahead of planned Ongoing Activity work.
+Add a pure fully-handled-history closure scoped to session date/exact row IDs,
+serialized hook reconciliation on restore and incoming log changes, no duplicate
+logs/events/health writes. Continue requests screen-owned player scroll/focus.
+Next: partial/date/row/terminal preservation and real hook/browser checks,
+PWA required build checks, then physical in-place update and evidence comparison.
+
+Iteration 104 validation update: TypeScript and production Vite build pass;
+Capacitor copy and phone Gradle unit/build target pass (15s, retained reports
+28 phone tests, zero failures/errors/skips). Browser integrity harness now
+passes 27 checks including same-date/exact-row reconciliation, partial/wrong
+row/date/empty cursor rejection, retained terminal summary, startup/live closure
+and no duplicate history/events/health writes. Full-app mobile smoke fixture
+uses a unique disposable DB: Continue moves player top from 537.25px to 96.25px
+and focuses its container. Completed fixture shows no Continue/player, complete
+training and disabled Start. Screenshot retained under output/playwright.
+Playwright wrapper was not executable and npx resolution stalled; installed
+cached CLI works directly. Initial sandbox server bind fails; approved localhost
+server succeeds. These setup failures do not replace accepted browser evidence.
+Phone in-place update underway; preserve before IndexedDB archive for comparison.
+
+Iteration 104 closure: phone install -r -t returns Success. Installed APK hash
+115855bd… equals validated fixed build. Verified physical WebView records show
+active cursor removed, no Continue/player, disabled Start for completed plan.
+Exact before/after comparison confirms workouts, all 11 logs, session events,
+set logs and every other appState record unchanged. Only stale active cursor is
+removed. `preservation.json` retains assertions. Initial after screenshot is
+asleep/black; `after-awake.png` supersedes it and visually confirms 100% handled,
+five completed, Completed watch snapshot and no stale Continue. Scoped TCP9227
+WebView forward is removed, task browser closed, devices remain available.
+Composition review passes: App wires routing/display focus request, Today owns
+scroll/focus, hook owns serialized persistence, pure helper owns row/date match.
+TypeScript/build, 27 integrity checks, full-app mobile smoke, 28 phone JVM tests,
+phone APK build, physical preservation/visual and whitespace checks pass.
+Continue focus is browser-validated; no real unfinished personal workout is
+created just to repeat that check. No full acceptance item closes from this
+fix alone; Stage 19 remains 71/97, physical 1/27. Next: Ongoing Activity and
+natural timeout/ambient test, then remaining paired/physical acceptance.
+
+## Iteration 105 — 2026-10-07 — Ongoing workout visibility
+
+Status: **Code/build and physical startup checks validated; timed acceptance pending.**
+
+User authorizes continuing the plan. Add session-scoped native Ongoing Activity,
+observing durable legacy/Quick Start changes from Application scope; no polling,
+wake lock, foreground engine or background speech. One unambiguous active/rest/
+paused target gets a silent ongoing workout notification; completion/end/receipt
+cleanup removes it. Notification touch intent revalidates exact saved identity
+before navigating directly to its session; stale/invalid targets cannot start
+workouts. Keep deliberate lifecycle exit save/pause semantics. Next: pure target
+regressions, native builds, actual notification/lifecycle checks, in-place
+Watch7 update and user-driven natural timeout/ambient observations.
+
+Iteration 105 first build: dependency resolves; compile fails because Quick
+Start titles are nullable. Retain failed log and use a Workout display fallback
+in notification and return-target validation; no workout payload is changed.
+Rerun relevant checks before marking implementation complete.
+
+Iteration 105 final-review build catches a Kotlin package qualifier shadowed by
+local app Context. Replace it with an explicit schema-version import; retain
+failed final log. Added permission-refresh on Activity resume (grant can occur
+without repository changes) and fail-closed unknown entry schemas/read errors.
+Rerun final native gates on this exact source; no device update yet.
+
+Iteration 105 code checkpoint: final combined offline Gradle build passes in
+28s, all four APK targets accepted. JVM total 335 = 78 shared / 28 phone /
+229 Wear; zero failures/errors/skips. Four new target-policy tests cover
+unfinished legacy/Quick Start identity, terminal removal, missing/invalid/future
+records and conflicting targets. Permission grant refresh and saved identity/
+schema revalidation are included in the exact accepted source. No runtime
+schema/workout engine/lifecycle pause policy or PWA source changed this iteration.
+Private-store baselines retained before in-place Watch7 update. Code validation
+complete; physical timeout/ambient/one-tap return still pending user timed test.
+
+Iteration 105 physical startup checkpoint: install -r succeeds; installed APK
+5d5500e0… matches validated build. App launches, no WorkoutOngoing errors.
+Exact private-store comparison shows workout downloads, log queue, session-event
+queue, watch cues and Wear settings all unchanged. Completed workout publishes
+no active notification ID 3. `ongoing-workout-105/install-readiness.json` retains
+proof. Existing screen_off_timeout is 15000ms; doze_enabled query returns null
+(no inference of actual AOD state), neither setting is modified.
+No unfinished personal workout is created or restarted. Physical timed-session
+indicator, natural timeout/ambient behavior, one-tap routing and terminal cleanup
+after a new test remain unexecuted pending user readiness. Iteration stays open
+for these device observations; code completion is separate. Proposed test: normal
+phone Library Quick Start, one set / 3 min / 0s rest, Start on watch, leave it
+off charger untouched >15s, wake and inspect running state, then verify final
+completion/receipt and indicator removal. Preserve deliberate Home/back exit
+pause policy and record any device-specific stop event before changing it.
+Stage 19 stays 71/97, physical 1/27; current changes remain uncommitted.
+
+## Iteration 106 — 2026-10-07 — Footer blocks Library Quick Start
+
+Status: **Code/browser and physical WebView hit tests validated; uncommitted.**
+
+User cannot tap Quick Start behind phone footer, blocking physical timed test.
+Read-only physical WebView hit test reproduces selected action at y684–729,
+footer y689–753; action center returns a footer tab, not the action. No dialog
+is open: this is Library selection, not modal stacking. Capture geometry while
+initial screenshot is asleep; keep screenshot limitation explicit. Mobile shell
+gets a bounded scroll viewport above reserved footer area; desktop retains its
+existing document layout. Move selected Quick Start above nested catalog so it
+is available beside selection controls rather than beneath the scrolling list.
+Preserve all workout/offer state. Next: mobile/desktop/modal hit-target smoke,
+required PWA checks, in-place phone update and physical inspection.
+
+Iteration 106 closure: TypeScript, production Vite build, Capacitor copy and
+phone APK build pass (12s). Real-component browser fixture checks mobile
+360x780/native-safe-area layout: main bottom 684px < footer top 703.61px,
+selected-action center hits itself; modal Send also hits itself and isolated
+handler fires once. Desktop 1024x768 retains static navigation/visible main
+layout. In-place physical phone install succeeds; installed APK bc1c70ed…
+exactly matches build. Normal Library select → Quick Start selected opens real
+confirmation sheet. Physical geometry: selected action y270–315, main bottom
+684, footer top703.60; center hit true. Send y710–755, enabled, center hit true
+above footer's stacking layer. `physical-layout.json` retains accepted proof.
+No Send/Start is invoked on the personal pair, no offer/workout/history is
+created/reset; confirmation left open for user. Initial screenshot asleep and
+later lock-screen capture are not UI evidence; unrelated lock capture discarded.
+Scoped TCP9227 debug forward removed, task regression browser closed. Review
+keeps layout in styles/screen components and no feature logic in App. Whitespace
+and final Git recheck pass; prior unrelated readiness/runtime/layout edits are
+preserved. Counts stay 71/97, physical1/27. Next: user unlocks phone and configures
+one set / 3 min / 0s rest in the open sheet for Iteration105 timeout acceptance.
+
+
+Commit closure — 2026-10-07: user authorizes commit/reinstall. Review all 28
+owned files, retained 335 native JVM/four APK, 27 browser integrity/real-component
+mobile/desktop/modal, 11 Python preflight and physical layout/preservation
+checks. No production source changed since its relevant accepted checks. All
+changes belong to Iterations 97–106; preserve prior history/evidence. Commit
+as PST01: Fix physical workout controls and ongoing activity. Timed-session
+visibility remains physical acceptance pending, not inferred from code tests.
+
+## Iteration 107 — 2026-10-07 — Committed physical reinstall audit
+
+Status: **In progress.**
+
+Reinstall both committed production APKs with -r (phone also -t), preserving
+personal app data. Verify exact physical device models, installed APK hashes,
+signing correspondence, startup/ongoing error logs and actual reciprocal peers.
+Capture durable baselines first; avoid starting or replacing a workout. Finish
+with a Git recheck and record actual retained-data and UI readiness results.
+Next: reinstall and inspect the exact checkpoint on physical S25/Watch7.

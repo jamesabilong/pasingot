@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workout Continue regression</title><div id="root"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from '/src/App.tsx';
+import '/src/styles.css';
+import { replaceStores, STORES } from '/src/lib/db.ts';
+import { newPwaSession } from '/src/lib/workout-session.ts';
+const factory = window.indexedDB;
+const database = `pasingot-continue-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), { once: true });
+const rows = [1, 2].map((id) => ({ id, schemaVersion: 1, day: new Date().toLocaleDateString('en-US', { weekday: 'long' }), time: `07:0${id}`, exercise: `Continue test ${id}`, sets: 1, reps: '8', rest: 0 }));
+const completed = new URLSearchParams(location.search).has('completed');
+await replaceStores({ workouts: rows, appState: [newPwaSession(rows)], logs: completed ? rows.map((row) => ({ schemaVersion: 1, date: new Date().toISOString(), workoutRowId: row.id, exercise: row.exercise, status: 'done' })) : [], setLogs: [], sessionEvents: [] });
+createRoot(document.getElementById('root')).render(React.createElement(App));
+</script></html>

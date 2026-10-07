@@ -230,6 +230,25 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Mobile controls scroll in a viewport that ends above the fixed navigation. */
+@media (max-width: 639px) {
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-header { flex-shrink: 0; }
+
+  .app-main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 @media (min-width: 640px) {
   .app-shell {
     padding-bottom: calc(2rem + var(--app-native-safe-area-bottom));

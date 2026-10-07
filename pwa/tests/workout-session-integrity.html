@@ -9,7 +9,7 @@ import { flushSync } from 'react-dom';
 import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
 import { todayDateKey } from '/src/lib/history-stats.ts';
 import { newPwaSession, normalizeActiveWorkoutSession } from '/src/lib/workout-session.ts';
-import { closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
+import { closeHandledWorkoutSession, closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
 import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
 import { useHealthConnectSync } from '/src/hooks/useHealthConnectSync.ts';
 
@@ -74,6 +74,28 @@ try {
   await putRecord(STORES.appState, stale);
   await controller.restore(); await controller.restore(); await settle();
   check(controller.session === null && (await getAll(STORES.sessionEvents)).filter((event) => event.stopReason === 'stale_next_day').length === 1, 'Reload recovery closes yesterday’s session exactly once');
+
+  const syncedLogs = [{ schemaVersion: 1, date: new Date().toISOString(), workoutRowId: row.id, exercise: row.exercise, status: 'done' }];
+  const remoteCursor = newPwaSession(rows);
+  check(closeHandledWorkoutSession(remoteCursor, syncedLogs)?.session === null, 'Exact same-day handled rows close a stale phone cursor');
+  check(!closeHandledWorkoutSession({ ...remoteCursor, rowIds: [1, 2] }, syncedLogs), 'Partial history cannot close an unfinished player');
+  check(!closeHandledWorkoutSession(remoteCursor, [{ ...syncedLogs[0], workoutRowId: 2 }]), 'Unrelated row history cannot close a player');
+  check(!closeHandledWorkoutSession(remoteCursor, [{ ...syncedLogs[0], date: yesterday.toISOString() }]), 'Another date cannot close a player');
+  check(!closeHandledWorkoutSession({ ...remoteCursor, status: 'completed' }, syncedLogs), 'Phone terminal summary remains available until explicitly closed');
+  check(!closeHandledWorkoutSession({ ...remoteCursor, rowIds: [] }, syncedLogs), 'Empty cursor cannot claim synced completion');
+  options.logs = [];
+  await replaceStores({ appState: [remoteCursor], logs: syncedLogs, setLogs: [], sessionEvents: [], workouts: rows });
+  await controller.restore(); await settle();
+  check(!controller.session && !await getRecord(STORES.appState, remoteCursor.key), 'Restore reconciles durable synced completion before publishing Continue');
+  await replaceStores({ appState: [remoteCursor], logs: [] });
+  await controller.restore(); await settle();
+  check(controller.session?.status === 'active', 'Incomplete history preserves the active cursor');
+  const beforeWrites = healthWrites;
+  await putRecord(STORES.logs, syncedLogs[0]);
+  options.logs = syncedLogs;
+  flushSync(() => root.render(React.createElement(Harness))); await settle(); await settle();
+  check(!controller.session && !await getRecord(STORES.appState, remoteCursor.key), 'Live synced completion clears the matching phone cursor');
+  check((await getAll(STORES.logs)).length === 1 && !(await getAll(STORES.setLogs)).length && !(await getAll(STORES.sessionEvents)).length && healthWrites === beforeWrites, 'Reconciliation preserves authoritative history without duplicate events, sets or health writes');
 
   window.Capacitor = { Plugins: { HealthConnectBridge: {
     getStatus: async () => ({ availability: 'available', permissionGranted: false, workoutPermissionGranted: false, bodyWeightPermissionGranted: true }),

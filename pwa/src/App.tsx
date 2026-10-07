@@ -43,6 +43,7 @@ export default function App() {
   const localToday = useLocalDate();
   const quickStart = useWatchQuickStart();
   const [tab, setTab] = useState<Tab>('today');
+  const [playerFocusRequest, setPlayerFocusRequest] = useState(0);
   const data = useWorkoutData();
   const {
     workouts, setWorkouts, logs, sessionEvents, setLogEntries, catalog, setCatalog,
@@ -155,6 +156,7 @@ export default function App() {
       onOnline={() => void retryPendingSyncs()}
       onWorkoutAction={() => {
         setTab('today');
+        setPlayerFocusRequest((request) => request + 1);
         const isLive = activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status);
         if (!isLive) void startTodayWorkoutPlayer();
       }}
@@ -171,6 +173,7 @@ export default function App() {
         progress={todayProgress}
         statuses={todayStatuses}
         setLogCount={todaySetLogCount}
+        playerFocusRequest={playerFocusRequest}
         activeSession={activeWorkoutSession}
         activeRows={activeWorkoutRows}
         elapsedSeconds={workoutElapsedSeconds}

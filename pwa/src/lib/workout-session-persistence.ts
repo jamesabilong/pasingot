@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 import { STORES, transact } from './db';
-import { estimateLevelFor, estimateWorkoutDurationSeconds, validLoadWeight } from './workout-planning';
+import { estimateLevelFor, estimateWorkoutDurationSeconds, validLoadWeight, workoutStatusesOnDate } from './workout-planning';
 import { ACTIVE_WORKOUT_SESSION_KEY, currentSetInput, elapsedSecondsForSession, finishElapsedSession, normalizeActiveWorkoutSession, restOrActive, touchSession, type ActiveWorkoutSession } from './workout-session';
 
 export interface WorkoutSessionTransition {
@@ -101,4 +101,13 @@ export function closeStaleWorkoutSession(session: ActiveWorkoutSession, rows: Wo
   if (session.status === 'completed' || session.status === 'ended') return { session: null };
   const ended = finishElapsedSession(session, 'ended', 'stale_next_day', now);
   return { session: null, event: workoutSessionEvent(ended, rows, now) };
+}
+
+/** Synced exercise history can finish the same plan while a phone cursor is still open.
+ * Remove only that fully handled cursor; the existing history remains authoritative.
+ */
+export function closeHandledWorkoutSession(session: ActiveWorkoutSession, logs: WorkoutLog[]): WorkoutSessionTransition | null {
+  if (!['active', 'resting', 'paused'].includes(session.status) || !session.rowIds.length) return null;
+  const statuses = workoutStatusesOnDate(logs, session.planDate);
+  return session.rowIds.every((id) => statuses.has(id)) ? { session: null } : null;
 }

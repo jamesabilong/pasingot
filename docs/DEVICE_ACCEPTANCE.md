@@ -993,3 +993,25 @@ pass four tests per peer with mutation flags absent. The emulator inventory
 `20261003T140730409Z-iteration-56-final` verifies API 35/API 37, app 1.0/code 1
 and installed/local base APK equality. These are local ignored artifacts;
 the checked-in fixture and commands reproduce them.
+
+
+Physical inventory exit check — 2026-10-07 (item 26 complete): Galaxy S25
+SM-S931B and Galaxy Watch7 SM-L300, Android 16/API 36, Pasingot 1.0/versionCode
+1. Iteration 102 readiness artifacts retain models/OS/versions and reciprocal
+nearby nodes; post-update hashes match validated APKs with matching certificates.
+Iteration 103 installed-fixed-sha256.txt retains the updated Watch7 layout APK.
+Physical behavior evidence currently includes saved 5/5, 9/9 completion and
+visually fixed return button. These observations do not close full transport,
+recovery, cue, battery or Play acceptance cases. Physical count is 1/27.
+
+
+Ongoing workout timeout test — Iteration 105, 2026-10-07 (pending): installed
+Watch7 build adds a silent session-scoped Ongoing Activity. Physical startup
+preserves all captured stores and clears notification for the completed workout.
+Use a fresh normal timed Quick Start (one set, 3 min, 0s rest); record exact
+request/session, notification metadata and tap target, leave screen untouched
+past current 15s timeout off charger, wake and compare active state/deadline.
+Differentiate normal ambient from deliberate Home/back and charging overlay;
+do not alter personal timeout/AOD/notification settings. Finish normally, verify
+phone result/receipt and no stale ongoing indicator. No row closes until actual
+observations pass; timed acceptance is not inferred from code/startup checks.

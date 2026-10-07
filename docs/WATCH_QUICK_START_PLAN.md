@@ -1,10 +1,18 @@
 # Watch Quick Start Plan
 
+Current physical plan — 2026-10-07: device inventory exit check is complete,
+Stage 19 **71/97 (73%)**, physical **1/27**. Connected S25/Watch7 and current
+installed APK/signature evidence are retained. Next: add workout-scoped Ongoing
+Activity visibility support and validate natural timeout/ambient without an
+unintended pause, then paired entry/Start/result/receipt, recovery/regressions,
+audio/haptics/accessibility, battery and Play internal-track checks. Historical
+0/27 counts below remain dated evidence; they are superseded by this audit.
+
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iterations 92–96 — private native rebooted resumed-REST interruption and interrupted receipt pruning validated; 331 JVM tests/four APK targets pass; committed in the speech/receipt checkpoint; actual paired UI/transport/physical acceptance pending**
-Previous checkpoint: `6296b4f PST01: Validate native timed cues and wall-clock recovery`
+Latest checkpoint: **Iterations 97–106 — readiness, physical controls/Continue and Ongoing Activity implementation committed in physical-workout checkpoint; timed timeout/ambient acceptance still pending; reinstall audit next**
+Previous checkpoint: `f2658ad PST01: Validate resumed REST speech and receipt cleanup recovery`
 Last updated: **2026-10-07**
 
 Iterations 92–96 validate private native resumed-REST Start now after actual
@@ -88,7 +96,7 @@ on verified isolated copies, then continue the 27 physical acceptance items.
 The 72% ratio counts checklist items, not remaining engineering time; a reliable
 finish date requires device availability and physical/Play/battery results.
 
-**Current closure:** **70/97 (72%)**, Phase 3 **12/12 (100%)**. Windows paired
+**Current closure:** **71/97 (73%)**, Phase 3 **12/12 (100%)**. Windows paired
 emulators verify Ready/process restart/Start, Cancel/Dismiss, offline queued
 completion through reboot, exact receipt and runtime/package/cue pruning.
 Receipt-aware final presentation and race-safe ledger cleanup are fixed.
@@ -1060,7 +1068,7 @@ is recorded separately from code completion.
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **70/97 items (72%) overall**:
+stands at **71/97 items (73%) overall**:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
@@ -1068,7 +1076,7 @@ stands at **70/97 items (72%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **0/27 (0%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback, reduced-motion rest/success and voice-enabled UI interruption/rest/transition/recreation pass on emulators; physical audio, routing, tactile and battery evidence remain open |
+| Phase 4 — device acceptance | **1/27 (4%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback, reduced-motion rest/success and voice-enabled UI interruption/rest/transition/recreation pass on emulators; physical audio, routing, tactile and battery evidence remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1272,7 +1280,7 @@ Exit checks:
 
 ### Phase 4 — Paired-device acceptance
 
-Status: **Emulator acceptance underway at user request; physical 0/27 remains open**
+Status: **Physical acceptance underway on S25/Watch7; 1/27 complete (inventory); 26 checks remain**
 
 Track emulator UI observations separately in
 [Device acceptance](DEVICE_ACCEPTANCE.md) and the latest implementation iteration.
@@ -1316,7 +1324,7 @@ These physical checklist boxes are not closed by emulator-only evidence.
 
 Exit checks:
 
-- [ ] Evidence identifies phone/watch models and OS versions.
+- [x] Evidence identifies phone/watch models and OS versions. Physical S25 SM-S931B / Watch7 SM-L300, Android 16/API 36; app 1.0, validated installed APK hashes/signatures (Iterations 102–103).
 - [ ] Code completion and paired-device acceptance are both explicitly closed.
 
 ## Test matrix
