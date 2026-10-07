@@ -1,5 +1,14 @@
 # Feature Gap Roadmap
 
+Current committed checkpoint — 2026-10-07: 5014ec8 includes validated readiness,
+physical controls/Continue fixes and Ongoing Activity implementation. Iteration
+107 repeats in-place phone/watch installs successfully; installed hashes and
+certificates match, startup/reciprocal nearby peers pass, captured data/settings
+remain unchanged. Physical phone selected Quick Start and modal Send hit checks
+pass after reinstall. Historical uncommitted labels below are superseded.
+Next: timed Ongoing Activity natural timeout/ambient acceptance (Iteration105);
+counts stay 71/97 overall and 1/27 physical. Reinstall audit changes docs only.
+
 Commit checkpoint — 2026-10-07: user authorizes committing the validated
 readiness, physical layout/Continue fixes and Ongoing Activity implementation
 as PST01: Fix physical workout controls and ongoing activity. This supersedes

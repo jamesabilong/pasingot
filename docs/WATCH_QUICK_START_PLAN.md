@@ -11,7 +11,7 @@ audio/haptics/accessibility, battery and Play internal-track checks. Historical
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iterations 97–106 — readiness, physical controls/Continue and Ongoing Activity implementation committed in physical-workout checkpoint; timed timeout/ambient acceptance still pending; reinstall audit next**
+Latest checkpoint: **5014ec8 — physical-workout controls and Ongoing Activity implementation; Iteration107 repeated reinstall/hash/signature/startup/peer/data/hit checks pass; timed timeout acceptance still pending**
 Previous checkpoint: `f2658ad PST01: Validate resumed REST speech and receipt cleanup recovery`
 Last updated: **2026-10-07**
 

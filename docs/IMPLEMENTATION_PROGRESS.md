@@ -6252,7 +6252,7 @@ visibility remains physical acceptance pending, not inferred from code tests.
 
 ## Iteration 107 — 2026-10-07 — Committed physical reinstall audit
 
-Status: **In progress.**
+Status: **Reinstall/startup/data and physical hit checks validated.**
 
 Reinstall both committed production APKs with -r (phone also -t), preserving
 personal app data. Verify exact physical device models, installed APK hashes,
@@ -6260,3 +6260,28 @@ signing correspondence, startup/ongoing error logs and actual reciprocal peers.
 Capture durable baselines first; avoid starting or replacing a workout. Finish
 with a Git recheck and record actual retained-data and UI readiness results.
 Next: reinstall and inspect the exact checkpoint on physical S25/Watch7.
+
+Iteration 107 closure: implementation checkpoint is 5014ec8 (28 owned files).
+Phone and Wear in-place installs both return Success. Initial Wear attempt
+reports transient device offline; it recovers, exact SM-L300/RFAY11LZ4SR identity
+is verified, and retry succeeds. No uninstall, data clear or personal setting
+change is performed. Phone APK embeds current validated PWA JS/CSS.
+Installed SHA-256 matches current builds: phone bc1c70ed…, Wear 5d5500e0…;
+both certificates match f49623d0…. Both apps start, no observed process-filtered
+AndroidRuntime/WorkoutOngoing errors; native services confirm exact nearby
+phone 1a3ea2de ↔ watch 6b45442a. Phone before/after full workouts/logs/session-
+events/set-logs/appState records are identical (12 rows, 11 logs). Watch workout
+downloads/log queue/session-event queue/watch cues/Wear settings match byte-for-
+byte. Retained evidence: reinstall-107/{phone-preservation,verification}.json.
+
+Reinstalled physical phone normal Library select → Quick Start selected → sheet
+checks pass: main bottom669 < footer top688.60, selection action y270–315 hits
+itself; Send y710–755 is enabled and hit-testable. No Send/Start is invoked.
+Scoped ephemeral debug bridges are removed after verifying task-owned mapping;
+devices remain connected. Whitespace/Git rechecks pass; no source change or new
+test execution is needed for identical accepted artifacts. Commit this audit
+separately so completed reinstall evidence is durable and worktree is clean.
+Timed Ongoing Activity/ambient acceptance remains open in Iteration105; no
+physical checklist item is inferred from reinstall. Counts stay71/97,1/27.
+Next: actual one-set / 3min / 0s-rest test off charger and natural timeout/wake,
+then result/receipt/indicator cleanup and remaining physical checks.
