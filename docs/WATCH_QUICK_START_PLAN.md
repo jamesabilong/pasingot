@@ -3,9 +3,25 @@
 Status: **Phases 0–3 complete; Phase 4 physical-device acceptance pending**
 Active stage: **Stage 19 — Phone-selected Watch Quick Start**
 Planning checkpoint: `23dd15c PST01: Finalize code`
-Latest checkpoint: **Iterations 87–91 — native real-clock timed cues, hidden Activity and paused reboot validated; 331 JVM tests/four APK targets pass; committed in the real-clock native checkpoint; actual paired/speech-interruption/physical acceptance pending**
-Previous checkpoint: `4da1e87 PST01: Validate native timed runtime recovery across reboots`
+Latest checkpoint: **Iterations 92–96 — private native rebooted resumed-REST interruption and interrupted receipt pruning validated; 331 JVM tests/four APK targets pass; committed in the speech/receipt checkpoint; actual paired UI/transport/physical acceptance pending**
+Previous checkpoint: `6296b4f PST01: Validate native timed cues and wall-clock recovery`
 Last updated: **2026-10-07**
+
+Iterations 92–96 validate private native resumed-REST Start now after actual
+reboot: exact paused state/cues and silence, one intentional resumed REST,
+in-flight cancellation/observed completed Go after 975 ms, 2/2 offline result
+and no late warning/REST/Go through the abandoned new deadline. Another fresh
+process retains exact final result without replay. Wrong sender/revision/path
+refuse cleanup; exact synthetic receipt prunes runtime/package before injected
+cue failure. Rebooted exact replay finishes cue pruning, suppresses all six
+native cue kinds and rejects request/runtime resurrection. Five explicit
+stages and 331 JVM/four APK, ordinary guards, installed/private-file/focus/crash/
+whitespace checks pass. No production behavior changes. See the [private speech/receipt protocol](PAIRED_EMULATOR_VALIDATION.md#private-native-resumed-rest-speech-and-interrupted-receipt--iterations-9296).
+This supersedes native interruption/cleanup pending labels only for the private
+emulator slice. Programmatic actions and synthetic receipt do not establish
+paired UI/transport; a connected phone/watch pair is still needed for actual
+paired timed and resumed-REST acceptance. Stage 19 remains 70/97, physical
+0/27. New checkpoint is validated and committed in the speech/receipt checkpoint.
 
 Iterations 87–91 use actual wall time and Android TTS in a guarded private
 production package/runtime/cue-store, Start coordinator and SessionScreen/

@@ -5693,3 +5693,175 @@ changed since final validation. Commit as
 `PST01: Validate native timed cues and wall-clock recovery`. This supersedes
 historical uncommitted labels; actual paired, resumed-REST speech and physical
 acceptance remain pending. Begin five further iterations after commit.
+
+
+## Iteration 92 — 2026-10-07 — Committed checkpoint and resumed-REST native readiness
+
+Status: **Validated; uncommitted. Actual paired UI/transport/physical acceptance pending.**
+
+Iterations 87–91 are committed in `6296b4f`; Git is clean afterward.
+Stage 19 is 70/97 (72%), physical 0/27. Plan/progress are roughly
+2,063/5,700 lines, mostly retained history; no reliable finish-time estimate.
+Five new iterations: owned native readiness, paused REST preparation, actual
+reboot/in-flight REST Start now with no late cues, fresh offline final result/
+synthetic receipt/runtime-package-cue pruning, final combined commit audit.
+Continue pending resumed-REST native interruption without substituting this
+private slice for actual paired phone/UI/transport or physical acceptance.
+Boot only existing workspace-owned `Pasingot_Timed_UI`; original profiles/
+workout data remain untouched. Next: native readiness and staged fixture code.
+
+Iteration 92 retained test-build failure: FinalQuickStartResult has no
+watchNodeId property; obtain the exact target from its durable session package
+when constructing receipt envelopes. Correct fixture reference; production
+schema/source is unchanged. Record owned battery baseline and temporarily
+unplug/wake/Home to avoid the known charging overlay; notification permission
+is granted only on the owned AVD and will be restored with battery state.
+
+Iteration 92 closure: accepted test APK builds in **29s** after the retained
+fixture reference repair. Native readiness passes **OK (1 test), 5.23s**;
+actual TTS is available, observed and completes. Connected-phone inventory
+remains empty; no paired acceptance is claimed. Staged private resumed-REST/
+receipt-retry code and protocol are ready for explicit native validation.
+
+## Iteration 93 — 2026-10-07 — Paused REST preparation with actual speech cancellation
+
+Status: **Validated; uncommitted. Actual paired UI/transport/physical acceptance pending.**
+
+Start two actual six-second timed sets with thirty-second rest via private
+production gate/coordinator/store. First automatic set creates rest; native
+REST must be observed in-flight immediately before Pause. Pause must retain
+one completed set, exact frozen rest seconds, full runtime/cue ledger, old
+deadline and boot ID, with cancelled REST and no final result. Next: archive
+this stage before generic speech files are reused, reboot only the owned AVD,
+then exact paused recovery and Start now during resumed native REST.
+
+Iteration 93 closure: **OK (1 test), 8.717s**. First timed set completes
+automatically; actual in-flight REST is cancelled by Pause, one REST haptic
+and reserved cue remain, one completed set/full paused rest state and no final
+result are retained. Preparation archive `iteration-93-native-evidence.tar`
+preserves native cancellation evidence before next-stage generic files reuse.
+
+## Iteration 94 — 2026-10-07 — Rebooted resumed REST and native Start now interruption
+
+Status: **Validated; uncommitted. Actual paired UI/transport/physical acceptance pending.**
+
+Actual changed-boot recovery compares full paused runtime/cues beyond the
+original real deadline with initialized native silence. Resume uses frozen
+seconds/new real deadline, one intentional REST; Start now must target native
+in-flight REST and replace it with one observed/completed Go within two
+seconds. Finish 2/2 offline with one native success; keep foreground through
+the abandoned resumed-rest deadline and require exact terminal runtime/ledger
+and no late warning/REST/Go. Next: archive native timeline, then fresh final
+result/receipt validation and interrupted cue-pruning recovery.
+
+Iteration 94 closure: **OK (1 test), 38.073s** after actual changed boot
+`9ed5f94c…` -> `e8b30a0f…`. Exact paused runtime/cues and initialized
+silence survive beyond the original rest deadline. Resume emits intentional
+REST; Start now interrupts actual in-flight REST, replaces it with native
+observed/completed Go within two seconds, naturally completes 2/2 offline
+with one success/result send. Foreground silence/exact terminal runtime and
+ledger hold through the abandoned resumed-rest deadline; no warning/returning
+REST/late Go occurs. Archive `iteration-94-native-evidence.tar` pins timeline
+before later-stage generic evidence reuse. Private native slice validated;
+actual paired UI/transport/speech and physical acceptance remain pending.
+
+## Iteration 95 — 2026-10-07 — Fresh offline result and interrupted receipt pruning
+
+Status: **Validated; uncommitted. Actual paired UI/transport/physical acceptance pending.**
+
+Reboot owned AVD, retain exact final runtime/cue ledger and native silence
+while opening completed state. Wrong receipt sender/revision/path must preserve
+all three private stores. Exact synthetic receipt uses production payload
+coordinator; inject cue-pruning failure only after durable runtime/package
+tombstones. Reboot again and replay exact receipt to finish cue pruning,
+reject all obsolete/success native cues and request/runtime resurrection.
+Next: archive each stage and require both explicit passes before final audit.
+
+Retained Iteration 94 native timeline: Go is first observed **975 ms after**
+actual Start now. Resumed REST is observed then cancelled (success=false);
+Go/workout success are observed and complete. Ledger has four durable keys
+(including original preparation REST); no late cue alters them.
+
+Iteration 95 first stage passes **OK (1 test), 9.132s** after another actual
+reboot (`e8b30a0f…` -> `dfa89656…`). Exact final runtime/cues survive and
+opening is silent/no result resend. Wrong sender/revision/path preserve
+all stores. Exact receipt durably clears runtime/package before intentional
+cue-pruning failure; full prior cue state remains exact. Partial archive
+`iteration-95-partial-evidence.tar` is retained before final reboot/retry.
+Final pruning/replay stage is running; iteration closure waits for its pass.
+
+Iteration 95 closure: final pruning retry passes **OK (1 test), 12.907s**
+after changed boot `dfa89656…` -> `0e41463f…`. Runtime/package tombstones
+survive actual reboot while cue ledger remains exact until receipt replay.
+Production coordinator replay finishes cue pruning; acknowledged success
+tombstone suppresses all six cue kinds on actual native output, with no
+speech/haptics. Runtime/request reinitialization is refused, exact receipt
+replay is idempotent and stores remain pruned. Both stages pass; private
+synthetic receipt recovery is validated. Actual paired receipt/Data Layer
+cleanup remains pending.
+
+## Iteration 96 — 2026-10-07 — Final speech/receipt evidence and commit audit
+
+Status: **Validated; uncommitted. Actual paired UI/transport/physical acceptance pending.**
+
+Five explicit native stages pass across Iterations 92–95 and three actual
+reboots. Retained native REST/Go/success timeline, exact paused/final/cue
+snapshots, identity, receipt and partial/pruned tombstones establish the private
+slice. Export final evidence to `iteration-96-native-evidence.tar` and extracted
+directory, retaining per-stage archives before generic files reuse. Combined
+Gradle check passes **27s**, all four APK targets and **331 JVM tests** remain
+validated; production/PWA source is unchanged. Audit new staged code, docs,
+ordinary no-flag guard/discovery, current installed hashes/private file bytes,
+all retained focus release and final crash buffer. Next: update roadmap, restore
+owned battery/notification permission, verify owned shutdown and final Git.
+Suggested commit: `PST01: Validate resumed REST speech and receipt cleanup recovery`.
+Actual paired timed Start/result/receipt and resumed-REST UI/transport, then
+physical 0/27 remain pending; Stage 19 remains 70/97 (72%).
+
+Iteration 96 closure/audit: ordinary Wear runner reports **OK (48 tests),
+0.341s**, with opt-in cases skipped; this is guard/discovery evidence, not 48
+new device behaviors. All seven retained private DataStore files remain
+SHA-256 exact. Both installed/current Wear APK hashes match, accepted speech/
+final stages release focus and final boot crash buffer has no FATAL EXCEPTION.
+Current XML reports are **78 shared / 28 phone / 225 Wear = 331**, zero
+failures/errors/skips; all four APK builds pass in the 27s combined command.
+
+Review finds no commit-blocking issue: scoped opt-in/AVD/run guards, refusal to
+overwrite preparation, joined DataStore/model teardown, true native in-flight
+observations, exact runtime/outcomes/deadlines, durable-before-output identity,
+wrong-receipt preservation, deliberate cleanup failure/reboot retry and
+idempotent cue/package/runtime tombstones remain intact. Source changes only
+add four staged native test methods; production/PWA code is unchanged.
+Roadmap/acceptance docs distinguish private native evidence from actual paired
+UI/transport and physical acceptance. Earlier compile failure and historical
+next/pending labels remain retained/superseded by accepted results.
+
+Five iterations **92–96** are complete and validated, uncommitted. Previous
+checkpoint is committed as `6296b4f`. Stage 19 stays 70/97 (72%), physical
+0/27; actual connected-phone inventory is empty. Next actual paired timed
+Ready/Start/result/receipt and resumed-REST UI/transport require a connected
+pair, followed by physical checks. No reliable finish-time estimate is inferred
+from checklist ratio/history length. Suggested commit:
+`PST01: Validate resumed REST speech and receipt cleanup recovery`.
+Restore owned battery/notification permission, verify identity/shutdown and
+recheck Git/whitespace before reporting this ready-for-commit checkpoint.
+
+Final closure: owned battery simulation is reset (updates no longer stopped),
+temporary notification permission is revoked and exact `Pasingot_Timed_UI`
+identity is verified before shutdown. Original profiles/history are untouched.
+Git remains HEAD `6296b4f` with six expected modified source/docs files;
+no unrelated edit is reverted and no new commit is made. Whitespace checks
+pass. Final device inventory and Git recheck follow this log update.
+
+Final ADB inventory is empty. Git/whitespace recheck confirms HEAD
+`6296b4f` and the six expected uncommitted files. Five iterations 92–96
+are validated and ready for commit; no commit-blocking findings remain.
+
+
+Commit closure — 2026-10-07: user authorizes committing Iterations 92–96.
+Six files match accepted native speech/receipt scope; retained 331 JVM/four
+APK, five native stages, per-stage archives and installed/private-file/focus/
+crash audits remain applicable. No source changed after validation. Commit as
+`PST01: Validate resumed REST speech and receipt cleanup recovery`. This
+supersedes historical uncommitted labels; actual paired UI/transport and
+physical acceptance remain open. Begin five paired-readiness iterations next.

@@ -405,3 +405,52 @@ runtime/cue snapshots. Run ordinary instrumentation without flags, compare
 installed APK hashes, restore owned notification permission, audit focus/crash
 state and shut down only the verified disposable AVD. Current pass/failure
 status belongs in IMPLEMENTATION_PROGRESS.md; this protocol alone is not proof.
+
+
+## Private native resumed-REST speech and interrupted receipt — Iterations 92–96
+
+Continue `TimedQuickStartNativeCueTest` on the verified owned `Pasingot_Timed_UI`
+with `timedNativeCueValidation=true` and one fresh `timedNativeRunId` shared by
+all stages. Select each method explicitly. Do not run the class with mutation
+flags. This private production-store/gate/engine/emitter/Android-TTS path uses
+actual time and programmatic session actions; it does not establish actual
+phone selection/Ready/Start, Wear UI taps, Data Layer transport or physical
+acoustics/haptics/battery. The paired speech protocol above remains pending.
+
+Use the invocation from the real-clock section, with these method names:
+
+1. `nativeReadiness`: actual TTS observation/completion and connected phone-node
+   inventory. Empty peer inventory keeps all paired acceptance open.
+2. `prepareSpeakingRestRecovery`: two six-second sets with thirty-second rest;
+   Pause interrupts observed in-flight native REST after first automatic set.
+   Exact paused rest/runtime/cues, old deadline and boot identity are retained.
+3. Reboot only the owned AVD, dismiss the charging overlay using recorded/
+   reversible owned battery simulation plus wake/Home, then run
+   `recoverSpeakingRestAndStartNow`. Changed boot ID, exact paused state/cues
+   and silence beyond the original real deadline are mandatory. Explicit Resume
+   derives a new deadline from frozen seconds and emits native REST. Start now
+   must target in-flight REST, replace it with one observed/completed Go within
+   two seconds and finish 2/2 offline. Native REST is cancelled; no five-second,
+   returning REST or late Go is admitted through the abandoned new deadline.
+4. Reboot again, then `prepareInterruptedReceiptCleanup`: exact offline final
+   runtime/cue ledger survives fresh process and opening without output/replay.
+   Wrong sender/revision/path preserve runtime/package/cues. Exact synthetic
+   receipt passes production payload coordinator, durably clearing runtime and
+   package before an injected cue-pruning failure. Receipt and partial-cleanup
+   boot identity are retained; private cue ledger remains until retry.
+5. Reboot again, then `recoverInterruptedReceiptCleanup`: exact receipt replay
+   retries cue pruning from runtime/package tombstones. All obsolete cues and
+   success remain duplicate/silent on actual native output; original request/
+   runtime cannot revive and exact replay remains idempotent.
+
+Require OK (1 test) for every explicit stage; do not count skipped default runs
+as native behavior. Capture a private-file archive **after each stage and before
+running the next**: generic speech/haptic/focus filenames describe the latest
+stage and are reused. Full stage snapshots have distinct names. Keep native
+speech timeline and paused/final/receipt/boot identities in separate retained
+archives. No app data is cleared and a prior run directory is never overwritten
+by preparation. Retain failed builds/attempts separately, with new run IDs for
+fresh retries. Run ordinary no-flag instrumentation, compare installed/current
+APK and private-file hashes, audit focus/crash state, reset owned battery and
+notification permission, verify AVD identity before shutdown. Current progress
+and actual pass/failure evidence belongs in IMPLEMENTATION_PROGRESS.md.

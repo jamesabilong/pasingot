@@ -6,7 +6,30 @@ from Phase 4's physical-device exit checks. Audio intelligibility, physical
 haptics, Bluetooth routing, battery consumption and Play delivery require their
 own evidence; a native fixture or inventory does not establish those results.
 
-## Current real-clock native checkpoint — 2026-10-07
+## Current private speech/receipt checkpoint — 2026-10-07
+
+Iterations 92–96 pass five explicit native stages across three actual reboots
+on owned `Pasingot_Timed_UI`. Exact paused REST recovery/silence, cancellation
+of observed resumed REST, Go after 975 ms, 2/2 offline completion and no late
+cues through the abandoned deadline pass. Fresh final state remains exact;
+wrong sender/revision/path refuse pruning. Exact synthetic receipt durably
+clears runtime/package before injected cue failure; another reboot/exact replay
+clears cues, suppresses all six native kinds and prevents resurrection.
+
+Per-stage archives retain speech/haptic/focus and full runtime/cue/receipt/boot
+evidence before generic filenames are reused. Final evidence is in
+`iteration-96-native-evidence.tar`. All 331 JVM tests/four APK targets, installed
+hashes and focus/crash/whitespace checks pass. Ordinary OK (48 tests) verifies
+guards with mutation cases skipped; all seven private DataStore files remain
+byte-identical under that run. See the [private speech/receipt protocol](PAIRED_EMULATOR_VALIDATION.md#private-native-resumed-rest-speech-and-interrupted-receipt--iterations-9296).
+
+Programmatic actions/private stores/synthetic receipt leave actual phone/Wear
+UI, Data Layer cleanup and physical acoustics/haptics/battery acceptance open.
+Connected phone inventory is empty; next actual paired timed Start/result/
+receipt and resumed-REST UI/transport need a connected pair. Stage 19 remains
+70/97, physical 0/27. Original AVDs/workout history are untouched.
+
+## Prior real-clock native checkpoint — 2026-10-07
 
 Iterations 87–91 pass five explicit native stages on the owned disposable
 `Pasingot_Timed_UI`: actual TTS availability, natural timed sets/rest cues,

@@ -274,6 +274,181 @@ class TimedQuickStartNativeCueTest {
             File(folder, "cue-state.json").writeText(json.encodeToString(cues.state()))
         } }
     }
+    @Test fun prepareSpeakingRestRecovery() = runBlocking {
+        guard("speaking-rest")
+        scenario().use { scenario -> fixture { runtime, cues, packages ->
+            start(runtime, cues, packages, seconds = 6, sets = 2, rest = 30)
+            val model = open(runtime, cues, scenario)
+            await { runtime.current()?.session?.status == SessionStatus.RESTING }
+            await { speechList().any { it.kind == WatchCueKind.REST && it.observed && !it.finished } }
+            val resting = runtime.current()!!
+            main {
+                assertFalse("Pause must interrupt native REST", speechList().single().finished)
+                model.onPause()
+            }
+            await { runtime.current()?.session?.status == SessionStatus.PAUSED && speechList().all { it.finished } }
+            val paused = runtime.current()!!
+            assertEquals(1, paused.outcomes.exercises.single().completedSets)
+            assertTrue(paused.session.pausedRestRemainingSeconds!! in 6..30)
+            assertNull(paused.session.restUntilEpochMillis)
+            assertNull(paused.session.pausedTimedSetRemainingMillis)
+            assertEquals(listOf(WatchCueKind.REST), kinds())
+            assertFalse(speechList().single().success)
+            snapshot("paused-rest", paused)
+            File(folder, "paused-rest-cues.json").writeText(json.encodeToString(cues.state()))
+            File(folder, "abandoned-rest-deadline.txt").writeText(resting.session.restUntilEpochMillis.toString())
+            File(folder, "prepared-boot.txt").writeText(shell("cat /proc/sys/kernel/random/boot_id"))
+            assertEquals(0, sent)
+        } }
+    }
+
+    @Test fun recoverSpeakingRestAndStartNow() = runBlocking {
+        guard("speaking-rest", recover = true)
+        assertNotEquals(File(folder, "prepared-boot.txt").readText(), shell("cat /proc/sys/kernel/random/boot_id"))
+        scenario().use { scenario -> fixture { runtime, cues, _ ->
+            val paused = runtime.current()!!
+            assertEquals(File(folder, "paused-rest.json").readText(), json.encodeToString(paused))
+            val ledger = cues.state()
+            assertEquals(File(folder, "paused-rest-cues.json").readText(), json.encodeToString(ledger))
+            val model = open(runtime, cues, scenario)
+            val oldDeadline = File(folder, "abandoned-rest-deadline.txt").readText().toLong()
+            await(35_000) { System.currentTimeMillis() > oldDeadline + 1_000 }
+            assertEquals(paused, runtime.current()); assertEquals(ledger, cues.state())
+            assertTrue(speechList().isEmpty()); assertTrue(kinds().isEmpty())
+            clockReads.clear()
+            main { model.onResume() }
+            await { runtime.current()?.session?.status == SessionStatus.RESTING }
+            val resumed = runtime.current()!!
+            val deadline = resumed.session.restUntilEpochMillis!!
+            assertTrue(deadline - paused.session.pausedRestRemainingSeconds!! * 1_000 in
+                synchronized(clockReads) { clockReads.toList() })
+            snapshot("resumed-rest", resumed)
+            await { speechList().any { it.kind == WatchCueKind.REST && it.observed && !it.finished } }
+            var startNowAt = 0L
+            main {
+                assertFalse("Start now must interrupt native in-flight REST", speechList().single().finished)
+                startNowAt = System.currentTimeMillis()
+                model.onStartNow()
+            }
+            await { speechList().any { it.kind == WatchCueKind.GO && it.observed } }
+            val go = speechList().single { it.kind == WatchCueKind.GO }
+            assertTrue(requireNotNull(go.observedAt) - startNowAt in 0..2_000)
+            val active = runtime.current()!!
+            assertEquals(SessionStatus.ACTIVE, active.session.status)
+            assertEquals(1, active.outcomes.exercises.single().completedSets)
+            assertEquals(2, active.session.currentSet)
+            assertEquals(resumed.runtimeRevision + 1, active.runtimeRevision)
+            assertNull(active.session.restUntilEpochMillis)
+            snapshot("start-now-active", active)
+            await { runtime.current()?.finalResult != null }
+            await { speechList().size == 3 && speechList().all { it.finished } }
+            assertEquals(listOf(WatchCueKind.REST, WatchCueKind.GO, WatchCueKind.WORKOUT_SUCCESS), kinds())
+            assertEquals(kinds(), speechList().map { it.kind })
+            assertFalse(speechList().first().success)
+            assertTrue(speechList().drop(1).all { it.observed && it.success })
+            val completed = runtime.current()!!
+            assertEquals(2, completed.outcomes.exercises.single().completedSets)
+            assertEquals(1, sent)
+            val completedLedger = cues.state()
+            // Keep the actual screen foreground through the abandoned resumed-rest deadline.
+            await(35_000) { System.currentTimeMillis() > deadline + 1_000 }
+            assertEquals(completed, runtime.current()); assertEquals(completedLedger, cues.state())
+            assertEquals(3, speechList().size); assertEquals(3, kinds().size)
+            assertFalse(kinds().contains(WatchCueKind.FIVE_SECONDS))
+            snapshot("interrupted-completed", completed)
+            File(folder, "interrupted-completed-cues.json").writeText(json.encodeToString(completedLedger))
+            File(folder, "start-now-wall.txt").writeText(startNowAt.toString())
+            File(folder, "resumed-abandoned-deadline.txt").writeText(deadline.toString())
+            File(folder, "completed-boot.txt").writeText(shell("cat /proc/sys/kernel/random/boot_id"))
+        } }
+    }
+
+    @Test fun prepareInterruptedReceiptCleanup() = runBlocking {
+        guard("speaking-rest", recover = true)
+        assertNotEquals(File(folder, "completed-boot.txt").readText(), shell("cat /proc/sys/kernel/random/boot_id"))
+        scenario().use { scenario -> fixture { runtime, cues, packages ->
+            val completed = runtime.current()!!
+            assertEquals(File(folder, "interrupted-completed.json").readText(), json.encodeToString(completed))
+            val ledger = cues.state()
+            assertEquals(File(folder, "interrupted-completed-cues.json").readText(), json.encodeToString(ledger))
+            val priorPackage = packages.current(System.currentTimeMillis())
+            open(runtime, cues, scenario); delay(750)
+            assertEquals(completed, runtime.current()); assertEquals(ledger, cues.state())
+            assertTrue(speechList().isEmpty()); assertTrue(kinds().isEmpty()); assertEquals(0, sent)
+            val result = completed.finalResult!!
+            val watch = completed.sessionPackage.request.targetNodeId
+            val receipt = QuickStartResultReceipt(result.requestId, result.resultId, result.outcomeRevision,
+                result.phoneNodeId, System.currentTimeMillis())
+            fun payload(value: QuickStartResultReceipt) = encodeQuickStartResultReceiptEnvelope(
+                QuickStartResultReceiptEnvelope(QUICK_START_RESULT_SCHEMA_VERSION, watch,
+                    QuickStartResultReceiptStatus.PERSISTED, value))
+            val path = quickStartResultReceiptPath(result.requestId, result.resultId)
+            val coordinator = QuickStartRuntimeResultCoordinator(runtime, packages, cues::clearAcknowledgedSession)
+            for ((raw, sender, incomingPath) in listOf(
+                Triple(payload(receipt), "wrong-phone", path),
+                Triple(payload(receipt.copy(outcomeRevision = receipt.outcomeRevision + 1)), result.phoneNodeId, path),
+                Triple(payload(receipt), result.phoneNodeId, path + "-wrong"))) {
+                assertEquals(QuickStartResultCleanupResult.Mismatch,
+                    coordinator.acknowledgePayloadAndPrune(raw, incomingPath, sender, watch))
+                assertEquals(completed, runtime.current()); assertEquals(ledger, cues.state())
+                assertEquals(priorPackage, packages.current(System.currentTimeMillis()))
+            }
+            var failed = false
+            val failing = QuickStartRuntimeResultCoordinator(runtime, packages) {
+                assertNull(runtime.current()); assertNull(packages.current(System.currentTimeMillis()))
+                error("intentional cue-pruning failure after durable receipt cleanup")
+            }
+            try { failing.acknowledgePayloadAndPrune(payload(receipt), path, result.phoneNodeId, watch) }
+            catch (failure: IllegalStateException) {
+                assertEquals("intentional cue-pruning failure after durable receipt cleanup", failure.message)
+                failed = true
+            }
+            assertTrue(failed); assertNull(runtime.current()); assertNull(packages.current(System.currentTimeMillis()))
+            assertEquals(ledger, cues.state())
+            File(folder, "interrupted-receipt.json").writeText(json.encodeToString(receipt))
+            File(folder, "partial-cleanup-boot.txt").writeText(shell("cat /proc/sys/kernel/random/boot_id"))
+        } }
+    }
+
+    @Test fun recoverInterruptedReceiptCleanup() = runBlocking {
+        guard("speaking-rest", recover = true)
+        assertNotEquals(File(folder, "partial-cleanup-boot.txt").readText(), shell("cat /proc/sys/kernel/random/boot_id"))
+        scenario().use { fixture { runtime, cues, packages ->
+            val completed = json.decodeFromString<QuickStartRuntimeState>(File(folder, "interrupted-completed.json").readText())
+            val result = completed.finalResult!!
+            val watch = completed.sessionPackage.request.targetNodeId
+            val receipt = json.decodeFromString<QuickStartResultReceipt>(File(folder, "interrupted-receipt.json").readText())
+            assertNull(runtime.current()); assertNull(packages.current(System.currentTimeMillis()))
+            assertEquals(File(folder, "interrupted-completed-cues.json").readText(), json.encodeToString(cues.state()))
+            val payload = encodeQuickStartResultReceiptEnvelope(QuickStartResultReceiptEnvelope(
+                QUICK_START_RESULT_SCHEMA_VERSION, watch, QuickStartResultReceiptStatus.PERSISTED, receipt))
+            val path = quickStartResultReceiptPath(result.requestId, result.resultId)
+            val coordinator = QuickStartRuntimeResultCoordinator(runtime, packages, cues::clearAcknowledgedSession)
+            assertTrue(coordinator.acknowledgePayloadAndPrune(payload, path, result.phoneNodeId, watch)
+                is QuickStartResultCleanupResult.AlreadyPruned)
+            val tombstone = cues.state()
+            assertTrue(tombstone.ledger.deliveredKeys.isEmpty()); assertNull(tombstone.ledgerSessionId)
+            assertEquals(result.requestId, tombstone.acknowledgedSessionId)
+            assertTrue(tombstone.acknowledgedWorkoutSuccess)
+            val controller = WatchCueController(cues, output())
+            try {
+                for (kind in WatchCueKind.entries) assertEquals(WatchCueResult.DUPLICATE,
+                    controller.emit(WatchCueEvent(result.requestId, 0, 0, 0, kind), "Go."))
+            } finally { controller.close() }
+            assertTrue(speechList().isEmpty()); assertTrue(kinds().isEmpty())
+            assertEquals(tombstone, cues.state()); assertNull(runtime.current())
+            assertTrue(runtime.initialize(completed.sessionPackage,
+                SessionState(result.requestId, 0, 1, SessionStatus.ACTIVE), System.currentTimeMillis())
+                is InitializeQuickStartRuntimeResult.AlreadyAcknowledged)
+            assertTrue(packages.accept(completed.sessionPackage.request, System.currentTimeMillis(), result.phoneNodeId)
+                is AcceptQuickStartResult.PreviouslyAcknowledged)
+            assertNull(runtime.current()); assertNull(packages.current(System.currentTimeMillis()))
+            assertTrue(coordinator.acknowledgePayloadAndPrune(payload, path, result.phoneNodeId, watch)
+                is QuickStartResultCleanupResult.AlreadyPruned)
+            File(folder, "pruned-cues.json").writeText(json.encodeToString(cues.state()))
+        } }
+    }
+
     private data class Speech(val kind: WatchCueKind, val started: Long, val text: String,
         @Volatile var observed: Boolean = false, @Volatile var finished: Boolean = false,
         @Volatile var success: Boolean = false, @Volatile var observedAt: Long? = null)
