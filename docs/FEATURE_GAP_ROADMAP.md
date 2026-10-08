@@ -1,5 +1,15 @@
 # Feature Gap Roadmap
 
+Phone/PWA weekly planning checkpoint — 2026-10-08, Iterations131–135: recurring
+sessions can move to another weekday/time from Today’s weekly preview. IDs,
+prescriptions and history retained; quest ownership, occupied slots, stale edits
+and unfinished phone/observed watch workouts guarded.147 headless browser checks,
+TypeScript, production build and phone APK/asset identity pass. Physical install
+pending; Stage19 remains77/97,physical7/27,20open,watch untouched. This supersedes
+read-only weekly preview status below for recurring moves only. One-off dates
+and deletion remain future work. Effort checkpoint committed as `9808505`.
+
+
 Phone/PWA effort checkpoint — 2026-10-08, Iterations126–130: optional per-set
 RPE/RIR implemented in phone player, saved recovery drafts, atomic completion,
 History and backup/restore.90 headless browser assertions plus mobile entry/layout,
@@ -419,6 +429,7 @@ importance in general.
 | ✅ Done | 1RM estimate | Estimate one-rep max from submax sets (Epley/Brzycki-style) | JEFIT, Strong, Hevy, Fitbod | Medium | Implemented: `estimatedOneRepMax` in `strength-analytics.ts`, hidden for bodyweight/duration-only logs (Stage 13). |
 | ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
 | ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
+| ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; date-specific exceptions/deletion remain open. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |

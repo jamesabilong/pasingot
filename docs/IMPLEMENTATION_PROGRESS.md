@@ -6832,3 +6832,71 @@ owned files for authorized commit. Stage19 remains77/97,physical7/27,20 open;
 watch remains disconnected/uncontacted. Next: choose independent phone planning
 work (date-specific scheduling or supersets), or resume device acceptance when
 watch charged. Headless preference retained for future tests. No overall ETA.
+
+
+## Iteration 131 — 2026-10-08 — Recurring weekly move scope
+
+Status: **Implementation in progress.** Start9808505, clean tree. Read plan/latest
+progress/React instructions. Continue independent phone/PWA planning: move a
+whole recurring day/time session, preserving row IDs/prescriptions/history.
+Date-specific exceptions/deletion/supersets remain separate. Quest sessions use
+Quests; reject occupied target slots and stale groups. Durable phone session and
+observed unfinished watch snapshot block moves. No watch contact. Implement
+transactional DB move, named hook, focused form, optional Today/WeeklyPlan wiring;
+headless regression/mobile checks next. Stage19 stays77/97,physical7/27,20open.
+
+
+Iteration131 closure: recurring move scope implemented independently from
+Stage19. Row IDs/load/prescriptions retained; no schema/native payload change.
+TypeScript/build and source review pass. Next: atomic guard/regression evidence.
+
+## Iteration 132 — 2026-10-08 — Atomic weekly session moves
+
+Status: **18 isolated-database checks pass headlessly.** New schedule-editing
+module validates whole source groups, weekday/time, quest protection and occupied
+slots; reads schedule and durable phone cursor in one transaction, writes only
+selected rows. Stale source cannot overwrite a newer group; concurrent moves
+using same source admit one winner. Active phone cursor rejects without mutation.
+IDs/order/prescriptions/unrelated rows/history/preferences remain unchanged apart
+from selected day/time. Backup round trip preserves moved schedule. Named hook
+blocks observed unfinished workout, suppresses concurrent local submissions and
+refreshes schedule after commit. Native update failure keeps committed local move
+and displays a distinct failure message; bridge now returns boolean success,
+existing callers retain historical caught/logged behavior. No actual watch contact.
+Next: mobile form/cancel/collision/offline checks.
+
+## Iteration 133 — 2026-10-08 — Weekly plan edit controls
+
+Status: **Headless mobile UI checks complete.** Focused editor offers weekday/time,
+explicit every-week scope, Save and Cancel; no-op Save disabled. Quest-owned
+blocks display Quests guidance. Today optionally wires editor; App only composes
+hook/callback/guard props. Collision error and Cancel preserve exact schedule.
+Normal390×844 UI moves two test rows toFriday08:15 while offline, retains third
+session and selects destination day; screenshot reviewed.320×740 width320/content320.
+Evidence output/playwright/move132-{form,saved}.png is ignored. Native/paired
+acceptance not inferred; browser has no real native watch bridge.
+Next: existing planning/import/library/session/sync regression suite.
+
+## Iteration 134 — 2026-10-08 — Planning and sync regressions
+
+Status: **147 headless browser assertions pass.** New move18; existing Today12,
+import15,Library18,session-integrity27,data-integrity35,watch-sync22. Tests use
+isolated databases/mocked native bridge; preserve user headless preference.
+Expected mocked native failure is logged; harness favicon404 is unrelated.
+TypeScript, production build and whitespace pass. Review confirms daily overview
+and notification hooks receive updated workouts; history is never rewritten.
+Date-specific exceptions/deletion and hardware validation remain separate.
+Next: phone package/asset identity and final Git review.
+
+## Iteration 135 — 2026-10-08 — Reviewed phone planning checkpoint
+
+Status: **Five phone/PWA iterations complete; validated for commit.** Capacitor
+copy and `:app:assembleDebug --offline` pass; phone APK JS/CSS exactly match
+production artifacts. No physical installation claimed. Composition review:
+App connects named editing hook, Today/WeeklyPlan own JSX, editor owns string
+form drafts, lib owns validation/atomic writes, no DB version/native schema change.
+Git recheck shows only owned source/test/docs paths, HEAD9808505. Stage19 remains
+77/97,physical7/27,20open; watch disconnected/uncontacted. Authorised commit next.
+Remaining: date-specific scheduling/deletion, supersets and physical phone/watch
+acceptance. Latest committed effort checkpoint9808505 supersedes prior uncommitted
+labels. Overall ETA remains unknown; checklist ratios are not elapsed-time estimates.

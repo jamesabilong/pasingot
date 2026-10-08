@@ -1,12 +1,14 @@
+import { WeeklySessionEditor, type ScheduleEditorProps } from './WeeklySessionEditor';
 import { useState } from 'react';
 import { CalendarDays, Clock3 } from 'lucide-react';
 import { WEEKDAYS, type Weekday, type WorkoutRow } from '../types';
 import { estimateLevelFor, estimateWorkoutDurationSeconds, formatEstimatedDuration } from '../lib/workout-planning';
 
-export function WeeklyPlan({ workouts, today, onBuildPlan }: {
+export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
   workouts: WorkoutRow[];
   today: Weekday;
   onBuildPlan: () => void;
+  scheduleEditor?: ScheduleEditorProps;
 }) {
   const [selectedDay, setSelectedDay] = useState<Weekday>(today);
   const days = Array.from({ length: 7 }, (_, offset) => WEEKDAYS[(WEEKDAYS.indexOf(today) + offset) % 7]);
@@ -34,9 +36,12 @@ export function WeeklyPlan({ workouts, today, onBuildPlan }: {
         return <div key={time} className="week-session">
           <div className="week-session__heading"><strong>{time}</strong><span><Clock3 size={14} aria-hidden="true" /> {formatEstimatedDuration(estimateWorkoutDurationSeconds(sessionRows, estimateLevelFor(sessionRows)))}</span></div>
           <ul>{sessionRows.map((row, index) => <li key={row.id ?? index}><span>{row.exercise}</span><span>{row.sets} × {row.reps}{row.loadWeight != null ? ` · ${row.loadWeight} ${row.loadUnit ?? 'kg'}` : ''}</span></li>)}</ul>
+          {scheduleEditor && <WeeklySessionEditor rows={sessionRows} editor={scheduleEditor} onMoved={setSelectedDay} />}
         </div>;
       }) : <p className="week-rest">Rest day · No exercises scheduled.</p>}
     </div>
+    {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before moving a weekly session.</p>}
+    {scheduleEditor?.result && <p role={scheduleEditor.result.error ? 'alert' : 'status'} className={scheduleEditor.result.error ? 'text-sm text-amber-300' : 'text-sm text-emerald-300'}>{scheduleEditor.result.message}</p>}
     <button type="button" className="secondary-action" onClick={onBuildPlan}>Build a playlist</button>
   </section>;
 }

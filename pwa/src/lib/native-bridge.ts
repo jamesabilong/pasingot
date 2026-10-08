@@ -208,13 +208,15 @@ async function drainHealthConnectOperations(): Promise<number> {
   return succeeded;
 }
 
-export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<void> {
+export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<boolean> {
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
-  if (!bridge) return;
+  if (!bridge) return true;
   try {
     await bridge.syncSchedule({ rows });
+    return true;
   } catch (error) {
     console.error('Failed to sync schedule to native:', error);
+    return false;
   }
 }
 

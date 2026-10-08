@@ -19,6 +19,7 @@ import { useTodayOverview } from './hooks/useTodayOverview';
 import { useNotificationPermission } from './hooks/useNotificationPermission';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
+import { useScheduleEditing } from './hooks/useScheduleEditing';
 import { useQuestWorkflow } from './hooks/useQuestWorkflow';
 import { useLibraryWorkflow } from './hooks/useLibraryWorkflow';
 import { useLocalDate } from './hooks/useLocalDate';
@@ -127,6 +128,9 @@ export default function App() {
     refreshLogs, refreshSessionEvents, addToast,
   });
 
+  const scheduleEditingBlocked = [activeWorkoutSession, watchSession].some(session => session && ['active', 'resting', 'paused'].includes(session.status));
+  const scheduleEditing = useScheduleEditing({ onScheduleChanged: setWorkouts, blocked: scheduleEditingBlocked });
+
   const hydration = useWorkoutDataHydration({
     data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,
     loadWorkoutCueSettings, restoreWorkoutSession, refreshWatchData,
@@ -166,6 +170,7 @@ export default function App() {
         todayName={todayName}
         watchSession={watchSession}
         weeklyWorkouts={workouts}
+        scheduleEditor={{ ...scheduleEditing, blocked: scheduleEditingBlocked }}
         onBuildPlan={() => setTab('library')}
         onBrowseQuests={() => setTab('quests')}
         workouts={todayWorkouts}

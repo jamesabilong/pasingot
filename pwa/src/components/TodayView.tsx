@@ -1,3 +1,4 @@
+import type { ScheduleEditorProps } from './WeeklySessionEditor';
 import { useEffect, useRef, useState } from 'react';
 import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
 import { WatchSyncPanel } from './WatchSyncPanel';
@@ -16,6 +17,7 @@ export function TodayView({
   todayName,
   watchSession,
   weeklyWorkouts,
+  scheduleEditor,
   onBuildPlan,
   onBrowseQuests,
   workouts,
@@ -50,6 +52,7 @@ export function TodayView({
   todayName: Weekday;
   watchSession: WatchSessionSnapshot | null;
   weeklyWorkouts: WorkoutRow[];
+  scheduleEditor?: ScheduleEditorProps;
   onBuildPlan: () => void;
   onBrowseQuests: () => void;
   workouts: WorkoutRow[];
@@ -197,7 +200,7 @@ export function TodayView({
           })}
         </div>
       </div>}
-      <WeeklyPlan workouts={weeklyWorkouts} today={todayName} onBuildPlan={onBuildPlan} />
+      <WeeklyPlan workouts={weeklyWorkouts} today={todayName} onBuildPlan={onBuildPlan} scheduleEditor={scheduleEditor} />
     </section>
   );
 }

@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA weekly planning checkpoint — 2026-10-08, Iterations131–135: recurring
+sessions can move to another weekday/time from Today’s weekly preview. IDs,
+prescriptions and history retained; quest ownership, occupied slots, stale edits
+and unfinished phone/observed watch workouts guarded.147 headless browser checks,
+TypeScript, production build and phone APK/asset identity pass. Physical install
+pending; Stage19 remains77/97,physical7/27,20open,watch untouched. This supersedes
+read-only weekly preview status below for recurring moves only. One-off dates
+and deletion remain future work. Effort checkpoint committed as `9808505`.
+
+
 Phone/PWA effort checkpoint — 2026-10-08, Iterations126–130: optional per-set
 RPE/RIR implemented in phone player, saved recovery drafts, atomic completion,
 History and backup/restore.90 headless browser assertions plus mobile entry/layout,

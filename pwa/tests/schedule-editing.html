@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Weekly move checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { WEEKDAYS } from '/src/types.ts';
+import { getAll, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { validateScheduleMove, moveWeeklySession } from '/src/lib/schedule-editing.ts';
+import { useScheduleEditing } from '/src/hooks/useScheduleEditing.ts';
+import { WeeklyPlan } from '/src/components/WeeklyPlan.tsx';
+import { newPwaSession } from '/src/lib/workout-session.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import '/src/styles.css';
+const factory = window.indexedDB, database = `pasingot-week-move-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable:true, value:{open: (_name, version) => factory.open(database,version)} });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), {once:true});
+const checks = [], check = (ok,label) => {if(!ok) throw Error(label); checks.push(`PASS: ${label}`);};
+const rejects = async action => {try {await action(); return false;} catch {return true;}};
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const day = new Date().toLocaleDateString('en-US',{weekday:'long'}), nextDay = WEEKDAYS[(WEEKDAYS.indexOf(day)+1)%7];
+const base = {schemaVersion:1,day,time:'07:00',sets:2,reps:'8',rest:30,loadWeight:25,loadUnit:'kg'};
+const rows = [{...base,id:1,exercise:'Test squat'}, {...base,id:2,exercise:'Test press'}, {...base,id:3,time:'09:00',exercise:'Other session'}];
+const history = {schemaVersion:1,date:new Date().toISOString(),exercise:'Test squat',workoutRowId:1,status:'done'};
+const setLog = {schemaVersion:1,date:history.date,exercise:'Test squat',workoutRowId:1,setNumber:1,plannedReps:'8',actualReps:'8',rpe:8.5,rir:0};
+let api, blocked = false, changes = 0;
+const root = createRoot(document.getElementById('root'));
+function Harness() {
+ const [workouts,setWorkouts] = useState(rows);
+ api = useScheduleEditing({blocked,onScheduleChanged: value => {changes++;setWorkouts(value);}});
+ return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(WeeklyPlan,{workouts,today:day,onBuildPlan:()=>{},scheduleEditor:{...api,blocked}}));
+}
+const original = window.Capacitor;
+try {
+ await replaceStores({workouts:rows,logs:[history],setLogs:[setLog],sessionEvents:[],appState:[{key:'ownedPreference',schemaVersion:1,value:'preserve'}]});
+ check(validateScheduleMove(rows,rows.slice(0,2),day,'09:00')?.includes('already uses'), 'Occupied slot cannot merge sessions');
+ check(validateScheduleMove(rows,[rows[0]],nextDay,'08:00')?.includes('changed'), 'Partial session cannot move');
+ check(validateScheduleMove(rows,rows.slice(0,2),'Invalid','08:00')?.includes('valid'), 'Invalid weekday rejected');
+ check(validateScheduleMove(rows,rows.slice(0,2),nextDay,'24:00')?.includes('valid'), 'Invalid time rejected');
+ check(validateScheduleMove(rows,rows.slice(0,2).map(r=>({...r,questId:'quest'})),nextDay,'08:00')?.includes('Quests'), 'Quest-owned session is protected');
+ check(await rejects(()=>moveWeeklySession(rows.slice(0,2),day,'09:00')), 'Durable collision rejected');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows), 'Rejected move leaves schedule exact');
+ const moved = await moveWeeklySession(rows.slice(0,2),nextDay,'08:15');
+ check(moved.length===3 && moved[0].id===1 && moved[1].id===2 && moved[0].day===nextDay && moved[1].time==='08:15', 'Whole session moves together preserving IDs and order');
+ check(JSON.stringify(moved[2])===JSON.stringify(rows[2]) && moved[0].loadWeight===25 && moved[0].reps==='8', 'Unrelated session and prescriptions unchanged');
+ check((await getAll(STORES.logs))[0].workoutRowId===1 && (await getAll(STORES.setLogs))[0].rpe===8.5 && (await getAll(STORES.appState))[0].value==='preserve', 'History and app preferences preserved');
+ check(await rejects(()=>moveWeeklySession(rows.slice(0,2),nextDay,'10:00')), 'Stale source cannot overwrite moved group');
+ const backup = await buildWorkoutBackup(); await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(moved), 'Moved schedule survives backup round trip');
+ await replaceStores({workouts:rows,appState:[newPwaSession(rows)]});
+ check(await rejects(()=>moveWeeklySession(rows.slice(0,2),nextDay,'08:00')), 'Durable active phone cursor blocks move');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows), 'Active rejection does not change schedule');
+ await replaceStores({appState:[]});
+ const raced = await Promise.allSettled([moveWeeklySession(rows.slice(0,2),nextDay,'08:00'),moveWeeklySession(rows.slice(0,2),nextDay,'10:00')]);
+ check(raced.filter(r=>r.status==='fulfilled').length===1, 'Concurrent stale moves admit one winner');
+ await replaceStores({workouts:rows,appState:[]});
+ flushSync(()=>root.render(React.createElement(Harness))); await settle();
+ blocked = true; flushSync(()=>root.render(React.createElement(Harness))); await settle();
+ check(!await api.move(rows.slice(0,2),nextDay,'08:00') && changes===0, 'Observed unfinished workout blocks hook before mutation');
+ blocked = false; flushSync(()=>root.render(React.createElement(Harness))); await settle();
+ let nativeCalls=0;
+ window.Capacitor = {Plugins:{ScheduleSync:{syncSchedule:async ()=>{nativeCalls++; throw Error('Expected fixture native failure');}}}};
+ check(await api.move(rows.slice(0,2),nextDay,'08:00'), 'Native update failure does not undo committed local move');
+ await settle();
+ check(api.result.error && api.result.message.includes('moved on this phone') && nativeCalls===1 && changes===1, 'Native failure clearly separates saved schedule from bridge update');
+ window.Capacitor = original;
+ await replaceStores({workouts:rows,logs:[],setLogs:[],appState:[]});
+ root.unmount(); const freshRoot=createRoot(document.getElementById('root')); flushSync(()=>freshRoot.render(React.createElement(Harness))); await settle();
+ window.readMovedRows = () => getAll(STORES.workouts);
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+} catch(error) {document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;} finally {window.Capacitor=original;}
+</script></html>
