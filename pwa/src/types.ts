@@ -58,6 +58,14 @@ export interface WorkoutSessionEvent {
   currentExercise?: string | null;
 }
 
+export type WorkoutSetInput = {
+  actualReps: string;
+  loadWeight: string;
+  loadUnit: WeightUnit;
+  rpe?: string;
+  rir?: string;
+};
+
 export interface WorkoutSetLog {
   id?: number;
   schemaVersion: number;
@@ -70,6 +78,8 @@ export interface WorkoutSetLog {
   actualReps: string;
   loadWeight?: number | null;
   loadUnit?: WeightUnit | null;
+  rpe?: number | null;
+  rir?: number | null;
 }
 
 export interface BodyMetricEntry {

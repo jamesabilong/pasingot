@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Set effort checks</title>
+<pre id="result" style="white-space:pre-wrap;overflow-wrap:anywhere">Running…</pre><div id="root"></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { WorkoutPlayer } from '/src/components/WorkoutPlayer.tsx';
+import { SetEffortHistory } from '/src/components/SetEffortHistory.tsx';
+import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { parseSetEffort } from '/src/lib/set-effort.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import { newPwaSession, currentSetInput } from '/src/lib/workout-session.ts';
+import { workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
+import '/src/styles.css';
+const factory = window.indexedDB, database = `pasingot-effort-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), { once: true });
+const checks = [], check = (ok, label) => { if (!ok) throw Error(label); checks.push(`PASS: ${label}`); };
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const row = { id: 1, schemaVersion: 1, day: new Date().toLocaleDateString('en-US', { weekday: 'long' }), time: '07:00', exercise: 'Test squat', sets: 2, reps: '8', rest: 0 };
+let api, refreshes = 0, notifications = [], visibleLogs = [];
+const root = createRoot(document.getElementById('root'));
+const noop = () => {};
+function Harness() {
+ api = useWorkoutSession({ workouts: [row], logs: [], onHistoryChanged: async () => { refreshes++; visibleLogs = await getAll(STORES.setLogs); }, onCompleted: noop, playCue: noop, addToast: message => notifications.push(message) });
+ return React.createElement('main', { style: { maxWidth: '560px', margin: 'auto', padding: '16px' } },
+ api.session && React.createElement(WorkoutPlayer, { session: api.session, rows: api.rows, elapsedSeconds: api.elapsedSeconds, restRemainingSeconds: api.restRemainingSeconds, setInput: api.setInput, onSetInputChange: api.updateInput, onCompleteSet: api.completeSet, onSkip: api.skip, onPause: api.pause, onResume: api.resume, onRestart: api.restart, onEnd: api.end, onStartNow: api.startRestNow, onAddRestSeconds: api.addRestSeconds, cueSettings: { hapticsEnabled: false, soundEnabled: false, voiceEnabled: false }, onCueSettingsChange: noop, onClose: api.clear }),
+ React.createElement(SetEffortHistory, { logs: visibleLogs }));
+}
+try {
+ check(parseSetEffort({}).rpe === null && parseSetEffort({ rpe: ' ', rir: '' }).rir === null, 'Legacy/blank inputs remain unrated');
+ check(parseSetEffort({ rpe: '7.5', rir: '0' }).rpe === 7.5 && parseSetEffort({ rir: '0' }).rir === 0, 'Half-step effort and zero reserve remain distinct');
+ for (const input of [{rpe:'0'}, {rpe:'10.5'}, {rpe:'7.25'}, {rpe:'NaN'}, {rir:'-1'}, {rir:'11'}, {rir:'1.5'}]) check(parseSetEffort(input).error, `Reject invalid ${JSON.stringify(input)}`);
+ await putRecord(STORES.workouts, row);
+ flushSync(() => root.render(React.createElement(Harness)));
+ await api.start(); await settle();
+ await api.updateInput({rpe:'8.5', rir:'0'}); await settle();
+ await api.pause(); await api.restore(); await api.resume(); await settle();
+ check(api.setInput.rpe === '8.5' && api.setInput.rir === '0', 'Pause/restore/resume retains ratings for exact set');
+ const draftBackup = parseWorkoutBackup(JSON.stringify(await buildWorkoutBackup()));
+ check(draftBackup.stores.appState.find(s => s.key === 'activeWorkoutSession').setInputs['1:1'].rpe === '8.5', 'Backup retains active rating drafts');
+ await Promise.all([api.completeSet(), api.completeSet()]); await settle();
+ let sets = await getAll(STORES.setLogs);
+ check(sets.length === 1 && sets[0].rpe === 8.5 && sets[0].rir === 0, 'Duplicate complete commits one exact rated set');
+ check(api.setInput.rpe === '' && api.setInput.rir === '', 'Next set starts unrated instead of inheriting effort');
+ await api.updateInput({rpe:'7.25'}); await settle();
+ const before = await getRecord(STORES.appState, 'activeWorkoutSession');
+ check(workoutStepTransition(before, [row], 'complete') === null, 'Pure completion rejects invalid effort');
+ await api.completeSet(); await settle();
+ check((await getAll(STORES.setLogs)).length === 1 && api.session.currentSet === 2 && notifications.at(-1).includes('RPE'), 'Invalid completion preserves cursor/history and reports correction');
+ check(parseWorkoutBackup(JSON.stringify(await buildWorkoutBackup())).stores.appState.length === 1, 'Unfinished invalid drafts can still be backed up');
+ await api.updateInput({rpe:'', rir:''}); await api.completeSet(); await settle();
+ sets = await getAll(STORES.setLogs);
+ check(sets.length === 2 && sets[1].rpe === null && sets[1].rir === null, 'Blank completion records an unrated set');
+ const backup = await buildWorkoutBackup();
+ await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify(await getAll(STORES.setLogs)) === JSON.stringify(backup.stores.setLogs), 'Backup round trip preserves numeric/null effort exactly');
+ for (const field of ['rpe', 'rir']) {
+  const invalid = structuredClone(backup); invalid.stores.setLogs[0][field] = field === 'rpe' ? 7.25 : -1;
+  let rejected = false; try { await restoreWorkoutBackup(invalid); } catch { rejected = true; }
+  check(rejected && JSON.stringify(await getAll(STORES.setLogs)) === JSON.stringify(backup.stores.setLogs), `Backup rejects invalid stored ${field} without modifying history`);
+ }
+ const legacy = structuredClone(backup);
+ legacy.stores.setLogs.forEach(log => { delete log.rpe; delete log.rir; });
+ for (const state of legacy.stores.appState) if (state.setInputs) for (const input of Object.values(state.setInputs)) { delete input.rpe; delete input.rir; }
+ await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(legacy))); await api.restore(); await settle();
+ check((await getAll(STORES.setLogs)).every(log => log.rpe == null && log.rir == null), 'Legacy backups still restore without ratings');
+ await putRecord(STORES.appState, newPwaSession([row])); await api.restore(); await api.updateInput({rpe:'9',rir:'1'}); await api.skip(); await settle();
+ check((await getAll(STORES.setLogs)).length === 2, 'Skipping does not create a rated set log');
+ // Leave a fresh, explicitly owned session for manual/mobile browser controls.
+ await replaceStores({ logs: [], setLogs: [], sessionEvents: [], appState: [] }); visibleLogs = [];
+ await api.restore(); await api.start(); await settle();
+ window.effortApi = api; window.readEffortLogs = () => getAll(STORES.setLogs);
+ document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack || error}`; throw error; }
+</script></html>

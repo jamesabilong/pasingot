@@ -1,3 +1,4 @@
+import { parseSetEffort } from './set-effort';
 import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 import { STORES, transact } from './db';
 import { estimateLevelFor, estimateWorkoutDurationSeconds, validLoadWeight, workoutStatusesOnDate } from './workout-planning';
@@ -69,12 +70,15 @@ export function workoutStepTransition(session: ActiveWorkoutSession, rows: Worko
   const transition: WorkoutSessionTransition = { session: touched };
   if (action === 'complete') {
     const input = currentSetInput(touched, row);
+    const effort = parseSetEffort(input);
+    if (effort.error !== null) return null;
     const loadWeight = validLoadWeight(input.loadWeight);
     transition.setLog = {
       schemaVersion: SCHEMA_VERSION, date: new Date(now).toISOString(), workoutRowId: row.id ?? null,
       exercise: row.exercise, exerciseSourceId: row.exerciseSourceId ?? null, setNumber: touched.currentSet,
       plannedReps: row.reps, actualReps: input.actualReps.trim() || row.reps,
       loadWeight, loadUnit: loadWeight != null ? input.loadUnit : null,
+      rpe: effort.rpe, rir: effort.rir,
     };
     if (touched.currentSet < row.sets) {
       transition.session = restOrActive({ ...touched, currentSet: touched.currentSet + 1 }, row.rest, now);

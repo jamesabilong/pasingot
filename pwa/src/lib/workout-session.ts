@@ -1,4 +1,4 @@
-import { type WorkoutSetInput } from '../components/WorkoutPlayer';
+import type { WorkoutSetInput } from '../types';
 import { SCHEMA_VERSION, type WorkoutRow } from '../types';
 import { todayDateKey } from './history-stats';
 
@@ -34,6 +34,8 @@ export function defaultSetInput(row: WorkoutRow): WorkoutSetInput {
     actualReps: row.reps,
     loadWeight: row.loadWeight != null ? String(row.loadWeight) : '',
     loadUnit: row.loadUnit ?? 'kg',
+    rpe: '',
+    rir: '',
   };
 }
 

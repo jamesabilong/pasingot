@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Clock3, Dumbbell, Play, SkipForward } from 'lucide-react';
 import { WatchSyncPanel } from './WatchSyncPanel';
 import { WeeklyPlan } from './WeeklyPlan';
-import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutSetInput, type WorkoutPlayerSession } from './WorkoutPlayer';
+import { WorkoutPlayer, type WorkoutCueSettingsView, type WorkoutPlayerSession } from './WorkoutPlayer';
 import { statusText, type QuickStartReceipt } from '../features/watch-quick-start/model';
 import { type PlanProgress } from './SummaryCards';
-import { type Weekday, type WorkoutLog, type WorkoutRow } from '../types';
+import { type Weekday, type WorkoutLog, type WorkoutRow, type WorkoutSetInput } from '../types';
 import { type WatchSessionSnapshot } from '../lib/native-bridge';
 
 function scheduleLoadLabel(row: WorkoutRow): string {

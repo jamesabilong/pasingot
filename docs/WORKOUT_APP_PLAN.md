@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA effort checkpoint — 2026-10-08, Iterations126–130: optional per-set
+RPE/RIR implemented in phone player, saved recovery drafts, atomic completion,
+History and backup/restore.90 headless browser assertions plus mobile entry/layout,
+TypeScript, production build and phone APK/asset identity checks pass. Legacy
+unrated records accepted; invalid saved ratings rejected before restore. Physical
+phone install/validation pending. Stage19 stays77/97,physical7/27,20 open; watch
+uncontacted. Headless browser tests requested by user. This supersedes RPE/RIR
+feature deferral below; committed plate-calculator checkpoint is `c185fe8`.
+
+
 Phone/PWA follow-up — 2026-10-08, Iterations 121–125: user authorizes independent
 phone development while watch physical work is deferred. Library plate calculator
 implemented with kg/lb, editable bar/plate sizes, equal-side minimum allocations,

@@ -6760,3 +6760,75 @@ code/browser/package complete; physical phone install and actual device checks
 pending. Commit authorized checkpoint; physical7/27 and Stage19 77/97 unchanged.
 Next: independent RPE/RIR or phone usability work, or resume physical protocol
 when watch is charged. No reliable overall finish ETA follows checklist ratios.
+
+
+## Iteration 126 — 2026-10-08 — Phone set-effort scope and compatibility
+
+Status: **Implementation in progress.** Starting checkpoint `c185fe8`, clean tree.
+Read plan/latest progress/React instructions. Continue user-authorized phone/PWA
+work with optional RPE/RIR from the roadmap. Scope: phone set input, recovery,
+atomic completion, History display and backup/restore. RPE1–10 in0.5 steps;
+RIR0–10 whole numbers. Independent fields, no inferred conversion, required
+rating or watch/HealthConnect contract changes. Additive optional fields retain
+legacy unrated records. Watch remains disconnected and uncontacted. Next: verify
+validation, durable edits, skipped/duplicate completions and backup compatibility.
+
+
+Iteration126 closure: optional durable types live in types.ts; pure validation
+in set-effort.ts, local UI in player/history components, existing hook retains
+atomic cursor/history boundary. Legacy input/log/backup records remain accepted;
+no DB version or native schema change required. Static review and TypeScript pass.
+Next: validate UI and exact per-set persistence.
+
+## Iteration 127 — 2026-10-08 — Optional player and History effort UI
+
+Status: **Code and mobile browser checks complete.** Added collapsed optional
+RPE/RIR inputs, visible invalid-rating alert, and range-filtered History section
+for latest20 rated sets. Zero reserve renders explicitly; next set starts blank.
+Dedicated two-column effort layout avoids inherited three-column load styling.
+Real-component mobile entry8.5/0 persists exact numeric values and displays
+History rating. Screenshots reviewed390×844;320×740 has no horizontal overflow.
+Initial stale-ref click after harness reset failed without mutating a record;
+fresh snapshot used afterward. User requested headless tests: closed headed
+browser, reran checks headlessly; all further browser tests use headless mode.
+Next: backup/recovery and invalid completion evidence.
+
+## Iteration 128 — 2026-10-08 — Durable effort and backup regression
+
+Status: **22 disposable-database checks pass headlessly.** New harness
+`pwa/tests/set-effort.html` exercises actual hook, pure transition, DB transactions,
+backup parse/restore, player and History components. Checks valid half-step/zero,
+invalid bounds/precision, exact pause→restore→resume drafts, active backup,
+duplicate completion, next-set blank defaults, invalid complete cursor/history
+preservation and message, invalid draft backup, blank completion, exact backup
+round trip, invalid restore with unchanged history, legacy backup compatibility,
+and skipped-set absence. Invalid stored effort is rejected before replacement;
+uncommitted string drafts may remain invalid until corrected. No personal DB
+or watch accessed. Next: existing session/integrity regression suite.
+
+## Iteration 129 — 2026-10-08 — Existing phone workflow regression
+
+Status: **68 existing checks pass headlessly.** Session-integrity27,
+workout-session6 and data-integrity35 pass in isolated browser databases.
+Together with22 new effort checks:90 browser assertions pass. UI smoke after
+layout/wording refinement repeats mobile entry, actual stored values, History
+output and320px width. Harness favicon404 is unrelated; no app exception observed.
+Evidence screenshots in ignored output/playwright/effort127-*.png. No changes to
+watch transfer, HealthConnect payloads, strength calculations or App.tsx.
+Next: production assets, phone packaging and final review.
+
+## Iteration 130 — 2026-10-08 — Phone packaging and reviewed checkpoint
+
+Status: **Five development iterations complete; validated for commit.**
+TypeScript, production build, Capacitor copy and whitespace pass. Final cleanup
+briefly removed WeightUnit import still used by select cast; compiler caught it,
+restored import and TypeScript rerun passes. Production build unaffected by type
+import; phone`:app:assembleDebug --offline` succeeds (110 tasks), bundled JS/CSS
+byte-match production assets. No physical install/acceptance claimed.
+Source review confirms ratings commit with existing set cursor/history transaction;
+invalid completion cannot advance, old backups still restore, History uses current
+range and caps display20, App composition unchanged. Recheck Git and stage only
+owned files for authorized commit. Stage19 remains77/97,physical7/27,20 open;
+watch remains disconnected/uncontacted. Next: choose independent phone planning
+work (date-specific scheduling or supersets), or resume device acceptance when
+watch charged. Headless preference retained for future tests. No overall ETA.

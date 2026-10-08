@@ -1,3 +1,4 @@
+import { SetEffortHistory } from './SetEffortHistory';
 import { useMemo } from 'react';
 import { CalendarDays, Check, Flame, SkipForward } from 'lucide-react';
 import type {
@@ -180,6 +181,7 @@ export function HistoryView({
       />
 
       <StrengthAnalyticsPanel analytics={strengthAnalytics} personalRecords={strengthPersonalRecords} />
+      <SetEffortHistory logs={historySetLogs} />
       <ActivityCalendar days={activityDays} range={range} />
       <PeriodComparison comparisons={periodComparisons} />
       <TrendBars title="Weekly Trend" detail="6 weeks" buckets={weeklyTrend} maxTotal={maxWeeklyTrendTotal} />

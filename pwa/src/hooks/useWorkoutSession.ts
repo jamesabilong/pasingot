@@ -1,5 +1,6 @@
+import { parseSetEffort } from '../lib/set-effort';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WorkoutSetInput } from '../components/WorkoutPlayer';
+import type { WorkoutSetInput } from '../types';
 import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { getAll, getRecord, STORES } from '../lib/db';
 import { todayDateKey } from '../lib/history-stats';
@@ -98,6 +99,11 @@ export function useWorkoutSession(options: WorkoutSessionOptions) {
     const value = current.current;
     if (!value) return;
     const rows = rowsFor(value);
+    const row = rows[value.exerciseIndex];
+    if (action === 'complete' && value.status === 'active' && row) {
+      const effort = parseSetEffort(currentSetInput(value, row));
+      if (effort.error) { latest.current.addToast(effort.error); return; }
+    }
     const next = workoutStepTransition(value, rows, action);
     if (next) await apply(value, next, rows);
   }), [apply, rowsFor, userAction]);

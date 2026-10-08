@@ -1,3 +1,4 @@
+import { validRpe, validRir } from './set-effort';
 import { SCHEMA_VERSION, WEEKDAYS } from '../types';
 import { isCustomQuestDefinition } from './custom-quests';
 import { isExerciseLevel, isWeightUnit, TIME_RE, validLoadWeight } from './workout-planning';
@@ -56,7 +57,8 @@ function appState(row: RecordValue): boolean {
         && (row.restUntilEpochMillis == null || finite(row.restUntilEpochMillis))
         && (row.pausedRestRemainingSeconds == null || finite(row.pausedRestRemainingSeconds))
         && (row.setInputs == null || (object(row.setInputs) && Object.values(row.setInputs).every((input) => object(input)
-          && typeof input.actualReps === 'string' && typeof input.loadWeight === 'string' && isWeightUnit(input.loadUnit))));
+          && typeof input.actualReps === 'string' && typeof input.loadWeight === 'string' && isWeightUnit(input.loadUnit)
+          && (input.rpe == null || typeof input.rpe === 'string') && (input.rir == null || typeof input.rir === 'string'))));
     case 'healthConnectSettings': return typeof row.enabled === 'boolean';
     case 'healthConnectPendingWrites': {
       const validPayload = (payload: unknown, kind: unknown): boolean => {
@@ -87,6 +89,7 @@ const validators: Record<string, (row: RecordValue) => boolean> = {
     && integer(row.totalExercises) && (row.currentExercise == null || typeof row.currentExercise === 'string'),
   setLogs: (row) => timestamp(row.date) && text(row.exercise) && identity(row.exerciseSourceId)
     && integer(row.setNumber, 1) && text(row.plannedReps) && text(row.actualReps) && load(row)
+    && (row.rpe == null || validRpe(row.rpe)) && (row.rir == null || validRir(row.rir))
     && (row.workoutRowId == null || integer(row.workoutRowId, 1)),
   bodyMetrics: (row) => timestamp(row.date) && finite(row.weight) && row.weight > 0 && isWeightUnit(row.unit)
     && (row.note == null || typeof row.note === 'string'),

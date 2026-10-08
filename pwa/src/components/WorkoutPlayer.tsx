@@ -1,13 +1,8 @@
 import { useState, type ComponentType } from 'react';
 import { Check, Pause, Play, RefreshCcw, SkipForward, Square, Volume2, Vibrate, X } from 'lucide-react';
 import { formatDuration } from '../lib/format';
-import { type WeightUnit, type WorkoutRow } from '../types';
-
-export type WorkoutSetInput = {
-  actualReps: string;
-  loadWeight: string;
-  loadUnit: WeightUnit;
-};
+import type { WeightUnit, WorkoutRow, WorkoutSetInput } from '../types';
+import { parseSetEffort } from '../lib/set-effort';
 
 export type WorkoutPlayerSession = {
   status: 'active' | 'resting' | 'paused' | 'completed' | 'ended';
@@ -51,6 +46,7 @@ export function WorkoutPlayer({
   const [confirmingRestart, setConfirmingRestart] = useState(false);
   if (!row) return null;
 
+  const effort = parseSetEffort(setInput);
   const setLabel = `Set ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
   const progressLabel = `Exercise ${session.exerciseIndex + 1} of ${rows.length}`;
   const loadLabel = row.loadWeight != null && row.loadUnit ? `${row.loadWeight} ${row.loadUnit}` : 'Bodyweight';
@@ -86,6 +82,15 @@ export function WorkoutPlayer({
           <label><span>Load</span><input type="number" min="0" max="2000" step="0.5" inputMode="decimal" placeholder="Optional" value={setInput.loadWeight} onChange={(event) => onSetInputChange({ loadWeight: event.target.value })} /></label>
           <label><span>Unit</span><select value={setInput.loadUnit} onChange={(event) => onSetInputChange({ loadUnit: event.target.value as WeightUnit })}><option value="kg">kg</option><option value="lb">lb</option></select></label>
         </div>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-slate-400">Set effort (optional)</summary>
+          <div className="set-inputs set-inputs--effort mt-2">
+            <label><span>RPE (1–10)</span><input type="number" inputMode="decimal" min="1" max="10" step="0.5" placeholder="Optional" value={setInput.rpe ?? ''} onChange={(event) => onSetInputChange({ rpe: event.target.value })} /></label>
+            <label><span>Reps in reserve (0–10)</span><input type="number" inputMode="numeric" min="0" max="10" step="1" placeholder="Optional" value={setInput.rir ?? ''} onChange={(event) => onSetInputChange({ rir: event.target.value })} /></label>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">RPE: your effort rating. Reps in reserve: how many more reps you felt able to do.</p>
+        </details>
+        {effort.error && <p role="alert" className="mt-2 text-sm text-amber-300">{effort.error}</p>}
         <p className="text-xs text-slate-500">For duration, include min or sec (e.g. 2 min or 30 sec).</p>
       </div>}
 

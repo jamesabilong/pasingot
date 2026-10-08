@@ -1,5 +1,15 @@
 # Feature Gap Roadmap
 
+Phone/PWA effort checkpoint — 2026-10-08, Iterations126–130: optional per-set
+RPE/RIR implemented in phone player, saved recovery drafts, atomic completion,
+History and backup/restore.90 headless browser assertions plus mobile entry/layout,
+TypeScript, production build and phone APK/asset identity checks pass. Legacy
+unrated records accepted; invalid saved ratings rejected before restore. Physical
+phone install/validation pending. Stage19 stays77/97,physical7/27,20 open; watch
+uncontacted. Headless browser tests requested by user. This supersedes RPE/RIR
+feature deferral below; committed plate-calculator checkpoint is `c185fe8`.
+
+
 Phone/PWA follow-up — 2026-10-08, Iterations 121–125: user authorizes independent
 phone development while watch physical work is deferred. Library plate calculator
 implemented with kg/lb, editable bar/plate sizes, equal-side minimum allocations,
@@ -408,7 +418,7 @@ importance in general.
 | ✅ Done | Personal record (PR) tracking | Auto-detect new weight/rep/volume PRs, surface at log time | Hevy, Strong, JEFIT | High | Implemented: `buildStrengthPersonalRecords` in `pwa/src/lib/strength-analytics.ts`, surfaced in History (Stage 13). |
 | ✅ Done | 1RM estimate | Estimate one-rep max from submax sets (Epley/Brzycki-style) | JEFIT, Strong, Hevy, Fitbod | Medium | Implemented: `estimatedOneRepMax` in `strength-analytics.ts`, hidden for bodyweight/duration-only logs (Stage 13). |
 | ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
-| | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Still open — same Stage 13 deferral as the plate calculator. |
+| ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
