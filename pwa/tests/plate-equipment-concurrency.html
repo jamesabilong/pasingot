@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Equipment concurrent save checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React from'react';import{createRoot}from'react-dom/client';import{flushSync}from'react-dom';
+import{usePlateEquipment}from'/src/hooks/usePlateEquipment.ts';import{getRecord,putRecord,STORES}from'/src/lib/db.ts';
+import{defaultPlateEquipment}from'/src/lib/plate-equipment.ts';import{buildWorkoutBackup,parseWorkoutBackup,restoreWorkoutBackup}from'/src/lib/backup.ts';
+const factory=window.indexedDB,database=`pasingot-equipment-concurrency-${crypto.randomUUID()}`;let failStorage=false,failPut=false;const originalPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(...args){if(failPut&&this.name===STORES.appState)throw new DOMException('Expected write failure','DataCloneError');return originalPut.apply(this,args);};
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>{if(failStorage)throw Error('Expected storage failure');return factory.open(database,version);}}});window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+let a,b,key=0;const root=createRoot(document.getElementById('root'));function Harness(){a=usePlateEquipment();b=usePlateEquipment();return React.createElement('p',null,a.ready&&b.ready?'ready':'loading');}
+async function mount(){flushSync(()=>root.render(React.createElement(Harness,{key:++key})));for(let i=0;i<60&&(!a.ready||!b.ready);i++)await settle();check(a.ready&&b.ready,'Both independent calculators load equipment');}
+try{
+ await putRecord(STORES.appState,defaultPlateEquipment());await putRecord(STORES.appState,{key:'ownedPreference',schemaVersion:1,value:'keep'});await mount();
+ a.setDraft({target:'80',bar:'15',sizes:'10, 5'});b.changeUnit('lb');await settle();b.setDraft({target:'135',bar:'35',sizes:'45, 10'});await settle();
+ await Promise.all([a.save(),b.save()]);await settle();let stored=await getRecord(STORES.appState,'plateEquipment');
+ check(stored.presets.kg.bar===15&&stored.presets.lb.bar===35,'Concurrent kg/lb saves preserve both unit presets');
+ check(JSON.stringify(stored.presets.kg.sizes)==='[10,5]'&&JSON.stringify(stored.presets.lb.sizes)==='[45,10]','Concurrent saves preserve exact plate-size lists');
+ b.setDraft({...b.draft,bar:'55'});await settle();await b.save();await settle();
+ a.setDraft({...a.draft,bar:'25'});await settle();await a.save();await settle();stored=await getRecord(STORES.appState,'plateEquipment');
+ check(stored.presets.lb.bar===55&&stored.presets.kg.bar===25,'Stale kg view cannot overwrite newer saved lb equipment');
+ check(stored.unit==='kg'&&a.draft.target==='80'&&!('target'in stored),'Current explicit save remembers unit and leaves temporary target alone');
+ const incoming=defaultPlateEquipment();incoming.unit='lb';incoming.presets.lb={bar:65,sizes:[35,5]};await putRecord(STORES.appState,incoming);
+ a.setDraft({...a.draft,bar:'30'});await settle();await a.save();await settle();stored=await getRecord(STORES.appState,'plateEquipment');
+ check(stored.presets.lb.bar===65&&stored.presets.lb.sizes[0]===35&&stored.presets.kg.bar===30,'Save merges current restored equipment instead of old component snapshot');
+ a.changeUnit('lb');await settle();check(a.draft.bar==='65'&&a.draft.sizes==='35, 5','Successful save refreshes other-unit preset in saving view');
+ const before=await getRecord(STORES.appState,'plateEquipment');a.setDraft({...a.draft,bar:'-1'});await settle();await a.save();await settle();
+ check(a.message.error&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Invalid edit cannot erase either unit');
+ a.setDraft({...a.draft,bar:'75'});await settle();failStorage=true;await a.save();await settle();failStorage=false;
+ check(a.message.error&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Failed transaction preserves both unit presets');
+ failPut=true;await a.save();await settle();failPut=false;
+ check(a.message.error&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Write-stage transaction abort preserves latest presets');
+ check((await getRecord(STORES.appState,'ownedPreference')).value==='keep','Unrelated app preference remains exact');
+ const backup=await buildWorkoutBackup();await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Merged presets survive backup round trip');
+ await mount();check(a.unit===before.unit&&a.draft.bar===String(before.presets[before.unit].bar),'Remount reads latest committed equipment');
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){failStorage=false;document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}finally{IDBObjectStore.prototype.put=originalPut;}
+</script></html>

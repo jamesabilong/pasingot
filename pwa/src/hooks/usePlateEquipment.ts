@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { getRecord, putRecord, STORES } from '../lib/db';
+import { getRecord, updateRecord, STORES } from '../lib/db';
 import { defaultPlateEquipment, equipmentDraft, isPlateEquipmentSettings, parsePlateEquipment, PLATE_EQUIPMENT_KEY } from '../lib/plate-equipment';
-import type { WeightUnit } from '../types';
+import type { PlateEquipmentSettings, WeightUnit } from '../types';
 
 export function usePlateEquipment() {
   const [settings, setSettings] = useState(defaultPlateEquipment);
@@ -42,9 +42,14 @@ export function usePlateEquipment() {
     const parsed = parsePlateEquipment(draft.bar, draft.sizes);
     if ('error' in parsed) { setMessage({ error: true, text: parsed.error }); return; }
     saving.current = true; setBusy(true); setMessage(null);
-    const next = { ...settings, unit, presets: { ...settings.presets, [unit]: parsed } };
     try {
-      await putRecord(STORES.appState, next);
+      const next = await updateRecord<PlateEquipmentSettings>(STORES.appState, PLATE_EQUIPMENT_KEY, current => {
+        const base = isPlateEquipmentSettings(current) ? current : defaultPlateEquipment();
+        // Merge only the selected unit against current durable settings. Another
+        // calculator or backup restore may have changed the other unit meanwhile.
+        return { ...base, unit, presets: { ...base.presets, [unit]: parsed } };
+      });
+      if (!next) throw new Error('Equipment update did not commit');
       setSettings(next);
       setMessage({ error: false, text: `Equipment saved for ${unit}.` });
     } catch { setMessage({ error: true, text: 'Could not save equipment. Your previous setup was kept. Try again.' }); }

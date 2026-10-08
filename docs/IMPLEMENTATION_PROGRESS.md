@@ -7217,3 +7217,61 @@ HEAD4547abd. Physical installation pending,Stage19 77/97,physical7/27,20open,
 watch disconnected/uncontacted. Latest editor checkpoint4547abd supersedes old
 uncommitted labels. Commit next; independent planning features and charged-device
 acceptance remain separate. Headless preference retained; no overall ETA.
+
+
+## Iteration 161 — 2026-10-08 — Concurrent equipment save audit/reproduction
+
+Status: **Implementation in progress.** Start0653f71, clean tree. Read plan/latest
+progress/React instructions. Two calculator hooks loaded from same settings each
+save whole cached record; concurrent kg/lb saves can lose earlier unit edit.
+Headless disposable-DB reproduction fails at both-presets assertion before fix.
+Merge only selected unit against current durable record using existing atomic
+updateRecord helper. Preserve explicit Save, invalid/failure handling, temporary
+target and backup schema. No user/device data touched; watch remains disconnected.
+Next: concurrent/stale/restored data merge and inherited equipment regression.
+
+
+Iteration161 closure: retained pre-fix failed assertion proves actual lost preset
+with two independent views. No personal DB used. Next: atomic selected-unit merge.
+
+## Iteration 162 — 2026-10-08 — Current-record equipment merge
+
+Status: **Code and static checks complete.** Save uses existing updateRecord
+read/write transaction, validates current durable settings or uses legacy defaults,
+then changes only chosen unit preset and saved unit. Other-unit record no longer
+comes from stale component snapshot. Returned committed record refreshes saving
+view's preset cache. Existing Save/loading/busy/error/target behavior preserved.
+TypeScript and whitespace pass; no App/schema/native contract change.
+Next: concurrent/stale/restored-record and rollback checks.
+
+## Iteration 163 — 2026-10-08 — Concurrent and aborted save regression
+
+Status: **14 new headless disposable-DB checks pass.** Independent calculator
+hooks loaded from same record concurrently savekg/lb; both bars/plate lists stay
+exact. Stale kg view preserves newer lb save; current restored presets merge
+rather than old snapshot. Saving view sees merged other-unit preset afterward;
+last explicit saved unit and temporary target retained. Invalid edits, injected
+storage failure and write-stage transaction abort preserve both presets. Unrelated
+preference exact; merged settings survive backup round trip and remount. Pre-fix
+failure retained separately. Next: inherited equipment/backup/hydration checks.
+
+## Iteration 164 — 2026-10-08 — Existing equipment and data regression
+
+Status: **121 headless browser assertions pass.** Concurrency14,equipment27,
+data-integrity35,backup-export11,data-hydration16,Library18. Existing equipment
+mobile controls unchanged; explicit save/default reset, unit switching, invalid/
+load failures, legacy backups and malformed-record recovery remain valid.
+Only harness favicon404 unrelated; expected failures injected only into disposable
+storage. TypeScript, production build, Capacitor copy and whitespace pass.
+No watch contact or personal data mutation. Next: package identity/final review.
+
+## Iteration 165 — 2026-10-08 — Reviewed equipment integrity checkpoint
+
+Status: **Five audit/implementation iterations complete; validated for commit.**
+Phone`:app:assembleDebug --offline` passes(110tasks); APK JS/CSS byte-match current
+production assets. Source review confirms atomic selected-unit merge using current
+record, no cached other-unit overwrite or target persistence, unchanged form/API
+and backup shape. Git recheck owned hook/test/docs only, HEAD0653f71. Latest set-
+history checkpoint0653f71 supersedes historical uncommitted labels. Physical
+installation pending; Stage19 remains77/97,physical7/27,20open,watch untouched.
+Commit next; future independent planning work and device acceptance stay separate.

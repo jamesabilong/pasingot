@@ -1,5 +1,14 @@
 # Feature Gap Roadmap
 
+Phone/PWA equipment integrity checkpoint — 2026-10-08, Iterations161–165:
+concurrent/stale calculators now merge only selected-unit equipment against
+current durable settings, preserving the other unit’s newer or restored preset.
+Pre-fix lost-preset reproduction retained;121 headless checks, TypeScript,
+production build and phone APK/asset identity pass. Same saved schema and UI;
+target remains temporary. Physical installation pending, Stage19 stays77/97,
+physical7/27,20open; watch untouched. Set-history checkpoint committed as `0653f71`.
+
+
 Phone/PWA set-history checkpoint — 2026-10-08, Iterations156–160: History now
 shows individual recorded sets, including unrated/duration logs, with exercise
 search, rated-only filter and20-row pages beyond prior latest20 limit. Actual/
