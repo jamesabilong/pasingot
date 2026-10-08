@@ -1,5 +1,16 @@
 # Workout App Plan
 
+Phone/PWA set-history checkpoint — 2026-10-08, Iterations156–160: History now
+shows individual recorded sets, including unrated/duration logs, with exercise
+search, rated-only filter and20-row pages beyond prior latest20 limit. Actual/
+planned targets, load and effort preserved; existing month/all-time ranges apply.
+99 headless checks plus3 domain groups, mobile/offline smoke, TypeScript,
+production build and phone APK/asset identity pass. Read-only; no schema change.
+Physical installation pending, Stage19 remains77/97,physical7/27,20open; watch
+untouched. Editor checkpoint committed as `4547abd`. This supersedes the rated-
+only/latest20 inspection limit below.
+
+
 Phone/PWA editor-state checkpoint — 2026-10-08, Iterations151–155: fixed same-time
 sessions on different days reusing an open editor. Day/time identity closes old
 forms on day switch; move captures source rows and rejects later prescription

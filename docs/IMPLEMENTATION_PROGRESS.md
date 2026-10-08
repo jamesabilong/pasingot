@@ -7156,3 +7156,64 @@ Stage19 77/97,physical7/27,20open,watch untouched. Recovery checkpoint2f5968c
 supersedes historical uncommitted labels. Commit next; remaining independent
 feature choices and physical installation/charged-watch acceptance remain open.
 No reliable overall ETA; preserve headless test preference.
+
+
+## Iteration 156 — 2026-10-08 — Inspectable set history scope
+
+Status: **Implementation in progress.** Start4547abd, clean tree. Read plan/latest
+progress/React instructions. History currently exposes only latest20 rated sets;
+unrated/duration sets cannot be inspected individually and older rated sets stop
+at20. Replace effort-only section with all recorded set details, exercise search,
+rated filter and20-row pages. Respect existing History date range and raw actual/
+planned/load/effort values; no writes/schema/native changes. Pure filtering/sorting
+module, focused presentation component; App unchanged. Headless regression next.
+
+
+Iteration156 closure: all-set inspection implemented separately from analytics,
+read-only raw fields, bounded20-row pages and existing date-range integration.
+App/data schema unchanged. TypeScript and initial domain checks pass.
+Next: sorting/filter behavior and pagination/range regression.
+
+## Iteration 157 — 2026-10-08 — Set filtering and timestamp ordering
+
+Status: **Three domain test groups pass.** Pure filter includes unrated/duration
+sets by default, optional rated-only predicate preservesRIR0, search trims/case
+normalizes exercise names. Date.parse sort orders actual instants across timezone
+offsets, IDs break timestamp ties; input array remains exact. Raw actual/planned
+strings, load0 and absent load are preserved for display. No grouping/inference,
+volume/PR calculation or history record mutation. Next: real UI/page/range checks.
+
+## Iteration 158 — 2026-10-08 — Bounded set inspection UI
+
+Status: **15 new headless fixture checks pass.** First/second/last page20/20/5
+for45records, navigation bounds, zero load/reserve, duration actual/planned,
+search+rating filtering, no-match/empty state, shrinking input and exact unchanged
+records verified. Real HistoryView all-time includes older month; month excludes
+it and resets page, all-time restores it. Renamed effort-only component to
+SetHistory and updated actual History/harness imports. Details retain RPE/RIR
+alongside unrated records; active date range remains parent-owned.
+Next: normal mobile/offline UI and existing session/data checks.
+
+## Iteration 159 — 2026-10-08 — Mobile and existing history integrity regression
+
+Status: **99 headless browser assertions pass, plus3 domain groups.** NewHistory15,
+set-effort22,session-integrity27,data-integrity35. Normal mobile searchWalking+
+rated-only yields7matches; offline next/next reaches records41–46.390×844
+screenshot reviewed;320×740 content width320. Evidence output/playwright/
+history158-mobile.png ignored. Only harness favicon404 unrelated; no app exception.
+Existing set completion/effort persistence and data integrity remain valid.
+TypeScript/build/Capacitor copy/whitespace pass; phoneAPK build succeeds.
+Next: final source/docs/Git and packaged asset identity review.
+
+## Iteration 160 — 2026-10-08 — Reviewed set history checkpoint
+
+Status: **Five development iterations complete; validated for commit.** Phone
+`:app:assembleDebug --offline` passes(110tasks); APK JS/CSS byte-match production.
+Source review: pure immutable filtering, local presentation state, bounded pages,
+clamped page when rows shrink, reset on range/data update, long text wraps,
+recorded values unchanged. No stale old-component imports remain. App and durable
+schema unchanged; no DB writes introduced. Recheck Git only owned source/test/docs,
+HEAD4547abd. Physical installation pending,Stage19 77/97,physical7/27,20open,
+watch disconnected/uncontacted. Latest editor checkpoint4547abd supersedes old
+uncommitted labels. Commit next; independent planning features and charged-device
+acceptance remain separate. Headless preference retained; no overall ETA.

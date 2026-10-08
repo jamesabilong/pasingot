@@ -1,5 +1,16 @@
 # Feature Gap Roadmap
 
+Phone/PWA set-history checkpoint — 2026-10-08, Iterations156–160: History now
+shows individual recorded sets, including unrated/duration logs, with exercise
+search, rated-only filter and20-row pages beyond prior latest20 limit. Actual/
+planned targets, load and effort preserved; existing month/all-time ranges apply.
+99 headless checks plus3 domain groups, mobile/offline smoke, TypeScript,
+production build and phone APK/asset identity pass. Read-only; no schema change.
+Physical installation pending, Stage19 remains77/97,physical7/27,20open; watch
+untouched. Editor checkpoint committed as `4547abd`. This supersedes the rated-
+only/latest20 inspection limit below.
+
+
 Phone/PWA editor-state checkpoint — 2026-10-08, Iterations151–155: fixed same-time
 sessions on different days reusing an open editor. Day/time identity closes old
 forms on day switch; move captures source rows and rejects later prescription
@@ -471,6 +482,7 @@ importance in general.
 | ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
 | ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; date-specific exceptions/deletion remain open. |
 | ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |
+| ✅ Code/browser complete | Individual set history | Inspect actual/planned targets, load and effort for every recorded set | Workout logging | Medium | Iterations156–160: all sets, month/all-time range, exercise search, rated-only filter and20-row pages; headless/mobile/offline checks pass. Read-only, physical phone acceptance pending. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |

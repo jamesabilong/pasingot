@@ -4,7 +4,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { WorkoutPlayer } from '/src/components/WorkoutPlayer.tsx';
-import { SetEffortHistory } from '/src/components/SetEffortHistory.tsx';
+import { SetHistory } from '/src/components/SetHistory.tsx';
 import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
 import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
 import { parseSetEffort } from '/src/lib/set-effort.ts';
@@ -25,7 +25,7 @@ function Harness() {
  api = useWorkoutSession({ workouts: [row], logs: [], onHistoryChanged: async () => { refreshes++; visibleLogs = await getAll(STORES.setLogs); }, onCompleted: noop, playCue: noop, addToast: message => notifications.push(message) });
  return React.createElement('main', { style: { maxWidth: '560px', margin: 'auto', padding: '16px' } },
  api.session && React.createElement(WorkoutPlayer, { session: api.session, rows: api.rows, elapsedSeconds: api.elapsedSeconds, restRemainingSeconds: api.restRemainingSeconds, setInput: api.setInput, onSetInputChange: api.updateInput, onCompleteSet: api.completeSet, onSkip: api.skip, onPause: api.pause, onResume: api.resume, onRestart: api.restart, onEnd: api.end, onStartNow: api.startRestNow, onAddRestSeconds: api.addRestSeconds, cueSettings: { hapticsEnabled: false, soundEnabled: false, voiceEnabled: false }, onCueSettingsChange: noop, onClose: api.clear }),
- React.createElement(SetEffortHistory, { logs: visibleLogs }));
+ React.createElement(SetHistory, { logs: visibleLogs }));
 }
 try {
  check(parseSetEffort({}).rpe === null && parseSetEffort({ rpe: ' ', rir: '' }).rir === null, 'Legacy/blank inputs remain unrated');

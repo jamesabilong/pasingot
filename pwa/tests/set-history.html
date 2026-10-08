@@ -1,0 +1,37 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Set history checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React,{useState}from'react';import{createRoot}from'react-dom/client';import{flushSync}from'react-dom';
+import{SetHistory}from'/src/components/SetHistory.tsx';import{HistoryView}from'/src/components/HistoryView.tsx';
+import{initialBodyMetricDraft}from'/src/lib/body-metrics.ts';import{LEVEL_LABELS}from'/src/lib/workout-planning.ts';import'/src/styles.css';
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const now=new Date(),oldDate=new Date(now);oldDate.setMonth(oldDate.getMonth()-1);
+const logs=Array.from({length:45},(_,i)=>({id:45-i,schemaVersion:1,date:new Date(now.getTime()-i*60000).toISOString(),workoutRowId:1,exercise:i%2?'Walking':'Test squat',setNumber:i+1,plannedReps:i%2?'1 min':'8',actualReps:i%2?'30 sec':'11',loadWeight:i===0?0:null,loadUnit:i===0?'lb':null,...(i%3===0?{rpe:8.5,rir:0}:{})}));
+const old={...logs[0],id:99,date:oldDate.toISOString(),exercise:'Older squat'};const original=JSON.stringify(logs),root=createRoot(document.getElementById('root'));
+let updateLogs;function Harness(){const[value,setValue]=useState(logs);updateLogs=setValue;return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(SetHistory,{logs:value}));}
+const button=text=>[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===text);
+const articles=()=>[...document.querySelectorAll('[aria-label="Logged sets"] article')];
+const summary=()=>[...document.querySelectorAll('summary')].find(el=>el.textContent.startsWith('Set history'));
+async function search(value){const input=document.querySelector('input[type=search]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));await settle();}
+const noop=()=>{};function FullHistory(){const[range,setRange]=useState('all');return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(HistoryView,{range,onRangeChange:setRange,logs:[],setLogs:[...logs,old],sessionEvents:[],bodyMetrics:[],catalog:[],questState:null,questHistory:[],levelLabels:LEVEL_LABELS,bodyMetricDraft:initialBodyMetricDraft(),bodyMetricResult:null,healthConnectEnabled:false,healthConnectStatus:{availability:'unavailable',permissionGranted:false},healthConnectResult:null,onBodyMetricDraftChange:noop,onBodyMetricSave:noop,onBodyMetricEdit:noop,onBodyMetricDelete:noop,onHealthConnectEnabledChange:noop,onHealthConnectPermissionRequest:noop}));}
+try{
+ flushSync(()=>root.render(React.createElement(Harness)));await settle();summary().click();await settle();
+ check(articles().length===20&&document.body.textContent.includes('1–20 of 45'),'First page bounds rendering to20 of45 sets');
+ check(button('Previous sets').disabled&&!button('Next sets').disabled,'First page navigation bounds correct');
+ check(articles()[0].textContent.includes('0 lb')&&articles()[0].textContent.includes('0 reps in reserve'),'Zero load and reserve remain explicit');
+ check(articles().some(el=>el.textContent.includes('Actual: 30 sec')&&el.textContent.includes('Planned: 1 min')),'Actual/planned duration logs visible without load or rating');
+ button('Next sets').click();await settle();check(articles().length===20&&document.body.textContent.includes('21–40 of 45'),'Second page covers next20 records');
+ button('Next sets').click();await settle();check(articles().length===5&&button('Next sets').disabled&&document.body.textContent.includes('41–45 of 45'),'Last page shows remainder and disables forward navigation');
+ await search('  WALK  ');check(articles().length===20&&document.body.textContent.includes('1–20 of 22'),'Search resets page and matches exercise case/spacing');
+ document.querySelector('input[type=checkbox]').click();await settle();check(articles().length===7&&articles().every(el=>el.textContent.includes('RPE 8.5')),'Rated filter combines with exercise search');
+ await search('not-present');check(articles().length===0&&document.body.textContent.includes('No sets match these filters.'),'No-match state is explicit');
+ await search('');document.querySelector('input[type=checkbox]').click();await settle();button('Next sets').click();await settle();
+ flushSync(()=>updateLogs([logs[0]]));await settle();check(articles().length===1&&!button('Next sets')&&document.body.textContent.includes('1–1 of 1'),'Changed input/range cannot leave an invalid page');
+ check(JSON.stringify(logs)===original,'Browsing/filtering never changes fixture records');
+ flushSync(()=>updateLogs([]));await settle();check(document.body.textContent.includes('No set logs in this range yet.'),'Empty range has visible empty-state text');
+ flushSync(()=>root.render(React.createElement(FullHistory)));await settle();summary().click();await settle();
+ check(summary().textContent.includes('46 sets'),'Full History all-time range includes older month');
+ button('Next sets').click();await settle();button('This month').click();await settle();
+ check(summary().textContent.includes('45 sets')&&document.body.textContent.includes('1–20 of 45'),'Full History month range excludes older log and resets page');
+ button('All time').click();await settle();check(summary().textContent.includes('46 sets'),'Returning to all-time restores older sets');
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}
+</script></html>
