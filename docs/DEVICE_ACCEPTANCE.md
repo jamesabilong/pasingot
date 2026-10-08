@@ -1,5 +1,21 @@
 # Quick Start device acceptance
 
+Physical entry checkpoint — 2026-10-08, Iterations 115–119: current five-item
+Library playlist arrives with exact order/prescriptions; explicit selected
+Bird Dog→Walking reorder and Today Run row11/date/ID/2sets/10min/120s/5kg pass.
+Phone Home before watch Start records native Started while UI is backgrounded;
+normal reopen visibly reconciles the exact short Walking request. All owned
+Ready offers cancelled; short test completes1/1 with actual result/receipt and
+pruning. Saved phone database/playlist and watch legacy/settings compare exact.
+Mis-scoped first selection click is corrected through normal UI with exact
+baseline restoration; failed/asleep/non-atomic captures stay documented.
+Stage19 **77/97 (79%)**, physical **7/27**, **20 checks remain**. No app source
+or APK change in this batch. Earlier counts/next labels are superseded here.
+Next: disconnected wording, active nonreplacement, duplicate/expiry/pending
+restart and unsynced reboot; physical cue/audio/accessibility/ambient, measured
+60–90min battery and Play/mixed-version acceptance remain open.
+
+
 Physical checkpoint — 2026-10-08, Iterations 113–114: normal Library Walking
 Ready and open-phone Started pass on S25/Watch7. Natural screen sleep reproduces
 an unwanted APP_CLOSED pause; corrected ON_STOP distinguishes noninteractive

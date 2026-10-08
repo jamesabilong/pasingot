@@ -1,5 +1,21 @@
 # Workout App Plan
 
+Physical entry checkpoint — 2026-10-08, Iterations 115–119: current five-item
+Library playlist arrives with exact order/prescriptions; explicit selected
+Bird Dog→Walking reorder and Today Run row11/date/ID/2sets/10min/120s/5kg pass.
+Phone Home before watch Start records native Started while UI is backgrounded;
+normal reopen visibly reconciles the exact short Walking request. All owned
+Ready offers cancelled; short test completes1/1 with actual result/receipt and
+pruning. Saved phone database/playlist and watch legacy/settings compare exact.
+Mis-scoped first selection click is corrected through normal UI with exact
+baseline restoration; failed/asleep/non-atomic captures stay documented.
+Stage19 **77/97 (79%)**, physical **7/27**, **20 checks remain**. No app source
+or APK change in this batch. Earlier counts/next labels are superseded here.
+Next: disconnected wording, active nonreplacement, duplicate/expiry/pending
+restart and unsynced reboot; physical cue/audio/accessibility/ambient, measured
+60–90min battery and Play/mixed-version acceptance remain open.
+
+
 Physical checkpoint — 2026-10-08, Iterations 113–114: normal Library Walking
 Ready and open-phone Started pass on S25/Watch7. Natural screen sleep reproduces
 an unwanted APP_CLOSED pause; corrected ON_STOP distinguishes noninteractive
@@ -717,7 +733,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **73/97 checklist items (75%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **3/27** | Current timed round UI, real-clock cues, resumed-REST speech interruption and private receipt recovery are validated; natural screen-sleep/wake and actual paired timed Start/result/receipt now pass; continue physical playlist/Today, recovery and full ambient/audio acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **77/97 checklist items (79%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **7/27** | Current timed round UI, real-clock cues, resumed-REST speech interruption and private receipt recovery are validated; natural screen-sleep/wake and actual paired timed Start/result/receipt now pass; physical playlist/reordered selection/Today and reopened Started now pass; continue disconnected/nonreplacement/duplicate/expiry/recovery and full ambient/audio acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

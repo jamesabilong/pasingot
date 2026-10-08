@@ -1,5 +1,21 @@
 # Watch Quick Start Plan
 
+Physical entry checkpoint — 2026-10-08, Iterations 115–119: current five-item
+Library playlist arrives with exact order/prescriptions; explicit selected
+Bird Dog→Walking reorder and Today Run row11/date/ID/2sets/10min/120s/5kg pass.
+Phone Home before watch Start records native Started while UI is backgrounded;
+normal reopen visibly reconciles the exact short Walking request. All owned
+Ready offers cancelled; short test completes1/1 with actual result/receipt and
+pruning. Saved phone database/playlist and watch legacy/settings compare exact.
+Mis-scoped first selection click is corrected through normal UI with exact
+baseline restoration; failed/asleep/non-atomic captures stay documented.
+Stage19 **77/97 (79%)**, physical **7/27**, **20 checks remain**. No app source
+or APK change in this batch. Earlier counts/next labels are superseded here.
+Next: disconnected wording, active nonreplacement, duplicate/expiry/pending
+restart and unsynced reboot; physical cue/audio/accessibility/ambient, measured
+60–90min battery and Play/mixed-version acceptance remain open.
+
+
 Physical checkpoint — 2026-10-08, Iterations 113–114: normal Library Walking
 Ready and open-phone Started pass on S25/Watch7. Natural screen sleep reproduces
 an unwanted APP_CLOSED pause; corrected ON_STOP distinguishes noninteractive
@@ -1318,20 +1334,20 @@ Exit checks:
 
 ### Phase 4 — Paired-device acceptance
 
-Status: **Physical acceptance underway on S25/Watch7; 3/27 complete (inventory, single Library Ready, open-phone Started); 24 checks remain**
+Status: **Physical acceptance underway on S25/Watch7; 7/27 complete (inventory, four entry/order cases, open/reopened-phone Started); 20 checks remain**
 
 Track emulator UI observations separately in
 [Device acceptance](DEVICE_ACCEPTANCE.md) and the latest implementation iteration.
 These physical checklist boxes are not closed by emulator-only evidence.
 
 - [x] Connected: one Library exercise reaches the watch and shows Ready. Physical Walking 1 × 3min / 0s, exact paired package and Ready screens (Iteration 113).
-- [ ] Connected: the current Library playlist arrives in the same order with
-      exact per-item prescriptions.
-- [ ] Connected: an explicit multi-selection can be reordered and arrives in
-      that order.
-- [ ] Connected: Today row uses its exact sets/reps/rest/load prescription.
+- [x] Connected: the current Library playlist arrives in the same order with
+      exact per-item prescriptions. Physical five-item current playlist/package equality (Iteration 115).
+- [x] Connected: an explicit multi-selection can be reordered and arrives in
+      that order. Physical dialog Bird Dog→Walking and exact package/targets (Iteration 116 corrected retry).
+- [x] Connected: Today row uses its exact sets/reps/rest/load prescription. Physical Run row11/date/ID,2sets/10min/120s/5kg (Iteration 117).
 - [x] Start acknowledgement reaches the phone while it is open. Exact physical request Started receipt and open phone UI (Iteration 113).
-- [ ] Start acknowledgement reconciles after the phone app is reopened.
+- [x] Start acknowledgement reconciles after the phone app is reopened. Physical phone Home→watch Start→native Started→visible reopened UI (Iteration 118).
 - [ ] Disconnected watch produces actionable phone wording and no stale workout.
 - [ ] Active watch workout is never replaced.
 - [ ] Duplicate send/tap produces one transient package and one session.

@@ -6510,3 +6510,139 @@ other mappings. Final Git recheck stillHEAD44decb0 with exactly eight owned
 files; native tests/build evidence corresponds to reviewed source. Final physical
 inventory reports both current installed hashes match local builds. Whitespace,
 checklist-count and exact paired cleanup/scoped preservation assertions pass.
+
+## Iteration 115 — 2026-10-08 — Physical playlist delivery in progress
+
+Status: **Current physical Library playlist exact delivery/Ready/cancellation validated.**
+
+User requests continuation after committed timer fix1c2c2a1; initial worktree
+clean. Read plan/latest progress/React agreements. Phone remains unlocked;
+watch ADB initially absent/mDNS unavailable. Reconnect previously verified
+192.168.6.11:33451 succeeds without settings or pairing mutation; verify exact
+physical identity before use. Capture fresh phone baseline/current playlist;
+preserve today's schedule, existing results and user draft. Next: normal current
+Library playlist → Ready exact order/prescriptions, Cancel owned offer; then
+normal reordered selection and Today row/reopened-phone Started checks.
+
+Iteration115 closure: physical exact Watch7 RFAY11LZ4SR identity, both installed
+hashes and no unrelated runtime/Ready offer verified. Current five-item user
+playlist Run→Dumbbell Curls→Bird Dog→Assisted chin-ups→Barbell Curls sent through
+normal confirmation/native hit-tested Send. Request2ba41d8b-c569-41f3-96ea-f19a1e5ada14
+phone/watch equality and every ID/name/sets/target/rest/load match current draft;
+phone Ready and watch five-exercise Start entry pass. Previous completed UI
+initially remains visible; normal Back reveals new Ready entry, captured apart.
+Normal hit-tested Cancel receives actual cancelled acknowledgement, removes
+owned package and creates no runtime/result. Baseline/delivery/cancellation
+manifests retained under physical-115*. Relevant exact-package/cancel assertions
+pass. Close physical current-playlist item only: physical4/27,Stage19 74/97.
+Next: explicit reordered selection, then Today and reopened-phone Started.
+
+## Iteration 116 — 2026-10-08 — Physical reordered Library selection
+
+Status: **Corrected dialog reorder/delivery/cancel and exact baseline restoration validated.**
+
+Preserve user's current five-item playlist; select Walking and Bird Dog through
+Library checkboxes, open selected Quick Start and move Bird Dog above Walking
+through sheet's normal Move control. Compare full ordered phone/watch request
+and unchanged targets, then cancel only owned Ready offer. Next: selected entry
+and reorder UI, actual delivery/Ready/cancel evidence.
+
+Iteration116 retained first-attempt failure: unscoped Move Bird Dog up label
+matches saved playlist control before modal control. This moves user's draft
+Bird Dog above Dumbbell Curls; modal selection remains Walking→Bird Dog, so do
+not close reordered-selection acceptance. Native Ready2-exercise offer is owned
+request21d82c51-83c5-4641-8380-5fd2b03697ad; Cancel it normally. Restore draft through
+its normal Move Bird Dog down control; complete phone data equality to current
+iteration baseline passes. No workout started/history reset. Correct automation
+selector to role=dialog and repeat while preserving this failed evidence.
+First stage manifest captures watch package before delivery and phone ack after
+it; it is not an atomic snapshot, so retain as preliminary and collect settled
+matching package after actual Ready rather than diagnosing a store mismatch.
+
+Iteration116 closure: corrected role=dialog selector visually reorders Bird Dog
+above Walking before native Send. Actual request0c7f7861-b8ae-4cdd-9393-8728f73d467d
+phone/watch package equality, source library_selection, ordered targets
+Bird Dog4×6–10/rest90 and Walking1×20–30min/rest60, actual Ready acknowledgement
+pass. Full phone data equals current baseline including draft. Cancel normal
+owned offer; actual cancelled acknowledgement passes, no workout started.
+Retain successful physical-116-reordered-ready separately from first failed
+attempt. Its watch screenshot is asleep and not rendered-UI evidence; exact
+native package/Ready ack and visible phone reorder establish delivery/order.
+Close reordered-selection item only: physical5/27,Stage19 75/97,22 remaining.
+Next: Today exact row prescription and separate short reopened-phone Started.
+
+## Iteration 117 — 2026-10-08 — Physical Today row prescription
+
+Status: **Physical Today row/date/prescription Ready and owned cancellation validated.**
+
+Open Today Run row's normal Quick Start (2sets/10min/120s/5kg), compare full
+sourceDate/sourceWorkoutRowId/target/sets/rest/load binding with unchanged
+persisted row and actual watch package, then cancel only owned test offer.
+Next: visible Today row/sheet, actual Ready and exact full package assertions.
+
+Iteration117 closure: actual Today Run row11 binds sourceDate2026-10-08 and
+sourceWorkoutRowId11. Phone/watch request6a4b63d2-64c9-4af7-877d-a67e56df2252 matches
+exact source exercise ID and2sets/10min/120s/5kg; actual Ready acknowledgement
+and watch Run Start screen pass. Normal Cancel receives actual cancelled;
+no personal Run is started or schedule changed. Retain row-assertion plus
+physical-117-today-ready manifest/screens. Close Today prescription item only:
+physical6/27,Stage19 76/97,21 remaining. Next: short separate Walking test with
+phone backgrounded before watch Start, then reopen and verify exact Started.
+
+## Iteration 118 — 2026-10-08 — Physical reopened-phone Started
+
+Status: **Physical background Started/reopened UI and short completion/receipt cleanup validated.**
+
+Create explicit separate one-set/45sec/0s-rest Library Walking test, leaving
+saved playlist/Today rows unchanged. Background phone via normal Home before
+watch Start; require native Started for the exact request while phone activity
+is stopped, reopen normally and verify visible UI reconciliation. Finish this
+owned short test and verify actual result/receipt cleanup, preserving records.
+Next: normal short confirmation/send, phone Home → watch Start → actual native
+Started → phone reopen/UI proof, completion/cleanup and final audit.
+
+Iteration118 closure: exact one-set45sec/0s-rest Walking request
+7ed6df75-c1bc-485c-94a4-8891f72f2128 reaches Ready. Initial screenshot is asleep/
+partial and wake-only UI dump is watch face after idle; no Start inference.
+Normal watch app reopen plus fresh accessibility Start bounds verified, TTL
+146263ms remains. Phone Home occurs before watch native Start; activity archive
+shows Launcher foreground. Actual native phone Started is captured while
+backgrounded and watch runtime ACTIVE. Normal phone reopen visibly renders
+Workout started on watch for exact request, screenshot/DOM retained. Short
+session completes1/1 with one actual result/receipt, runtime/package pruning,
+terminal screen and no unfinished test. Close reopened-phone Started item only:
+physical7/27,Stage19 77/97(79%),20 remaining. Evidence physical-118* retained.
+Next: final owned-data/checklist/build inventory audit and authorized commit.
+
+## Iteration 119 — 2026-10-08 — Physical acceptance checkpoint audit
+
+Status: **Five physical acceptance iterations reviewed and validated for commit.**
+
+Review Iterations115–118 evidence, retaining mis-scoped selection attempt and
+non-atomic/asleep captures separately from accepted evidence. Full phone
+workouts/logs/events/setLogs/appState equals current iteration baseline, including
+user's Advanced five-item playlist. Prior native completed request is exact;
+five added owned requests are four normally cancelled offers (including failed
+selection attempt) and one completed short test. No personal schedule/history
+reset. Watch legacy workouts/settings byte-exact; runtime/package pruned by
+actual matching receipt. No new APK/source change this batch; inherited native
+checks are historical and installed matching artifacts are verified separately.
+Next: final installed inventory, notification/cue/queue cleanup and bridge/XML
+cleanup, source/docs review, whitespace and Git recheck, then commit docs.
+
+Iteration119 closure: final inventory both installed APK hashes match accepted
+builds; no code/APK mutation during batch. Native indicatorID3 absent, both
+legacy queues empty, cue preferences exact and owned completed ledger pruned.
+Full phone baseline equality (12rows/11logs/2sessionEvents/0setLogs/allappState,
+including Advanced playlist), prior native result exact,4owned cancelled offers
+and1owned completed short test pass. Final watch legacy/settings byte-exact.
+Remove only byte-compared taskXML files and verified task debug bridge; other
+mappings/settings untouched. Exact per-case assertions, checklist7closed/20open,
+source/docs review and whitespace pass. No production source changed, so no
+new native/PWA build/tests are claimed; historical validated artifacts remain.
+Git recheck before commit shows only five owned docs files and HEAD1c2c2a1.
+Commit physical delivery/reopen evidence checkpoint; physical7/27 and Stage19
+77/97(79%). Next: disconnected wording, nonreplacement, duplicate/expiry/pending
+restart and unsynced reboot, then physical cue/audio/accessibility/ambient,
+60–90min measured battery and Play/mixed-version acceptance. Broader acceptance
+remains open; failed first selection attempt is retained and not counted.
