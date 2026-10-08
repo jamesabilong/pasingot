@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Weekly removal checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React, {useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {addRecord,getAll,getRecord,replaceStores,STORES} from '/src/lib/db.ts';
+import {removeWeeklySession,moveWeeklySession} from '/src/lib/schedule-editing.ts';
+import {useScheduleEditing} from '/src/hooks/useScheduleEditing.ts';
+import {useWorkoutSession} from '/src/hooks/useWorkoutSession.ts';
+import {WeeklyPlan} from '/src/components/WeeklyPlan.tsx';
+import {newPwaSession} from '/src/lib/workout-session.ts';
+import {buildWorkoutBackup,parseWorkoutBackup,restoreWorkoutBackup} from '/src/lib/backup.ts';
+import '/src/styles.css';
+const factory=window.indexedDB,database=`pasingot-removal-${crypto.randomUUID()}`;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>factory.open(database,version)}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};
+const rejects=async action=>{try{await action();return false;}catch{return true;}};
+const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const day=new Date().toLocaleDateString('en-US',{weekday:'long'});
+const base={schemaVersion:1,day,time:'07:00',sets:2,reps:'8',rest:30,loadWeight:25,loadUnit:'kg'};
+const rows=[{...base,id:1,exercise:'Test squat'},{...base,id:2,exercise:'Test press'},{...base,id:3,time:'09:00',exercise:'Other session'}];
+const logs=[{schemaVersion:1,date:new Date().toISOString(),exercise:'Test squat',workoutRowId:1,status:'done',id:1}];
+const sets=[{schemaVersion:1,date:logs[0].date,exercise:'Test squat',workoutRowId:1,setNumber:1,plannedReps:'8',actualReps:'8',rpe:8.5,rir:0,id:1}];
+const preferences=[{key:'ownedPreference',schemaVersion:1,value:'keep'}];
+const reset=()=>replaceStores({workouts:rows,logs,setLogs:sets,sessionEvents:[],appState:preferences});
+let api,player,blocked=false,changes=0;const root=createRoot(document.getElementById('root'));const original=window.Capacitor;
+function Harness(){const[workouts,setWorkouts]=useState(rows);player=useWorkoutSession({workouts,logs:[],onHistoryChanged:async()=>{},onCompleted:()=>{},playCue:()=>{},addToast:()=>{}});api=useScheduleEditing({blocked,onScheduleChanged:async value=>{changes++;setWorkouts(value);await player.restore();}});return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(WeeklyPlan,{workouts,today:day,onBuildPlan:()=>{},scheduleEditor:{...api,blocked}}));}
+try{
+ await reset();
+ const remaining=await removeWeeklySession(rows.slice(0,2));
+ check(remaining.length===1&&JSON.stringify(remaining[0])===JSON.stringify(rows[2]),'Only selected whole session removed');
+ check(JSON.stringify(await getAll(STORES.logs))===JSON.stringify(logs)&&JSON.stringify(await getAll(STORES.setLogs))===JSON.stringify(sets),'History including ratings stays exact');
+ check(JSON.stringify(await getAll(STORES.appState))===JSON.stringify(preferences),'Preferences untouched');
+ check(await rejects(()=>removeWeeklySession(rows.slice(0,2))),'Duplicate removal cannot repeat stale operation');
+ const added=await addRecord(STORES.workouts,{...base,exercise:'New exercise'});
+ check(added>3,'Deleted row IDs are not reused by future additions');
+ const backup=await buildWorkoutBackup();await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check((await getAll(STORES.setLogs))[0].workoutRowId===1&&!(await getAll(STORES.workouts)).some(row=>row.id===1),'Backup preserves historical references to removed rows');
+ await reset();
+ check(await rejects(()=>removeWeeklySession([rows[0]])),'Partial group cannot remove extra exercises');
+ const questRows=rows.map(row=>row.id<=2?{...row,questId:'quest',questDayIndex:1}:row);await replaceStores({workouts:questRows});
+ check(await rejects(()=>removeWeeklySession(questRows.slice(0,2))),'Quest-owned removal rejected');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(questRows),'Quest schedule preserved after rejection');
+ for(const status of ['active','resting','paused']){
+  await reset();await replaceStores({appState:[{...newPwaSession(rows),status}]});
+  check(await rejects(()=>removeWeeklySession(rows.slice(0,2)))&&JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows),`${status} durable phone cursor blocks removal`);
+ }
+ for(const status of ['completed','ended']){
+  await reset();await replaceStores({appState:[{...newPwaSession(rows),status},...preferences]});
+  await removeWeeklySession(rows.slice(0,2));
+  check(!await getRecord(STORES.appState,'activeWorkoutSession')&&(await getAll(STORES.logs)).length===1,`${status} affected cursor dismissed without erasing history`);
+ }
+ await reset();await replaceStores({appState:[{...newPwaSession([rows[2]]),status:'completed'},...preferences]});
+ await removeWeeklySession(rows.slice(0,2));
+ check((await getRecord(STORES.appState,'activeWorkoutSession')).rowIds[0]===3,'Unrelated finished cursor preserved');
+ await reset();await moveWeeklySession(rows.slice(0,2),day,'08:00');
+ check(await rejects(()=>removeWeeklySession(rows.slice(0,2))),'Old confirmation cannot remove moved group');
+ await reset();const race=await Promise.allSettled([removeWeeklySession(rows.slice(0,2)),moveWeeklySession(rows.slice(0,2),day,'08:00')]);
+ check(race.filter(value=>value.status==='fulfilled').length===1,'Remove/move race has one winner');
+ await reset();flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ await replaceStores({appState:[{...newPwaSession(rows),status:'completed'}]});await player.restore();await settle();
+ check(player.session?.status==='completed','Finished cursor is visible before removal');
+ await api.remove(rows.slice(0,2));await settle();
+ check(player.session===null,'Schedule callback reconciles finished player UI after removal');
+ await reset();changes=0;
+ blocked=true;flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ check(!await api.remove(rows.slice(0,2))&&changes===0,'Observed unfinished workout blocks hook removal');
+ blocked=false;flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ let nativeCalls=0;window.Capacitor={Plugins:{ScheduleSync:{syncSchedule:async()=>{nativeCalls++;throw Error('Expected fixture failure');}}}};
+ check(await api.remove(rows.slice(0,2)),'Native update failure retains successful local removal');await settle();
+ check(api.result.error&&api.result.message.includes('removed on this phone')&&nativeCalls===1&&changes===1,'Partial success wording identifies removed local session');
+ window.Capacitor=original;await reset();root.unmount();const freshRoot=createRoot(document.getElementById('root'));flushSync(()=>freshRoot.render(React.createElement(Harness)));await settle();
+ window.readRemovalRows=()=>getAll(STORES.workouts);window.readRemovalHistory=()=>getAll(STORES.setLogs);
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}finally{window.Capacitor=original;}
+</script></html>

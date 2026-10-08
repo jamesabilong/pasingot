@@ -1,5 +1,15 @@
 # Feature Gap Roadmap
 
+Phone/PWA removal checkpoint — 2026-10-08, Iterations136–140: whole recurring
+weekly sessions can be removed with explicit count/day/time confirmation. History
+and unrelated sessions retained; stale/quest/unfinished-workout guards apply.
+Affected finished-player cursor clears atomically and reconciles in UI.169 headless
+browser assertions, TypeScript, production build and phone APK/asset identity pass.
+Physical installation pending. Stage19 stays77/97,physical7/27,20open,watch untouched.
+This supersedes recurring deletion deferral below; one-off date exceptions remain
+future work. Prior weekly move checkpoint committed as `c6e9f9b`.
+
+
 Phone/PWA weekly planning checkpoint — 2026-10-08, Iterations131–135: recurring
 sessions can move to another weekday/time from Today’s weekly preview. IDs,
 prescriptions and history retained; quest ownership, occupied slots, stale edits
@@ -430,6 +440,7 @@ importance in general.
 | ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
 | ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
 | ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; date-specific exceptions/deletion remain open. |
+| ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |

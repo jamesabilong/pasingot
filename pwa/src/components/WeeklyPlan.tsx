@@ -40,7 +40,7 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
         </div>;
       }) : <p className="week-rest">Rest day · No exercises scheduled.</p>}
     </div>
-    {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before moving a weekly session.</p>}
+    {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before changing a weekly session.</p>}
     {scheduleEditor?.result && <p role={scheduleEditor.result.error ? 'alert' : 'status'} className={scheduleEditor.result.error ? 'text-sm text-amber-300' : 'text-sm text-emerald-300'}>{scheduleEditor.result.message}</p>}
     <button type="button" className="secondary-action" onClick={onBuildPlan}>Build a playlist</button>
   </section>;

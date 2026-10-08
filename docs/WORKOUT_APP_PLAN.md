@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA removal checkpoint — 2026-10-08, Iterations136–140: whole recurring
+weekly sessions can be removed with explicit count/day/time confirmation. History
+and unrelated sessions retained; stale/quest/unfinished-workout guards apply.
+Affected finished-player cursor clears atomically and reconciles in UI.169 headless
+browser assertions, TypeScript, production build and phone APK/asset identity pass.
+Physical installation pending. Stage19 stays77/97,physical7/27,20open,watch untouched.
+This supersedes recurring deletion deferral below; one-off date exceptions remain
+future work. Prior weekly move checkpoint committed as `c6e9f9b`.
+
+
 Phone/PWA weekly planning checkpoint — 2026-10-08, Iterations131–135: recurring
 sessions can move to another weekday/time from Today’s weekly preview. IDs,
 prescriptions and history retained; quest ownership, occupied slots, stale edits

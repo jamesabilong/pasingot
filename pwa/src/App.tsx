@@ -129,7 +129,10 @@ export default function App() {
   });
 
   const scheduleEditingBlocked = [activeWorkoutSession, watchSession].some(session => session && ['active', 'resting', 'paused'].includes(session.status));
-  const scheduleEditing = useScheduleEditing({ onScheduleChanged: setWorkouts, blocked: scheduleEditingBlocked });
+  const scheduleEditing = useScheduleEditing({
+    onScheduleChanged: async rows => { setWorkouts(rows); await restoreWorkoutSession(); },
+    blocked: scheduleEditingBlocked,
+  });
 
   const hydration = useWorkoutDataHydration({
     data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,

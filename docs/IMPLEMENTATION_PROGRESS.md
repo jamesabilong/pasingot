@@ -6900,3 +6900,67 @@ Git recheck shows only owned source/test/docs paths, HEAD9808505. Stage19 remain
 Remaining: date-specific scheduling/deletion, supersets and physical phone/watch
 acceptance. Latest committed effort checkpoint9808505 supersedes prior uncommitted
 labels. Overall ETA remains unknown; checklist ratios are not elapsed-time estimates.
+
+
+## Iteration 136 — 2026-10-08 — Recurring removal scope and safeguards
+
+Status: **Implementation in progress.** Startingc6e9f9b, clean tree. Read current
+plan/latest progress/React instructions. Extend weekly editor with confirmed
+whole-session removal. Preserve history/playlist/unrelated sessions, retain
+quest ownership and active/paused/resting cursor guards, reject stale/partial
+groups. User is authorizing feature code; no personal schedule is removed during
+development. Native schedule cache refresh shares existing editing hook. Watch
+untouched; headless tests use disposable DB. Next: durable deletion and regressions.
+
+
+Iteration136 closure: recurring removal added to existing move workflow, with
+explicit confirmation and captured source snapshot. TypeScript and review pass;
+no new DB/native schema, no personal data changed. Next: durable deletion checks.
+
+## Iteration 137 — 2026-10-08 — Removal transaction and player reconciliation
+
+Status: **22 new isolated-DB checks pass headlessly.** Shared transaction validates
+whole current group and unfinished durable phone cursor, deletes only selected
+schedule rows, preserves unrelated rows/history/preferences, and rejects partial,
+quest-owned, duplicate/stale and remove/move race attempts. Deleted IDs are not
+reused by new additions; backup round trip retains historical references.
+Review found affected terminal player could lose its rows but retain unusable
+End action. Clear only intersecting completed/ended cursor in same transaction;
+keep all history and unrelated terminal cursors. Then await normal session restore
+in App's schedule-changed callback, so UI and DB clear together. Two added hook
+integration checks verify visible finished cursor then null after removal. Native
+cache failure keeps local removal and reports distinct partial-success wording.
+Next: confirmation/cancel/offline/mobile review.
+
+## Iteration 138 — 2026-10-08 — Confirmed mobile removal UI
+
+Status: **Headless mobile workflow checks pass.** Confirmation shows exact exercise
+count, time, weekday and recurring scope, preserves source snapshot until confirm,
+and offers Keep session. Cancel preserves exact schedule. Offline normal UI removes
+only chosen two rows, keeps unrelated row and rated history; subsequent last-session
+removal shows rest-day empty preview.390×844 screenshot reviewed;320×740 content
+width equals320. Evidence output/playwright/remove138-{confirm,saved}.png ignored.
+Busy/blocked guards apply to move/removal; Quests owns quest sessions. Watch and
+personal phone data untouched. Next: inherited planning/session/sync regressions.
+
+## Iteration 139 — 2026-10-08 — Existing editing and phone regressions
+
+Status: **169 headless browser assertions pass.** Removal22 plus existing move18,
+Today12,import15,Library18,session-integrity27,data-integrity35,watch-sync22.
+Expected fixture bridge rejection logged; harness favicon404 unrelated. Source
+review keeps App composition/cross-feature restore callback, focused editor JSX,
+named mutation hook, pure group validation and transactional DB edits. No watch
+payload, strength analytics, history mutation or required effort field added.
+TypeScript, production build, Capacitor copy and whitespace pass. Next: APK
+identity/final Git review and authorised commit.
+
+## Iteration 140 — 2026-10-08 — Phone removal checkpoint
+
+Status: **Five development iterations complete; validated for commit.** Android
+`:app:assembleDebug --offline` passes (110tasks); bundled JS/CSS byte-match current
+production artifacts. Physical phone install and device acceptance pending.
+Recheck Git: owned source/test/docs changes only, HEADc6e9f9b. Weekly move/removal
+code/browser/package complete; date-specific exceptions and supersets remain
+future work. Stage19 remains77/97,physical7/27,20open; watch disconnected/uncontacted.
+Latest move checkpointc6e9f9b supersedes previous uncommitted labels. Commit next;
+then independent phone work or charged-device acceptance. No reliable overall ETA.
