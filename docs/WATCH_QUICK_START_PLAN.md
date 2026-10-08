@@ -1,5 +1,19 @@
 # Watch Quick Start Plan
 
+Current progress audit — 2026-10-08, Iteration 108: committed production
+checkpoint `5014ec8` and reinstall evidence `857ebe6`; worktree initially clean.
+Stage 19 remains **71/97 (73%)**, physical **1/27**, with **26 checks open**.
+Today's successful ADB inventory reports no attached devices; yesterday's
+connected-pair evidence remains historical, not current readiness. Next device
+work is Iteration 105's one-set / 3min / 0s-rest natural timeout/ambient test,
+followed by paired result/receipt/indicator cleanup. No reliable completion ETA:
+remaining acceptance includes a 60–90 minute battery run, audio/accessibility,
+recovery/regression and Play internal installation/update checks. Item ratios
+do not estimate remaining time. Iterations 108–112 validate portable collection,
+regression coverage and the physical protocol for this tooling/docs checkpoint;
+device execution remains blocked. Earlier current/next/uncommitted labels below are
+historical and superseded by this audit where they conflict.
+
 Current physical plan — 2026-10-07: device inventory exit check is complete,
 Stage 19 **71/97 (73%)**, physical **1/27**. Connected S25/Watch7 and current
 installed APK/signature evidence are retained. Next: add workout-scoped Ongoing

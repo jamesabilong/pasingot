@@ -6285,3 +6285,88 @@ Timed Ongoing Activity/ambient acceptance remains open in Iteration105; no
 physical checklist item is inferred from reinstall. Counts stay71/97,1/27.
 Next: actual one-set / 3min / 0s-rest test off charger and natural timeout/wake,
 then result/receipt/indicator cleanup and remaining physical checks.
+
+## Iteration 108 — 2026-10-08 — Current plan and device readiness audit
+
+Status: **Documentation audit validated; device execution blocked.**
+
+Read the plan, latest Iteration 107 and React instructions before work. Initial
+Git status is clean; HEAD is 857ebe6 (reinstall evidence), production checkpoint
+5014ec8. Sandbox ADB startup first fails to bind its listener; approved inventory
+then succeeds and reports zero devices. This is not a pairing failure diagnosis
+and does not invalidate yesterday's retained physical evidence. Correct the
+stale delivery board from 70/97 and 0/27 to 71/97 and 1/27; prepend an explicit
+current audit to plan, roadmap, Quick Start plan and acceptance protocol while
+preserving history. 26 physical checks remain; no finish-date estimate is
+supported. Relevant whitespace/count/document checks pass. Next: a portable,
+read-only physical collector for this Mac; timed acceptance stays pending.
+
+## Iteration 109 — 2026-10-08 — Portable physical inventory collector
+
+Status: **CLI/missing-device checks pass; connected collection not executed.**
+
+Existing physical collector requires PowerShell. Add Python standard-library
+collector with explicit phone/watch serials, physical role/emulator guards,
+selected-device-only property/package/battery reads, optional validated base
+APK hashing and split-install limitations. Never starts workouts, installs,
+resets, changes settings or runs instrumentation. Inventory readiness is
+separate from transport/signing/acceptance; existing evidence is not overwritten.
+CLI help passes. Initial py_compile cannot write the host cache under sandbox;
+rerun with /private/tmp/pasingot-pycache passes. Actual approved collector exits
+2, retaining zero-device evidence under iteration-109-no-devices; JSON assertions
+confirm unavailable, no collected devices, unknown transport and unevaluated
+acceptance. No personal device is mutated. Next: regression tests for wrong
+selection, partial/failing collection, emulator refusal and artifact equality.
+
+## Iteration 110 — 2026-10-08 — Physical collector regression coverage
+
+Status: **Automated collection/preservation gates pass; connected execution pending.**
+
+Add 13 collector tests using a strict fake command dispatcher that rejects any
+unexpected/mutating operation and any unselected device probe. Cover unavailable,
+offline/unauthorized/no-permission selections, invalid/equal serials, existing
+evidence preservation, emulator/wrong-role/TV/unknown identity refusal, timeout
+failure artifacts, missing app, malformed remote paths/hash, split-install
+limitations and exact/stale APK comparison. Successful inventory never asserts
+transport or acceptance. All 24 Python checks pass (13 new, 11 existing paired
+preflight), with no failures; whitespace check passes. Connected reads and
+physical timing remain unexecuted. Next: document the explicit timed physical
+protocol and evidence boundaries, then final checkpoint review.
+
+## Iteration 111 — 2026-10-08 — Physical timed acceptance procedure
+
+Status: **Protocol/source consistency checks pass; physical test pending.**
+
+Add explicit normal-UI one-set/3min/0s-rest procedure and portable collector
+usage to DEVICE_ACCEPTANCE. Record readiness/installed-build limitations,
+reciprocal peers, baseline preservation, Started identity, natural untouched
+timeout/wake, deliberate-exit distinction, exact Ongoing Activity return,
+natural expiry/final result/actual receipt cleanup and post-run comparison.
+Do not substitute a synthetic receipt, active UI polling or an awake screenshot
+for the required observations. Source checks confirm notification ID 3 and
+runtime/package/result DataStore locations; CLI flags match implemented help.
+Whitespace/source-reference checks pass. No physical checklist box closes;
+26 remain open. Next: final review, fresh tooling gates and authorized commit.
+
+## Iteration 112 — 2026-10-08 — Final review and tooling/docs checkpoint
+
+Status: **Five preparatory iterations validated for commit; device acceptance open.**
+
+Review all seven owned files from Iterations 108–112. Catch and fix physical
+watch role validation returning before model/API completeness checks; extend
+existing refusal test with missing watch model/API. Final 24 Python tests pass
+(13 collector/11 paired preflight), both Python files compile with explicit
+sandbox-writable cache, documentation/source/CLI references and whitespace
+checks pass. Reviewed dispatcher permits only selected-device read commands;
+APK paths are validated before shell hashing, existing evidence is preserved,
+and inventory cannot assert pairing/acceptance. Actual final collector exits 2
+with no devices and retains iteration-112-final/inventory.json. This does not
+validate connected collection or any physical behavior. No Android/PWA app
+source changes or installs; prior 335 JVM/four-APK evidence is historical,
+not a new run. Git HEAD remains 857ebe6 before commit; only seven owned files
+are changed, with no unrelated edits. Commit the validated tooling/docs stage
+as PST01: Prepare portable physical acceptance validation. All five iterations
+108–112 are complete within preparatory scope; Iteration 105 timed acceptance
+stays open, Stage 19 remains 71/97 and physical 1/27. Next: reconnect S25/Watch7,
+verify current inventory/peers, execute DEVICE_ACCEPTANCE timed protocol,
+then complete remaining paired, audio/accessibility, battery and Play checks.

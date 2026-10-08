@@ -1,10 +1,88 @@
 # Quick Start device acceptance
 
+Current progress audit — 2026-10-08, Iteration 108: committed production
+checkpoint `5014ec8` and reinstall evidence `857ebe6`; worktree initially clean.
+Stage 19 remains **71/97 (73%)**, physical **1/27**, with **26 checks open**.
+Today's successful ADB inventory reports no attached devices; yesterday's
+connected-pair evidence remains historical, not current readiness. Next device
+work is Iteration 105's one-set / 3min / 0s-rest natural timeout/ambient test,
+followed by paired result/receipt/indicator cleanup. No reliable completion ETA:
+remaining acceptance includes a 60–90 minute battery run, audio/accessibility,
+recovery/regression and Play internal installation/update checks. Item ratios
+do not estimate remaining time. Iterations 108–112 validate portable collection,
+regression coverage and the physical protocol for this tooling/docs checkpoint;
+device execution remains blocked. Earlier current/next/uncommitted labels below are
+historical and superseded by this audit where they conflict.
+
 User direction for Iteration 56: **use emulator**. Continue platform acceptance
 on the dedicated copied phone/watch AVDs. Record emulator results separately
 from Phase 4's physical-device exit checks. Audio intelligibility, physical
 haptics, Bluetooth routing, battery consumption and Play delivery require their
 own evidence; a native fixture or inventory does not establish those results.
+
+## Physical timeout and Ongoing Activity — Iteration 111
+
+Status: **Procedure reviewed; execution pending connected physical devices.**
+This is the next device action for Iteration 105. The collector below is a
+portable alternative to the PowerShell inventory command. Use explicit current
+serials from `adb devices -l`, not yesterday's values. Use a fresh output path
+for each capture; an existing path is refused without overwriting evidence.
+
+```sh
+python3 scripts/collect_physical_validation.py \
+  --adb "$ANDROID_HOME/platform-tools/adb" \
+  --phone-serial "$PHONE_SERIAL" --watch-serial "$WATCH_SERIAL" \
+  --include-installed-hash \
+  --output output/device-validation/physical-timeout-before
+```
+
+Exit 0 means physical inventory/app presence, 2 means selected devices or apps
+are unavailable, and 1 means failed/refused collection. The report does not
+prove signing compatibility or reciprocal Data Layer peers. Inspect the
+optional installed/local hashes for both devices; absent local APKs, mismatch
+or split installation require separate installation evidence before asserting
+the tested build. No install, permission grant, setting change, workout action
+or native mutation probe runs in this collector. Connected-device collection
+has not yet been executed for the new Python tool.
+
+1. Record current checkpoint, physical model/OS/build/hash evidence, actual
+   reciprocal nearby peers, notification permission, AOD/screen timeout and
+   battery/charger state. Preserve phone records and watch runtime/package/
+   result/cues/legacy stores before any workout action. Retain source data and
+   decoded identity/state, not just hashes, for the expected workout changes.
+   Refuse replacement if an unrelated unfinished workout or Ready offer exists.
+2. Through normal phone Library UI, send one selected timed exercise with
+   **one set / 3 minutes / 0 seconds rest**. Record its exact request ID,
+   prescription/order and Ready state on both peers. Tap Start on watch and
+   observe the five-second gate, active timer and exact Started acknowledgement
+   on the phone. Do not inject a synthetic receipt or initialize private stores.
+3. With watch off charger, leave it untouched longer than the observed natural
+   timeout (previously 15 seconds). Record wall-clock boundaries and system
+   lifecycle/ambient evidence. Avoid UI dumps/taps while waiting because those
+   may wake or perturb the watch. Wake normally and inspect the same identity,
+   saved deadline and running/paused state. If it pauses, preserve the actual
+   stop/lifecycle trace before changing runtime policy. An awake screenshot
+   alone does not prove ambient behavior.
+4. Observe notification ID **3**/Ongoing Activity for this exact unfinished
+   workout. If the system exposes an indicator on the watch face, tap it once
+   and verify return to the same saved session without a duplicate Start, new
+   request or deadline reset. Deliberate Home/back exit may pause by current
+   policy; record that separately from natural timeout. Notification denial
+   fallback is a separate case, not evidence that an indicator appeared.
+5. Observe natural timer expiry in foreground (or its existing one-set wake
+   catch-up), one completed set and durable final result. Verify the phone
+   retains exactly one matching result, an actual matching receipt reaches the
+   watch, runtime/package/cues are pruned as specified, and ID 3 disappears.
+   Reopen to check saved summary/no cue replay. Compare all unrelated baseline
+   records and settings exactly; retain failed and successful captures apart.
+
+Collect a second inventory in a fresh `physical-timeout-after` directory.
+Attach per-stage timestamps, awake screenshots, lifecycle/notification evidence,
+exact IDs/results/receipt and preservation assertions. Update only checklist
+items whose complete observations pass. Timeout/indicator startup or one
+successful workout does not close the 60–90 minute battery, physical audio/
+TalkBack/routing, reboot/offline, mixed-version or Play delivery checks.
+Stage 19 remains **71/97**, physical **1/27** until execution supplies evidence.
 
 ## Current private speech/receipt checkpoint — 2026-10-07
 
