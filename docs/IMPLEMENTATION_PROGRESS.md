@@ -6691,3 +6691,72 @@ Next when charged/reconnected: verify actual watch battery/connectivity/original
 radio settings and no active personal session, then retry disconnected case
 before duplicate/nonreplacement/expiry/restart/reboot checks. Docs/whitespace
 and Git review can pass independently; no new app source/APK change made.
+
+
+## Iteration 121 — 2026-10-08 — Independent phone/PWA feature scope
+
+Status: **Scope review complete.** Starting checkpoint: `5b7e759`, clean tree.
+Read plan, latest progress and React instructions. User authorizes continuing
+phone/PWA development while Watch7 remains disconnected for low battery.
+Optional feature choice offered; proceed with recommended plate calculator
+without a reply. This promotes the previously deferred calculator independently
+of Stage19; no watch contact or physical acceptance claim. Reviewed boundaries:
+Library owns UI, pure calculations in lib, no durable schema or workout writes.
+Next: implement and verify equal-side allocations.
+
+## Iteration 122 — 2026-10-08 — Plate allocation calculation
+
+Status: **Calculation and regression checks complete.** Added integer-hundredth
+allocation: closest reachable weight at/below target, then minimum plate count
+per side. Supports custom positive sizes, duplicate normalization and fractional
+weights; bounded inputs prevent excessive work. Assumes unlimited pairs.
+Five Node test groups pass: kg/lb, noncanonical exact solutions/minimum count,
+non-overload/fractional targets, validation limits, duplicate/order stability.
+Initial test incorrectly rejected an equally minimal allocation; changed fixture
+to distinguish an exact solution from greedy failure. No production algorithm
+change needed. Next: Library component and phone viewport validation.
+
+## Iteration 123 — 2026-10-08 — Library calculator UI
+
+Status: **UI implementation and static checks complete.** Added collapsed
+Library calculator with target/bar/plate-size drafts, kg/lb presets, explicit
+unit-reset wording, equal-side result, total and shortfall/error messages.
+Component-local drafts reset on screen remount; no saved preference/inventory,
+no persistence, import/export or native contract changes. App.tsx unchanged.
+`npx tsc --noEmit` and `npm run build` pass. Next: browser/offline verification.
+
+## Iteration 124 — 2026-10-08 — Mobile and offline calculator checks
+
+Status: **Browser checks complete.** Playwright uses existing real Library/
+AppShell harness `tests/quick-start-footer.html`, without personal device data.
+390×844 screenshot reviewed; 320×740 document width equals viewport (320).
+Default60kg gives20kg each side; custom20/5 sizes at61kg give60kg total and1kg
+shortfall. Below-bar validation and lb preset135/45/45 each-side work. Browser
+offline136lb calculates135lb/1lb shortfall; blank target rejects instead of zero.
+First offline assertion hit two unnamed statuses (shell connectivity and result);
+added accessible result name Plate calculation and reran successfully.
+Only harness favicon404 console error, no application exception observed.
+Screenshot: `output/playwright/plate121-mobile.png` (ignored evidence).
+TypeScript/build rerun after accessible-name change pass. Next: Android package
+build and final source/docs/Git review. Watch remains untouched.
+
+## Iteration 125 — 2026-10-08 — Phone packaging and commit review
+
+Status: **Five phone/PWA iterations complete; validated for commit.** Copied updated production assets with
+`npx cap copy android`. Initial Gradle target `:phone:assembleDebug` does not exist;
+repository phone module is `:app`, corrected build pending. Review source,
+roadmap and whitespace; recheck Git before authorized commit. Stage19 stays
+77/97, physical7/27,20 open. No physical installation or device acceptance is
+claimed. Next: finish packaging check, commit if clean, then choose next phone
+feature or resume physical checks once watch is charged.
+
+Iteration125 closure: corrected `./gradlew :app:assembleDebug --offline` passes
+(110 tasks); APK bundled JS/CSS byte-match production assets. Five domain test
+groups, TypeScript, production build, Capacitor copy, mobile/offline browser
+checks and whitespace pass. Source review confirms pure bounded allocation,
+local form state, no App composition/domain or durable/native schema changes.
+Rechecked Git: seven owned source/test/docs paths only, HEAD5b7e759. Calculator
+code/browser/package complete; physical phone install and actual device checks
+pending. Commit authorized checkpoint; physical7/27 and Stage19 77/97 unchanged.
+Next: independent RPE/RIR or phone usability work, or resume physical protocol
+when watch is charged. No reliable overall finish ETA follows checklist ratios.

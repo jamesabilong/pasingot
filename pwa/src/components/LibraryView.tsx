@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PlateCalculator } from './PlateCalculator';
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { EstimateSummary, LevelPicker } from './SummaryCards';
 import { CUSTOM_EXERCISE_CATEGORIES, customExerciseDisplayName, type CustomExerciseDraft } from '../lib/custom-exercises';
@@ -74,6 +75,7 @@ export function LibraryView({
   const [quickSelection, setQuickSelection] = useState<number[]>([]);
   return (
     <section className="library-view space-y-5">
+      <PlateCalculator />
       <div className="space-y-3">
         <div className="section-heading">
           <div><p className="section-kicker">Build</p><h2 className="text-base font-semibold text-slate-200">Exercise library</h2></div>

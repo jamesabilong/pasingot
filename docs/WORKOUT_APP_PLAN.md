@@ -1,5 +1,17 @@
 # Workout App Plan
 
+Phone/PWA follow-up — 2026-10-08, Iterations 121–125: user authorizes independent
+phone development while watch physical work is deferred. Library plate calculator
+implemented with kg/lb, editable bar/plate sizes, equal-side minimum allocations,
+closest lower target and validation. Domain tests, TypeScript, production build
+and mobile/offline browser checks pass; Android phone APK build and asset
+identity checks pass. Code checkpoint validated for commit; physical phone
+installation/acceptance pending.
+Stage19 remains **77/97**, physical **7/27**, **20 open**; watch untouched.
+Calculator assumes sufficient pairs; drafts are temporary, inventory/persistence
+are outside this scope. This supersedes plate-calculator deferral below only.
+
+
 Physical validation deferred — 2026-10-08, Iteration 120: user removed Watch7
 connectivity to conserve low battery and has no charger. Physical tests and
 watch reconnection/radio attempts stop until charged/reconnected. Latest debug

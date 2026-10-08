@@ -1,5 +1,17 @@
 # Feature Gap Roadmap
 
+Phone/PWA follow-up — 2026-10-08, Iterations 121–125: user authorizes independent
+phone development while watch physical work is deferred. Library plate calculator
+implemented with kg/lb, editable bar/plate sizes, equal-side minimum allocations,
+closest lower target and validation. Domain tests, TypeScript, production build
+and mobile/offline browser checks pass; Android phone APK build and asset
+identity checks pass. Code checkpoint validated for commit; physical phone
+installation/acceptance pending.
+Stage19 remains **77/97**, physical **7/27**, **20 open**; watch untouched.
+Calculator assumes sufficient pairs; drafts are temporary, inventory/persistence
+are outside this scope. This supersedes plate-calculator deferral below only.
+
+
 Physical validation deferred — 2026-10-08, Iteration 120: user removed Watch7
 connectivity to conserve low battery and has no charger. Physical tests and
 watch reconnection/radio attempts stop until charged/reconnected. Latest debug
@@ -395,7 +407,7 @@ importance in general.
 | ✅ Done | Weight/load per set | Log kg/lb alongside reps, per set | Strong, Hevy, JEFIT, Fitbod (universal) | High | Implemented: `loadWeight`/`loadUnit` on `WorkoutRow`, `PlaylistItem`, and the new `WorkoutSetLog` store (Stage 12, `pwa/src/types.ts`, `pwa/src/lib/db.ts`). |
 | ✅ Done | Personal record (PR) tracking | Auto-detect new weight/rep/volume PRs, surface at log time | Hevy, Strong, JEFIT | High | Implemented: `buildStrengthPersonalRecords` in `pwa/src/lib/strength-analytics.ts`, surfaced in History (Stage 13). |
 | ✅ Done | 1RM estimate | Estimate one-rep max from submax sets (Epley/Brzycki-style) | JEFIT, Strong, Hevy, Fitbod | Medium | Implemented: `estimatedOneRepMax` in `strength-analytics.ts`, hidden for bodyweight/duration-only logs (Stage 13). |
-| | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Still open — explicitly deferred in Stage 13's notes ("Deferred RPE/RIR and plate calculator controls for a later opt-in stage"). |
+| ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
 | | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Still open — same Stage 13 deferral as the plate calculator. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
