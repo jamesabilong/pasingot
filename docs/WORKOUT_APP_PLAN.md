@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA editor-state checkpoint — 2026-10-08, Iterations151–155: fixed same-time
+sessions on different days reusing an open editor. Day/time identity closes old
+forms on day switch; move captures source rows and rejects later prescription
+changes; picker waits during pending update.135 headless checks, mobile smoke,
+TypeScript, production build and phone APK/asset identity pass. No data/native
+schema change. Physical installation pending; Stage19 remains77/97,physical7/27,
+20open,watch untouched. Recovery checkpoint committed as `2f5968c`. Pre-fix
+reproduction failure retained separately from accepted evidence.
+
+
 Phone/PWA schedule recovery checkpoint — 2026-10-08, Iterations146–150: committed
 weekly edits stay successful when later screen/cache refresh fails; visible retry
 loads current saved rows and updates view/phone cache without repeating edits or

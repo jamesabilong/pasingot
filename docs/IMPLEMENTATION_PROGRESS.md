@@ -7094,3 +7094,65 @@ Physical acceptance remains deferred: Stage19 77/97,physical7/27,20open,watch
 uncontacted. Latest equipment checkpoint560aa0d supersedes old uncommitted labels.
 Commit next; independent planning features and real-device acceptance remain
 separate. No reliable overall completion ETA; headless preference retained.
+
+
+## Iteration 151 — 2026-10-08 — Weekly editor state audit/reproduction
+
+Status: **Implementation in progress.** Start2f5968c, clean tree. Read plan/latest
+progress/React instructions. Reproduce in headless isolated DB: open move on
+currentday07:00, switch to another day with same07:00; old form survives due to
+parent time-only key. Test fails at this assertion before changes, no mutation.
+Also review move form using live rows after opening, unlike captured removal
+confirmation: concurrent prescription/group changes could expand move scope.
+Use day/time key and captured move source, guard day picker during pending edit;
+retain normal DB stale validation. No native/watch schema change or contact.
+Next: corrected day-switch/stale-prescription/busy-picker regression.
+
+
+Iteration151 closure: retained pre-fix failure proves real cross-day form reuse;
+reproduction touches only disposable DB. Next: source identity and scope fix.
+
+## Iteration 152 — 2026-10-08 — Source-scoped planning form fix
+
+Status: **Implementation and static review complete.** Weekly session key now
+includes selected weekday/time. Move form captures row snapshot on open, uses
+captured source label/count/no-op check, and submits that snapshot to existing
+atomic stale-group validator. Day picker disabled during pending editing/publish;
+reenables afterward. Removal snapshot and retry behavior preserved. Corrected
+singular exercise accessibility count. Component-local display state only; no
+App/hook/schema/native contract change. TypeScript/whitespace pass. Next: full
+state regression including pending-day navigation.
+
+## Iteration 153 — 2026-10-08 — Editor state regression and mobile smoke
+
+Status: **15 new headless checks pass.** Cross-day same07:00 move form closes;
+other day opens its own source/default; cross-day removal confirmation closes;
+browsing/cancellation does not mutate schedule. Changed prescription after form
+opening rejects stale move without altering new data. Reopening moves exact
+current group and leaves other day unchanged. Deferred cache update makes picker
+busy/disabled, clicking cannot redirect pending editor, then re-enables normally.
+Normal Playwright mobile day switching confirms both forms close correctly;
+390×844 screenshot reviewed;320×740 width/content320. Evidence:
+output/playwright/editor153-mobile.png ignored. Pre-fix test failure retained
+separately from passing evidence. Next: inherited planning/session/sync suite.
+
+## Iteration 154 — 2026-10-08 — Planning regression and packaging
+
+Status: **135 headless assertions pass.** New editor15 plus existingmove18,
+removal22,recovery19,session-integrity27,Today12,watch-sync22. Expected fixture
+native failures remain test-only; no watch/device contact. TypeScript, production
+build, Capacitor copy and whitespace pass. Phone`:app:assembleDebug --offline`
+succeeds; bundled JS/CSS match final production assets. No personal schedule
+mutation or physical installation claimed. Next: source/docs/Git final review.
+
+## Iteration 155 — 2026-10-08 — Reviewed weekly editor checkpoint
+
+Status: **Five review/implementation iterations complete; validated for commit.**
+Source review confirms per-source component identity, captured move/removal scope,
+atomic stale rejection and pending-navigation guard; no durable data shape changes.
+App composition unchanged, existing mutation/retry workflow reused. Recheck Git
+only owned source/test/docs paths, HEAD2f5968c. Physical acceptance still deferred:
+Stage19 77/97,physical7/27,20open,watch untouched. Recovery checkpoint2f5968c
+supersedes historical uncommitted labels. Commit next; remaining independent
+feature choices and physical installation/charged-watch acceptance remain open.
+No reliable overall ETA; preserve headless test preference.

@@ -24,7 +24,7 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
     <div className="week-picker" aria-label="Choose a schedule day">
       {days.map((day) => {
         const count = workouts.filter((row) => row.day === day).length;
-        return <button key={day} type="button" aria-pressed={day === selectedDay} aria-label={`${day}${day === today ? ', today' : ''}, ${count} exercises`} onClick={() => setSelectedDay(day)}>
+        return <button key={day} type="button" disabled={scheduleEditor?.busy} aria-pressed={day === selectedDay} aria-label={`${day}${day === today ? ', today' : ''}, ${count} ${count === 1 ? 'exercise' : 'exercises'}`} onClick={() => setSelectedDay(day)}>
           <span>{day.slice(0, 3)}</span><strong>{count || '—'}</strong><small>{day === today ? 'Today' : count ? 'Plan' : 'Rest'}</small>
         </button>;
       })}
@@ -33,7 +33,7 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
       <div className="section-heading"><h3>{selectedDay}</h3><span>Repeats weekly</span></div>
       {sessions.length ? sessions.map((time) => {
         const sessionRows = rows.filter((row) => row.time === time);
-        return <div key={time} className="week-session">
+        return <div key={`${selectedDay}:${time}`} className="week-session">
           <div className="week-session__heading"><strong>{time}</strong><span><Clock3 size={14} aria-hidden="true" /> {formatEstimatedDuration(estimateWorkoutDurationSeconds(sessionRows, estimateLevelFor(sessionRows)))}</span></div>
           <ul>{sessionRows.map((row, index) => <li key={row.id ?? index}><span>{row.exercise}</span><span>{row.sets} × {row.reps}{row.loadWeight != null ? ` · ${row.loadWeight} ${row.loadUnit ?? 'kg'}` : ''}</span></li>)}</ul>
           {scheduleEditor && <WeeklySessionEditor rows={sessionRows} editor={scheduleEditor} onMoved={setSelectedDay} />}

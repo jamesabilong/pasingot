@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Weekly editor state checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React,{useState}from'react';import{createRoot}from'react-dom/client';import{flushSync}from'react-dom';
+import{WeeklyPlan}from'/src/components/WeeklyPlan.tsx';import{useScheduleEditing}from'/src/hooks/useScheduleEditing.ts';
+import{WEEKDAYS}from'/src/types.ts';import{getAll,replaceStores,STORES}from'/src/lib/db.ts';import'/src/styles.css';
+const factory=window.indexedDB,database=`pasingot-editor-state-${crypto.randomUUID()}`;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>factory.open(database,version)}});window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const day=new Date().toLocaleDateString('en-US',{weekday:'long'}),nextDay=WEEKDAYS[(WEEKDAYS.indexOf(day)+1)%7];
+const base={schemaVersion:1,day,time:'07:00',sets:2,reps:'8',rest:30};const rows=[{...base,id:1,exercise:'Test squat'},{...base,id:2,exercise:'Test press'},{...base,id:3,day:nextDay,exercise:'Other day squat'}];
+const originalCapacitor=window.Capacitor;let updateView,api;const root=createRoot(document.getElementById('root'));
+function Harness(){const[workouts,setWorkouts]=useState(rows);updateView=setWorkouts;api=useScheduleEditing({blocked:false,onScheduleChanged:setWorkouts});return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(WeeklyPlan,{workouts,today:day,onBuildPlan:()=>{},scheduleEditor:{...api,blocked:false}}));}
+const button=text=>[...document.querySelectorAll('button')].find(el=>el.textContent.trim()===text);
+const choose=selected=>[...document.querySelectorAll('.week-picker button')].find(el=>el.getAttribute('aria-label').startsWith(selected+','));
+async function setTime(value){const input=document.querySelector('input[type=time]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));await settle();}
+try{
+ await replaceStores({workouts:rows,logs:[],setLogs:[],sessionEvents:[],appState:[]});flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ button('Move weekly session').click();await settle();check(Boolean(document.querySelector('form')),'Source move form opens');
+ choose(nextDay).click();await settle();check(!document.querySelector('form'),'Switching to same-time session on another day closes old move form');
+ button('Move weekly session').click();await settle();check(document.querySelector('form').getAttribute('aria-label')===`Move ${nextDay} 07:00 session`,'Other day opens its own source form');
+ check(document.querySelector('select').value===nextDay,'Other-day move default matches its source day');
+ button('Cancel').click();await settle();button('Remove weekly session').click();await settle();check(Boolean(button('Confirm removal')),'Removal confirmation opens');
+ choose(day).click();await settle();check(!button('Confirm removal'),'Switching day closes other-day removal confirmation');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows),'Day browsing and cancelled controls do not mutate schedule');
+ button('Move weekly session').click();await settle();await setTime('08:00');
+ const edited=rows.map(row=>row.id===1?{...row,reps:'12'}:row);await replaceStores({workouts:edited});flushSync(()=>updateView(edited));await settle();
+ document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
+ check(api.result?.error&&api.result.message.includes('changed'),'Prescription change after form opening rejects stale move');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(edited),'Rejected stale move keeps new prescription and source time');
+ button('Cancel').click();await settle();button('Move weekly session').click();await settle();await setTime('08:30');
+ document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await settle();await settle();
+ const moved=await getAll(STORES.workouts);check(moved[0].time==='08:30'&&moved[0].reps==='12'&&moved[1].time==='08:30','Reopened form uses current prescription and moves exact group');
+ check(moved[2].day===nextDay&&moved[2].time==='07:00','Other-day session stays exact');
+ await replaceStores({workouts:rows});flushSync(()=>updateView(rows));await settle();
+ let release;
+ window.Capacitor={Plugins:{ScheduleSync:{syncSchedule:()=>new Promise(resolve=>{release=resolve;})}}};
+ button('Move weekly session').click();await settle();await setTime('09:30');
+ document.querySelector('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+ for(let i=0;i<60&&!release;i++)await settle();
+ check(Boolean(release)&&api.busy,'Pending update reaches busy state');
+ check(choose(nextDay).disabled,'Day picker disabled while edit publishes');
+ choose(nextDay).click();await settle();check(document.querySelector('.week-preview h3').textContent===day,'Disabled picker cannot carry pending form to another day');
+ release();await settle();await settle();check(!choose(nextDay).disabled,'Day picker re-enabled after update finishes');
+ window.Capacitor=originalCapacitor;
+ await replaceStores({workouts:rows});flushSync(()=>updateView(rows));await settle();api.clearResult();await settle();
+ window.readEditorRows=()=>getAll(STORES.workouts);
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}finally{window.Capacitor=originalCapacitor;}
+</script></html>
