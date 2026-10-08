@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Physical validation deferred — 2026-10-08, Iteration 120: user removed Watch7
+connectivity to conserve low battery and has no charger. Physical tests and
+watch reconnection/radio attempts stop until charged/reconnected. Latest debug
+probe failed before a remote shell; no successful radio change or test Send is
+recorded, and phone native requests remain exact. No new acceptance item closes:
+Stage19 **77/97 (79%)**, physical **7/27**, **20 checks remain**. This supersedes
+the pending wake/readiness request. Resume with fresh battery/radio/session
+inventory, then disconnected behavior and remaining physical acceptance.
+
+
 Physical entry checkpoint — 2026-10-08, Iterations 115–119: current five-item
 Library playlist arrives with exact order/prescriptions; explicit selected
 Bird Dog→Walking reorder and Today Run row11/date/ID/2sets/10min/120s/5kg pass.

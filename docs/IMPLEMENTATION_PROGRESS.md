@@ -6646,3 +6646,48 @@ Commit physical delivery/reopen evidence checkpoint; physical7/27 and Stage19
 restart and unsynced reboot, then physical cue/audio/accessibility/ambient,
 60–90min measured battery and Play/mixed-version acceptance. Broader acceptance
 remains open; failed first selection attempt is retained and not counted.
+
+## Iteration 120 — 2026-10-08 — Physical disconnected send behavior
+
+Status: **Physical execution deferred: user removed watch connectivity to conserve battery; no acceptance closed.**
+
+User continues after committed physical entry checkpoint7f6a54c; worktree initially
+clean. Read plan/latest progress/React instructions. Both Watch7 IP and mDNS ADB
+transports refer to same physical device; use explicit verified serial throughout.
+Capture current phone/watch private baseline and exact original watch Bluetooth/
+WiFi settings. Temporarily disable watch Bluetooth only (WiFi debug retained),
+open normal Library confirmation and require unavailable actionable wording,
+disabled Send and unchanged request/runtime/package stores. Restore original
+Bluetooth in finally, verify readiness returns. Next: disconnected observation,
+radio restoration/preservation, then duplicate send/active nonreplacement.
+
+Iteration120 retained setup failure: explicit watch IP transport becomes offline
+before remote radio command; radio-restore.log reports adb:device offline.
+Disconnected UI still shows enabled Send, so no acceptance inferred. Device
+setting read/restore over same stale transport fails; reconnect freshly advertised
+exact Watch7 endpoint and verify original Bluetooth before retry. No Send action
+was performed; retain this probe separately from a successful radio test.
+
+Iteration120 current blocker: fresh Watch7 connect attempt cannot obtain a live
+transport; both exact serials are unavailable. Ask user to wake watch/retain
+wireless debugging, because debug absence is not Data Layer disconnection.
+Phone native request file remains byte-exact after failed probe; no Send/no new
+request. Preserve current native Wearable readiness separately and require
+verified live watch/original radio read before any retry or passing claim.
+Remaining physical cases are not executed while device inspection is blocked.
+
+Iteration120 handoff — user clarifies they deliberately removed watch
+connectivity because battery is low and no charger is available. This supersedes
+the pending wake/ready request and debug-reconnect diagnosis. Stop physical
+work and all watch reconnection/radio attempts. Remote radio probe log reports
+adb:device offline before it could establish a shell; no successful radio
+mutation or test Send is recorded. Phone native requests remain byte-exact,
+current phone Data Layer peer observation is partial readiness, not a passed
+disconnected UI check. Remove only verified phone-side task debug bridge;
+watch is not contacted for cleanup. Retain failed/setup evidence and current
+baseline. Stage19 remains77/97(79%),physical7/27,20 open. Iteration120 remains
+physically unvalidated; five-iteration batch120–124 is not completed or counted.
+Next when charged/reconnected: verify actual watch battery/connectivity/original
+radio settings and no active personal session, then retry disconnected case
+before duplicate/nonreplacement/expiry/restart/reboot checks. Docs/whitespace
+and Git review can pass independently; no new app source/APK change made.
