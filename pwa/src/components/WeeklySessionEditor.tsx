@@ -7,6 +7,8 @@ export type ScheduleEditorProps = {
   result: { error: boolean; message: string } | null;
   move: (rows: WorkoutRow[], day: Weekday, time: string) => Promise<boolean>;
   remove?: (rows: WorkoutRow[]) => Promise<boolean>;
+  retry?: () => Promise<boolean>;
+  retryPending?: boolean;
   clearResult: () => void;
 };
 

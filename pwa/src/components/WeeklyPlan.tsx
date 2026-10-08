@@ -42,6 +42,7 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
     </div>
     {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before changing a weekly session.</p>}
     {scheduleEditor?.result && <p role={scheduleEditor.result.error ? 'alert' : 'status'} className={scheduleEditor.result.error ? 'text-sm text-amber-300' : 'text-sm text-emerald-300'}>{scheduleEditor.result.message}</p>}
+    {scheduleEditor?.retryPending && scheduleEditor.retry && <button type="button" className="secondary-action" disabled={scheduleEditor.busy} onClick={() => void scheduleEditor.retry?.()}>Retry schedule update</button>}
     <button type="button" className="secondary-action" onClick={onBuildPlan}>Build a playlist</button>
   </section>;
 }

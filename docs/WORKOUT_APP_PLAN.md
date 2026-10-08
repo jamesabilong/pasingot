@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA schedule recovery checkpoint — 2026-10-08, Iterations146–150: committed
+weekly edits stay successful when later screen/cache refresh fails; visible retry
+loads current saved rows and updates view/phone cache without repeating edits or
+sending watch workouts.120 headless assertions, mobile smoke, TypeScript,
+production build and phone APK/asset identity pass. Retry state is in-memory;
+existing startup cache refresh remains. Physical installation pending, Stage19
+stays77/97,physical7/27,20open; watch untouched. Equipment checkpoint committed
+as `560aa0d`. This supersedes reopen-only recovery wording for weekly edit failures.
+
+
 Phone/PWA equipment checkpoint — 2026-10-08, Iterations141–145: plate calculator
 now explicitly saves separate kg/lb bar/plate-size presets and last saved unit,
 with default-reset controls and full backup compatibility.107 headless browser

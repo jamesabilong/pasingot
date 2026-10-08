@@ -7030,3 +7030,67 @@ HEADe0619c8. Physical install pending; Stage19 stays77/97,physical7/27,20open,
 watch disconnected/uncontacted. Latest removal checkpointe0619c8 supersedes old
 uncommitted labels. Commit reviewed checkpoint next; date-specific planning and
 supersets remain separate future candidates, actual device acceptance deferred.
+
+
+## Iteration 146 — 2026-10-08 — Schedule edit recovery audit
+
+Status: **Implementation in progress.** Start560aa0d, clean tree. Read plan/latest
+progress/React instructions. Review finds committed weekly edits can be reported
+as failed if UI/player refresh callback throws; native-cache failure otherwise
+requires app reopen. Separate durable commit from post-commit publish, keep true
+edit result after saved data, expose retry using current DB rows, never replay
+move/removal. Retry warning remains through form cancellation. No new durable
+schema or actual watch contact; headless tests next for callback/native/read
+failure, current-data retry and overlapping actions. Physical20checks stay open.
+
+
+Iteration146 closure: separate saved mutation from view/cache publishing in named
+hook; failure now preserves successful edit result and offers retry. Static checks
+and source review pass. Next: failure/retry regression evidence.
+
+## Iteration 147 — 2026-10-08 — Current-data schedule retry regression
+
+Status: **19 new headless isolated-DB checks pass.** Injected view failure after
+move returns committed success, preserves rows, makes no premature cache call,
+and retains warning through clear/cancel. Repeated publish failure keeps retry;
+newer edited/restored DB rows supersede failed snapshot when retry succeeds.
+Success clears pending retry and redundant retry is suppressed. Removal cache
+failure keeps committed removal; DB read failure remains actionable. Deferred
+retry suppresses overlapping retry/edit. Retry works while unfinished workout
+blocks new edits, without mutating cursor/schedule/history. Mocked watch Send
+counter stays0: updating local phone cache never sends/starts watch workout.
+Retry pending state belongs to current app hook; full restart retains existing
+startup cache-refresh behavior, no durable retry queue added. Next: mobile UI.
+
+## Iteration 148 — 2026-10-08 — Mobile recovery affordance
+
+Status: **Headless UI smoke passes.** WeeklyPlan shows Retry schedule update only
+for post-commit recovery, disables while busy; row form opening/Cancel retains
+warning. Normal retry clears warning/button and shows success, exact saved rows
+and history preserved.390×844 screenshot reviewed;320×740 width/content320.
+Evidence output/playwright/recovery148-{warning,success}.png ignored. Optional
+editor props preserve old harnesses/screens; App wiring unchanged. No watch
+contact/personal DB mutation. Next: existing edit/removal/session/bridge checks.
+
+## Iteration 149 — 2026-10-08 — Regression and composition review
+
+Status: **120 headless browser assertions pass.** Recovery19 plus existing
+move18,removal22,session-integrity27,Today12,watch-sync22. Expected injected
+native failures log separately; harness favicon404 unrelated. Hook handles DB
+mutation, async publishing/retry and concurrency; WeeklyPlan owns button/display.
+Pure transaction still protects active sessions and history; retry only reads
+current schedule and publishes it. No native payload/schema/backup changes or
+new background loop. TypeScript, production build, Capacitor copy and whitespace
+pass. Next: phone APK identity/Git recheck and authorised commit.
+
+## Iteration 150 — 2026-10-08 — Schedule recovery checkpoint
+
+Status: **Five implementation/review iterations complete; validated for commit.**
+Phone`:app:assembleDebug --offline` passes (110tasks), APK JS/CSS byte-match final
+production artifacts. No physical installation claimed. Recheck Git only owned
+source/test/docs paths, HEAD560aa0d. Save success distinguished from later callback/
+cache failure; retry never replays original edit or pushes stale captured rows.
+Physical acceptance remains deferred: Stage19 77/97,physical7/27,20open,watch
+uncontacted. Latest equipment checkpoint560aa0d supersedes old uncommitted labels.
+Commit next; independent planning features and real-device acceptance remain
+separate. No reliable overall completion ETA; headless preference retained.

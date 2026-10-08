@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Schedule recovery checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{flushSync}from'react-dom';
+import{useScheduleEditing}from'/src/hooks/useScheduleEditing.ts';import{WeeklyPlan}from'/src/components/WeeklyPlan.tsx';
+import{getAll,replaceStores,STORES}from'/src/lib/db.ts';import{newPwaSession}from'/src/lib/workout-session.ts';import'/src/styles.css';
+const factory=window.indexedDB,database=`pasingot-recovery-${crypto.randomUUID()}`;let readFails=false;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>{if(readFails)throw Error('Expected read failure');return factory.open(database,version);}}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const day=new Date().toLocaleDateString('en-US',{weekday:'long'}),base={schemaVersion:1,day,time:'07:00',sets:2,reps:'8',rest:30};
+const rows=[{...base,id:1,exercise:'Test squat'},{...base,id:2,exercise:'Test press'},{...base,id:3,time:'09:00',exercise:'Other session'}];
+const history=[{id:1,schemaVersion:1,date:new Date().toISOString(),exercise:'Test squat',workoutRowId:1,status:'done'}];
+let api,blocked=false,viewFails=false,nativeFails=false,views=[],calls=[],release,hold=false,watchSends=0;
+const original=window.Capacitor;window.Capacitor={Plugins:{ScheduleSync:{syncSchedule:async payload=>{calls.push(structuredClone(payload.rows));if(hold)await new Promise(resolve=>release=resolve);if(nativeFails)throw Error('Expected native failure');},sendTodayToWatch:async()=>{watchSends++;throw Error('No watch sends allowed');}}}};
+const root=createRoot(document.getElementById('root'));
+function Harness(){const[workouts,setWorkouts]=useState(rows);api=useScheduleEditing({blocked,onScheduleChanged:async value=>{views.push(structuredClone(value));if(viewFails)throw Error('Expected view failure');setWorkouts(value);}});return React.createElement('main',{style:{maxWidth:'560px',padding:'16px',margin:'auto'}},React.createElement(WeeklyPlan,{workouts,today:day,onBuildPlan:()=>{},scheduleEditor:{...api,blocked}}));}
+const reset=()=>replaceStores({workouts:rows,logs:history,setLogs:[],sessionEvents:[],appState:[]});
+try{
+ await reset();flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ viewFails=true;
+ check(await api.move(rows.slice(0,2),day,'08:00'),'Committed move returns success despite later view failure');await settle();
+ check(api.retryPending&&api.result.message.includes('moved on this phone')&&api.result.message.includes('view'),'View failure identifies saved local edit and offers retry');
+ check((await getAll(STORES.workouts))[0].time==='08:00'&&calls.length===0,'View failure preserves commit and does not claim cache success');
+ api.clearResult();await settle();check(api.result.error,'Form cancellation does not hide pending recovery warning');
+ check(!await api.retry(),'Repeated view failure keeps retry pending');await settle();check(api.retryPending,'Failed retry keeps recovery available');
+ const latest=[{...rows[0],time:'10:00'},{...rows[1],time:'10:00'},rows[2],{...base,id:4,time:'11:00',exercise:'New session'}];
+ await replaceStores({workouts:latest});viewFails=false;
+ check(await api.retry(),'Successful retry refreshes saved view/cache');await settle();
+ check(JSON.stringify(calls.at(-1))===JSON.stringify(latest)&&JSON.stringify(views.at(-1))===JSON.stringify(latest),'Retry loads current database instead of obsolete failed snapshot');
+ check(!api.retryPending&&!api.result.error&&!await api.retry(),'Successful retry clears pending state and redundant retry is suppressed');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(latest)&&JSON.stringify(await getAll(STORES.logs))===JSON.stringify(history),'Retry does not repeat edit or alter history');
+ await reset();nativeFails=true;
+ check(await api.remove(rows.slice(0,2)),'Committed removal returns success after cache failure');await settle();
+ check(api.retryPending&&api.result.message.includes('removed on this phone'),'Cache failure distinguishes committed removal');
+ readFails=true;check(!await api.retry(),'Database read failure cannot update cache');readFails=false;await settle();
+ check(api.retryPending&&api.result.message.includes('read the saved schedule'),'Read failure remains actionable');
+ const cursor=newPwaSession([rows[2]]);await replaceStores({appState:[cursor]});blocked=true;flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ nativeFails=false;hold=true;const pendingRetry=api.retry();
+ for(let i=0;i<30&&!release;i++)await settle();check(Boolean(release),'Retry reaches deferred cache update');
+ check(!await api.retry()&&!await api.move([rows[2]],day,'12:00'),'Overlapping retry and edit are suppressed');
+ hold=false;release();release=null;check(await pendingRetry,'Retry is allowed while workout blocks new edits');await settle();
+ check((await getAll(STORES.appState))[0].status==='active'&&(await getAll(STORES.workouts)).length===1,'Retry preserves unfinished cursor and remaining session');
+ check(watchSends===0,'Cache recovery never sends or starts a watch workout');
+ // Leave a failed owned move for normal UI retry smoke, then restore real bridge.
+ blocked=false;await reset();flushSync(()=>root.render(React.createElement(Harness)));await settle();nativeFails=true;
+ await api.move(rows.slice(0,2),day,'08:15');await settle();
+ window.readRecoveryRows=()=>getAll(STORES.workouts);window.readRecoveryHistory=()=>getAll(STORES.logs);
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){readFails=false;document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}finally{window.Capacitor=original;}
+</script></html>
