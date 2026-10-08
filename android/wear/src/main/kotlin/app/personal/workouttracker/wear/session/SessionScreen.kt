@@ -1,5 +1,6 @@
 package app.personal.workouttracker.wear.session
 
+import android.os.PowerManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,13 +72,17 @@ fun SessionScreen(viewModel: SessionViewModel, onCancel: () -> Unit) {
         viewModel.onCancel(onCancel)
     }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current.applicationContext
+    val powerManager = remember(context) { context.getSystemService(PowerManager::class.java) }
     val interactive by rememberUpdatedState(presentation.allowInteraction)
-    DisposableEffect(lifecycleOwner, viewModel) {
+    DisposableEffect(lifecycleOwner, viewModel, powerManager) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> viewModel.onScreenVisibilityChanged(interactive)
                 Lifecycle.Event.ON_PAUSE -> viewModel.onScreenVisibilityChanged(false)
-                Lifecycle.Event.ON_STOP -> viewModel.saveOnExitIfActive()
+                // AOD-off devices also STOP at natural screen sleep. That is
+                // visibility loss, not a deliberate workout exit.
+                Lifecycle.Event.ON_STOP -> viewModel.onScreenStopped(powerManager?.isInteractive ?: true)
                 else -> Unit
             }
         }

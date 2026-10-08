@@ -1,5 +1,29 @@
 # Watch Quick Start Plan
 
+Physical checkpoint — 2026-10-08, Iterations 113–114: normal Library Walking
+Ready and open-phone Started pass on S25/Watch7. Natural screen sleep reproduces
+an unwanted APP_CLOSED pause; corrected ON_STOP distinguishes noninteractive
+screen sleep from deliberate exit. 231 Wear tests and both Wear APK targets
+pass; in-place update preserves all seven watch stores. Real Dozing retains
+exact running deadline, Home still pauses, indicator returns to exact session,
+and wake completes1/1 with actual phone result/receipt, pruning and ID3 removal.
+Phone rows/logs/events/set logs and watch legacy/settings remain exact; changed
+playlist draft is retained and documented separately. Stage19 **73/97 (75%)**,
+physical **3/27**, **24 checks remain**. This supersedes earlier locked-phone/
+no-device and timeout-pending labels for the validated screen-sleep pathway;
+ambient UI/audio/TalkBack/routing, recovery/battery/Play checks remain pending.
+Next: physical playlist/reordered selection/Today and reopened-phone Started.
+
+
+Physical readiness — 2026-10-08, Iteration 113: S25/Watch7 are now connected
+through wireless ADB; both installed APK hashes match validated builds and
+reciprocal nearby peers pass. Watch is off charger at 45%, notifications granted,
+15s screen timeout. Phone/watch baselines retained; no unfinished session found.
+The S25 is securely locked, so visible timed UI acceptance awaits user unlock
+and watch wear/wake readiness. No test workout sent/started; counts remain
+71/97 overall and 1/27 physical. This supersedes the no-device readiness below.
+
+
 Current progress audit — 2026-10-08, Iteration 108: committed production
 checkpoint `5014ec8` and reinstall evidence `857ebe6`; worktree initially clean.
 Stage 19 remains **71/97 (73%)**, physical **1/27**, with **26 checks open**.
@@ -1294,19 +1318,19 @@ Exit checks:
 
 ### Phase 4 — Paired-device acceptance
 
-Status: **Physical acceptance underway on S25/Watch7; 1/27 complete (inventory); 26 checks remain**
+Status: **Physical acceptance underway on S25/Watch7; 3/27 complete (inventory, single Library Ready, open-phone Started); 24 checks remain**
 
 Track emulator UI observations separately in
 [Device acceptance](DEVICE_ACCEPTANCE.md) and the latest implementation iteration.
 These physical checklist boxes are not closed by emulator-only evidence.
 
-- [ ] Connected: one Library exercise reaches the watch and shows Ready.
+- [x] Connected: one Library exercise reaches the watch and shows Ready. Physical Walking 1 × 3min / 0s, exact paired package and Ready screens (Iteration 113).
 - [ ] Connected: the current Library playlist arrives in the same order with
       exact per-item prescriptions.
 - [ ] Connected: an explicit multi-selection can be reordered and arrives in
       that order.
 - [ ] Connected: Today row uses its exact sets/reps/rest/load prescription.
-- [ ] Start acknowledgement reaches the phone while it is open.
+- [x] Start acknowledgement reaches the phone while it is open. Exact physical request Started receipt and open phone UI (Iteration 113).
 - [ ] Start acknowledgement reconciles after the phone app is reopened.
 - [ ] Disconnected watch produces actionable phone wording and no stale workout.
 - [ ] Active watch workout is never replaced.

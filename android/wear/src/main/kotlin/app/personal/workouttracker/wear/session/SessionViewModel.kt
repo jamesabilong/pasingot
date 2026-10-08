@@ -336,7 +336,7 @@ class SessionViewModel(
         synchronizeRestTimer()
     }
 
-    /** Called from the screen's exit hooks (back press / lifecycle ON_STOP).
+    /** Called from deliberate screen exit hooks (back press / interactive stop).
      *  A no-op if the session isn't currently "active" (e.g. already paused
      *  or completed) so it can't clobber a completed session on exit. */
     fun saveOnExitIfActive() {
@@ -344,6 +344,13 @@ class SessionViewModel(
             if (session.status == SessionStatus.ACTIVE)
                 SessionChange(pauseSession(session, SessionStopReason.APP_CLOSED)) else null
         }
+    }
+
+    /** Screen sleep preserves durable deadlines; foreground wake catches up.
+     * Interactive app exit retains the existing explicit pause policy. */
+    fun onScreenStopped(deviceInteractive: Boolean) {
+        onScreenVisibilityChanged(false)
+        if (deviceInteractive) saveOnExitIfActive()
     }
 
     /** Only redraw a visible session. Deadlines preserve rest/elapsed time while hidden. */

@@ -231,6 +231,59 @@ class SessionViewModelTest {
         assertEquals(listOf(SessionStatus.ACTIVE, SessionStatus.PAUSED), sender.snapshots.map { it.status })
     }
 
+    @Test fun `natural screen sleep preserves timed deadline and wake completes only one set`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Walking", "2 sec", sets = 2, rest = 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        advanceTimeBy(750)
+        runCurrent()
+        val active = repository.entry.sessionState
+        val writes = repository.sessionWrites
+        viewModel.onScreenStopped(deviceInteractive = false)
+        viewModel.onScreenStopped(deviceInteractive = false)
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertEquals(active, repository.entry.sessionState)
+        assertEquals(writes, repository.sessionWrites)
+        assertTrue(sender.logs.isEmpty())
+        assertFalse(cues.events.contains("workout-success"))
+
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(2, viewModel.uiState.value.session?.currentSet)
+        assertEquals(listOf(1), viewModel.uiState.value.session?.progress?.completedSets)
+        assertTrue(sender.logs.isEmpty()) // Exercise-level log waits for both sets.
+        val afterWake = repository.entry.sessionState
+        val afterWakeWrites = repository.sessionWrites
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(afterWake, repository.entry.sessionState)
+        assertEquals(afterWakeWrites, repository.sessionWrites)
+    }
+
+    @Test fun `interactive screen stop freezes exact timed remainder once`() = runSessionTest {
+        repository.entry = repository.entry.copy(exercises = listOf(WorkoutExercise("Walking", "3 min", sets = 1, rest = 0)))
+        val viewModel = createSession()
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        advanceTimeBy(750)
+        runCurrent()
+        viewModel.onScreenStopped(deviceInteractive = true)
+        viewModel.onScreenStopped(deviceInteractive = true)
+        runCurrent()
+        val paused = repository.entry.sessionState
+        assertEquals(SessionStatus.PAUSED, paused?.status)
+        assertEquals(179_250L, paused?.pausedTimedSetRemainingMillis)
+        assertEquals(null, paused?.timedSetDeadlineEpochMillis)
+        advanceTimeBy(240_000)
+        viewModel.onScreenVisibilityChanged(true)
+        runCurrent()
+        assertEquals(paused, repository.entry.sessionState)
+        assertTrue(sender.logs.isEmpty())
+        assertEquals(2, repository.sessionWrites)
+    }
+
     @Test fun `pausing rest freezes remaining time until explicit resume`() = runSessionTest {
         val viewModel = createSession()
         viewModel.onScreenVisibilityChanged(true)

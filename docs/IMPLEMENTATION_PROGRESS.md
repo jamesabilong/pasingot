@@ -6370,3 +6370,143 @@ as PST01: Prepare portable physical acceptance validation. All five iterations
 stays open, Stage 19 remains 71/97 and physical 1/27. Next: reconnect S25/Watch7,
 verify current inventory/peers, execute DEVICE_ACCEPTANCE timed protocol,
 then complete remaining paired, audio/accessibility, battery and Play checks.
+
+## Iteration 113 — 2026-10-08 — Physical timed acceptance in progress
+
+Status: **Physical Library Ready/Started validated; failed timeout retained and superseded by Iteration 114 fix.**
+
+User requests starting physical checks. Current checkpoint 44decb0/worktree
+clean. After sandbox listener failure, approved ADB discovers physical S25
+RFCY21CLYDR and Watch7 RFAY11LZ4SR over wireless debug. Portable collector
+executes on the connected pair and reports physical_inventory_ready; both
+installed base APKs match local accepted builds. Watch battery 45%, off all
+chargers; notification permission granted, screen timeout 15000ms. Retain
+inventory, native service peers, current screens and all five existing private
+DataStore files under physical-113-before. Initial phone files/datastore lookup
+fails because phone has no such directory; corrected per-device files listing
+passes. Watch has no Quick Start runtime/package/result files. Legacy yesterday
+entry is completed; today's downloaded entry has no session state. No unrelated
+unfinished workout observed in watch baseline; phone baseline still required.
+Wake/open normal apps for UI readiness; do not replace today's schedule.
+Next: phone baseline, normal Library one-set/3min/0s-rest send and exact Ready/
+Started observations, untouched timeout/wake and return, then result/receipt.
+
+Iteration 113 readiness checkpoint: phone baseline captures all appState,
+workouts, logs, sessionEvents and setLogs (12 rows, 11 logs); no active phone
+workout. Exact protobuf map/value decoding passes for all five watch stores.
+Both installed hashes match historical accepted production artifacts, and
+native services report phone 1a3ea2de ↔ watch 6b45442a nearby. Normal apps are
+opened; screenshots before wake are asleep and do not prove UI rendering.
+Phone keyguard shows secure=true/showing=true/mTrusted=false, confirmed by a
+later read. User unlock/wear/wake readiness requested; no test Send/Start or
+private-store mutation performed. Connected collector baseline is validated;
+physical timed behavior remains blocked on the locked phone. Retain complete
+baseline and readiness-summary.json under physical-113-before. Verified task
+TCP50340 debug bridge removed, no other mapping changed. Counts remain 71/97,
+physical 1/27; iteration stays open. Next: unlock S25 with Pasingot visible,
+wear/wake off-charger Watch7, then normal one-set/3min/0s-rest UI test.
+
+Iteration 113 physical execution: user confirms ready, keyguard false verified.
+Normal Library search Walking → Quick Start on watch → one set / 3min / 0s rest /
+no load; native Send tap hits verified modal center. Actual request
+45359db9-ed46-4308-b340-2ee08cdd6b87 arrives unchanged on Watch7, Ready phone/watch
+screens captured. Native watch Start tap enters five-second gate, durable ACTIVE
+and Started acknowledgement reaches the still-open phone. Ongoing ID3 is present.
+Bixby Listening overlay temporarily takes window focus at 1791423049289,
+returns at 1791423061566; saved timer stays active with deadline1791423200738.
+After no further input, natural system screen_timeout=60 and sleep stop occur
+at 1791423121579–1695. Read-only before-wake capture proves Dozing, PAUSED,
+app_closed, exact79054ms remaining; no timeout acceptance pass. Effective
+PowerManager screen timeout is60000ms despite earlier settings query15000ms;
+no setting changed. Preserve failed run and full event/runtime/notification
+trace under physical-113-{ready,timeout}. Close only Phase4 single Library Ready
+and open-phone Started checks: physical3/27, Stage19 73/97 (75%),24 remaining.
+Next: fix evidenced natural sleep being treated as deliberate exit; repeat
+physical test after native regression/build and in-place state-preserving update.
+
+## Iteration 114 — 2026-10-08 — Natural screen sleep must not pause exercise
+
+Status: **Code/build, natural screen sleep, exact return and actual paired cleanup validated; broader ambient/audio acceptance pending.**
+
+Promote the reproduced defect from Iteration113. ON_STOP always saves active
+session as APP_CLOSED, including AOD-off natural system sleep. Android always-on
+reference separates power-state transition from returning to watch face:
+https://developer.android.com/training/wearables/always-on . Keep existing
+foreground-only timer/output gate and deliberate Home/back/disposal exit pause;
+on lifecycle stop, use actual PowerManager interactive state to distinguish
+natural screen-off from interactive app exit. Preserve durable timer/deadline
+while asleep, catch up one set only on foreground wake, with no wake lock,
+background engine or polling. Next: real engine regressions/build, install -r
+with exact saved-runtime preservation, then same-session physical timeout/wake.
+
+Iteration114 implementation: add onScreenStopped(deviceInteractive) to session
+ViewModel and wire lifecycle ON_STOP to actual PowerManager.isInteractive,
+falling back to deliberate pause when service is unavailable. Visibility/output
+always stop; natural screen sleep preserves deadline without a write, interactive
+exit keeps pause. Back/disposal remain explicit exits. Two real-engine tests
+cover no hidden write/cue/outcome beyond expiry, one-set foreground catch-up,
+and exact179250ms frozen remainder on duplicate interactive stop. First Gradle
+attempt is sandbox-cache denied; approved offline Wear suite/APK targets run.
+Preinstall snapshot confirms original legacy/settings exact, test remainder79054ms.
+
+Iteration114 build recovery: Gradle stalls reading stale generated values2.xml
+while snapshotting merge resources. Preserve thread/file diagnostics, terminate
+only verified owned client15611 and busy daemon10905, use temporary Wear build
+outputs via ignored init script, no source/build-config change. Fresh compile/
+production APK succeeds;231 tests run with one new-test failure: expected set
+completion to emit an exercise-level log before both sets completed. Correct
+that expectation to retained progress/one transition/no duplicate persistence;
+production code unchanged by this correction. Retain failed build log and rerun
+all Wear gates before any device install.
+
+Iteration114 closure: final temporary-output build succeeds in52s,231 Wear
+JVM tests zero failures/errors/skips and production/test APK targets pass. APK
+output paths remain in repo despite temporary intermediates; initial copy-path
+assertion fails (no copy occurs), then actual output metadata/mtime and DEX
+onScreenStopped presence verify the validated source. Install-r succeeds with
+ab72fb12348708874266fffbe369cd464b2341d0382b5e8512bc89bad22e1464 matching installed
+base APK. All seven watch DataStore files compare byte-exact across install.
+
+Physical watch-face dumbbell indicator one tap returns exact paused Walking
+request, preserving79054ms/no new Start. Resume then intentional Home confirms
+PAUSED/app_closed with77047ms, so deliberate exit behavior remains intact.
+Return via indicator, Resume at1791423876143 yields deadline1791423953190.
+Leave untouched: natural Dozing/sleep STOP is captured; runtime remains ACTIVE
+with identical deadline,0 completed sets. After deadline+35489ms, hidden state
+still has0 sets/no unseen advancement. KEYCODE_WAKEUP only (no launch/navigation)
+returns session and completes1/1 once. Watch completed screen and actual phone
+native result/resultReceipt are exact request/result/revision/peer matches.
+Watch runtime/package tombstones and acknowledged cue state prove actual receipt
+pruning; active notification ID3 is absent. Recorded times use their own device
+clock domains; phone/watch timestamps are not assumed synchronized. These are
+physical screen-sleep/wake observations, not proof of the AOD setting or rendered
+ambient UI; earlier AOD-off diagnosis labels mean the observed STOP pathway,
+not a verified user setting. Full ambient/TalkBack/audio/routing stays open.
+
+Final phone IndexedDB compares all12 workout rows,11 logs,2 session events and
+0 set logs exactly. All appState except playlistDraft are exact. Draft level
+changed beginner→advanced and optional absent loads became explicit null between
+Started and final capture; cause not established. Preserve current draft, do
+not restore or claim all appState byte-exact. Legacy watch workouts/settings
+remain byte-exact and queues are empty. Native phone retains exactly one test
+request/result/receipt; no personal schedule/history reset. Initial final CDP
+capture times out while suspended; phone wake read succeeds, normal reopen read
+agrees. Ignored evidence physical-114-{preinstall,postinstall,deliberate-exit,
+resumed,natural-sleep,wake-completion,final,after} and final assertion JSON retained.
+
+Code/source review and whitespace checks pass; only eight owned source/docs files
+changed, HEAD44decb0 before commit. Stage19 now73/97(75%),physical3/27,24 remaining;
+close only the two complete Iteration113 Ready/Started boxes, no broader speech/
+ambient/reboot/battery box. Iteration105 natural screen sleep/return/cleanup is
+now physically validated in this pathway; ambient UI acceptance remains pending.
+Next: physical playlist/reordered selection/Today prescription and reopened-phone
+Started, offline/reboot/nonreplacement cases, audio/accessibility/routing,
+60–90min measured battery and Play/mixed-version checks. Commit validated fix
+and evidence documentation as PST01: Preserve workout timer through physical
+screen sleep; no PWA source change, no new claim for prior JVM/phone APK results.
+
+Final checkpoint review: verified taskTCP50429 bridge removed without touching
+other mappings. Final Git recheck stillHEAD44decb0 with exactly eight owned
+files; native tests/build evidence corresponds to reviewed source. Final physical
+inventory reports both current installed hashes match local builds. Whitespace,
+checklist-count and exact paired cleanup/scoped preservation assertions pass.

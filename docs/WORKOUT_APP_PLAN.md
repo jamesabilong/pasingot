@@ -1,5 +1,29 @@
 # Workout App Plan
 
+Physical checkpoint — 2026-10-08, Iterations 113–114: normal Library Walking
+Ready and open-phone Started pass on S25/Watch7. Natural screen sleep reproduces
+an unwanted APP_CLOSED pause; corrected ON_STOP distinguishes noninteractive
+screen sleep from deliberate exit. 231 Wear tests and both Wear APK targets
+pass; in-place update preserves all seven watch stores. Real Dozing retains
+exact running deadline, Home still pauses, indicator returns to exact session,
+and wake completes1/1 with actual phone result/receipt, pruning and ID3 removal.
+Phone rows/logs/events/set logs and watch legacy/settings remain exact; changed
+playlist draft is retained and documented separately. Stage19 **73/97 (75%)**,
+physical **3/27**, **24 checks remain**. This supersedes earlier locked-phone/
+no-device and timeout-pending labels for the validated screen-sleep pathway;
+ambient UI/audio/TalkBack/routing, recovery/battery/Play checks remain pending.
+Next: physical playlist/reordered selection/Today and reopened-phone Started.
+
+
+Physical readiness — 2026-10-08, Iteration 113: S25/Watch7 are now connected
+through wireless ADB; both installed APK hashes match validated builds and
+reciprocal nearby peers pass. Watch is off charger at 45%, notifications granted,
+15s screen timeout. Phone/watch baselines retained; no unfinished session found.
+The S25 is securely locked, so visible timed UI acceptance awaits user unlock
+and watch wear/wake readiness. No test workout sent/started; counts remain
+71/97 overall and 1/27 physical. This supersedes the no-device readiness below.
+
+
 Current progress audit — 2026-10-08, Iteration 108: committed production
 checkpoint `5014ec8` and reinstall evidence `857ebe6`; worktree initially clean.
 Stage 19 remains **71/97 (73%)**, physical **1/27**, with **26 checks open**.
@@ -693,7 +717,7 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **71/97 checklist items (73%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **1/27** | Current timed round UI, real-clock cues, resumed-REST speech interruption and private receipt recovery are validated; reconnect the physical pair, run natural timeout/ambient and actual paired timed Start/result/receipt, then resumed-REST UI/transport. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **73/97 checklist items (75%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **3/27** | Current timed round UI, real-clock cues, resumed-REST speech interruption and private receipt recovery are validated; natural screen-sleep/wake and actual paired timed Start/result/receipt now pass; continue physical playlist/Today, recovery and full ambient/audio acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
