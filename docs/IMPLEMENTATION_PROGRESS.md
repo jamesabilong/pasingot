@@ -6964,3 +6964,69 @@ code/browser/package complete; date-specific exceptions and supersets remain
 future work. Stage19 remains77/97,physical7/27,20open; watch disconnected/uncontacted.
 Latest move checkpointc6e9f9b supersedes previous uncommitted labels. Commit next;
 then independent phone work or charged-device acceptance. No reliable overall ETA.
+
+
+## Iteration 141 — 2026-10-08 — Remembered calculator equipment scope
+
+Status: **Implementation in progress.** Startinge0619c8, clean tree. Read current
+plan/latest progress/React instructions. Add explicit saved bar/plate-size presets
+per kg/lb to Library calculator and full JSON backup. Target remains temporary;
+unit switch loads saved equipment and example target. Explicit Save and default
+reset avoid automatic draft writes. Additive appState record, no DB version or
+native/watch schema change. Hook owns load/save; component JSX and pure validation
+remain separate. No watch contact, tests headless/disposable DB. Next: reload,
+per-unit, invalid setup, storage failure and backup compatibility checks.
+
+
+Iteration141 closure: additive equipment record/types, explicit persistence hook,
+pure setup normalization/backup guard and focused calculator controls implemented.
+TypeScript/build/source boundaries pass; App unchanged. Next: persistence evidence.
+
+## Iteration 142 — 2026-10-08 — Equipment validation and compatibility
+
+Status: **Setup validation and calculation checks pass.** Same bounded calculator
+weight/precision rules validate bar and positive sizes independently of target.
+Saved sizes deduplicate/sort; kg/lb presets remain independent. Backup validator
+checks both unit presets and rejects malformed records before replacement; legacy
+backups without equipment remain valid. Five calculation test groups pass; no
+allocation algorithm change. Defaults/invalid setup checks also pass in new
+headless harness. Next: durable hook, error paths and backup round trip.
+
+## Iteration 143 — 2026-10-08 — Durable equipment workflow
+
+Status: **27 headless disposable-DB checks pass.** Save canonicalizes equipment,
+keeps other unit preset and current target, remembers saved unit, restores on
+hook remount with example temporary target. Explicit default reset edits draft
+only until Save. Invalid saves and injected write failures preserve previous
+record; read failures/malformed saved record show defaults with error without
+silently overwriting evidence. JSON backup round trip preserves both presets;
+invalid restore keeps prior data; legacy restore retains unrelated preferences.
+Save works even when target blank. All form edits guarded while loading/saving;
+editing clears stale save message. No automatic keystroke writes. Next: mobile/
+offline UI and existing regression suite.
+
+## Iteration 144 — 2026-10-08 — Mobile and inherited backup/Library regression
+
+Status: **107 headless browser checks and mobile smoke pass.** Equipment27,
+data-integrity35,backup-export11,data-hydration16,Library18. Real Library/AppShell
+integration renders calculator controls.390×844 screenshot reviewed;320×740
+content width320. UI saves kg40bar/10,5plates offline, retains80target on Save,
+loads separate lb45 default then restores savedkg40; target remains absent from
+stored record. Unit switch explicitly resets target to an example. Evidence:
+output/playwright/equipment143-mobile.png (ignored). No app exception observed;
+harness favicon404 unrelated. Final source review adds missing loading/busy guard
+to plate-size field and clears saved status on draft changes;27 checks rerun pass.
+Next: updated phone package and Git review.
+
+## Iteration 145 — 2026-10-08 — Equipment preference checkpoint
+
+Status: **Five development iterations complete; validated for commit.** TypeScript,
+production build, Capacitor copy and whitespace pass; final phone`:app:assembleDebug
+--offline` build succeeds, bundled JS/CSS byte-match final production assets.
+No DB version/native/watch schema change, no App domain code added. Full backup
+continues to include appState equipment record; temporary target and unsaved
+form edits stay out of saved preset. Git recheck owned source/test/docs only,
+HEADe0619c8. Physical install pending; Stage19 stays77/97,physical7/27,20open,
+watch disconnected/uncontacted. Latest removal checkpointe0619c8 supersedes old
+uncommitted labels. Commit reviewed checkpoint next; date-specific planning and
+supersets remain separate future candidates, actual device acceptance deferred.

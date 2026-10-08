@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Phone/PWA equipment checkpoint — 2026-10-08, Iterations141–145: plate calculator
+now explicitly saves separate kg/lb bar/plate-size presets and last saved unit,
+with default-reset controls and full backup compatibility.107 headless browser
+checks plus5 calculation tests, mobile/offline smoke, TypeScript, production
+build and phone APK/asset identity pass. Target remains temporary; unlimited
+plate pairs still assumed. This supersedes earlier equipment-persistence deferral
+only. Physical install pending, Stage19 remains77/97,physical7/27,20open; watch
+untouched. Recurring removal checkpoint committed as `e0619c8`.
+
+
 Phone/PWA removal checkpoint — 2026-10-08, Iterations136–140: whole recurring
 weekly sessions can be removed with explicit count/day/time confirmation. History
 and unrelated sessions retained; stale/quest/unfinished-workout guards apply.

@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Plate equipment checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {usePlateEquipment} from '/src/hooks/usePlateEquipment.ts';
+import {PlateCalculator} from '/src/components/PlateCalculator.tsx';
+import {defaultPlateEquipment,isPlateEquipmentSettings,parsePlateEquipment} from '/src/lib/plate-equipment.ts';
+import {getAll,getRecord,putRecord,STORES} from '/src/lib/db.ts';
+import {buildWorkoutBackup,parseWorkoutBackup,restoreWorkoutBackup} from '/src/lib/backup.ts';
+import '/src/styles.css';
+const factory=window.indexedDB,database=`pasingot-equipment-${crypto.randomUUID()}`;let failStorage=false;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>{if(failStorage)throw Error('Expected storage failure');return factory.open(database,version);}}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};
+const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+let api,key=0;const root=createRoot(document.getElementById('root'));
+function Harness(){api=usePlateEquipment();return React.createElement('p',null,api.ready?'ready':'loading');}
+async function mount(){flushSync(()=>root.render(React.createElement(Harness,{key:++key})));for(let i=0;i<60&&!api.ready;i++)await settle();check(api.ready,'Equipment hydration completes');}
+try{
+ check(isPlateEquipmentSettings(defaultPlateEquipment()),'Default equipment validates');
+ for(const args of [['','5'],['20',''],['20','0'],['20','1.001'],['1001','5']])check('error'in parsePlateEquipment(...args),`Invalid setup rejected ${JSON.stringify(args)}`);
+ await putRecord(STORES.appState,{key:'ownedPreference',schemaVersion:1,value:'keep'});
+ await mount();
+ check(api.unit==='kg'&&api.draft.bar==='20','Legacy database starts with default kg setup');
+ api.setDraft({target:'80',bar:'15',sizes:'5, 10, 5, 2.5'});await settle();await api.save();await settle();
+ let stored=await getRecord(STORES.appState,'plateEquipment');
+ check(stored.presets.kg.bar===15&&JSON.stringify(stored.presets.kg.sizes)==='[10,5,2.5]','Explicit save canonicalizes sizes and stores kg equipment');
+ check(!('target'in stored)&&!('target'in stored.presets.kg)&&api.draft.target==='80','Saving equipment never stores or resets target');
+ api.changeUnit('lb');await settle();check(api.draft.bar==='45'&&api.draft.target==='135','Other unit loads independent default and example target');
+ api.setDraft({target:'',bar:'35',sizes:'45, 10, 2.5'});await settle();await api.save();await settle();
+ stored=await getRecord(STORES.appState,'plateEquipment');
+ check(stored.unit==='lb'&&stored.presets.lb.bar===35&&stored.presets.kg.bar===15,'lb save preserves kg and remembers saved unit even with blank target');
+ await mount();check(api.unit==='lb'&&api.draft.bar==='35'&&api.draft.target==='135','Remount restores unit/equipment with fresh temporary target');
+ api.changeUnit('kg');await settle();check(api.draft.bar==='15'&&api.draft.sizes==='10, 5, 2.5','Switch back restores saved kg equipment');
+ api.reset();await settle();check(api.draft.bar==='20'&&(await getRecord(STORES.appState,'plateEquipment')).presets.kg.bar===15,'Default reset only edits draft until saved');
+ await api.save();await settle();check((await getRecord(STORES.appState,'plateEquipment')).presets.kg.bar===20,'Explicit save keeps reset equipment');
+ const before=await getRecord(STORES.appState,'plateEquipment');
+ api.setDraft({...api.draft,bar:'-1'});await settle();await api.save();await settle();
+ check(api.message.error&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Invalid save keeps prior stored settings');
+ api.setDraft({...api.draft,bar:'25'});await settle();failStorage=true;await api.save();await settle();failStorage=false;
+ check(api.message.error&&api.message.text.includes('previous setup')&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Storage write failure reports error and preserves saved equipment');
+ const backup=await buildWorkoutBackup();await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Backup round trip preserves both presets');
+ const invalid=structuredClone(backup);invalid.stores.appState.find(row=>row.key==='plateEquipment').presets.lb.sizes=[0];
+ let rejected=false;try{await restoreWorkoutBackup(invalid);}catch{rejected=true;}
+ check(rejected&&JSON.stringify(await getRecord(STORES.appState,'plateEquipment'))===JSON.stringify(before),'Invalid equipment backup rejected before any replacement');
+ const legacy=structuredClone(backup);legacy.stores.appState=legacy.stores.appState.filter(row=>row.key!=='plateEquipment');await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(legacy)));
+ await mount();check(api.draft.bar==='20'&&(await getRecord(STORES.appState,'ownedPreference')).value==='keep','Legacy backup without equipment retains other preferences and uses defaults');
+ await putRecord(STORES.appState,{key:'plateEquipment',schemaVersion:1,unit:'kg',presets:{kg:{bar:20,sizes:[0]}}});
+ await mount();check(api.message.error&&api.draft.bar==='20'&&(await getRecord(STORES.appState,'plateEquipment')).presets.kg.sizes[0]===0,'Malformed stored setting falls back without overwriting evidence');
+ failStorage=true;await mount();failStorage=false;check(api.message.error&&api.draft.bar==='20','Storage read failure uses defaults and reports error');
+ await putRecord(STORES.appState,defaultPlateEquipment());
+ flushSync(()=>root.render(React.createElement(PlateCalculator)));await settle();
+ window.readEquipment=()=>getRecord(STORES.appState,'plateEquipment');
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+}catch(error){failStorage=false;document.getElementById('result').textContent=`${checks.join('\n')}\nFAIL: ${error.stack||error}`;throw error;}
+</script></html>

@@ -221,3 +221,10 @@ export interface QuestHistory {
   schemaVersion: number;
   entries: QuestArchiveEntry[];
 }
+
+export interface PlateEquipmentSettings {
+  key: 'plateEquipment';
+  schemaVersion: number;
+  unit: WeightUnit;
+  presets: Record<WeightUnit, { bar: number; sizes: number[] }>;
+}

@@ -1,5 +1,15 @@
 # Feature Gap Roadmap
 
+Phone/PWA equipment checkpoint — 2026-10-08, Iterations141–145: plate calculator
+now explicitly saves separate kg/lb bar/plate-size presets and last saved unit,
+with default-reset controls and full backup compatibility.107 headless browser
+checks plus5 calculation tests, mobile/offline smoke, TypeScript, production
+build and phone APK/asset identity pass. Target remains temporary; unlimited
+plate pairs still assumed. This supersedes earlier equipment-persistence deferral
+only. Physical install pending, Stage19 remains77/97,physical7/27,20open; watch
+untouched. Recurring removal checkpoint committed as `e0619c8`.
+
+
 Phone/PWA removal checkpoint — 2026-10-08, Iterations136–140: whole recurring
 weekly sessions can be removed with explicit count/day/time confirmation. History
 and unrelated sessions retained; stale/quest/unfinished-workout guards apply.
@@ -437,7 +447,7 @@ importance in general.
 | ✅ Done | Weight/load per set | Log kg/lb alongside reps, per set | Strong, Hevy, JEFIT, Fitbod (universal) | High | Implemented: `loadWeight`/`loadUnit` on `WorkoutRow`, `PlaylistItem`, and the new `WorkoutSetLog` store (Stage 12, `pwa/src/types.ts`, `pwa/src/lib/db.ts`). |
 | ✅ Done | Personal record (PR) tracking | Auto-detect new weight/rep/volume PRs, surface at log time | Hevy, Strong, JEFIT | High | Implemented: `buildStrengthPersonalRecords` in `pwa/src/lib/strength-analytics.ts`, surfaced in History (Stage 13). |
 | ✅ Done | 1RM estimate | Estimate one-rep max from submax sets (Epley/Brzycki-style) | JEFIT, Strong, Hevy, Fitbod | Medium | Implemented: `estimatedOneRepMax` in `strength-analytics.ts`, hidden for bodyweight/duration-only logs (Stage 13). |
-| ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
+| ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; Iterations141–145 add saved per-unit bar/plate-size presets, default reset and backup validation. Target remains temporary; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
 | ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
 | ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; date-specific exceptions/deletion remain open. |
 | ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |

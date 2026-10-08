@@ -1,3 +1,4 @@
+import { isPlateEquipmentSettings } from './plate-equipment';
 import { validRpe, validRir } from './set-effort';
 import { SCHEMA_VERSION, WEEKDAYS } from '../types';
 import { isCustomQuestDefinition } from './custom-quests';
@@ -32,6 +33,7 @@ function questTemplate(row: unknown): boolean {
 function appState(row: RecordValue): boolean {
   if (!text(row.key)) return false;
   switch (row.key) {
+    case 'plateEquipment': return isPlateEquipmentSettings(row);
     case 'customQuests':
       return Array.isArray(row.quests) && row.quests.every(isCustomQuestDefinition)
         && new Set(row.quests.map((quest) => quest.questId)).size === row.quests.length;
