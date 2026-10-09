@@ -1,5 +1,37 @@
 # Watch Quick Start Plan
 
+Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
+**87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
+Four newly completed criteria: exact start briefing, one prescribed rest
+announcement despite extensions, final-five extension lock, and one warning/Go
+at the transition. User confirms every cue worked perfectly through TRUEFREE O1
+with YouTube left playing; no repeats, overlaps or lock sounds. Actual phone
+focus loss/gain, six completed speech callbacks, YouTube PLAYING afterward,
+service teardown, owned 2/2 result/receipt/pruning and preserved data
+corroborate that report. Keep prior masked speech and missed-timing attempts as
+failures.
+
+Paired Quick Start now routes speech through a bounded phone media-playback
+service armed by foreground Send with phone headphones; the watch owns timers,
+haptics and local fallback. The final cancellation/focus cleanup build (345
+native tests) and in-place installation pass. Scripted 0/5/8/12-second
+short-rest cases complete with expected callbacks, but human no-overlap reports
+are pending. Iteration 184's offline result-durability test is open: the watch
+debug endpoint must be reconnected before offline captures, reboot retention
+and phone acknowledgement/pruning can be checked. Recovery, fallback,
+short-rest, composite routing/ambient, battery, regression and Play checks
+remain open. This supersedes previous current routing/count labels. Play setup:
+[internal testing](PLAY_INTERNAL_TESTING.md).
+
+Superseded checkpoint — 2026-10-09, Iterations 166–170 (historical): Stage 19
+was **81/97 (84%)**, physical **11/27**, **16 open**. Pending offer recovery
+after process death, leaving the countdown without an unseen Start,
+voice/category preference persistence and natural request expiry passed. The
+short radio-off probe retained a cloud route and stayed inconclusive. That
+iteration's locked-phone/watch-debugging blocker and pending remote cleanup were
+resolved in Iteration 171. This supersedes the battery deferral below;
+historical findings below remain evidence.
+
 Physical validation deferred — 2026-10-08, Iteration 120: user removed Watch7
 connectivity to conserve low battery and has no charger. Physical tests and
 watch reconnection/radio attempts stop until charged/reconnected. Latest debug
@@ -1128,11 +1160,13 @@ Each phase is a separate reviewable checkpoint. Do not start the next phase
 until the phase's listed automated checks pass. Physical paired-device evidence
 is recorded separately from code completion.
 
-### Progress audit — 2026-10-04, Iteration 64
+### Progress audit — 2026-10-09, Iteration 178
 
 Checklist items are counted equally for a reproducible completed/total view;
 the ratio is not an engineering-effort estimate. The working tree currently
-stands at **71/97 items (73%) overall**:
+stands at **87/97 items (90%) overall**. This updates the historical
+2026-10-04/Iteration 64 table, whose prior current labels were 71/97 overall
+and 1/27 physical; those values are superseded, not new acceptance evidence:
 
 | Phase | Completed/total | Status |
 |---|---:|---|
@@ -1140,7 +1174,7 @@ stands at **71/97 items (73%) overall**:
 | Phase 1 — phone feature | **10/10 (100%)** | Code, headless checks, and browser UI fixture pass; paired-device delivery belongs to later phases |
 | Phase 2 — watch feature | **17/17 (100%)** | Code, headless checks, and the round-emulator presentation exit check pass; physical accessibility/audio behavior remains Phase 4 device evidence |
 | Phase 3 — integration/recovery | **12/12 (100%)** | Paired restart/Start, Cancel/Dismiss, offline reboot, exact receipt/cue pruning, legacy sync and the full fresh native replay/binding/capability/cleanup matrix pass; physical acceptance stays Phase 4 |
-| Phase 4 — device acceptance | **1/27 (4%) physical** | Phone states, ambient/process recovery, native TTS/TalkBack/fallback, reduced-motion rest/success and voice-enabled UI interruption/rest/transition/recreation pass on emulators; physical audio, routing, tactile and battery evidence remain open |
+| Phase 4 — device acceptance | **17/27 (63%) physical** | Connected entry, offer/state recovery, cue preferences, briefing/rest/lock/warning/Go pass on S25/Watch7; remaining result recovery, success replay, fallback, short-rest human observation, composite routing/ambient, battery, regression and Play checks remain open |
 
 The earlier committed checkpoint, `7596256`, represents **22/96 items (23%)**.
 Iteration 14's earlier uncommitted status is superseded by that commit.
@@ -1344,7 +1378,7 @@ Exit checks:
 
 ### Phase 4 — Paired-device acceptance
 
-Status: **Physical acceptance underway on S25/Watch7; 7/27 complete (inventory, four entry/order cases, open/reopened-phone Started); 20 checks remain**
+Status: **Physical acceptance underway on S25/Watch7; 17/27 complete (prior thirteen plus briefing, rest-once, final lock and warning/Go); 10 checks remain**
 
 Track emulator UI observations separately in
 [Device acceptance](DEVICE_ACCEPTANCE.md) and the latest implementation iteration.
@@ -1359,20 +1393,20 @@ These physical checklist boxes are not closed by emulator-only evidence.
 - [x] Start acknowledgement reaches the phone while it is open. Exact physical request Started receipt and open phone UI (Iteration 113).
 - [x] Start acknowledgement reconciles after the phone app is reopened. Physical phone Home→watch Start→native Started→visible reopened UI (Iteration 118).
 - [ ] Disconnected watch produces actionable phone wording and no stale workout.
-- [ ] Active watch workout is never replaced.
-- [ ] Duplicate send/tap produces one transient package and one session.
-- [ ] Expired request cannot be started.
-- [ ] Watch process restart retains or safely dismisses the pending offer.
+- [x] Active watch workout is never replaced. Physical competing offer receives rejected/active_session; entire owned runtime and original wire package remain exact (Iteration 173).
+- [x] Duplicate send/tap produces one transient package and one session. Native duplicate phone Send/watch Start produce one exact runtime, one2/2 result and actual receipt pruning (Iteration 172).
+- [x] Expired request cannot be started. Physical natural five-minute expiry creates exact expired tombstone, removes offer/Start, no runtime/Started/result (Iteration 169).
+- [x] Watch process restart retains or safely dismisses the pending offer. Physical force-stop/absent process/new PID, exact owned Ready package and visible Start retained (Iteration 168).
 - [ ] Unsynced completed results survive watch process death and reboot and are
       removed only after phone acknowledgement.
-- [ ] Voice opt-in/out persists and every cue category can be disabled.
-- [ ] Start briefing states the correct exercise, sets, reps/duration, and load.
-- [ ] Start never begins unseen after leaving during the five-second countdown.
-- [ ] Rest announces the configured seconds once; extensions do not replay the
-      original announcement.
-- [ ] `+5`, `+10`, and `+30` disable at the final five-second lock; no accepted
-      extension or “added” cue occurs after the lock.
-- [ ] Five-second and Go cues fire once at the correct transition.
+- [x] Voice opt-in/out persists and every cue category can be disabled. Physical native toggles, voice-off/all-four-disabled across actual process restarts; original preferences restored (Iteration 169).
+- [x] Start briefing states the correct exercise, sets, reps/duration, and load. Physical Walking2sets/10sec/5kg with competing YouTube; full human-observed briefing and phone focus/TTS evidence (Iteration178).
+- [x] Start never begins unseen after leaving during the five-second countdown. Physical visible5 gate→Home within1.458s→null runtime after8s (Iteration 168).
+- [x] Rest announces the configured seconds once; extensions do not replay the
+      original announcement. Physical rest45 plus native5/10/30 extensions; one spoken callback and human confirms once/no issues (Iteration178).
+- [x] `+5`, `+10`, and `+30` disable at the final five-second lock; no accepted
+      extension or “added” cue occurs after the lock. Gray physical controls, three native taps, identical locked deadline and human confirms no unwanted sounds (Iterations176/178).
+- [x] Five-second and Go cues fire once at the correct transition. Durable threshold/second-set transition, one actual phone warning/Go callback each and human confirms hearing both without overlap (Iteration178).
 - [ ] Exercise-success and final-success speech/haptics do not replay after
       recomposition, app restart, or navigation.
 - [ ] Missing/failed TTS falls back to complete visual and haptic behavior.
@@ -1440,7 +1474,10 @@ measured battery use.
 - **False saved/synced claim:** await the durable watch queue before **Saved on
   watch** and require a phone receipt before **Synced to phone**.
 - **Hidden auto-start:** pre-start is foreground-only and cancels to Ready when
-  the user leaves; no new foreground service is introduced in this scope.
+  the user leaves; no foreground workout service is introduced on the watch.
+  Iteration177 adds a bounded phone media-playback service, armed by foreground
+  Send, so paired headphone speech can obtain phone audio focus while media
+  apps are foreground. It never owns workout progression or an offline cue queue.
 - **Composition-root growth:** isolate the React workflow in its feature hook;
   do not expand the existing `App.tsx` maintenance debt.
 - **Protocol drift:** keep request/ack models and validation in the shared module,

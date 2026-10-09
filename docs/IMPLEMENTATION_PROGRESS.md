@@ -7275,3 +7275,421 @@ and backup shape. Git recheck owned hook/test/docs only, HEAD0653f71. Latest set
 history checkpoint0653f71 supersedes historical uncommitted labels. Physical
 installation pending; Stage19 remains77/97,physical7/27,20open,watch untouched.
 Commit next; future independent planning work and device acceptance stay separate.
+
+## Iteration 166 — 2026-10-09 — Resume physical acceptance and current-build inventory
+
+Status: **Physical checks in progress.** User explicitly resumes physical checks
+until done, superseding Iteration120's battery deferral. StartHEADc98fd59, clean
+tree; required plan/latest progress/React agreements read. Approved ADB discovers
+exact physical S25RFCY21CLYDR and Watch7RFAY11LZ4SR; current inventory retained in
+physical-166-inventory. Watch95%,phone77%,both off charger. Wear installed hash
+ab72fb12 matches accepted artifact; phone remains earlierbc1c70ed, current local
+phoneAPK b3e099fb awaits in-place update. Fresh exact private stores show no
+unfinished Quick Start or legacy workout/Ready offer. Original radio settings
+captured; phone keyguard showing=false. Preserve full phone database/private
+stores before update and compare afterward. User can observe acoustic/haptic
+checks. App is not uploaded to Play internal testing; provide setup instructions
+and leave that acceptance item pending until actual tester installation.
+No acceptance closed yet:Stage19 77/97,physical7/27,20open. Next: state-preserving
+phone update/current hashes, then disconnected/duplicate/restart/expiry and
+remaining physical checks. No synthetic receipt/private-store initialization.
+
+Iteration166 update checkpoint: in-place phone install succeeds; fresh collector
+verifies phoneb3e099fb and watchab72fb12 installed hashes match local accepted
+artifacts. Corrected initial asset-directory lookup (`pwa/dist`, not rootdist)
+verifies packaged JS/CSS byte-exact. Initial postinstall PID probe fails because
+update stopped the app; normal reopen/new bridge succeeds. Five captured user
+stores compare exact; full eight-store baseline retained afterward. No full
+preupdate-eight-store equality claim. No new source/build change. Next: physical
+transport/state acceptance; broader checks remain open.
+
+## Iteration 167 — 2026-10-09 — Guarded disconnected probe and restoration
+
+Status: **Initial short probe inconclusive; restoration/preservation verified.**
+Verified detached50s radio restoration guard before Bluetooth/WiFi disable.
+Phone retains enabled Send while Wearable service changes watch route from
+nearbyhop1 to cloudhop2; no unavailable wording/no empty peer set observed.
+Do not classify this as disconnected acceptance or production defect. No Send
+or new request. Guard returns pairing to nearbyhop1; WiFi toggle ends wireless
+ADB advertisement, so user reenables debugging. Fresh exact Watch7 identity,
+both original radios1 and all seven watch stores/native phone requests compare
+byte-exact. Preserve probe and restored captures separately. Disconnected item
+stays open; next connected duplicate/pending-process/expiry tests before another
+longer disconnected observation. Play guide prepared in PLAY_INTERNAL_TESTING.md;
+user reports no Play upload. Stage19 77/97,physical7/27,20open unchanged.
+
+## Iteration 168 — 2026-10-09 — Duplicate Send and pending-process recovery
+
+Status: **Pending process restart validated; duplicate acceptance partial until Start check.**
+Two same-task invocations of the actual physical phone's hit-tested Send button
+produce exactly one additional native record/actual Ready package: ownedWalking
+c057d789-24f4-4d1d-9046-38252e01f48a,1set/45sec/0rest,no load. Native guard rejects
+second reservation; phone shows Ready plus pending-request refusal, no replacement.
+This is on-device DOM event injection, not a physical finger timing measurement.
+Ready native request matches watch package exactly; no runtime is created.
+Actual watch force-stop proves process absent,normal reopen changesPID19127→10322,
+retains byte-exact package/runtime/phone records and visible Walking/Start list.
+Later wake-only dump is watch face after idle, retained as such. Close pending
+process-restart item only; duplicate full single-session check remains next.
+Await natural request expiry using watch's own clock; no clock/store edits.
+Evidence physical-168*. Stage19 78/97,physical8/27,19open after checklist update.
+
+Iteration168 countdown observation: native duplicate Start taps enter visible5
+Walking/45sec gate; native Home follows within1,458ms (watch clock1791529160526
+→1791529161984). After8s off-screen, owned package remains Ready and runtime is
+still null. Capture actual visible countdown beforeHome plus hidden Activity/
+store evidence. This closes unseen-start countdown-leaving item; duplicate full
+single-session acceptance still awaits an eventual successful Start.
+Stage19 79/97,physical9/27,18open after checklist update. Natural expiry next.
+
+## Iteration 169 — 2026-10-09 — Voice preferences and natural expiry
+
+Status: **Physical settings validation in progress.** Through native watch UI,
+voice off survives actual process death/reopen, then normal Voice cues re-enable
+succeeds. Start briefing/rest/countdown/completion each toggle off through visible
+controls; all four false values survive a second actual restart. Restore original
+preferences through same UI before any acoustic test. No private-store writes.
+Prior owned offer naturally expires while this work runs; fresh list lacks its
+Start entry, final package/runtime/phone identity assertion still required.
+Capture physical-169*. Earlier off-stage is a preliminary multi-store capture
+while the settings procedure starts; its fields are not an atomic transaction.
+Next: restored preferences/expired offer assertions, then owned active/cue tests.
+
+Iteration169 checkpoint: all voice preference assertions pass, original settings
+restored. Natural expiry terminal c057d789…revision2/status expired is durable;
+normal list has no Quick Start/Start, runtime null, phone retains exact Ready
+record without Started/result. No clock manipulation. Close voice-persistence and
+expiry items only:Stage19 81/97,physical11/27,16open. User phone has locked; unlock
+requested before next normal Send. Acoustic/haptic observations and duplicate
+actual session are still pending. Full eight-store preservation already passes.
+
+## Iteration 170 — 2026-10-09 — Readiness loss and scoped handoff audit
+
+Status: **Further physical execution blocked by locked phone and unavailable watch debugging; acceptance remains open.**
+Repeated actual phone keyguard reads remain showing=true; unlock requested. Watch
+wireless debug disappears again from devices/mDNS; no new endpoint advertised.
+User readiness request combines phone unlock/Pasingot visible and awake Watch7
+with debugging. No active/cue test Send while phone is locked. Owned offer is
+already naturally expired with no runtime/result at last connected capture.
+Last successful physical169-final watch legacy workouts/settings byte-compare
+exact and original voice preferences match; later full seven-store audit fails
+before its first read or any cleanup mutation. Do not assert a fresh final-watch
+queue/radio audit. Remote test XML/countdownPNG/restore-log cleanup remains until
+reconnection; their task-specific paths/byte-check procedure are retained in
+physical166/final-audit.py. No restore guard is left intentionally active; original
+radios were independently verified after the guarded probe and native pairing
+was restored. Last connected original voice preferences are restored.
+
+Final phone WebView reads time out twice (asleep, then wake-only locked screen).
+Retain failed evidence; no fresh final-eight-store claim. Last successful full
+8-store check after countdown is exact. Final native phone read does pass:
+all prior records exact, only1owned expired Ready record without Started/result.
+Remove both verified task bridges53538/53596; other mappings untouched. New owned
+active/cue test is prepared only, not executed:2sets/10sec/rest45/5kg Walking.
+No source change/new build or emulator substitution. Relevant new physical
+passes are four items:pending-process recovery,countdown leaving,voice/settings
+persistence,natural expiry. Stage19 **81/97(84%)**,physical **11/27**,**16open**.
+Documentation/checklist whitespace and final Git review next. Resume with fresh
+identities/keyguard/battery/peers/current APK/session inventory, complete pending
+scoped remote cleanup, then duplicate actual Start/active nonreplacement and
+human-observed cues. Disconnected settled peer state,offline/reboot/results,
+short-rest/fallback/routing/TalkBack/ambient,measured60–90min battery,regression,
+and Play/mixed-version/explicit acceptance closure remain. Play setup guide is
+provided; no upload/publication was attempted. Broader acceptance is not done.
+
+Iteration170 documentation closure: checklist count11complete/16open and
+Stage19 total81/97 reconcile. Whitespace passes. Git recheck remainsc98fd59 with
+only six owned documentation paths (including new Play guide); no commit made.
+This closes documentation review only. Device-readiness/remaining acceptance and
+remote cleanup stay pending; no overall completion claim.
+
+## Iteration 171 — 2026-10-09 — Resume readiness after user continuation
+
+Status: **Physical validation resumed; phone unlocked, watch transport pending.**
+User asks to continue. Read plan/latest iteration/React agreements; HEADc98fd59
+and six owned documentation changes remain. Fresh S25 keyguard showing=false;
+ADB lists only exact phoneRFCY21CLYDR. Watch service absent from fresh mDNS,
+so request current awake Wireless debugging IP/port rather than treating debug
+absence as Data Layer disconnection or sending against unknown watch state.
+Open Pasingot normally and refresh read-only phone baseline/current build.
+No new Send or acceptance closed. Stage19 81/97,physical11/27,16open. Next:
+verify exact Watch7 identity/battery/peers/stores/build, finish scoped prior
+remote cleanup, then owned duplicate Start/active nonreplacement/cue test.
+
+Iteration171 readiness closure: user reconnects Watch7; fresh exact identities,
+reciprocal nearby1a3ea2de↔6b45442a, original radios1, no active/pending session,
+phone73%/watch84% off charger and both installed APK hashes pass. Fresh complete
+phone8-store snapshot equals prior checkpoint. Previously blocked full watch
+legacy/settings/queues/voice/native-history audit now passes; byte-verified old
+XML/countdownPNG/restore log removed, old mappings already absent. This supersedes
+Iteration170's pending readiness/remote-cleanup limitations for the restored pair.
+Next: owned short duplicate/native Start and cue acceptance, no personal schedule
+or legacy workout mutation.
+
+## Iteration 172 — 2026-10-09 — Native duplicate Send and short cue request
+
+Status: **Owned physical Ready offer validated; session/cues next.** Two native
+phone taps at verified Send geometry on unlockedS25 produce exactly one new
+native record/Watch7 package. Exact Walking2sets/10sec/rest45/5kg matches both
+peers with Ready acknowledgment; prior records unchanged, no runtime yet. User
+has been told expected briefing/transition/rest/completion cues for observation.
+Retain physical-172-ready and current baseline. Next: duplicate native watch
+Start, one exact runtime/Started, rest extensions and active nonreplacement.
+Physical11/27/Stage19 81/97 unchanged until complete criteria pass.
+
+Iteration172 active evidence: native duplicate Start taps initialize exactly one
+owned runtime and Started receipt. First timed set reaches rest; normal native
++5/+10/+30 controls extend actual durable deadline exactly5/10/30seconds, no
+new package/session. Exact snapshots retained under physical-172-active.
+
+## Iteration 173 — 2026-10-09 — Active Quick Start nonreplacement
+
+Status: **Actual physical rejection and original runtime preservation pass.**
+Send normal competing one-set45sec/0rest/no-load offerbf2c6f48-5cdf-42dd-bb0c-c0039dc7d12a
+while owned daf08f1c… rests. Actual native rejected/reasonactive_session received;
+original entire runtime matches extended-rest snapshot and owned wire package
+matches original phone request. Initial assertion compares compact wire request
+with default-encoded runtime request; fails on representation, corrected to
+original wire request. No production fix. Keep corrected exact assertion plus
+failed assertion explanation. Next: owned completion/receipt and duplicate
+single-session closure; separate final-lock retry. No personal session touched.
+
+## Iteration 174 — 2026-10-09 — Final-window collection miss
+
+Status: **Final-five lock unvalidated; failed timing evidence retained.**
+LLM/tool preparation outlasts extended rest. Script sees saved hidden REST but
+foreground wake occurs22.257seconds beyond deadline; fails timing guard before
+any locked-extension tap. Do not close lock or timely warning/Go acceptance.
+Existing engine catches up to owned second set normally on foreground wake;
+finish/result collection next. Build a fully prepared single scripted sequence
+before repeating Start so model-generation delay cannot consume test windows.
+No app defect inferred from this instrumentation miss; full acoustic/tactile
+observations still require human report. Retain physical-174-lock as failed,
+not accepted evidence. Counts update only after completed per-case assertions.
+
+Iteration172 completion closure: actual owned daf08f1c…2/2 outcomeRevision2,
+matching native result/receipt, package/runtime pruning and visible2/2 completed
+screen pass. Exactly one owned request/runtime/final result after native duplicate
+Send/Start; competitor rejectedactive_session and no replacement. Close duplicate
+and active nonreplacement items only:Stage19 83/97(86%),physical13/27,14open.
+Missed final-window timing stays failed/unvalidated. Human audio/haptic response
+requested; acoustic boxes remain open until actual report and relevant evidence.
+
+## Iteration 175 — 2026-10-09 — Human-observed audio retry preparation
+
+Status: **Repeat offer Ready; final-lock/audio execution not yet started.**
+User reports hearing nothing and requests repeat. Read actual watch audio state:
+TRUEFREE O1 A2DP is active; system Samsung/Google TTS services both available.
+User confirms wearing TRUEFREE and ready to listen. No volume/route/radio setting
+changed. Debug mDNS transport drops; direct last verified192.168.6.16:45595
+reconnects, exact RFAY11LZ4SR reverified before adopting explicit endpoint.
+Prepared single pre-scripted gate/rest/extensions/lock/completion sequence before
+new Send; syntax compile verifies without external-cache writes (initial
+py_compile cache write denied, not a source syntax failure). Repeat exact owned
+af15ebe7-12e8-4786-9290-97a5a730ebe8 reaches Ready; no runtime. Native Back leaves
+cached completed summary visible; Start search on that summary fails, retained.
+Use its visible normal Back to workouts control to return to offer list, not
+private-store/route injection. No acoustic pass inferred, and user notified
+that speech sequence has not started. Counts13/27,Stage19 83/97 remain.
+
+## Iteration 176 — 2026-10-09 — Prepared single-sequence audible/lock retry
+
+Status: **Physical retry running; human ready on confirmed Bluetooth route.**
+Previous af15…offer outlasts setup; keep expired attempt/bounds separately.
+Normal Back to workouts reveals list; avoid using cached completed-route Start
+search. Prepared orchestration now does fresh normal Send/Ready exact binding,
+visible Start lookup, then gate/rest/extensions/lock/completion without model
+sampling between timed phases. Assert no unrelated active runtime/legacy workout
+before Send; preserve prior request pointer and failed Start-search XMLs. Current
+explicit endpoint is verifiedWatch7, user confirms TRUEFREE O1 worn, no volume/
+route changes. Announce immediately before entire flow. Native request/result
+and haptic/audio evidence collected; acoustic success still requires human
+report. No product-source/APK change. Physical13/27,Stage19 83/97 remain until
+complete retry evidence passes; prior timing miss stays retained as failed.
+
+Iteration176 completed-device evidence: prepared request4698cb3b-5ff4-45fd-a431-40cc9fbc593a
+finishes2/2 with exact result/receipt and pruning. physical-175-active/physical-175-lock
+contain this request (earlier af15 offer expired before Start). Durable final-five
+lock refuses three actual native extension taps with identical deadline1791532073805;
+gray controls/second-set transition captured. Human reports vibrations felt, but
+phone YouTube masks briefing2sets/10sec/5kg; rest45 becomes audible only after
+pausing YouTube. Speech/routing criteria fail/remain open; reserved cue ledger is
+not audible proof. Keep physical13/27/Stage19 83/97 until full criterion audit.
+
+## Iteration 177 — 2026-10-09 — Paired headset speech priority
+
+Status: **Implementation in progress after physical audio failure.** User wants
+workout speech foreground while phone media plays. Both watch and phone actual
+AudioService dumps show TRUEFREE O1 A2DP, and phone YouTube owns phone focus.
+Current watch-only MAY_DUCK cannot control phone focus. Implement paired Quick
+Start phone speech relay armed by explicit phone Send while foreground; a visible
+bounded media-playback service permits Android15+ background audio focus. Phone
+requests transient pause focus only during speech, then releases it. Watch remains
+session/timer/haptic owner and retains local speech fallback when no relay is
+available. Live RPC/tickets/node/request binding, cancellation and duplicate
+suppression prevent delayed or ambiguous transport from replaying stale cues.
+No durable/offline speech queue and no new workout service on watch. Legacy
+watch sessions keep local output. Tests/build and actual YouTube/Bluetooth replay
+required before claiming fixed. This supersedes watch-only routing assumptions
+for paired Quick Start, not previous physical speech failures. Sources:
+https://developer.android.com/media/optimize/audio-focus and
+https://developer.android.com/develop/background-work/services/fgs/service-types.
+
+Iteration177 initial implementation validation: system TTS engine/phone focus
+relay and ephemeral node-bound tickets compile after a cross-module nullable-text
+smart-cast fix. Initial Gradle run builds both APKs and current HTML reports show
+82shared/28phone/231Wear tests,341total,zero failures. Earlier564 reported from
+stale/duplicated XML collection is superseded; preserve raw captures and use
+Gradle's current HTML summaries. Both installed hashes match initial artifacts:
+phone750716…/watch20c182… . Native stores compare exact across in-place updates;
+all eight phone IndexedDB stores equal last full baseline. Initial bridge reads
+failed while locked/old process; fresh unlocked updated PID succeeds. No app
+reset or personal data mutation. Pending relay window subsequently corrected to
+cover the request's actual five-minute TTL plus skew, not an arbitrary120seconds.
+
+## Iteration 178 — 2026-10-09 — Foreground phone media physical replay
+
+Status: **Four physical speech/lock criteria pass; overall acceptance remains open.**
+Prepared unique physical-178 helpers before Send. First setup fails because APK
+restart resets Library's Walking filter; no Send/Start occurs. Preserve failure,
+explicitly enter normal search, then normal native Send/Start owns
+b655d6e8-7771-49b5-bca3-cb91b6a3f09d. Before Start assert real YouTubePLAYING and
+phone speech serviceisForeground=true; phoneHome ensures Pasingot is background.
+Six actual phone callbacksSPOKEN: briefing, initialGo, rest45 once, final-five
+warning, GoSet2, final success. Focus logreq2/contentSPEECH gives YouTubeLOSS_TRANSIENT
+thenGAIN after speech; YouTube remainsPLAYING afterward, service stops. Native
+extensions exactly5/10/30seconds; three locked taps keep final deadline unchanged.
+Actual2/2/outcomeRevision2 result, matching receipt and runtime/package pruning;
+all prior phone native records and watch legacy/settings exact. Initial assertion
+reads summary/default-omitted/package-wrapper fields incorrectly; corrected
+schema traversal passes; these are collector failures, not product defects.
+Human confirms full2sets/10sec/5kg briefing and media pause/resume worked perfectly,
+then rest/warning/Go/completion with no repeats/overlaps/unwanted lock sounds.
+Close briefing/rest-once/final-lock/warningGo: physical17/27,Stage19 87/97(90%),
+10open. Paired-headphone priority is now physically evidenced; entire composite
+speaker/TalkBack/ambient/routing criterion stays open. This supersedes masking
+failure only for the tested updated paired Quick Start path; preserve failures.
+
+## Iteration 179 — 2026-10-09 — Speech cancellation and generated-build isolation
+
+Status: **Final cleanup implementation/build underway; further device cases next.**
+Actual focus log reveals redundant abandon calls when no focus is held; track
+ownership so teardown cannot generate extra media-resume callbacks. Review finds
+late node discovery or declined RPC after Pause could invoke obsolete local
+fallback. Extract pure routed output with generation fencing at both awaits;
+four meaningful coroutine tests cover late decline/new Go, cancellation during
+discovery, ambiguous post-dispatch silence, and disconnected standalone fallback.
+Phone service readiness now follows exact offer expiry plus clock allowance.
+Follow-up ordinary build fails on generated drawable `ic_ongoing_workout 2.xml`;
+no source-resource defect. Other generated duplicated XMLs also explain inflated
+collector counts. Preserve physically validated initial APKs; move all generated
+Gradle outputs/cache to task-owned /private/tmp via an init script. Isolated
+full build passes in1m13s including four new routing tests. Final TTL adjustment
+build running; install/replay and current-source checkpoint pending. No tracked
+build-path configuration changed. Next: final APK identities/preservation and
+recovery/short-rest/fallback physical checks; legacy paired media routing is
+still local (relay specifically covers foreground-sent Quick Start).
+
+Iteration179 build/device checkpoint: final isolated-output build passes18seconds,
+82shared/28phone/235Wear tests (345total), zero failures; whitespace passes. Final
+APKs copied to physical-179, installed in place and exact identities/hashes verified:
+phone67a387…/watche4ef966… . Every captured native store is identical across final
+updates. Four routing-race tests and ownership-only focus release are included;
+full pending offer lifetime is covered. Code validation passes; additional current-
+APK cancellation/short-rest/recovery cases continue. No commit/overall closure.
+
+
+## Iterations 180–182 — 2026-10-09 — Current-APK short-rest physical matrix
+
+Status: **Device checks underway; human observation still required.** First
+physical180 single Send tap does not create an offer; guarded collection stops
+before Start. Reconnect verifies the same Watch7 serial. physical181 normal
+double Send reaches Ready: owned 0-second request2a2fb04d completes2/2 with
+receipt/pruning after an interrupted briefing and normal retry. User missed
+that acoustic case, so no short-rest criterion is closed. Its unused5-second
+offer expires naturally after the completion-page navigation helper fails.
+No fake expiry, store writes, or personal workout mutation.
+
+User explicitly ready for a fresh0/5/8/12-second matrix. physical182 owned0
+request7e2c3878 and5 request51d97849 finish2/2, receipt/pruning, one final
+speech each. Interrupted0 briefing returns OWNED_SILENT and stays Ready with
+null runtime before retry;0 omits rest/warning/secondGo,5 omits rest speech
+but has one warning and secondGo. YouTube PLAYING and voice service absent
+after both. Remaining8/12 cases delayed by helper scrolling/tapping a lower
+completion button and then searching Start in the wrong direction. Preserve
+original logs/UI screenshots, including an intervening Assistant surface;
+normal reopened app returns to Workouts. Correct helper to target interior
+visible bounds, wait after navigation, and scroll down to Start. Guards still
+require exact owned Ready request and actual unexpired package before Start.
+These are test-driver setup failures; no product defect established. Final
+345-test APKs remain installed. Physical17/27 and Stage19 87/97 unchanged.
+Next: finish8/12 and collect human no-overlap report, then recovery/fallback,
+composite routing/ambient, regression, measured battery and Play acceptance.
+
+
+## Iteration 183 — 2026-10-09 — Remaining short-rest cases
+
+Status: **Scripted physical cases pass; human no-overlap reports pending.**
+The unused182 8-second offer naturally expires before corrected Start lookup;
+guard prevents starting it. Fresh183 normal Send creates8 request64802ab3 and
+12 requestb8b95bf9. Interior button bounds and correct downward scroll reach
+Start. Both actual2/2 results receive exact receipts and prune runtime/package.
+8 has one warning/secondGo and no rest speech;12 has one rest/warning/secondGo;
+each final success is spoken once. YouTube resumes PLAYING and phone cue service
+tears down. Original prior native requests remain exact. Human questions cover
+the four cases and deliberately cancelled briefing; criterion stays open until
+answered. Last real off-charger batteries: phone61%, watch45%; this interrupted
+debugging workload is not a comparable60–90minute battery acceptance run.
+
+Play internal-testing guide now includes the actual phone mediaPlayback service
+declaration, feature/user-impact description and demo steps from current Google
+Play primary guidance. No Console upload/signing/release performed. Physical
+17/27, Stage19 87/97 unchanged. Next: actual offline completion, watch process
+death/reboot retention and exact acknowledgement pruning, with temporary result
+receiver suppression restored to its original default state.
+
+
+## Iteration 184 — 2026-10-09 — Offline terminal-result durability
+
+Status: **Physical test underway.** Normal single-exercise offer3a5e4739 is
+Ready with exact paired package and no active personal session. Android16
+rejects both shell component disable-user and disable with SecurityException;
+package enabled/disabled component lists remain identical/default. This is an
+Android restriction, not an automatic approval rejection. Use normal phone
+Pasingot force-stop instead; verify process absent with expected pidof exit1.
+The first collector treats that expected nonzero as failure after force-stop
+succeeds; correction inspects return code/output explicitly. No component
+setting changed.
+
+Detached watch-side test helper disables original-on Bluetooth/Wi-Fi, waits
+for actual OFF/disabled state, uses normal native Start, captures actual
+started/completed runtime and cue ledger, force-stops/reopens only Pasingot
+and captures retention while offline. EXIT restores both radios; a separate
+verified90-second detached restore guard is a backstop. Helper reads private
+preferences only and creates scoped /data/local/tmp evidence; it does not
+write app state or simulate clocks. Reconnect/reboot/exact result receipt and
+data-preservation checks pending. No acceptance count advanced.
+
+
+User-requested commit checkpoint (Iteration184 remains open): current code
+passes345 native tests and both debug APK builds; installed hashes are recorded
+in Iteration179. Physical acceptance remains17/27, Stage19 87/97. All four
+short-rest scripted device cases finish with expected callbacks/receipt cleanup,
+but human no-overlap reports are pending. Offline helper/radio restore window
+elapses; known Watch7 ADB port refuses connection. Phone Pasingot is still
+force-stopped, latest owned offer remains Ready/no final result/receipt. Watch
+offline snapshot inspection and reboot retention await restored wireless
+debugging/current endpoint from the user. Original phone component settings
+remain default, both disable attempts were rejected by Android. No reboot has
+yet occurred. No device criterion is closed by this commit. Next: reconnect
+verified Watch7, inspect offline captures/restored radios and retained result,
+then complete reboot and normal phone acknowledgement/pruning.
+
+Iteration184 documentation reconciliation (before commit): plan/roadmap/device
+summaries now lead with one current 87/97, physical 17/27, 10-open block and
+label the Iterations 166–170 block as superseded history; its locked-phone and
+remote-cleanup blocker was resolved in Iteration 171. Quick Start progress
+audit and delivery board corrected from stale 83/97 / 13/27 labels to
+87/97 (90%) / 17/27; checklist recount is 87 complete, 10 open. No acceptance
+item changed. Whitespace check passes. Iteration 184 offline/reboot test stays
+open; next action is unchanged.

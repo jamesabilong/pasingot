@@ -2,6 +2,7 @@ package app.personal.workouttracker.quickstart
 
 import android.util.Log
 import app.personal.workouttracker.shared.quickstart.QuickStartRequest
+import app.personal.workouttracker.voice.PhoneVoiceCueService
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -99,6 +100,7 @@ class WatchQuickStartPlugin : Plugin() {
                     ?: throw IllegalStateException("Compatible watch not available")
                 require(available.watchNodeId == request.targetNodeId) { "Watch selection changed" }
                 store.saveRequest(request, System.currentTimeMillis())
+                PhoneVoiceCueService.arm(context, request.requestId, request.targetNodeId, request.expiresAtMillis)
                 client.send(request)
                 val accepted = store.markTransportAccepted(request.requestId, System.currentTimeMillis())
                 call.resolve(JSObject().apply {
@@ -136,6 +138,7 @@ class WatchQuickStartPlugin : Plugin() {
                     requestId, localNodeId, System.currentTimeMillis(),
                 )
                 client.sendCancellation(cancellation)
+                PhoneVoiceCueService.terminal(requestId)
                 call.resolve(JSObject(json.encodeToString(cancellation)))
             } catch (error: Exception) {
                 call.reject(error.message ?: "Could not cancel Quick Start", error)

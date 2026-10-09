@@ -1,5 +1,37 @@
 # Feature Gap Roadmap
 
+Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
+**87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
+Four newly completed criteria: exact start briefing, one prescribed rest
+announcement despite extensions, final-five extension lock, and one warning/Go
+at the transition. User confirms every cue worked perfectly through TRUEFREE O1
+with YouTube left playing; no repeats, overlaps or lock sounds. Actual phone
+focus loss/gain, six completed speech callbacks, YouTube PLAYING afterward,
+service teardown, owned 2/2 result/receipt/pruning and preserved data
+corroborate that report. Keep prior masked speech and missed-timing attempts as
+failures.
+
+Paired Quick Start now routes speech through a bounded phone media-playback
+service armed by foreground Send with phone headphones; the watch owns timers,
+haptics and local fallback. The final cancellation/focus cleanup build (345
+native tests) and in-place installation pass. Scripted 0/5/8/12-second
+short-rest cases complete with expected callbacks, but human no-overlap reports
+are pending. Iteration 184's offline result-durability test is open: the watch
+debug endpoint must be reconnected before offline captures, reboot retention
+and phone acknowledgement/pruning can be checked. Recovery, fallback,
+short-rest, composite routing/ambient, battery, regression and Play checks
+remain open. This supersedes previous current routing/count labels. Play setup:
+[internal testing](PLAY_INTERNAL_TESTING.md).
+
+Superseded checkpoint — 2026-10-09, Iterations 166–170 (historical): Stage 19
+was **81/97 (84%)**, physical **11/27**, **16 open**. Pending offer recovery
+after process death, leaving the countdown without an unseen Start,
+voice/category preference persistence and natural request expiry passed. The
+short radio-off probe retained a cloud route and stayed inconclusive. That
+iteration's locked-phone/watch-debugging blocker and pending remote cleanup were
+resolved in Iteration 171. This supersedes the battery deferral below;
+historical findings below remain evidence.
+
 Phone/PWA equipment integrity checkpoint — 2026-10-08, Iterations161–165:
 concurrent/stale calculators now merge only selected-unit equipment against
 current durable settings, preserving the other unit’s newer or restored preset.

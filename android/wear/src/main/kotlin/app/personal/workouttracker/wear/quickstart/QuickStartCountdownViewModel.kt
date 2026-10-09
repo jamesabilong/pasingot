@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.personal.workouttracker.shared.quickstart.QuickStartPackageState
 import app.personal.workouttracker.shared.quickstart.WatchSessionPackage
-import app.personal.workouttracker.wear.cues.AndroidTtsCueOutput
+import app.personal.workouttracker.wear.cues.PhoneFirstWatchCueOutput
 import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
 import app.personal.workouttracker.wear.cues.WatchCueCancellation
 import app.personal.workouttracker.wear.cues.WatchCueController
@@ -200,7 +200,7 @@ class QuickStartCountdownViewModel(
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val packageStore = WatchSessionPackageStore(DataStoreQuickStartPackagePersistence(context))
             val runtimeStore = QuickStartRuntimeStore(DataStoreQuickStartRuntimePersistence(context))
-            val output = AndroidTtsCueOutput(context.applicationContext)
+            val output = PhoneFirstWatchCueOutput(context.applicationContext, requestId)
             return QuickStartCountdownViewModel(
                 requestId = requestId,
                 packageStore = packageStore,

@@ -1,5 +1,37 @@
 # Workout App Plan
 
+Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
+**87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
+Four newly completed criteria: exact start briefing, one prescribed rest
+announcement despite extensions, final-five extension lock, and one warning/Go
+at the transition. User confirms every cue worked perfectly through TRUEFREE O1
+with YouTube left playing; no repeats, overlaps or lock sounds. Actual phone
+focus loss/gain, six completed speech callbacks, YouTube PLAYING afterward,
+service teardown, owned 2/2 result/receipt/pruning and preserved data
+corroborate that report. Keep prior masked speech and missed-timing attempts as
+failures.
+
+Paired Quick Start now routes speech through a bounded phone media-playback
+service armed by foreground Send with phone headphones; the watch owns timers,
+haptics and local fallback. The final cancellation/focus cleanup build (345
+native tests) and in-place installation pass. Scripted 0/5/8/12-second
+short-rest cases complete with expected callbacks, but human no-overlap reports
+are pending. Iteration 184's offline result-durability test is open: the watch
+debug endpoint must be reconnected before offline captures, reboot retention
+and phone acknowledgement/pruning can be checked. Recovery, fallback,
+short-rest, composite routing/ambient, battery, regression and Play checks
+remain open. This supersedes previous current routing/count labels. Play setup:
+[internal testing](PLAY_INTERNAL_TESTING.md).
+
+Superseded checkpoint — 2026-10-09, Iterations 166–170 (historical): Stage 19
+was **81/97 (84%)**, physical **11/27**, **16 open**. Pending offer recovery
+after process death, leaving the countdown without an unseen Start,
+voice/category preference persistence and natural request expiry passed. The
+short radio-off probe retained a cloud route and stayed inconclusive. That
+iteration's locked-phone/watch-debugging blocker and pending remote cleanup were
+resolved in Iteration 171. This supersedes the battery deferral below;
+historical findings below remain evidence.
+
 Phone/PWA equipment integrity checkpoint — 2026-10-08, Iterations161–165:
 concurrent/stale calculators now merge only selected-unit equipment against
 current durable settings, preserving the other unit’s newer or restored preset.
@@ -830,12 +862,12 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-10-08
+## Delivery board — reviewed 2026-10-09
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **77/97 checklist items (79%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **7/27** | Current timed round UI, real-clock cues, resumed-REST speech interruption and private receipt recovery are validated; natural screen-sleep/wake and actual paired timed Start/result/receipt now pass; physical playlist/reordered selection/Today and reopened Started now pass; continue disconnected/nonreplacement/duplicate/expiry/recovery and full ambient/audio acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
+| **Current** | Stage 19 is **87/97 checklist items (90%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **17/27**; paired Quick Start speech now uses a bounded phone media-playback relay | Physical duplicate/nonreplacement/expiry/process recovery, voice preferences, briefing, rest-once, final lock and warning/Go pass on S25/Watch7. Continue offline result durability/reboot (Iteration 184), success replay, TTS fallback, short-rest human reports, disconnected wording, composite routing/ambient, battery, regression and Play acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
 | **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
 | **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |

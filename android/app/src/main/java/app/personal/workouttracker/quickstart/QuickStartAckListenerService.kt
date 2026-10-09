@@ -2,6 +2,8 @@ package app.personal.workouttracker.quickstart
 
 import android.util.Log
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
+import app.personal.workouttracker.shared.quickstart.QuickStartStatus
+import app.personal.workouttracker.voice.PhoneVoiceCueService
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -38,6 +40,11 @@ class QuickStartAckListenerService : WearableListenerService() {
                                 decision == PhoneAcknowledgementResult.STALE) {
                                 val requestId = path.removePrefix(QuickStartDataLayerPaths.ACKNOWLEDGEMENT_PREFIX)
                                 val record = store.current(requestId)
+                                when (record?.acknowledgement?.status) {
+                                    QuickStartStatus.STARTED -> PhoneVoiceCueService.started(requestId)
+                                    QuickStartStatus.READY, null -> Unit
+                                    else -> PhoneVoiceCueService.terminal(requestId)
+                                }
                                 if (record?.finalResult != null || record?.acknowledgement?.let {
                                     it.status != app.personal.workouttracker.shared.quickstart.QuickStartStatus.READY
                                 } == true) {

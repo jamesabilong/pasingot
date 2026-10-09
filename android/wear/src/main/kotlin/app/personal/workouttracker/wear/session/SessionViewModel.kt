@@ -37,6 +37,7 @@ import app.personal.workouttracker.wear.quickstart.WorkoutRepositorySessionSnaps
 import app.personal.workouttracker.wear.cues.RestCountdownChange
 import app.personal.workouttracker.wear.cues.RestCountdownLock
 import app.personal.workouttracker.wear.cues.AndroidTtsCueOutput
+import app.personal.workouttracker.wear.cues.PhoneFirstWatchCueOutput
 import app.personal.workouttracker.wear.cues.DataStoreWatchCuePersistence
 import app.personal.workouttracker.wear.cues.WatchCueController
 import app.personal.workouttracker.wear.cues.WatchCueStore
@@ -882,14 +883,15 @@ class SessionViewModel(
                 canRestart = false,
                 awaitsPhoneReceipt = true,
                 phoneReceiptStatus = runtime.observePhoneReceipt(requestId),
-                cueEmitter = createProductionSessionCueEmitter(appContext),
+                cueEmitter = createProductionSessionCueEmitter(appContext, requestId),
             ) as T
         }
     }
 }
 
-private fun createProductionSessionCueEmitter(context: Context): SessionCueEmitter =
+private fun createProductionSessionCueEmitter(context: Context, requestId: String? = null): SessionCueEmitter =
     ControllerSessionCueEmitter(WatchCueController(
         WatchCueStore(DataStoreWatchCuePersistence(context)),
-        AndroidTtsCueOutput(context.applicationContext),
+        if (requestId == null) AndroidTtsCueOutput(context.applicationContext)
+        else PhoneFirstWatchCueOutput(context.applicationContext, requestId),
     ))

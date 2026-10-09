@@ -2,6 +2,7 @@ package app.personal.workouttracker.quickstart
 
 import android.util.Log
 import app.personal.workouttracker.shared.quickstart.QuickStartDataLayerPaths
+import app.personal.workouttracker.voice.PhoneVoiceCueService
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -46,6 +47,8 @@ class QuickStartResultListenerService : WearableListenerService() {
                                 PhoneQuickStartResultImport.Conflict -> null
                             }
                             if (record != null) {
+                                // Success speech can race the durable final result/receipt.
+                                PhoneVoiceCueService.terminal(record.request.requestId, 6_000)
                                 // A durable validated final result also proves the offer is
                                 // terminal, including when its Started acknowledgement was missed.
                                 try { client.cleanupTerminalOffer(record.request.requestId, sender) }

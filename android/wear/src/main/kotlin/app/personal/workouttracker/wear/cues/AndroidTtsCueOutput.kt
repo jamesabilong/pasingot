@@ -25,11 +25,12 @@ class AndroidTtsCueOutput(context: Context) : WatchCueOutput, TextToSpeech.OnIni
     private val accessibilityManager = appContext.getSystemService(AccessibilityManager::class.java)
     private val vibrator = appContext.getSystemService(Vibrator::class.java)
     private val audioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+        .setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
-    private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+    private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
         .setAudioAttributes(audioAttributes)
+        .setWillPauseWhenDucked(true)
         .setOnAudioFocusChangeListener { change ->
             if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
                 cancel(WatchCueCancellation.AUDIO_ROUTE)
