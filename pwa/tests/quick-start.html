@@ -7,7 +7,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { quickStartSupported } from '/src/features/watch-quick-start/bridge.ts';
-import { buildRequest, statusText, validateItems } from '/src/features/watch-quick-start/model.ts';
+import { buildRequest, fromCatalog, fromPlaylist, fromToday, statusText, validateItems } from '/src/features/watch-quick-start/model.ts';
 import { WatchQuickStartSheet } from '/src/features/watch-quick-start/WatchQuickStartSheet.tsx';
 import '/src/styles.css';
 const checks = [];
@@ -25,6 +25,16 @@ try {
   render({ available: true, watchNodeId: 'watch-1' });
   check(!document.querySelector('button.primary-action')?.disabled, 'Compatible watch enables a validated send');
   check(validateItems([{ ...item, rest: -1 }])?.includes('rest'), 'Invalid prescription rejects the entire offer');
+  const circuit = { id: 'fixture-group', restSeconds: 45 };
+  const grouped = { ...item, circuit };
+  check(validateItems([grouped])?.includes('phone workout player'), 'Grouped Quick Start is rejected before wire serialization');
+  check(validateItems([{ ...item, circuit: null }])?.includes('phone workout player'), 'Malformed present group markers cannot be flattened');
+  const convertedToday = fromToday({ ...grouped, id: 1, exercise: 'Squat' }, '2026-10-13');
+  check(convertedToday.circuit === circuit && validateItems([convertedToday])?.includes('phone workout player'), 'Today conversion retains its group marker so watch validation rejects it');
+  check(fromPlaylist([grouped])[0].circuit === circuit && fromCatalog({ sourceId: 4, displayName: 'Squat' }, grouped).circuit === circuit, 'Playlist and catalog conversion retain group markers');
+  let groupedError = '';
+  try { buildRequest([item, { ...grouped, itemId: crypto.randomUUID() }], 'library_selection', 'watch-1'); } catch (error) { groupedError = error.message; }
+  check(groupedError.includes('phone workout player'), 'Mixed flat and grouped selection rejects the entire watch request');
   const request = buildRequest([item, { ...item, itemId: crypto.randomUUID(), name: 'Press' }], 'library_selection', 'watch-1', 1000);
   check(request.exercises.map((exercise) => exercise.exerciseName).join(',') === 'Squat,Press', 'Explicit selection order survives conversion');
   const pending = { requestId: request.requestId, transportAcceptedAtMillis: 1100, acknowledgement: null };

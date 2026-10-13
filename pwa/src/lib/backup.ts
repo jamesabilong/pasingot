@@ -1,15 +1,16 @@
 import { getAll, replaceStores, STORES } from './db';
 import { validateBackupStores } from './backup-validation';
-import { withHealthConnectSyncLock } from './native-bridge';
+import { ensureCircuitScheduleSupported, withHealthConnectSyncLock } from './native-bridge';
 import { repairLegacyCustomExerciseNames } from './custom-exercises';
 import { SCHEMA_VERSION, type BodyMeasurementEntry, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 
 export const BACKUP_FORMAT = 'pasingot.workout-tracker.backup';
 export const BACKUP_VERSION = 1;
+export const CIRCUIT_BACKUP_VERSION = 2;
 
 export interface WorkoutBackup {
   format: typeof BACKUP_FORMAT;
-  backupVersion: typeof BACKUP_VERSION;
+  backupVersion: typeof BACKUP_VERSION | typeof CIRCUIT_BACKUP_VERSION;
   schemaVersion: number;
   exportedAt: string;
   stores: {
@@ -39,6 +40,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function hasCircuitData(stores: Record<string, unknown>): boolean {
+  return (Array.isArray(stores.workouts) && stores.workouts.some(row => isObject(row) && row.circuit !== undefined))
+    || (Array.isArray(stores.appState) && stores.appState.some(row => isObject(row) && (row.steps !== undefined
+      || (row.key === 'playlistDraft' && Array.isArray(row.items) && row.items.some(item => isObject(item) && item.circuit !== undefined)))));
+}
+
 export function summarizeBackup(backup: WorkoutBackup): BackupSummary {
   return {
     workouts: backup.stores.workouts.length,
@@ -65,7 +72,8 @@ export async function buildWorkoutBackup(): Promise<WorkoutBackup> {
   ]);
   return {
     format: BACKUP_FORMAT,
-    backupVersion: BACKUP_VERSION,
+    // Older apps reject v2 before mutation instead of playing grouped records as straight sets.
+    backupVersion: hasCircuitData({ workouts, appState }) ? CIRCUIT_BACKUP_VERSION : BACKUP_VERSION,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     stores: { workouts, logs, sessionEvents, setLogs, bodyMetrics, bodyMeasurements, customExercises, appState },
@@ -79,11 +87,13 @@ export function backupFileName(date = new Date()): string {
 
 export function parseWorkoutBackup(raw: string): WorkoutBackup {
   const parsed = JSON.parse(raw) as unknown;
-  if (!isObject(parsed) || parsed.format !== BACKUP_FORMAT || parsed.backupVersion !== BACKUP_VERSION) {
+  if (!isObject(parsed) || parsed.format !== BACKUP_FORMAT || ![BACKUP_VERSION, CIRCUIT_BACKUP_VERSION].includes(Number(parsed.backupVersion))
+    || typeof parsed.backupVersion !== 'number') {
     throw new Error('This is not a supported Pasingot backup file.');
   }
   const stores = parsed.stores;
   if (!isObject(stores)) throw new Error('Backup file is missing stores.');
+  if (parsed.backupVersion === BACKUP_VERSION && hasCircuitData(stores)) throw new Error('Grouped workouts require a version 2 backup. Nothing was restored.');
   if (parsed.schemaVersion !== SCHEMA_VERSION) throw new Error('This backup uses an unsupported data schema.');
   // Older backups predate the custom-exercise store.
   if (stores.customExercises === undefined) stores.customExercises = [];
@@ -94,7 +104,7 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
   });
   return {
     format: BACKUP_FORMAT,
-    backupVersion: BACKUP_VERSION,
+    backupVersion: parsed.backupVersion as WorkoutBackup['backupVersion'],
     schemaVersion: Number(parsed.schemaVersion) || SCHEMA_VERSION,
     exportedAt: typeof parsed.exportedAt === 'string' ? parsed.exportedAt : new Date().toISOString(),
     stores: {
@@ -111,7 +121,16 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
 }
 
 export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<BackupSummary> {
+  if (![BACKUP_VERSION, CIRCUIT_BACKUP_VERSION].includes(backup.backupVersion)
+    || (backup.backupVersion === BACKUP_VERSION && hasCircuitData(backup.stores))) {
+    throw new Error('This backup version cannot preserve grouped workouts. Nothing was restored.');
+  }
   validateBackupStores(backup.stores);
+  const drafts = backup.stores.appState.flatMap(state => {
+    const value = state as Record<string, unknown>;
+    return value.key === 'playlistDraft' && Array.isArray(value.items) ? value.items as PlaylistDraft['items'] : [];
+  });
+  await ensureCircuitScheduleSupported([...backup.stores.workouts, ...drafts]);
   await withHealthConnectSyncLock(() => replaceStores({ ...backup.stores, bodyMeasurements: backup.stores.bodyMeasurements ?? [] }));
   await repairLegacyCustomExerciseNames();
   return summarizeBackup(backup);

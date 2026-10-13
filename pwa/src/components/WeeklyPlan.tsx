@@ -36,7 +36,7 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
         const sessionRows = rows.filter((row) => row.time === time);
         return <div key={`${selectedDay}:${time}`} className="week-session">
           <div className="week-session__heading"><strong>{time}</strong><span><Clock3 size={14} aria-hidden="true" /> {formatEstimatedDuration(estimateWorkoutDurationSeconds(sessionRows, estimateLevelFor(sessionRows)))}</span></div>
-          <ul>{sessionRows.map((row, index) => <li key={row.id ?? index}><span>{row.exercise}</span><span>{row.sets} × {row.reps}{row.loadWeight != null ? ` · ${row.loadWeight} ${row.loadUnit ?? 'kg'}` : ''}</span></li>)}</ul>
+          <ul>{sessionRows.map((row, index) => <li key={row.id ?? index}><span>{row.exercise}{row.circuit && <small className="block text-emerald-300">Grouped · {row.circuit.restSeconds}s round rest · Phone player</small>}</span><span>{row.sets} × {row.reps}{row.loadWeight != null ? ` · ${row.loadWeight} ${row.loadUnit ?? 'kg'}` : ''}</span></li>)}</ul>
           {scheduleEditor && <WeeklySessionEditor rows={sessionRows} editor={scheduleEditor} onMoved={setSelectedDay} />}
           {scheduleEditor && <DateSessionEditor rows={sessionRows} editor={scheduleEditor} />}
         </div>;

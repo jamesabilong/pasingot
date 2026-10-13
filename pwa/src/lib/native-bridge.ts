@@ -1,8 +1,9 @@
 import { Capacitor } from '@capacitor/core';
-import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
+import { SCHEMA_VERSION, type BodyMetricEntry, type WorkoutCircuit, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent } from '../types';
 import { addWatchRecord, getAll, getRecord, putRecord, STORES } from './db';
 import { customExerciseDisplayName } from './custom-exercises';
 import type { CustomExercise } from '../types';
+import { validateCircuitGroups } from './workout-circuits';
 
 export interface WatchSessionSnapshot {
   schemaVersion: number;
@@ -45,7 +46,7 @@ declare global {
     Capacitor?: {
       Plugins?: {
         ScheduleSync?: {
-          getCapabilities?: () => Promise<{ dateOverrides: boolean }>;
+          getCapabilities?: () => Promise<{ dateOverrides: boolean; circuits?: boolean }>;
           syncSchedule: (payload: { rows: WorkoutRow[] }) => Promise<void>;
           sendTodayToWatch?: () => Promise<{ exerciseCount: number; date: string }>;
         };
@@ -211,14 +212,26 @@ async function drainHealthConnectOperations(): Promise<number> {
 
 export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<boolean> {
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
-  if (!bridge) return true;
   try {
+    const circuitError = validateCircuitGroups(rows);
+    if (circuitError) throw new Error(circuitError);
+    await ensureCircuitScheduleSupported(rows);
+    if (!bridge) return true;
     if (rows.some(row => Object.keys(row.dateOverrides ?? {}).length)) await requireDateScheduleSupport();
     await bridge.syncSchedule({ rows });
     return true;
   } catch (error) {
     console.error('Failed to sync schedule to native:', error);
     return false;
+  }
+}
+
+/** The phone cache must retain circuit markers before any durable schedule save. */
+export async function ensureCircuitScheduleSupported(rows: readonly { circuit?: WorkoutCircuit }[]): Promise<void> {
+  if (!rows.some(row => row.circuit !== undefined) || Capacitor.getPlatform() === 'web') return;
+  const bridge = window.Capacitor?.Plugins?.ScheduleSync;
+  if (!bridge?.getCapabilities || (await bridge.getCapabilities()).circuits !== true) {
+    throw new Error('Update the Pasingot Android phone app to save supersets and circuits safely.');
   }
 }
 
@@ -252,6 +265,9 @@ export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCo
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
   if (!bridge?.sendTodayToWatch) throw new Error(WATCH_SYNC_UNAVAILABLE_MESSAGES['app-update-required']);
   // Do not use the automatic cache helper here: manual actions must surface failures.
+  const circuitError = validateCircuitGroups(rows);
+  if (circuitError) throw new Error(circuitError);
+  await ensureCircuitScheduleSupported(rows);
   if (rows.some(row => Object.keys(row.dateOverrides ?? {}).length)) await requireDateScheduleSupport();
   await bridge.syncSchedule({ rows });
   return bridge.sendTodayToWatch();

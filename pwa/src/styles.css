@@ -286,6 +286,123 @@ a:focus-visible {
   position: relative;
 }
 
+.library-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.circuit-builder {
+  border-block: 1px solid var(--app-color-border);
+  padding-block: 0.75rem;
+}
+
+.circuit-builder summary {
+  cursor: pointer;
+  color: var(--app-color-accent);
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+}
+
+.circuit-selection {
+  display: grid;
+  margin-block: 0.5rem;
+}
+
+.circuit-selection label {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  min-width: 0;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.circuit-selection span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.circuit-selection input {
+  flex-shrink: 0;
+  accent-color: var(--app-color-accent);
+}
+
+.circuit-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-block: 0.5rem;
+}
+
+.circuit-settings label {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--app-color-muted);
+}
+
+.circuit-settings input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid var(--app-color-border);
+  border-radius: var(--app-radius-control);
+  background: var(--app-color-surface);
+  padding: 0.5rem;
+  color: var(--app-color-text);
+}
+
+.circuit-group-settings {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--app-color-border);
+}
+
+.library-filter-label {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  color: var(--app-color-muted);
+  font-size: 0.75rem;
+}
+
+.library-filter-control {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid var(--app-color-border);
+  border-radius: var(--app-radius-control);
+  background: var(--app-color-surface);
+  padding: 0.5rem;
+  color: var(--app-color-text);
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+}
+
+.library-filter-search {
+  padding-left: 2.25rem;
+}
+
+.library-filter-control:focus-visible {
+  outline: 2px solid var(--app-color-accent);
+  outline-offset: 2px;
+}
+
+.library-clear-filters {
+  min-height: 2.75rem;
+  border-radius: var(--app-radius-control);
+  padding: 0.5rem;
+  color: var(--app-color-accent);
+  font-size: 0.75rem;
+}
+
+.library-clear-filters:disabled {
+  color: var(--app-color-muted);
+  opacity: 0.5;
+}
+
 .library-search > svg {
   position: absolute;
   top: 50%;

@@ -1,7 +1,11 @@
 import { WarmupSuggestions } from './WarmupSuggestions';
 import { useState } from 'react';
 import { PlateCalculator } from './PlateCalculator';
-import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import { LibraryFilters } from './LibraryFilters';
+import { CircuitBuilder, CircuitSettings } from './CircuitBuilder';
+import { circuitRange } from '../lib/workout-circuits';
+import type { CatalogFilterOption } from '../lib/library-filters';
+import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { EstimateSummary, LevelPicker } from './SummaryCards';
 import { CUSTOM_EXERCISE_CATEGORIES, customExerciseDisplayName, type CustomExerciseDraft } from '../lib/custom-exercises';
 import { WEEKDAYS, type ExerciseCatalogItem, type ExerciseLevel, type PlaylistDraft, type PlaylistItem, type Weekday, type WeightUnit } from '../types';
@@ -17,19 +21,31 @@ export function LibraryView({
   draft,
   search,
   category,
+  muscle,
+  muscleOptions,
+  equipment,
+  equipmentOptions,
   featuredOnly,
   draftEstimate,
   playlistResult,
+  playlistBusy = false,
   customExerciseDraft,
   customExerciseResult,
   defaultPrescriptionFor,
   onSearchChange,
   onCategoryChange,
+  onMuscleChange,
+  onEquipmentChange,
+  onClearFilters,
   onFeaturedOnlyChange,
   onDraftChange,
   onAddCatalogExercise,
   onUpdateDraftItem,
   onReorderDraftItem,
+  onRemoveDraftItem,
+  onCreateCircuit,
+  onUpdateCircuit,
+  onRemoveCircuit,
   onSavePlaylistToSchedule,
   onClearPlaylistResult,
   onCustomExerciseDraftChange,
@@ -50,19 +66,31 @@ export function LibraryView({
   draft: PlaylistDraft;
   search: string;
   category: string;
+  muscle: string;
+  muscleOptions: CatalogFilterOption[];
+  equipment: string;
+  equipmentOptions: CatalogFilterOption[];
   featuredOnly: boolean;
   draftEstimate: string;
   playlistResult: { message: string; error: boolean } | null;
+  playlistBusy?: boolean;
   customExerciseDraft: CustomExerciseDraft;
   customExerciseResult: { message: string; error: boolean } | null;
   defaultPrescriptionFor: (exercise: ExerciseCatalogItem, level: ExerciseLevel) => Omit<PlaylistItem, 'sourceId' | 'name'>;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
+  onMuscleChange: (value: string) => void;
+  onEquipmentChange: (value: string) => void;
+  onClearFilters: () => void;
   onFeaturedOnlyChange: (value: boolean) => void;
   onDraftChange: (draft: PlaylistDraft) => void;
   onAddCatalogExercise: (sourceId: number) => void;
   onUpdateDraftItem: (index: number, updates: Partial<PlaylistItem>) => void;
   onReorderDraftItem: (index: number, direction: -1 | 1) => void;
+  onRemoveDraftItem: (index: number) => void;
+  onCreateCircuit: (sourceIds: number[], rounds: number, restSeconds: number) => void;
+  onUpdateCircuit: (id: string, updates: { rounds?: number; restSeconds?: number }) => void;
+  onRemoveCircuit: (id: string) => void;
   onSavePlaylistToSchedule: () => void;
   onClearPlaylistResult: () => void;
   onCustomExerciseDraftChange: (draft: CustomExerciseDraft) => void;
@@ -80,7 +108,7 @@ export function LibraryView({
       <div className="space-y-3">
         <div className="section-heading">
           <div><p className="section-kicker">Build</p><h2 className="text-base font-semibold text-slate-200">Exercise library</h2></div>
-          <span className="text-xs text-slate-500">{filteredCatalog.length} shown</span>
+          <span className="text-xs text-slate-500" role="status">{filteredCatalog.length} shown</span>
         </div>
 
         <LevelPicker
@@ -91,40 +119,15 @@ export function LibraryView({
           counts={levelCounts}
         />
 
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <label className="library-search min-w-0">
-            <span className="sr-only">Search exercises</span>
-            <Search size={17} aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search exercises"
-              className="w-full rounded-md border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm placeholder:text-slate-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </label>
-          <label>
-            <span className="sr-only">Filter by category</span>
-            <select
-              value={category}
-              onChange={(event) => onCategoryChange(event.target.value)}
-              className="h-full rounded-md border border-slate-700 bg-slate-900 px-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-            >
-              <option value="all">All groups</option>
-              {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
-        </div>
-
-        <label className="inline-flex items-center gap-2 text-xs text-slate-400">
-          <input
-            type="checkbox"
-            checked={featuredOnly}
-            onChange={(event) => onFeaturedOnlyChange(event.target.checked)}
-            className="size-4 accent-emerald-500"
-          />
-          Common movements only
-        </label>
+        <LibraryFilters
+          search={search} category={category} categories={categories}
+          muscle={muscle} muscleOptions={muscleOptions}
+          equipment={equipment} equipmentOptions={equipmentOptions}
+          featuredOnly={featuredOnly} onSearchChange={onSearchChange}
+          onCategoryChange={onCategoryChange} onMuscleChange={onMuscleChange}
+          onEquipmentChange={onEquipmentChange}
+          onFeaturedOnlyChange={onFeaturedOnlyChange} onClearFilters={onClearFilters}
+        />
 
         {onQuickStartSelection && quickSelection.length > 0 && <button type="button" className="secondary-action" onClick={() => onQuickStartSelection(quickSelection.flatMap((sourceId) => { const item = catalog.find((entry) => entry.sourceId === sourceId); return item ? [{ sourceId, name: item.displayName, ...defaultPrescriptionFor(item, draft.level) }] : []; }))}>Quick Start selected ({quickSelection.length})</button>}
         {filteredCatalog.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No exercises match these filters.</p> : <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
@@ -232,7 +235,7 @@ export function LibraryView({
         {customExerciseResult && <p className={`rounded-md border p-3 text-sm ${customExerciseResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{customExerciseResult.message}</p>}
       </div>
 
-      <div className="space-y-3 border-t border-slate-800 pt-5">
+      <fieldset className="space-y-3 border-t border-slate-800 pt-5" disabled={playlistBusy} aria-label="Workout playlist">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-base font-semibold text-slate-200">Workout Playlist</h2>
           <span className="text-xs text-slate-500">{draft.items.length ? `${draft.items.length}/${maxPlaylistItems} · ${draftEstimate}` : `${draft.items.length}/${maxPlaylistItems}`}</span>
@@ -251,28 +254,35 @@ export function LibraryView({
             <input type="time" value={draft.time} onChange={(event) => onDraftChange({ ...draft, time: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none" />
           </label>
         </div>
+        <CircuitBuilder items={draft.items.map(item => ({ ...item, name: customExerciseDisplayName(item.name, catalog) }))} onCreate={onCreateCircuit} />
         {draft.items.length === 0 ? <p className="rounded-lg border border-dashed border-slate-800 py-8 text-center text-sm text-slate-500">Add exercises from the library to build a workout.</p> : <div className="space-y-2">
           {draft.items.map((item, index) => (
             <div key={item.sourceId} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-3">
+              {item.circuit && circuitRange(draft.items, index)?.start === index && <CircuitSettings
+                id={item.circuit.id} rounds={item.sets} restSeconds={item.circuit.restSeconds}
+                members={circuitRange(draft.items, index)!.end - index + 1}
+                onUpdate={onUpdateCircuit} onRemove={onRemoveCircuit}
+              />}
+              {item.circuit && <p className="text-xs text-emerald-300">Grouped · {item.sets} rounds · {item.circuit.restSeconds}s round rest</p>}
               <div className="flex items-center gap-2">
                 <span className="grid size-6 shrink-0 place-items-center rounded bg-emerald-500 text-xs font-bold text-slate-950">{index + 1}</span>
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{customExerciseDisplayName(item.name, catalog)}</p>
-                <button type="button" disabled={index === 0} title="Move up" aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} up`} onClick={() => onReorderDraftItem(index, -1)} className="playlist-icon-action"><ArrowUp size={17} aria-hidden="true" /></button>
-                <button type="button" disabled={index === draft.items.length - 1} title="Move down" aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} down`} onClick={() => onReorderDraftItem(index, 1)} className="playlist-icon-action"><ArrowDown size={17} aria-hidden="true" /></button>
-                <button type="button" title="Remove" aria-label={`Remove ${customExerciseDisplayName(item.name, catalog)}`} onClick={() => onDraftChange({ ...draft, items: draft.items.filter((_, itemIndex) => itemIndex !== index) })} className="playlist-icon-action playlist-icon-action--danger"><X size={17} aria-hidden="true" /></button>
+                <button type="button" disabled={(circuitRange(draft.items, index)?.start ?? index) === 0} title={item.circuit ? 'Move group up' : 'Move up'} aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} up`} onClick={() => onReorderDraftItem(index, -1)} className="playlist-icon-action"><ArrowUp size={17} aria-hidden="true" /></button>
+                <button type="button" disabled={(circuitRange(draft.items, index)?.end ?? index) === draft.items.length - 1} title={item.circuit ? 'Move group down' : 'Move down'} aria-label={`Move ${customExerciseDisplayName(item.name, catalog)} down`} onClick={() => onReorderDraftItem(index, 1)} className="playlist-icon-action"><ArrowDown size={17} aria-hidden="true" /></button>
+                <button type="button" title="Remove" aria-label={`Remove ${customExerciseDisplayName(item.name, catalog)}`} onClick={() => onRemoveDraftItem(index)} className="playlist-icon-action playlist-icon-action--danger"><X size={17} aria-hidden="true" /></button>
               </div>
               <div className="grid grid-cols-[4.5rem_1fr_5rem] gap-2 pl-8">
                 <label className="text-[10px] uppercase text-slate-600">
-                  Sets
-                  <input type="number" min="1" max="99" value={item.sets} onChange={(event) => onUpdateDraftItem(index, { sets: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                  {item.circuit ? 'Rounds' : 'Sets'}
+                  <input type="number" min="1" max="99" disabled={Boolean(item.circuit)} value={item.sets} onChange={(event) => onUpdateDraftItem(index, { sets: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none disabled:opacity-50" />
                 </label>
                 <label className="text-[10px] uppercase text-slate-600">
                   Reps / min / sec
                   <input type="text" maxLength={30} placeholder="8-12 / 2 min / 30 sec" value={item.reps} onChange={(event) => onUpdateDraftItem(index, { reps: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
                 </label>
                 <label className="text-[10px] uppercase text-slate-600">
-                  Rest (sec)
-                  <input type="number" min="0" max="3600" value={item.rest} onChange={(event) => onUpdateDraftItem(index, { rest: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                  {item.circuit ? 'Between' : 'Rest (sec)'}
+                  <input aria-label={item.circuit ? 'Rest between group exercises' : undefined} type="number" min="0" max="3600" disabled={Boolean(item.circuit)} value={item.circuit ? 0 : item.rest} onChange={(event) => onUpdateDraftItem(index, { rest: Number(event.target.value) })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none disabled:opacity-50" />
                 </label>
               </div>
               <div className="grid grid-cols-[1fr_5rem] gap-2 pl-8">
@@ -307,12 +317,13 @@ export function LibraryView({
           ))}
         </div>}
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <button type="button" disabled={!draft.items.length} onClick={onSavePlaylistToSchedule} className="primary-action mt-0"><Save size={17} aria-hidden="true" />Add to weekly schedule</button>
+          <button type="button" disabled={!draft.items.length} onClick={onSavePlaylistToSchedule} className="primary-action mt-0"><Save size={17} aria-hidden="true" />{playlistBusy ? 'Saving playlist…' : 'Add to weekly schedule'}</button>
           <button type="button" disabled={!draft.items.length} onClick={() => { onDraftChange({ ...draft, items: [] }); onClearPlaylistResult(); }} className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
         </div>
-        {onQuickStartPlaylist && <button type="button" disabled={!draft.items.length} onClick={() => onQuickStartPlaylist(draft.items)} className="secondary-action">Quick Start playlist on watch</button>}
+        {draft.items.some(item => item.circuit) && <p className="text-xs text-amber-300">Grouped workouts use the phone player. Ungroup before sending the playlist to your watch.</p>}
+        {onQuickStartPlaylist && <button type="button" disabled={!draft.items.length || draft.items.some(item => item.circuit)} onClick={() => onQuickStartPlaylist(draft.items)} className="secondary-action">Quick Start playlist on watch</button>}
         {playlistResult && <p className={`rounded-md border p-3 text-sm ${playlistResult.error ? 'border-rose-900 bg-rose-950/40 text-rose-300' : 'border-emerald-900 bg-emerald-950/40 text-emerald-300'}`}>{playlistResult.message}</p>}
-      </div>
+      </fieldset>
       <p className="border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-600">Reviewed metadata from <a href="https://wger.de/" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300">wger contributors</a>. License and source attribution are retained per exercise.</p>
     </section>
   );

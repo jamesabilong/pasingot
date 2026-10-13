@@ -3,7 +3,7 @@ import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEv
 import { STORES, transact } from './db';
 import { workoutsOnDate } from './schedule-dates';
 import { estimateLevelFor, estimateWorkoutDurationSeconds, validLoadWeight, workoutStatusesOnDate } from './workout-planning';
-import { ACTIVE_WORKOUT_SESSION_KEY, currentSetInput, elapsedSecondsForSession, finishElapsedSession, normalizeActiveWorkoutSession, restOrActive, touchSession, type ActiveWorkoutSession } from './workout-session';
+import { ACTIVE_WORKOUT_SESSION_KEY, circuitSessionRowsMatch, currentSetInput, elapsedSecondsForSession, finishElapsedSession, normalizeActiveWorkoutSession, restOrActive, touchSession, type ActiveWorkoutSession } from './workout-session';
 
 export interface WorkoutSessionTransition {
   session: ActiveWorkoutSession | null;
@@ -24,7 +24,8 @@ function sameValue(left: unknown, right: unknown): boolean {
 /** History and the cursor advance share one commit. A stale tab/action cannot log the same set again. */
 export async function commitWorkoutSessionTransition(expected: ActiveWorkoutSession | null, next: WorkoutSessionTransition, startRows?: WorkoutRow[]): Promise<boolean> {
   let committed = false;
-  await transact([STORES.appState, STORES.logs, STORES.setLogs, STORES.sessionEvents, ...(startRows ? [STORES.workouts] : [])], (transaction) => {
+  const checkGroupedPlan = Boolean(expected?.steps && (next.setLog || next.exerciseLog));
+  await transact([STORES.appState, STORES.logs, STORES.setLogs, STORES.sessionEvents, ...(startRows || checkGroupedPlan ? [STORES.workouts] : [])], (transaction) => {
     const appState = transaction.objectStore(STORES.appState);
     const request = appState.get(ACTIVE_WORKOUT_SESSION_KEY);
     request.onsuccess = () => {
@@ -49,6 +50,18 @@ export async function commitWorkoutSessionTransition(expected: ActiveWorkoutSess
         schedule.onsuccess = () => {
           if (sameValue(workoutsOnDate(schedule.result, next.session!.planDate).filter(row => row.id != null), startRows)) write();
         };
+      } else if (checkGroupedPlan && expected) {
+        const schedule = transaction.objectStore(STORES.workouts).getAll();
+        const logs = transaction.objectStore(STORES.logs).getAll();
+        let pending = 2;
+        const validate = () => {
+          if (--pending) return;
+          const projected = workoutsOnDate(schedule.result, expected.planDate);
+          const rowId = expected.plannedRows?.[expected.exerciseIndex]?.id;
+          if (circuitSessionRowsMatch(expected, projected) && !workoutStatusesOnDate(logs.result, expected.planDate).has(rowId ?? -1)) write();
+        };
+        schedule.onsuccess = validate;
+        logs.onsuccess = validate;
       } else write();
     };
   });
@@ -74,9 +87,11 @@ export function workoutSessionEvent(session: ActiveWorkoutSession, rows: Workout
 
 export function workoutStepTransition(session: ActiveWorkoutSession, rows: WorkoutRow[], action: 'complete' | 'skip', now = Date.now()): WorkoutSessionTransition | null {
   const row = rows[session.exerciseIndex];
-  if (session.status !== 'active' || !row) return null;
+  if (session.status !== 'active' || !row || !circuitSessionRowsMatch(session, rows)) return null;
   const touched = touchSession(session, now);
   const transition: WorkoutSessionTransition = { session: touched };
+  const sequenceStep = touched.steps?.[touched.stepIndex ?? -1];
+  if (touched.steps && (!sequenceStep || sequenceStep.exerciseIndex !== touched.exerciseIndex || sequenceStep.setNumber !== touched.currentSet)) return null;
   if (action === 'complete') {
     const input = currentSetInput(touched, row);
     const effort = parseSetEffort(input);
@@ -89,15 +104,34 @@ export function workoutStepTransition(session: ActiveWorkoutSession, rows: Worko
       loadWeight, loadUnit: loadWeight != null ? input.loadUnit : null,
       rpe: effort.rpe, rir: effort.rir,
     };
-    if (touched.currentSet < row.sets) {
+    if (!touched.steps && touched.currentSet < row.sets) {
       transition.session = restOrActive({ ...touched, currentSet: touched.currentSet + 1 }, row.rest, now);
       return transition;
     }
   }
-  if (row.id != null) transition.exerciseLog = {
+  if (row.id != null && (!touched.steps || action === 'skip' || touched.currentSet === row.sets)) transition.exerciseLog = {
     schemaVersion: SCHEMA_VERSION, date: new Date(now).toISOString(), exercise: row.exercise,
     exerciseSourceId: row.exerciseSourceId ?? null, status: action === 'complete' ? 'done' : 'skipped', workoutRowId: row.id,
   };
+  if (touched.steps && sequenceStep) {
+    const handled = new Set(touched.handledRowIds ?? []);
+    if (transition.exerciseLog && row.id != null) handled.add(row.id);
+    let stepIndex = (touched.stepIndex ?? 0) + 1;
+    while (stepIndex < touched.steps.length && handled.has(rows[touched.steps[stepIndex].exerciseIndex]?.id ?? -1)) stepIndex++;
+    if (stepIndex >= touched.steps.length) {
+      transition.session = finishElapsedSession({ ...touched, handledRowIds: [...handled], stepIndex: touched.steps.length, restDurationSeconds: null }, 'completed', 'completed', now);
+      transition.event = workoutSessionEvent(transition.session, rows, now);
+    } else {
+      const nextStep = touched.steps[stepIndex];
+      const next = { ...touched, handledRowIds: [...handled], stepIndex, exerciseIndex: nextStep.exerciseIndex, currentSet: nextStep.setNumber };
+      const nextRow = rows[nextStep.exerciseIndex];
+      const sameRound = row.circuit && nextRow.circuit?.id === row.circuit.id && nextRow.day === row.day
+        && nextRow.time === row.time && nextStep.setNumber === touched.currentSet;
+      const restSeconds = row.circuit ? (sameRound ? 0 : row.circuit.restSeconds) : sequenceStep.restSeconds;
+      transition.session = restOrActive(next, action === 'complete' ? restSeconds : 0, now);
+    }
+    return transition;
+  }
   const nextIndex = touched.exerciseIndex + 1;
   if (nextIndex >= rows.length) {
     transition.session = finishElapsedSession(touched, 'completed', 'completed', now);
@@ -107,6 +141,21 @@ export function workoutStepTransition(session: ActiveWorkoutSession, rows: Worko
     transition.session = action === 'complete' ? restOrActive(next, row.rest, now) : next;
   }
   return transition;
+}
+
+/** External Today/history actions can handle a member while a grouped cursor is saved. */
+export function reconcileCircuitSessionHistory(session: ActiveWorkoutSession, rows: WorkoutRow[], logs: WorkoutLog[]): ActiveWorkoutSession | null {
+  if (!session.steps || !['active', 'resting', 'paused'].includes(session.status) || !circuitSessionRowsMatch(session, rows)) return null;
+  const handled = new Set(session.handledRowIds ?? []);
+  const statuses = workoutStatusesOnDate(logs, session.planDate);
+  session.rowIds.forEach(id => { if (statuses.has(id)) handled.add(id); });
+  let stepIndex = session.stepIndex ?? 0;
+  while (stepIndex < session.steps.length && handled.has(rows[session.steps[stepIndex].exerciseIndex]?.id ?? -1)) stepIndex++;
+  // closeHandledWorkoutSession owns the all-handled case without creating a second event.
+  if (stepIndex >= session.steps.length) return null;
+  if (stepIndex === session.stepIndex && handled.size === (session.handledRowIds ?? []).length) return null;
+  const step = session.steps[stepIndex];
+  return { ...session, handledRowIds: [...handled], stepIndex, exerciseIndex: step.exerciseIndex, currentSet: step.setNumber };
 }
 
 export function closeStaleWorkoutSession(session: ActiveWorkoutSession, rows: WorkoutRow[], today: string, now = Date.now()): WorkoutSessionTransition | null {

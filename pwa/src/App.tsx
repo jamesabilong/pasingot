@@ -106,17 +106,22 @@ export default function App() {
     localToday, activeWorkoutSession, clearActiveWorkoutSession,
     refreshWorkouts, refreshUserData: () => hydration.refreshUserData(),
   });
+  const { watchSession, refreshWatchData, retryPendingSyncs } = useWatchUpdates({
+    refreshLogs, refreshSessionEvents, addToast,
+  });
+  const scheduleEditingBlocked = [activeWorkoutSession, watchSession].some(session => session && ['active', 'resting', 'paused'].includes(session.status));
   const {
     search, setSearch, category, setCategory, featuredOnly, setFeaturedOnly,
+    muscle, setMuscle, equipment, setEquipment, muscleOptions, equipmentOptions, clearFilters,
     customExerciseDraft, setCustomExerciseDraft, customExerciseResult,
-    playlistResult, setPlaylistResult, categories, levelCounts, filteredCatalog,
+    playlistResult, setPlaylistResult, playlistBusy, categories, levelCounts, filteredCatalog,
     draftEstimate, saveDraft, addCatalogExercise, saveCustomExercise,
     editCustomExercise, deleteCustomExercise, updateDraftItem, reorderDraftItem,
-    savePlaylistToSchedule,
+    savePlaylistToSchedule, createCircuit, updateCircuit, removeCircuit, removeDraftItem,
   } = useLibraryWorkflow({
     catalog, setCatalog, customExercises, setCustomExercises, draft, setDraft,
     workouts, logs, setLogEntries, sessionEvents, customQuestDefinitions,
-    refreshWorkouts, addToast,
+    refreshWorkouts, addToast, scheduleEditingBlocked,
   });
   const { result: importResult, importCsv } = useScheduleImport({
     session: activeWorkoutSession,
@@ -126,11 +131,6 @@ export default function App() {
   const { result: backupResult, exportBackup, importBackup } = useWorkoutBackup({
     onRestored: () => hydration.rehydrateBackup(),
   });
-  const { watchSession, refreshWatchData, retryPendingSyncs } = useWatchUpdates({
-    refreshLogs, refreshSessionEvents, addToast,
-  });
-
-  const scheduleEditingBlocked = [activeWorkoutSession, watchSession].some(session => session && ['active', 'resting', 'paused'].includes(session.status));
   const scheduleEditing = useScheduleEditing({
     onScheduleChanged: async rows => { setWorkouts(rows); await restoreWorkoutSession(); },
     blocked: scheduleEditingBlocked,
@@ -244,19 +244,31 @@ export default function App() {
         draft={draft}
         search={search}
         category={category}
+        muscle={muscle}
+        muscleOptions={muscleOptions}
+        equipment={equipment}
+        equipmentOptions={equipmentOptions}
         featuredOnly={featuredOnly}
         draftEstimate={draftEstimate}
         playlistResult={playlistResult}
+        playlistBusy={playlistBusy}
         customExerciseDraft={customExerciseDraft}
         customExerciseResult={customExerciseResult}
         defaultPrescriptionFor={defaultPrescriptionFor}
         onSearchChange={setSearch}
         onCategoryChange={setCategory}
+        onMuscleChange={setMuscle}
+        onEquipmentChange={setEquipment}
+        onClearFilters={clearFilters}
         onFeaturedOnlyChange={setFeaturedOnly}
         onDraftChange={(next) => void saveDraft(next)}
         onAddCatalogExercise={(sourceId) => void addCatalogExercise(sourceId)}
         onUpdateDraftItem={(index, updates) => void updateDraftItem(index, updates)}
         onReorderDraftItem={(index, direction) => void reorderDraftItem(index, direction)}
+        onRemoveDraftItem={index => void removeDraftItem(index)}
+        onCreateCircuit={(ids, rounds, rest) => void createCircuit(ids, rounds, rest)}
+        onUpdateCircuit={(id, updates) => void updateCircuit(id, updates)}
+        onRemoveCircuit={id => void removeCircuit(id)}
         onSavePlaylistToSchedule={() => void savePlaylistToSchedule()}
         onClearPlaylistResult={() => setPlaylistResult(null)}
         onCustomExerciseDraftChange={setCustomExerciseDraft}

@@ -16,7 +16,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { WatchSyncPanel } from '/src/components/WatchSyncPanel.tsx';
 import '/src/styles.css';
-import { drainPendingWatchLogs, getLatestWatchSession, subscribeToWatchChanges, getWatchSyncAvailability, sendTodayToWatch } from '/src/lib/native-bridge.ts';
+import { drainPendingWatchLogs, ensureCircuitScheduleSupported, getLatestWatchSession, subscribeToWatchChanges, getWatchSyncAvailability, pushScheduleToNative, sendTodayToWatch } from '/src/lib/native-bridge.ts';
 
 const factory = window.indexedDB;
 const database = `pasingot-watch-test-${crypto.randomUUID()}`;
@@ -119,7 +119,34 @@ try {
   check(panel.querySelector('button')?.disabled && panel.textContent.includes('schedule first'), 'Android empty schedule keeps send disabled with a next step');
   renderPanel(true);
   check(panel.querySelector('button')?.disabled === false, 'Android schedule with a complete bridge offers send');
+  const circuit = { id: 'fixture', restSeconds: 30 };
+  const groupedRows = [1, 2].map(id => ({ schemaVersion: 1, id, day: 'Tuesday', time: '07:00', exercise: `Exercise ${id}`, sets: 2, reps: '5', rest: 60, circuit }));
+  let capabilityError = '';
+  try { await ensureCircuitScheduleSupported(groupedRows); } catch (error) { capabilityError = error.message; }
+  check(capabilityError.includes('Update') && capabilityError.includes('circuits'), 'Legacy native wrapper rejects grouped schedules before mutation');
+  calls.length = 0;
+  check(!await pushScheduleToNative(groupedRows) && calls.length === 0, 'Automatic sync does not flatten circuits through an old wrapper');
+  capabilityError = '';
+  try { await sendTodayToWatch(groupedRows); } catch (error) { capabilityError = error.message; }
+  check(capabilityError.includes('Update') && calls.length === 0, 'Manual send never caches or transfers groups through an old wrapper');
+  window.Capacitor.Plugins.ScheduleSync.getCapabilities = async () => ({ dateOverrides: true, circuits: false });
+  capabilityError = '';
+  try { await ensureCircuitScheduleSupported([{ circuit }]); } catch (error) { capabilityError = error.message; }
+  check(capabilityError.includes('Update'), 'Grouped playlist-only preflight also rejects unsupported native wrappers');
+  window.Capacitor.Plugins.ScheduleSync.getCapabilities = async () => ({ dateOverrides: true, circuits: true });
+  window.Capacitor.Plugins.ScheduleSync.syncSchedule = async ({ rows: payloadRows }) => { calls.push('group-cache'); check(payloadRows.every(row => row.circuit === circuit), 'Safe native cache receives every exact group marker'); };
+  window.Capacitor.Plugins.ScheduleSync.sendTodayToWatch = async () => { calls.push('group-send'); throw new Error("Today's supersets and circuits require the phone workout player."); };
+  await ensureCircuitScheduleSupported(groupedRows);
+  check(await pushScheduleToNative(groupedRows) && calls.join(',') === 'group-cache', 'Capable wrappers cache grouping without sending workouts');
+  calls.length = 0;
+  capabilityError = '';
+  try { await sendTodayToWatch(groupedRows); } catch (error) { capabilityError = error.message; }
+  check(capabilityError.includes('phone workout player') && calls.join(',') === 'group-cache,group-send', 'Manual grouped-day rejection surfaces the native phone-player guidance');
+  calls.length = 0;
+  check(!await pushScheduleToNative([groupedRows[0]]) && calls.length === 0, 'Malformed grouping cannot replace the safe native cache');
   Capacitor.getPlatform = () => 'web';
+  await ensureCircuitScheduleSupported(groupedRows);
+  check(calls.length === 0, 'Browser grouped schedule preflight is a no-op despite leftover native objects');
   check(getWatchSyncAvailability() === 'browser', 'A leftover plugin object cannot enable sync in a browser');
   renderPanel();
   document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;

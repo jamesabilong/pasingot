@@ -7913,3 +7913,229 @@ iteration files, and whitespace validation passed; prior test/build evidence
 above remains applicable because implementation is unchanged. This supersedes
 the uncommitted/review-for-commit labels above. Physical checks remain deferred;
 no acceptance counts change. Next implementation awaits a further request.
+
+
+## Iteration 188 — 2026-10-13 — Library muscle and equipment filters
+
+Status: **In progress; physical execution deferred.** User requests a progress
+check and continuation, then selects dedicated Library muscle/equipment filters.
+Warm-up suggestions are committed as `f1d0302`; the initial working tree is
+clean, superseding Iteration 187's awaiting-next-request status. Stage 19 remains
+**87/97 overall**, physical **17/27**, ten open.
+
+Implement transient primary-muscle/equipment selectors that compose with search,
+category, level and common movements. Derive normalized options from the full
+merged catalog, including custom labels; preserve saved metadata, draft level
+and playlist prescriptions. Clear filters keeps the chosen level; disappearing
+custom labels reset their affected selector. Empty metadata remains distinct
+from explicit bodyweight equipment. Keep pure logic, hook state and focused UI
+separate, and advance the PWA shell cache for installed-browser updates.
+
+Initial TypeScript baseline passes. Next: finish implementation, run focused
+filter/workflow and relevant regressions, verify narrow-mobile/desktop/offline
+controls and production build, then reconcile roadmap and deferred phone checks.
+No device connection or physical acceptance is requested.
+
+Iteration 188 implementation and browser evidence:
+
+- Added pure catalog filter/option builders, hook-owned temporary selections
+  and focused `LibraryFilters` UI. Case/outer-whitespace normalization applies
+  only to matching/option keys. Full-catalog options include custom metadata,
+  deduplicate labels and remain available when another filter or level excludes
+  their exercises. Primary muscles match exactly; secondary muscles, blank
+  metadata and explicit bodyweight labels retain distinct meanings.
+- Both selectors compose with existing search/category/level/common predicates.
+  Disappearing custom labels clear only their affected selector; valid normalized
+  choices remain. Clear resets all transient filters while preserving the saved
+  level, playlist order and prescriptions. No data migration or watch/native
+  payload change. App only wires hook outputs; the screen owns the focused UI.
+- **263 headless browser assertions pass** across ten fixtures, including the
+  expanded Library fixture's **50 assertions** (32 added). Covers pure boundaries,
+  filter composition, full-catalog options, custom create/edit/delete, restore-like
+  refreshes and exact durable-store preservation with a populated playlist.
+  Warm-up, quests, hydration, integrity, import/backup and watch bridge regressions
+  also pass. Disposable browser contexts/fixture databases preserve personal data.
+- **20 production UI smoke checks pass**: real controls/custom long labels,
+  literal `All` metadata versus empty All sentinel, empty results, Clear, tab
+  return, saved Advanced level and unchanged database. **320 × 700**, **390 × 844**
+  and **1440 × 900** show no horizontal overflow and visible 44px filter controls.
+  Screenshots inspected at narrow/mobile and offline sizes. Production service
+  worker activates `v22-library-filters`; actual offline reload keeps custom
+  options and saved playlist. Selected Quick Start/modal Send fixture still works.
+- Baseline/final `npx tsc --noEmit`, production `npm run build`, Capacitor Android
+  asset copy and `git diff --check` pass. Independent static review reports no
+  actionable findings. Android APK packaging validation remains in progress.
+- Initial sandbox build/path and browser localhost denials were tooling failures;
+  the approved host runs pass after both server/browser use the same environment.
+  Initial preview CLI argument forwarding and headless binary-name diagnostics
+  were corrected. UI driver first selected the common-only checkbox and then an
+  incomplete Send label; scoped `Select` and `Send 1 to watch` complete the check.
+  Diagnostics remain separately retained; no product fix was inferred from them.
+
+Completed: Library filter implementation and code/browser/build evidence, roadmap
+and deferred PHONE-08 reconciliation. Remaining: final packaging result, Git
+recheck and closure; physical module stays deferred, Stage 19 **87/97**, physical
+**17/27**, ten open. Evidence: `output/validation/iteration-188/`.
+
+Iteration 188 closure — **Code/browser/build checkpoint complete; installed
+device validation deferred.**
+
+- Cached JDK 21 offline `:app:assembleDebug` passes in 33 seconds. Packaged
+  `index.html`, `assets/app.js`, `assets/index.css` and `service-worker.js` all
+  byte-match the final production dist. Phone APK/evidence:
+  `output/validation/iteration-188/phone-iteration-188-debug.apk`; SHA-256
+  `4d5b7983f7429cb16a12e26641880a030094b4a766d6036d93d4dff2b611b29f`.
+  Initial sandbox wrapper-lock denial is retained separately from the successful
+  approved build. No configuration/dependency change or device connection.
+- No native source change; earlier JVM evidence remains historical and is not
+  counted as new validation. Phone installation/acceptance remains PHONE-08.
+  Final desktop screenshot also inspected. Browser profiles and owned servers
+  are closed; generated Chromium diagnostics moved into the evidence directory.
+- Final Git recheck retains HEAD `f1d0302`; whitespace validation passes, only
+  this iteration's intended code/tests/docs differ, and changes are uncommitted.
+  Earlier in-progress/packaging-pending labels above are superseded by this
+  closure. Stage 19 stays **87/97**, physical **17/27**, ten open.
+
+Completed: dedicated filters, custom-label lifecycle, Clear/data-preservation,
+responsive/offline/Quick Start validation, phone packaging and documentation.
+Next: review this validated checkpoint for commit, then select a further
+independent feature. Resume physical work only on request through its module.
+
+
+## Iteration 189 — 2026-10-13 — Phone supersets and circuits
+
+Status: **In progress; physical execution deferred.** User requests progress
+and continuation, then selects supersets/circuits. HEAD remains `f1d0302`;
+Iteration 188's validated Library filters remain uncommitted and are preserved.
+Independent review confirms that checkpoint's source/evidence and no actionable
+finding; no rule requires committing before continued implementation.
+
+Implement Library groups of adjacent exercises with equal round counts, zero
+rest between members and shared rest between rounds. Preserve individual reps,
+loads, effort, set numbers and exercise history, plus durable pause/recovery and
+backup compatibility. Phone/PWA execution is this slice; grouped watch transfers
+must explicitly reject rather than flatten the prescription. Existing watch
+downloads retain the prior cache/re-download semantics and must not be treated
+as a current grouped workout. Keep grouped custom quest authoring gated until
+its template model supports grouping. Additive metadata, atomic schedule save,
+bounded validation and focused UI must preserve React composition boundaries.
+
+Next: implement domain/persistence/player/Library and transfer guards in parallel,
+then run meaningful grouped-round/recovery/backup/concurrency/bridge regressions,
+mobile/offline smoke, TypeScript, production and native builds. Physical work
+stays deferred: Stage 19 **87/97**, physical **17/27**, ten open.
+
+Iteration 189 implementation and review findings:
+
+- Added optional circuit metadata and pure validation/round compilation, focused
+  Library group controls and hook-owned serialized draft edits. Group 2–24 adjacent
+  exercises with 1–100 equal rounds and 0–3600 seconds shared rest; reorder whole
+  blocks, update shared settings, ungroup or remove members safely. Per-exercise
+  reps/duration, loads and prior straight-set rest remain independent. A two-member
+  group reduced to one is ungrouped rather than left invalid.
+- New atomic playlist persistence checks native marker support before writes,
+  re-reads durable schedule/player state and guards observed/latest native watch
+  activity. Grouped saves require an empty slot or exact semantic duplicate;
+  conflicting rows reject without partial writes. Save awaits pending draft edits
+  and captures an immutable prescription. Committed saves remain successful if a
+  later refresh/cache write fails, with recovery guidance rather than replay.
+- The phone player snapshots a bounded round sequence: A1/B1/A2/B2, zero rest
+  within a round, shared rest between rounds and before the next block, no final
+  rest. Set/cursor/exercise/session logs commit atomically. Pause/recovery retains
+  exact progress, actual/planned load, effort and set numbers. Skip removes that
+  member's future sets, preserves recorded sets and applies the remaining round
+  rest. Today/weekly views label groups; grouped Today row actions are guarded
+  while the player is unfinished. Straight rows in mixed plans retain their
+  existing actions and reconciliation. Duration estimates use the same sequence.
+- Restore validates complete group membership/order, shared settings/date
+  overrides, unique session IDs, cursor and exact compiled steps. Broken/truncated
+  draft groups are removed as whole groups instead of flattened. Grouped schedule,
+  draft or recovery exports use **backup version 2**, which older apps reject;
+  flat backups remain version 1, and current readers accept valid v1/v2. Invalid
+  groups and unsupported Android wrappers reject before any store replacement.
+- Android cache models preserve markers and validate groups. Foreground full-day
+  sends and Quick Start reject grouped prescriptions, including raw native JSON
+  before unknown-key decoding. Background legacy watch requests for a grouped
+  projected day publish no workout payload; manual Download Now may time out,
+  while scheduled requests retain the existing cache after message acceptance.
+  Previously downloaded watch workouts retain prior cache/re-download semantics.
+  Watch execution and grouped custom quest templates remain outside this slice;
+  no grouped payload is flattened into straight sets.
+- Review/tests found and fixed stale UI after durable plan drift, duplicate/omitted
+  backup members, history IDs outside the session, lost round rest after skipping
+  the last member, queued draft edits overwriting grouping, and raw native Quick
+  Start metadata stripping. A rest caption incorrectly used the upcoming row's
+  group; it now says Rest. Reproductions and initial failures remain separate from
+  passing evidence. App continues to wire named hooks/screens; pure logic and
+  persistence stay in lib, focused components own group JSX/form state.
+
+Iteration 189 validation:
+
+- **762 headless browser assertions pass across 23 fixtures**, including 99
+  circuit-session, 69 circuit-Library and 72 circuit-backup assertions (240 grouped
+  checks). Covers mixed plans, rest/skip/recovery/log identity, durable races,
+  serialized draft writes, atomic save/collision/active guards, old native wrapper
+  rejection and malformed restore. Relevant player, schedule/date editors,
+  Library filters, warm-up, efforts, quests, hydration/integrity, import/backup,
+  Quick Start/bridge and body-measurement regressions pass.
+- **20 production UI smoke checks pass**: actual three-member create/update,
+  removal to superset/singleton, whole-block reorder, repeated atomic save, Today
+  labels, exact A1/B1/A2/B2 plus a straight block, seven actual set logs and exactly
+  three exercise logs/one session event. Actual 25kg entry/set numbers survive
+  paused offline recovery. Production service worker `v23-phone-circuits` caches
+  the real shell; offline reload recovers the exact next cursor. Saved grouping
+  remains unchanged, no page errors, and 320×700/390×844/1440×900 have no horizontal
+  overflow. Library and recovered player screenshots were inspected.
+- Final `npx tsc --noEmit`, `npm run build`, Capacitor asset copy and
+  `git diff --check` pass. Production was rebuilt after the last session fix.
+  **95 shared + 32 phone JVM tests pass**, with no failures/errors/skips. Final
+  cached-JDK-21 offline `:app:testDebugUnitTest :app:assembleDebug` passes, and
+  all four packaged shell assets byte-match final production dist.
+  APK: `output/validation/iteration-189/phone-iteration-189-debug.apk`; SHA-256
+  `04da475bc886f3542939307a90bd27869b71a2f7a33e3bfd380ffa0469f3364f`.
+- Current Wear tests/build could not reach compilation because the offline
+  Windows host cache lacks `androidx.wear:wear-ongoing:1.1.0`. Earlier Wear results
+  are historical; this iteration claims shared/phone evidence only. No dependency
+  or Android configuration change, device contact, install or physical acceptance.
+- Initial sandbox wrapper/realpath/browser denials and the failed Wear cache
+  attempt are tooling limitations retained separately. Initial backup fixture
+  mocked the wrong Capacitor import, and UI drivers needed reopened details and
+  Today’s observed accessible name; correcting drivers produced passing checks.
+  Product failures and driver failures are not relabeled as accepted evidence.
+  Evidence and diagnostics: `output/validation/iteration-189/`.
+
+Iteration 189 closure — **Code/browser/phone-build checkpoint complete;
+installed-phone and current Wear validation remain open.**
+
+Completed: phone/PWA group authoring, execution/recovery/skips, accurate set and
+history logging, atomic persistence, versioned backup validation, native transfer
+guards, responsive/offline checks, phone packaging and plan/roadmap reconciliation.
+The initial in-progress/implement-next labels above are superseded by this closure;
+Iteration 188's choose-next action is superseded by this selected feature.
+
+Remaining: deferred PHONE-09 and earlier phone checks; current Wear build check
+when its dependency is available; grouped watch execution and quest templates
+need separate scope. Stage 19 stays **87/97 overall**, physical **17/27**, ten
+open. Next: review this validated checkpoint for commit/further independent work;
+resume physical execution only on request through its module. Library filters
+and grouping are still uncommitted at HEAD `f1d0302`; preserve both checkpoints.
+
+Final closure audit: no remaining actionable finding. Clarified that scheduled
+watch requests finish after message acceptance with their existing cache, whereas
+manual Download Now may time out; only grouped Today row actions are gated.
+Owned browser fixture processes and dev/preview servers are closed, Chromium
+diagnostics moved into ignored evidence, and the final APK hash was rechecked.
+Final Git inspection still shows `f1d0302`, intended Iterations 188–189 files
+only, and no user commit during closure. Whitespace validation passes; all changes
+remain uncommitted. No existing-data app downgrade or device acceptance is claimed.
+
+Iteration 189 commit checkpoint — 2026-10-13: user requests committing the
+validated work. This combined commit contains Iteration 188's Library filters
+and Iteration 189's phone/PWA supersets/circuits, their tests, native cache/transfer
+guards, roadmap and deferred PHONE-08/09 checks. Git inspection confirmed only
+the 47 intended source/test/documentation files at HEAD `f1d0302`; validation
+evidence above remains applicable because implementation is unchanged. Commit
+preparation updates documentation statuses and validates the staged whitespace.
+This supersedes both iterations' uncommitted/review-for-commit labels. Physical
+checks remain deferred, current Wear validation remains unavailable, and no
+acceptance counts change. Further implementation awaits a request.

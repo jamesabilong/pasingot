@@ -1,12 +1,16 @@
 package app.personal.workouttracker.weardata
 
 import kotlinx.coroutines.TimeoutCancellationException
+import app.personal.workouttracker.shared.CircuitRequiresPhoneException
 import java.util.Locale
 
 private const val WATCH_NOT_CONNECTED =
     "Watch not connected. Reconnect your watch and try again."
 
 internal fun watchTransferErrorMessage(error: Throwable): String {
+    if (generateSequence(error as Throwable?) { it.cause }.take(8).any { it is CircuitRequiresPhoneException }) {
+        return CircuitRequiresPhoneException().message!!
+    }
     if (error is TimeoutCancellationException) {
         return "Watch did not respond. Check the connection and try again."
     }

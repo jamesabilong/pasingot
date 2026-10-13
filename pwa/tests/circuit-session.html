@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit ordering and phone recovery checks</title>
+<h1>Circuit ordering and phone recovery checks</h1><pre id="result">Running…</pre><div id="panel"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { todayDateKey } from '/src/lib/history-stats.ts';
+import { circuitRange, circuitValueSignature, compileCircuitSteps, validCircuitMetadata, validateCircuitGroups } from '/src/lib/workout-circuits.ts';
+import { circuitSessionRowsMatch, currentSetInput, newPwaSession, restSecondsForSession } from '/src/lib/workout-session.ts';
+import { closeStaleWorkoutSession, commitWorkoutSessionTransition, reconcileCircuitSessionHistory, workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
+import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
+
+const factory = window.indexedDB;
+const database = `pasingot-circuit-session-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+window.addEventListener('pagehide', () => factory.deleteDatabase(database), { once: true });
+const checks = [];
+const check = (condition, label) => { if (!condition) throw Error(label); checks.push(`PASS: ${label}`); };
+const rejects = async operation => { try { await operation(); return false; } catch { return true; } };
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+const group = { id: 'pair_1', restSeconds: 40 };
+const row = (id, circuit = group, sets = 2, rest = 90) => ({ id, schemaVersion: 1, day, time: '07:00', exercise: `Exercise ${id}`, exerciseSourceId: id,
+  sets, reps: '8', rest, loadWeight: 20, loadUnit: 'kg', ...(circuit ? { circuit: { ...circuit } } : {}) });
+const pair = [row(1), row(2)];
+const activate = session => ({ ...session, status: 'active', restUntilEpochMillis: null, pausedRestRemainingSeconds: null });
+const log = (id, status = 'done') => ({ schemaVersion: 1, date: new Date().toISOString(), exercise: `Exercise ${id}`, workoutRowId: id, status });
+const reset = async rows => {
+  await replaceStores({ workouts: rows, logs: [], setLogs: [], sessionEvents: [], appState: [] });
+};
+let root = null, controller, completionCount = 0, historyRefreshes = 0, cues = 0;
+const toasts = [];
+let options = { workouts: pair, logs: [], onHistoryChanged: async () => { historyRefreshes++; },
+  onCompleted: () => { completionCount++; }, playCue: () => { cues++; }, addToast: message => { toasts.push(message); } };
+function Harness() { controller = useWorkoutSession(options); return React.createElement('p', null, controller.session?.status ?? 'idle'); }
+const mount = () => { root = createRoot(document.getElementById('panel')); flushSync(() => root.render(React.createElement(Harness))); };
+const unmount = () => { if (root) { flushSync(() => root.unmount()); root = null; } };
+
+try {
+  check(validCircuitMetadata(undefined), 'Legacy prescriptions need no circuit metadata');
+  check(validCircuitMetadata(group) && validCircuitMetadata({ id: 'A-2', restSeconds: 0 }), 'IDs and zero shared rest are accepted');
+  check(validCircuitMetadata({ id: 'x'.repeat(100), restSeconds: 3600 }), 'Maximum ID and rest bounds are accepted');
+  for (const [index, value] of [null, [], {}, { id: '', restSeconds: 0 }, { id: 'a b', restSeconds: 0 }, { id: '<script>', restSeconds: 0 },
+    { id: 'x'.repeat(101), restSeconds: 0 }, { id: 'a', restSeconds: -1 }, { id: 'a', restSeconds: 3601 }, { id: 'a', restSeconds: 0.5 }, { id: 'a', restSeconds: '1' }].entries()) {
+    check(!validCircuitMetadata(value), `Malformed circuit metadata ${index + 1} is rejected`);
+  }
+  check(validateCircuitGroups(pair) === null, 'A contiguous equal-round pair is valid');
+  check(validateCircuitGroups([row(1, null), row(2, null)]) === null, 'Straight-set rows remain valid');
+  check(Boolean(validateCircuitGroups([row(1)])), 'An orphan group is rejected');
+  check(Boolean(validateCircuitGroups([row(1), row(3, null), row(2)])), 'A split group is rejected');
+  check(Boolean(validateCircuitGroups([row(1), row(2, group, 3)])), 'Unequal circuit rounds are rejected');
+  check(Boolean(validateCircuitGroups([row(1, group, 0), row(2, group, 0)])), 'Zero circuit rounds are rejected');
+  check(Boolean(validateCircuitGroups([row(1, group, 101), row(2, group, 101)])), 'More than 100 circuit rounds are rejected');
+  check(validateCircuitGroups([row(1, group, 100), row(2, group, 100)]) === null, '100 circuit rounds are accepted');
+  check(Boolean(validateCircuitGroups([row(1), row(2, { ...group, restSeconds: 41 })])), 'Conflicting shared rest is rejected');
+  check(Boolean(validateCircuitGroups([row(1), { ...row(2), questId: 'quest' }])), 'Quest ownership is rejected');
+  check(Boolean(validateCircuitGroups([row(1), { ...row(2), time: '08:00' }])), 'A group cannot bridge schedule slots');
+  check(validateCircuitGroups([row(1), row(2), { ...row(3), time: '08:00' }, { ...row(4), time: '08:00' }]) === null, 'An ID may be reused in separate complete slots');
+  check(validateCircuitGroups([row(1), { ...row(3), time: '08:00' }, row(2), { ...row(4), time: '08:00' }]) === null, 'Whole-schedule validation uses durable order within each slot');
+  check(validateCircuitGroups(Array.from({ length: 24 }, (_, index) => row(index + 1))) === null, 'A 24-exercise group is accepted');
+  check(Boolean(validateCircuitGroups(Array.from({ length: 25 }, (_, index) => row(index + 1)))), 'A 25-exercise group is rejected');
+  const overrideA = { '2026-11-01': { date: '2026-11-02', time: '08:00' }, '2026-11-08': null };
+  const overrideB = { '2026-11-08': null, '2026-11-01': { time: '08:00', date: '2026-11-02' } };
+  check(validateCircuitGroups([{ ...row(1), dateOverrides: overrideA }, { ...row(2), dateOverrides: overrideB }]) === null, 'Equivalent date overrides ignore JSON property order');
+  check(Boolean(validateCircuitGroups([{ ...row(1), dateOverrides: overrideA }, row(2)])), 'Mismatched date overrides are rejected');
+  check(circuitRange(pair, 1).start === 0 && circuitRange(pair, 0).end === 1, 'Group bounds include every member');
+  const mixed = [row(3, null, 2, 5), ...pair, row(4, null, 1, 20)];
+  const sequence = compileCircuitSteps(mixed);
+  check(JSON.stringify(sequence.map(step => [step.exerciseIndex, step.setNumber])) === JSON.stringify([[0, 1], [0, 2], [1, 1], [2, 1], [1, 2], [2, 2], [3, 1]]), 'Mixed plans preserve straight blocks and round-robin circuit ordering');
+  check(sequence.map(step => step.restSeconds).join(',') === '5,5,0,40,0,40,0', 'Round rest follows each round and block exit; final rest is omitted');
+  check(compileCircuitSteps([row(1, { ...group, restSeconds: 0 }), row(2, { ...group, restSeconds: 0 })]).every(step => step.restSeconds === 0), 'Zero-rest circuits stay active across every transition');
+  const triple = [row(1, group, 3), row(2, group, 3), row(3, group, 3)];
+  check(compileCircuitSteps(triple).map(step => step.exerciseIndex).join(',') === '0,1,2,0,1,2,0,1,2', 'Three-exercise circuits repeat in the same order each round');
+  check(await rejects(() => Promise.resolve(newPwaSession([row(1)]))), 'An invalid grouped schedule cannot create a player');
+  check(await rejects(() => Promise.resolve(newPwaSession([row(1), row(1)]))), 'A grouped plan cannot reuse the same durable row ID');
+  check(await rejects(() => Promise.resolve(newPwaSession(pair, 0, [1, 2]))), 'An already handled group cannot create an active cursor');
+
+  let session = newPwaSession(mixed);
+  const sets = [], exercises = [], events = [];
+  for (let index = 0; index < sequence.length; index++) {
+    const next = workoutStepTransition(activate(session), mixed, 'complete', Date.now());
+    check(Boolean(next?.setLog), `Mixed-plan step ${index + 1} creates its own set log`);
+    sets.push(next.setLog);
+    if (next.exerciseLog) exercises.push(next.exerciseLog);
+    if (next.event) events.push(next.event);
+    session = next.session;
+    if (index === 2) check(session.exerciseIndex === 2 && session.currentSet === 1 && session.status === 'active', 'A first member advances immediately to the next member');
+    if (index === 3) check(session.exerciseIndex === 1 && session.currentSet === 2 && session.status === 'resting' && session.restDurationSeconds === 40, 'The round boundary rests before the first member of round two');
+  }
+  check(sets.map(entry => `${entry.workoutRowId}:${entry.setNumber}`).join(',') === '3:1,3:2,1:1,2:1,1:2,2:2,4:1', 'Set history retains original exercise IDs and set numbers');
+  check(exercises.map(entry => entry.workoutRowId).join(',') === '3,1,2,4', 'Every exercise receives exactly one final-set log');
+  check(session.status === 'completed' && session.stepIndex === sequence.length && events.length === 1, 'The final working set completes once without final rest');
+  check(session.plannedRows.length === mixed.length && session.steps.length === sequence.length, 'Terminal sessions retain their plan and sequence');
+
+  session = newPwaSession(pair);
+  let next = workoutStepTransition(session, pair, 'complete');
+  check(!next.exerciseLog, 'An early round never marks its exercise done');
+  session = next.session;
+  next = workoutStepTransition(session, pair, 'complete');
+  session = activate(next.session);
+  const skipped = workoutStepTransition(session, pair, 'skip');
+  check(skipped.exerciseLog.status === 'skipped' && !skipped.setLog && skipped.session.exerciseIndex === 1 && skipped.session.currentSet === 2, 'Skip retains prior sets and removes every remaining set of the current member');
+  next = workoutStepTransition(skipped.session, pair, 'complete');
+  check(next.session.status === 'completed' && next.exerciseLog.workoutRowId === 2, 'The remaining member finishes after a skipped member');
+  session = newPwaSession(pair);
+  next = workoutStepTransition(session, pair, 'skip');
+  const allSkipped = workoutStepTransition(next.session, pair, 'skip');
+  check(allSkipped.session.status === 'completed' && allSkipped.event && allSkipped.session.handledRowIds.length === 2, 'Skipping the last pending member completes without revisiting skipped rounds');
+  const threeRounds = [row(1, group, 3), row(2, group, 3)];
+  session = newPwaSession(threeRounds);
+  next = workoutStepTransition(session, threeRounds, 'complete');
+  next = workoutStepTransition(next.session, threeRounds, 'skip');
+  check(next.session.exerciseIndex === 0 && next.session.currentSet === 2 && next.session.status === 'active', 'Skipping the last member advances without adding rest to the skip itself');
+  next = workoutStepTransition(next.session, threeRounds, 'complete');
+  check(next.session.currentSet === 3 && next.session.status === 'resting' && next.session.restDurationSeconds === 40, 'Shared round rest remains when the originally last member has been skipped');
+  next = workoutStepTransition(activate(next.session), threeRounds, 'complete');
+  check(next.session.status === 'completed' && next.session.restDurationSeconds === null, 'The final remaining member still finishes without trailing rest');
+  const prehandled = newPwaSession(pair, 0, [1]);
+  check(prehandled.exerciseIndex === 1 && prehandled.currentSet === 1, 'Already handled members are excluded from a new grouped cursor');
+  next = workoutStepTransition(prehandled, pair, 'complete');
+  check(next.session.exerciseIndex === 1 && next.session.currentSet === 2, 'A later round never replays an initially handled member');
+  check(newPwaSession(pair, 0, [1, 999]).handledRowIds.join(',') === '1', 'Unrelated historical row IDs never enter a new circuit cursor');
+  const external = reconcileCircuitSessionHistory(newPwaSession(pair), pair, [log(1)]);
+  check(external.exerciseIndex === 1 && external.handledRowIds.includes(1), 'External row completion advances grouped recovery to a pending member');
+  check(!workoutStepTransition({ ...newPwaSession(pair), stepIndex: 1 }, pair, 'complete'), 'A cursor inconsistent with its immutable sequence cannot log');
+  check(!workoutStepTransition({ ...newPwaSession(pair), steps: undefined, plannedRows: undefined }, pair, 'complete'), 'A legacy cursor cannot silently execute grouped rows as straight sets');
+  const immutableRows = structuredClone(pair), immutableSession = newPwaSession(immutableRows);
+  immutableRows[0].reps = '12'; immutableRows[0].circuit.restSeconds = 20;
+  check(immutableSession.plannedRows[0].reps === '8' && immutableSession.plannedRows[0].circuit.restSeconds === 40, 'Saved plans are independent snapshots of editable rows');
+  check(!circuitSessionRowsMatch(immutableSession, immutableRows), 'Changed prescriptions invalidate a saved circuit cursor');
+  check(circuitSessionRowsMatch(immutableSession, structuredClone(pair)), 'Unchanged saved prescriptions recover successfully');
+  check(!circuitSessionRowsMatch({ ...immutableSession, rowIds: [1, 1] }, pair), 'Duplicate saved row IDs invalidate a grouped cursor');
+  check(!circuitSessionRowsMatch(newPwaSession(pair), [...pair, row(3)]), 'A saved subset cannot silently omit a projected circuit member');
+
+  await reset(pair);
+  session = newPwaSession(pair);
+  await putRecord(STORES.appState, session);
+  next = workoutStepTransition(session, pair, 'complete');
+  const winners = await Promise.all([commitWorkoutSessionTransition(session, next), commitWorkoutSessionTransition(session, next)]);
+  check(winners.filter(Boolean).length === 1, 'Concurrent circuit completion admits exactly one durable transition');
+  check((await getAll(STORES.setLogs)).length === 1 && !(await getAll(STORES.logs)).length, 'An early round commits one set without a premature exercise log');
+  check(!await commitWorkoutSessionTransition(session, next), 'A stale circuit cursor cannot duplicate a set');
+  await reset(pair);
+  session = newPwaSession(pair); await putRecord(STORES.appState, session);
+  next = workoutStepTransition(session, pair, 'complete');
+  await putRecord(STORES.setLogs, { ...next.setLog, id: 88 });
+  check(await rejects(() => commitWorkoutSessionTransition(session, { ...next, setLog: { ...next.setLog, id: 88 } })), 'A failing set write aborts grouped advancement');
+  check((await getRecord(STORES.appState, session.key)).stepIndex === 0 && !(await getAll(STORES.logs)).length, 'Grouped rollback retains the prior cursor and exercise history');
+  await reset(pair); await putRecord(STORES.appState, session);
+  await putRecord(STORES.workouts, { ...pair[0], reps: '12' });
+  check(!await commitWorkoutSessionTransition(session, next) && !(await getAll(STORES.setLogs)).length, 'An atomic grouped transition rejects a schedule changed after calculation');
+  await reset(pair); await putRecord(STORES.appState, session); await putRecord(STORES.logs, log(1));
+  check(!await commitWorkoutSessionTransition(session, next) && !(await getAll(STORES.setLogs)).length, 'An external handled-row log arriving before commit prevents duplicate grouped work');
+
+  await reset(pair); options = { ...options, workouts: pair, logs: [] }; mount();
+  await controller.start(); await settle();
+  check(controller.session.steps.length === 4 && controller.session.exerciseIndex === 0, 'The real hook starts the persisted grouped plan');
+  await controller.updateInput({ actualReps: '9', loadWeight: '22.5', rpe: '8', rir: '2' });
+  await controller.completeSet(); await settle();
+  check(controller.session.exerciseIndex === 1 && controller.session.currentSet === 1, 'The real hook advances to the second exercise in the first round');
+  const recorded = (await getAll(STORES.setLogs))[0];
+  check(recorded.actualReps === '9' && recorded.loadWeight === 22.5 && recorded.rpe === 8 && recorded.rir === 2, 'Grouped working sets retain actual load, reps and effort');
+  await controller.completeSet(); await settle();
+  check(controller.session.status === 'resting' && controller.session.currentSet === 2 && restSecondsForSession(controller.session) > 0, 'The real hook enters shared rest between rounds');
+  await controller.pause(); await settle();
+  const paused = await getRecord(STORES.appState, 'activeWorkoutSession');
+  check(paused.status === 'paused' && paused.pausedRestRemainingSeconds > 0 && paused.restDurationSeconds === 40, 'Pause persists the exact shared-rest recovery state');
+  unmount(); mount(); await controller.restore(); await settle();
+  check(controller.session.stepIndex === 2 && controller.session.status === 'paused', 'Reload restores the saved round cursor without replaying its first round');
+  await controller.resume(); await settle();
+  check(controller.session.status === 'resting' && controller.session.currentSet === 2 && controller.session.exerciseIndex === 0, 'Resume preserves the next round and remaining shared rest');
+  await controller.startRestNow(); await controller.skip(); await controller.completeSet(); await settle();
+  check(controller.session.status === 'completed' && completionCount === 1, 'Real grouped skip and last member complete the workout once');
+  check((await getAll(STORES.setLogs)).length === 3 && (await getAll(STORES.logs)).length === 2 && (await getAll(STORES.sessionEvents)).length === 1, 'Recovery records three actual sets, one skipped member and one completed member');
+  const terminalSnapshot = circuitValueSignature(controller.rows);
+  options = { ...options, workouts: pair.map(entry => ({ ...entry, time: '09:00' })) };
+  flushSync(() => root.render(React.createElement(Harness))); await settle();
+  check(circuitValueSignature(controller.rows) === terminalSnapshot, 'Terminal display retains original prescriptions when weekly rows move');
+  unmount();
+
+  await reset(pair); await putRecord(STORES.logs, log(1)); await putRecord(STORES.logs, log(999)); options = { ...options, workouts: pair, logs: [] }; mount();
+  await controller.start(); await settle();
+  check(controller.session.exerciseIndex === 1 && controller.session.handledRowIds.includes(1), 'Hook startup reads durable handled history even when its React log snapshot is stale');
+  check(!controller.session.handledRowIds.includes(999), 'Deleted or moved row history cannot corrupt the actual grouped startup record');
+  await controller.completeSet(); await controller.startRestNow(); await controller.pause(); await controller.restart(); await settle();
+  check(controller.session.exerciseIndex === 1 && controller.session.currentSet === 1, 'Grouped restart never replays an already handled member');
+  check((await getAll(STORES.setLogs)).every(entry => entry.workoutRowId === 2), 'Restart preserves prior set history without logging handled members');
+  unmount();
+
+  await reset(pair); options = { ...options, workouts: pair, logs: [] }; mount(); await controller.start(); await settle();
+  await putRecord(STORES.logs, log(1)); await controller.completeSet(); await settle();
+  check(controller.session.exerciseIndex === 1 && !(await getAll(STORES.setLogs)).length, 'A stale Complete click reconciles external handling without completing the newly selected member');
+  await controller.pause(); await putRecord(STORES.workouts, { ...pair[0], reps: '12' });
+  await controller.resume(); await settle();
+  check(controller.session.status === 'paused', 'Changed saved prescriptions cannot resume a grouped workout');
+  unmount(); mount(); await controller.restore(); await settle();
+  check(controller.rows.length === 0 && controller.session.status === 'paused', 'Changed-plan recovery exposes the safe End path instead of a flattened player');
+  await controller.end(); await settle();
+  check(controller.session.status === 'ended' && (await getAll(STORES.sessionEvents))[0].currentExercise === 'Exercise 2', 'End remains available after drift and records the original plan summary');
+  unmount();
+
+  await reset([...pair, row(3)]); await putRecord(STORES.appState, newPwaSession(pair));
+  options = { ...options, workouts: [...pair, row(3)], logs: [] }; mount(); await controller.restore(); await settle();
+  check(controller.rows.length === 0, 'Direct database recovery refuses a saved cursor omitting a current circuit member');
+  await controller.completeSet(); await settle();
+  check(!(await getAll(STORES.setLogs)).length, 'An incomplete restored circuit snapshot cannot record working sets');
+  unmount();
+
+  await reset([row(1)]); options = { ...options, workouts: [row(1)], logs: [] }; mount(); await controller.start(); await settle();
+  check(!controller.session && !(await getAll(STORES.setLogs)).length, 'An orphan circuit cannot start through the actual hook');
+  unmount();
+  check(historyRefreshes > 0 && cues === 0 && toasts.length > 0, 'History refreshes follow committed grouped work and no recovered rest cue is replayed');
+  document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
+} catch (error) {
+  document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`;
+} finally { unmount(); }
+</script></html>

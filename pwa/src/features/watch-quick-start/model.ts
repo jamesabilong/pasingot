@@ -43,10 +43,12 @@ export function fromPlaylist(items: PlaylistItem[]): QuickStartItem[] {
 export function fromToday(row: WorkoutRow, date: string): QuickStartItem {
   return { itemId: crypto.randomUUID(), sourceId: row.exerciseSourceId ?? 0, name: row.exercise,
     sets: row.sets, reps: row.reps, rest: row.rest, loadWeight: row.loadWeight, loadUnit: row.loadUnit,
+    ...(row.circuit !== undefined ? { circuit: row.circuit } : {}),
     sourceDate: date, sourceWorkoutRowId: row.id };
 }
 export function validateItems(items: QuickStartItem[]): string | null {
   if (items.length < 1 || items.length > 24) return 'Choose 1 to 24 exercises.';
+  if (items.some(item => item.circuit !== undefined)) return 'Supersets and circuits require the phone workout player. Ungroup these exercises to send them to the watch.';
   const ids = new Set<string>();
   for (const [index, item] of items.entries()) {
     const label = `Exercise ${index + 1}`;

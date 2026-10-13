@@ -1,5 +1,28 @@
 # Feature Gap Roadmap
 
+Current implementation — Iteration 189: phone/PWA supersets and circuits are
+code/browser/phone-build complete. Library groups 2–24 adjacent exercises into
+equal rounds, with no rest within a round and shared rest between rounds or
+before the next block. Recovery, skips, atomic saves, exact set logging and
+version 2 grouped backups are validated. 762 browser assertions, 20 production
+UI checks and 127 shared/phone JVM tests pass; final phone APK assets match
+production dist. Grouped watch execution and quest templates remain outside
+this slice. Wear validation is unverified because the offline host cache lacks
+`androidx.wear:wear-ongoing:1.1.0`. This supersedes Iteration 188's choose-next
+status; both checkpoints are committed with this documentation at the user's
+request, superseding the uncommitted labels below. Installed-phone checks
+are deferred as PHONE-09; Stage 19 stays **87/97**, physical **17/27**, ten open.
+
+Current implementation — Iteration 188: warm-up suggestions are committed as
+`f1d0302`; dedicated Library primary-muscle/equipment filters now compose with
+search, category, level and common movements. Custom labels and Clear filters
+preserve playlist prescriptions; filters are temporary. 263 browser assertions,
+20 production UI checks (320/390/1440px and offline), TypeScript and production
+build, phone APK build and packaged-asset identity checks pass.
+This supersedes Iteration 187's choose-next status; this checkpoint is
+uncommitted. Physical checks remain deferred as PHONE-08, and Stage 19 stays
+**87/97 overall**, physical **17/27**, ten open.
+
 Current implementation — Iteration 187: body measurements committed as
 `381ef28`; adjustable warm-up suggestions are code/browser complete in Library
 playlist items and the phone player's first set. Preview only; working sets and
@@ -552,7 +575,7 @@ importance in general.
 | ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |
 | ✅ Code/browser complete | Individual set history | Inspect actual/planned targets, load and effort for every recorded set | Workout logging | Medium | Iterations156–160: all sets, month/all-time range, exercise search, rated-only filter and20-row pages; headless/mobile/offline checks pass. Read-only, physical phone acceptance pending. |
 | ✅ Code/browser/native complete | Date-specific schedule changes | Move, skip or clear one occurrence of a weekly session | Personal planning | Medium | Iteration 185: complete non-quest sessions; additive date overrides retain weekly prescriptions, IDs and history. Today, player, reminders and native full-day/watch-requested projection match; stale/occupied/recorded-date/active/race guards and backup validation pass. Installed-phone/paired checks deferred in the physical validation module. |
-| | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
+| ✅ Phone code/browser complete | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Stage 20 / Iteration 189: adjacent 2–24 exercise groups, equal rounds, zero within-round rest, shared round/block rest, exact sets/skips/recovery, atomic draft/schedule writes and version 2 grouped backups. Browser/mobile/offline, shared/phone JVM and APK asset checks pass. Installed-phone checks remain PHONE-09; grouped watch execution and quest templates are outside this slice. Current Wear build is unverified due to its missing offline dependency. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
 | 🚧 Partial | Exercise video/GIF demos | Visual form demonstration per exercise | Strong, Hevy, JEFIT, Fitbod | Medium | Stage 16 now bundles 32 reviewed, attributed built-in images for offline use, links 15 attributed upstream videos, and supports optional custom exercise media URLs. Coverage depends on licensed upstream availability; large videos are deliberately not bundled. |
@@ -641,7 +664,7 @@ retains the original targets; full browser and device acceptance is still open.
 | 🚧 Partial | Today | Local hero, explicit status counts, queue filters, weekly schedule preview, and empty-state actions; player remains inline | Hevy/Strong home screen: a single "today's workout" card with a big primary Start/Continue button, a compact stat strip above it (streak, sessions this week) | Redesign Today as one hero card (exercise count, estimated time, Start/Continue button) sitting above the exercise list, with the streak/weekly-count strip from the Stats section above it | High |
 | ✅ Implemented | Workout Player — one screen, two states | Active set inputs and a large rest countdown ring share the same exercise header, with rest extensions and compact secondary actions | Strong/Hevy/Nike Training Club | Preserve active/rest as states of one player; finish physical-device cue/readability acceptance | High |
 | 🚧 Partial | Quests | Program cards, active progress ring, current-day exercise path, completion history, and archived runs | JEFIT/Fitbod program browser and day-by-day path | Current-day path is implemented; a map of every program day remains a design candidate | Medium |
-| 🚧 Partial | Library | Search, level/category filters, exercise cards and attributed thumbnails | Strong/Hevy exercise browser | Dedicated muscle/equipment filter chips and mobile polish remain candidates; text search already matches those fields | Medium |
+| ✅ Code/browser complete | Library filters | Search, level/category/common filters plus dedicated primary-muscle/equipment selectors, exercise cards and attributed thumbnails | Strong/Hevy exercise browser | Iteration 188 adds combined exact metadata filters, custom label refresh, Clear preserving level/playlist, and narrow/mobile/desktop/offline validation. Installed-phone checks remain PHONE-08; further Library polish is a separate candidate | Medium |
 | ✅ Implemented | History | Activity rings, calendar heatmap, trends, body metrics, strength records, and archived quests | Apple Fitness+/Strava | Core planned panels are implemented; physical-device readability remains part of acceptance | Medium |
 | 🚧 Partial | Wear OS session screen | Compact Compose chips list (Complete Set, Pause, Skip, etc.) | Google/Samsung Wear fitness complications: the countdown number fills most of the round screen, 1-2 buttons max, everything else swiped away | Make the rest-remaining number the dominant element on the round screen (large centered text or a ring around the bezel), and reduce the resting-state action list to Start now / Pause only, moving Restart/End behind the existing Cancel/Paused flow | Low |
 
@@ -667,9 +690,13 @@ all screen-by-screen acceptance criteria above are complete.
    [Physical validation module](validation/PHYSICAL_CHECKS.md); execution deferred
    by user on 2026-10-13, without treating automated tests as device acceptance.
 3. One-date scheduling is committed as `bea5826`, body measurements as
-   `381ef28`. Warm-up previews join the validated implementation in Iteration 187.
-   This warm-up checkpoint is committed; select supersets/circuits or another
-   independent feature; keep physical execution deferred.
+   `381ef28`, warm-up previews as `f1d0302`. Library filters (Iteration 188) and
+   phone/PWA supersets/circuits (Iteration 189) are code/browser/phone-build
+   complete, including final APK asset identity, and committed with this
+   documentation at the user's request. Further independent work awaits a request;
+   keep physical execution deferred.
+   Grouped watch execution/templates remain future scope, and current Wear
+   compilation still needs its missing offline dependency.
 4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
    Earlier partial-extraction labels are historical.
 

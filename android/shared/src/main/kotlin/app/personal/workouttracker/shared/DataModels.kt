@@ -372,6 +372,10 @@ data class WatchSessionSnapshot(
 @Serializable
 data class ScheduleDateOverride(val date: String, val time: String)
 
+/** Phone execution metadata. Legacy watch payloads cannot represent this order. */
+@Serializable
+data class WorkoutCircuit(val id: String, val restSeconds: Int)
+
 @Serializable
 data class ScheduleRow(
     val day: String,
@@ -388,6 +392,7 @@ data class ScheduleRow(
     val questDayLabel: String? = null,
     val questLevel: String? = null,
     val dateOverrides: Map<String, ScheduleDateOverride?> = emptyMap(),
+    val circuit: WorkoutCircuit? = null,
 )
 
 /** Phone-native cache of the full schedule, staged by ScheduleSyncPlugin and

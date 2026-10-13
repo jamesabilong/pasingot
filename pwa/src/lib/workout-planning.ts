@@ -1,5 +1,6 @@
 import { type PlanProgress } from '../components/SummaryCards';
 import { localDateKey } from './history-stats';
+import { compileCircuitSteps, validCircuitMetadata, validateCircuitGroups } from './workout-circuits';
 import {
   SCHEMA_VERSION,
   WEEKDAYS,
@@ -43,7 +44,7 @@ const DEFAULT_PRESCRIPTIONS: Record<ExerciseLevel, { strength: Omit<PlaylistItem
   },
 };
 
-type EstimableExercise = Pick<PlaylistItem, 'sets' | 'reps' | 'rest'> & { questLevel?: ExerciseLevel };
+type EstimableExercise = Pick<PlaylistItem, 'sets' | 'reps' | 'rest' | 'circuit'> & { questLevel?: ExerciseLevel; day?: string; time?: string };
 
 export function isWeightUnit(value: unknown): value is WeightUnit {
   return value === 'kg' || value === 'lb';
@@ -139,7 +140,18 @@ function roundUpToMinute(seconds: number): number {
 
 export function estimateWorkoutDurationSeconds(exercises: EstimableExercise[], level: ExerciseLevel = 'beginner'): number {
   if (!exercises.length) return 0;
-  const baseSeconds = exercises.reduce((total, exercise, index) => {
+  let baseSeconds: number;
+  if (exercises.some(exercise => exercise.circuit !== undefined)) {
+    try {
+      const steps = compileCircuitSteps(exercises);
+      baseSeconds = steps.reduce((total, step, index) => {
+        const exercise = exercises[step.exerciseIndex];
+        const work = Math.max(ESTIMATE_SECONDS_PER_REP, estimateSetWorkSeconds(exercise.reps)) + ESTIMATE_SET_SETUP_SECONDS;
+        const transition = steps[index + 1] && steps[index + 1].exerciseIndex !== step.exerciseIndex ? ESTIMATE_BETWEEN_EXERCISE_TRANSITION_SECONDS : 0;
+        return total + work + step.restSeconds + transition;
+      }, 0);
+    } catch { return 0; }
+  } else baseSeconds = exercises.reduce((total, exercise, index) => {
     const parsedSets = Math.trunc(Number(exercise.sets));
     const parsedRest = Math.trunc(Number(exercise.rest));
     const sets = Number.isFinite(parsedSets) ? Math.max(1, parsedSets) : 1;
@@ -180,6 +192,7 @@ export function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseC
     const sourceId = Number(item.sourceId);
     const exercise = catalog.find((candidate) => candidate.sourceId === sourceId);
     if (!exercise) return null;
+    if (!validCircuitMetadata(item.circuit)) return null;
     const sets = Number(item.sets);
     const rest = Number(item.rest);
     const reps = String(item.reps ?? '').trim().slice(0, 30);
@@ -193,7 +206,18 @@ export function normalizeDraft(input: Partial<PlaylistDraft>, catalog: ExerciseC
       rest: Number.isInteger(rest) && rest >= 0 ? rest : 60,
       loadWeight,
       loadUnit,
+      ...(item.circuit ? { circuit: { ...item.circuit } } : {}),
     } satisfies PlaylistItem;
   }).filter((item): item is PlaylistItem => item !== null).slice(0, MAX_PLAYLIST_ITEMS);
-  return { day, time, level, items };
+  // If catalog repair or the playlist limit removes a member, discard that
+  // entire draft group rather than turning its remaining members into straight sets.
+  const rawItems = Array.isArray(input.items) ? input.items : [];
+  const invalidGroups = new Set<string>();
+  for (const id of new Set(items.flatMap(item => item.circuit ? [item.circuit.id] : []))) {
+    const originalMembers = rawItems.filter(item => item?.circuit?.id === id);
+    const members = items.filter(item => item.circuit?.id === id);
+    const isolated = items.map(item => item.circuit?.id === id ? item : { ...item, circuit: undefined });
+    if (members.length !== originalMembers.length || validateCircuitGroups(isolated)) invalidGroups.add(id);
+  }
+  return { day, time, level, items: items.filter(item => !item.circuit || !invalidGroups.has(item.circuit.id)) };
 }

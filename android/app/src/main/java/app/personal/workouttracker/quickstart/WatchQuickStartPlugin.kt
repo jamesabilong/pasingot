@@ -1,7 +1,6 @@
 package app.personal.workouttracker.quickstart
 
 import android.util.Log
-import app.personal.workouttracker.shared.quickstart.QuickStartRequest
 import app.personal.workouttracker.voice.PhoneVoiceCueService
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -18,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -90,9 +88,9 @@ class WatchQuickStartPlugin : Plugin() {
         val raw = call.getObject("request")?.toString() ?: run {
             call.reject("Missing Quick Start request"); return
         }
-        val request = try { json.decodeFromString<QuickStartRequest>(raw) }
+        val request = try { decodePhoneQuickStartRequest(raw) }
         catch (error: SerializationException) { call.reject("Invalid Quick Start request", error); return }
-        catch (error: IllegalArgumentException) { call.reject("Invalid Quick Start request", error); return }
+        catch (error: IllegalArgumentException) { call.reject(error.message ?: "Invalid Quick Start request", error); return }
         scope.launch {
             try {
                 // Validate capability before storing an offer the watch cannot receive.

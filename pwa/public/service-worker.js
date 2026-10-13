@@ -1,5 +1,5 @@
 // Cache-first for versioned app shell assets; network-first for data that can change.
-const CACHE_VERSION = 'v21-quick-start-expiry';
+const CACHE_VERSION = 'v23-phone-circuits';
 const CACHE_NAME = `workout-app-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',

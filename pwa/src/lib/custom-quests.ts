@@ -88,6 +88,9 @@ export function createCustomQuestDefinition(
   if (!isExerciseLevel(playlist.level) || !TIME_RE.test(playlist.time) || !playlist.items.length || playlist.items.length > MAX_PLAYLIST_ITEMS) {
     return { definition: null, error: 'Build a valid playlist in Library before creating a quest.' };
   }
+  if (playlist.items.some(item => item.circuit !== undefined)) {
+    return { definition: null, error: 'Ungroup supersets and circuits before creating a quest.' };
+  }
   const catalogBySourceId = new Map(catalog.map((exercise) => [exercise.sourceId, exercise]));
   if (playlist.items.some((item) => !validPlaylistItem(item, catalogBySourceId))) {
     return { definition: null, error: 'The Library playlist contains a missing exercise or invalid prescription.' };
@@ -159,7 +162,7 @@ export function isCustomQuestDefinition(value: unknown): value is CustomQuestDef
   if (!Array.isArray(value.rows) || !value.rows.length || value.rows.length > MAX_PLAYLIST_ITEMS * template.daysPerWeek * levels.length) return false;
   const sequences = new Map<string, Set<number>>();
   for (const row of value.rows) {
-    if (!record(row) || row.schemaVersion !== SCHEMA_VERSION || row.questId !== value.questId
+    if (!record(row) || row.circuit !== undefined || row.schemaVersion !== SCHEMA_VERSION || row.questId !== value.questId
       || !isExerciseLevel(row.level) || !levels.includes(row.level)
       || !integer(row.dayNumber, 1, template.daysPerWeek) || !integer(row.sequence, 1, MAX_PLAYLIST_ITEMS)
       || !integer(row.exerciseSourceId, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER) || row.exerciseSourceId === 0

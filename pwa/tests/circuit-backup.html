@@ -1,0 +1,88 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Circuit backup and planning checks</title><h1>Circuit backup and planning checks</h1><pre id="result">Running…</pre>
+<script type="module">
+import { getAll, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import { estimateWorkoutDurationSeconds, normalizeDraft, todayName } from '/src/lib/workout-planning.ts';
+import { newPwaSession } from '/src/lib/workout-session.ts';
+import { Capacitor } from '@capacitor/core';
+const factory = window.indexedDB;
+const database = `pasingot-circuit-backup-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const checks = [];
+const check = (value, label) => { if (!value) throw new Error(label); checks.push(`PASS: ${label}`); };
+const fails = operation => { try { operation(); return false; } catch { return true; } };
+const rejects = async operation => { try { await operation(); return false; } catch { return true; } };
+const circuit = { id: 'fixture-circuit', restSeconds: 10 };
+const rows = [1, 2].map(id => ({ id, schemaVersion: 1, day: todayName(), time: '07:00', exercise: `Exercise ${id}`, exerciseSourceId: id, sets: 2, reps: '8', rest: 60, loadWeight: 20, loadUnit: 'kg', circuit: { ...circuit } }));
+const items = rows.map(row => ({ sourceId: row.id, name: row.exercise, sets: row.sets, reps: row.reps, rest: row.rest, loadWeight: row.loadWeight, loadUnit: row.loadUnit, circuit: row.circuit }));
+const draft = { day: todayName(), time: '07:00', level: 'beginner', items };
+const catalog = items.map(item => ({ sourceId: item.sourceId, name: item.name, displayName: item.name }));
+const clone = value => structuredClone(value);
+try {
+  const normalized = normalizeDraft(draft, catalog);
+  check(normalized.items.length === 2 && normalized.items.every(item => item.circuit.id === circuit.id && item.circuit.restSeconds === 10), 'normalization preserves valid group metadata');
+  check(normalized.items[0].circuit !== items[0].circuit, 'normalized metadata does not alias the saved draft');
+  check(normalizeDraft(draft, catalog.slice(0, 1)).items.length === 0, 'missing catalog member removes the whole draft group instead of flattening it');
+  check(normalizeDraft({ ...draft, items: [items[0]] }, catalog).items.length === 0, 'orphan draft grouping is not silently downgraded');
+  check(normalizeDraft({ ...draft, items: items.map(item => ({ ...item, circuit: null })) }, catalog).items.length === 0, 'invalid draft markers do not become straight prescriptions');
+  const flat = rows.map(({ circuit: _marker, ...row }) => row);
+  check(estimateWorkoutDurationSeconds(rows) < estimateWorkoutDurationSeconds(flat), 'group estimate uses shared rest instead of per-member set rests');
+  check(estimateWorkoutDurationSeconds([rows[0]]) === 0, 'invalid group estimate cannot imply a playable straight plan');
+  const session = newPwaSession(rows);
+  await replaceStores({ workouts: rows, logs: [], sessionEvents: [], setLogs: [], bodyMetrics: [], bodyMeasurements: [], customExercises: [], appState: [{ key: 'playlistDraft', schemaVersion: 1, ...draft }, session] });
+  const backup = await buildWorkoutBackup();
+  check(backup.backupVersion === 2, 'grouped data exports version 2 so older apps reject it');
+  const parsed = parseWorkoutBackup(JSON.stringify(backup));
+  check(parsed.stores.workouts[1].circuit.restSeconds === 10 && parsed.stores.appState.find(row => row.key === 'activeWorkoutSession').steps.length === 4, 'group backup keeps schedule and immutable recovery sequence');
+  await restoreWorkoutBackup(parsed);
+  check(JSON.stringify((await buildWorkoutBackup()).stores) === JSON.stringify(backup.stores), 'grouped backup round trip preserves every store exactly');
+  const baseline = JSON.stringify((await buildWorkoutBackup()).stores);
+  const invalid = [
+    ['orphan schedule group', value => value.stores.workouts.splice(1, 1)],
+    ['unequal rounds', value => value.stores.workouts[1].sets = 3],
+    ['unequal shared rest', value => value.stores.workouts[1].circuit.restSeconds = 11],
+    ['invalid group ID', value => value.stores.workouts[0].circuit.id = 'bad id'],
+    ['negative shared rest', value => value.stores.workouts[0].circuit.restSeconds = -1],
+    ['fractional shared rest', value => value.stores.workouts[0].circuit.restSeconds = 1.5],
+    ['quest grouping', value => Object.assign(value.stores.workouts[0], { questId: 'fixture', questDayIndex: 1 })],
+    ['unequal date changes', value => value.stores.workouts[0].dateOverrides = { '2026-10-14': null }],
+    ['invalid draft group', value => value.stores.appState.find(row => row.key === 'playlistDraft').items[0].circuit = null],
+    ['missing recovery steps', value => delete value.stores.appState.find(row => row.key === 'activeWorkoutSession').steps],
+    ['missing plan snapshot', value => delete value.stores.appState.find(row => row.key === 'activeWorkoutSession').plannedRows],
+    ['mutated step sequence', value => value.stores.appState.find(row => row.key === 'activeWorkoutSession').steps[0].restSeconds = 5],
+    ['cursor mismatch', value => value.stores.appState.find(row => row.key === 'activeWorkoutSession').currentSet = 2],
+    ['handled current exercise', value => value.stores.appState.find(row => row.key === 'activeWorkoutSession').handledRowIds = [1]],
+    ['snapshot prescription drift', value => value.stores.appState.find(row => row.key === 'activeWorkoutSession').plannedRows[0].reps = '9'],
+    ['duplicate handled IDs', value => value.stores.appState.find(row => row.key === 'activeWorkoutSession').handledRowIds = [2, 2]],
+    ['duplicate plan row IDs', value => { const session = value.stores.appState.find(row => row.key === 'activeWorkoutSession'); session.rowIds = [1, 1]; session.plannedRows = [value.stores.workouts[0], value.stores.workouts[0]]; }],
+    ['omitted circuit member', value => { value.stores.workouts.push({ ...value.stores.workouts[1], id: 3, exercise: 'Exercise 3', exerciseSourceId: 3 }); }],
+    ['group data under old version', value => value.backupVersion = 1],
+  ];
+  for (const [label, change] of invalid) {
+    const value = clone(backup); change(value);
+    check(fails(() => parseWorkoutBackup(JSON.stringify(value))), `parser rejects ${label}`);
+    check(await rejects(() => restoreWorkoutBackup(value)), `restore rejects ${label} before mutation`);
+    check(JSON.stringify((await buildWorkoutBackup()).stores) === baseline, `${label} leaves durable stores intact`);
+  }
+  const reordered = clone(backup);
+  reordered.stores.workouts.forEach(row => row.circuit = { restSeconds: 10, id: circuit.id });
+  check(parseWorkoutBackup(JSON.stringify(reordered)).backupVersion === 2, 'JSON property order is not group or snapshot identity');
+  const legacy = clone(backup); legacy.backupVersion = 1; legacy.stores.workouts = flat; legacy.stores.appState = [];
+  await restoreWorkoutBackup(legacy);
+  check((await buildWorkoutBackup()).backupVersion === 1 && (await getAll(STORES.workouts)).every(row => !row.circuit), 'legacy flat backups remain version 1 and restore normally');
+  await putRecord(STORES.appState, { key: 'playlistDraft', schemaVersion: 1, ...draft });
+  const draftBackup = await buildWorkoutBackup();
+  check(draftBackup.backupVersion === 2, 'grouped draft alone requires the safe backup version');
+  const previous = window.Capacitor;
+  const previousPlatform = Capacitor.getPlatform;
+  const previousNative = Capacitor.isNativePlatform;
+  Capacitor.getPlatform = () => 'android'; Capacitor.isNativePlatform = () => true;
+  window.Capacitor = { getPlatform: () => 'android', Plugins: { ScheduleSync: { getCapabilities: async () => ({ dateOverrides: true }), syncSchedule: async () => {} } } };
+  check(await rejects(() => restoreWorkoutBackup(draftBackup)), 'old native wrapper rejects grouped draft restore before mutation');
+  window.Capacitor = previous;
+  Capacitor.getPlatform = previousPlatform; Capacitor.isNativePlatform = previousNative;
+  check(JSON.stringify((await buildWorkoutBackup()).stores) === JSON.stringify(draftBackup.stores), 'old native preflight preserves every store');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n${checks.length} checks passed`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack}`; }
+finally { factory.deleteDatabase(database); }
+</script></html>

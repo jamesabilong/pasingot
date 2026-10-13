@@ -16,6 +16,11 @@ export type BodyWeightUnit = WeightUnit;
 // A null destination omits one occurrence; deleting its key restores recurrence.
 export type ScheduleDateOverrides = Record<string, { date: string; time: string } | null>;
 
+export interface WorkoutCircuit {
+  id: string;
+  restSeconds: number;
+}
+
 export interface WorkoutRow {
   id?: number;
   schemaVersion: number;
@@ -29,6 +34,7 @@ export interface WorkoutRow {
   loadWeight?: number | null;
   loadUnit?: WeightUnit | null;
   dateOverrides?: ScheduleDateOverrides;
+  circuit?: WorkoutCircuit;
   questId?: string;
   questRunId?: string;
   questDayIndex?: number;
@@ -152,6 +158,7 @@ export interface PlaylistItem {
   rest: number;
   loadWeight?: number | null;
   loadUnit?: WeightUnit | null;
+  circuit?: WorkoutCircuit;
 }
 
 export interface PlaylistDraft {

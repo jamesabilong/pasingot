@@ -162,6 +162,36 @@ same inventory/evidence protocol on the installed Android app.
   Complete set still records only the prescribed working set. Suggestions are
   temporary previews; they are not appended to watch or phone workout plans.
 
+- [ ] **PHONE-08 — Library filters (Iteration 188).** On the installed phone,
+  combine primary-muscle/equipment selectors with search, category, level and
+  common movements. Verify custom metadata labels after create/edit/delete and
+  backup restore, no fallback from blank equipment to bodyweight, empty results,
+  Clear preserving level/playlist and tab-return retention. Check long labels on
+  the actual screen and offline/reopen behavior; filters reset on a fresh app
+  load. Confirm original workout/history data and Quick Start selection remain.
+  Browser smoke and APK asset identity do not close device acceptance.
+
+- [ ] **PHONE-09 — Supersets/circuits (Iteration 189).** Upgrade using the tested
+  phone APK while preserving existing flat schedules/history and Library filters.
+  Create two- and three-member adjacent groups; update equal rounds/shared rest,
+  reorder whole blocks, remove down to a singleton and ungroup safely. Save into
+  an empty slot and repeat without duplicates; verify collision/active-workout
+  rejection. Run A1/B1/A2/B2 with no intra-round rest, shared round/block rest and
+  no final rest. Skip the final member and verify rest between remaining rounds.
+  Pause, reopen after process death and reload offline; compare exact cursor,
+  rep/duration targets, actual/planned kg/lb loads, effort, set numbers and one
+  exercise/session completion. Export/restore version 2 through the Android file
+  picker; confirm valid legacy version 1 data still restores and an older app
+  rejects a grouped version 2 backup without mutation. Inspect manual full-day
+  Send and Quick Start rejection, plus no new payload for a watch-requested grouped
+  day. Manual Download Now may time out; scheduled requests retain the existing
+  cache after message acceptance. Previously downloaded workouts remain cached under
+  prior semantics and are not evidence of grouped execution. Grouped quest
+  authoring remains unavailable. Confirm unrelated data and Health Connect
+  behavior. Browser/JVM/APK checks do not establish installed-device acceptance;
+  current Wear compilation also remains unverified due to a missing offline
+  `wear-ongoing:1.1.0` dependency.
+
 ## Resume order
 
 Inventory and interrupted QS-12 recovery first; then QS-07/19/20/21/22 and

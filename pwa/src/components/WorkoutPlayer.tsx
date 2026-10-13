@@ -4,6 +4,7 @@ import { Check, Pause, Play, RefreshCcw, SkipForward, Square, Volume2, Vibrate, 
 import { formatDuration } from '../lib/format';
 import type { WeightUnit, WorkoutRow, WorkoutSetInput } from '../types';
 import { parseSetEffort } from '../lib/set-effort';
+import { circuitRange, type WorkoutSessionStep } from '../lib/workout-circuits';
 
 export type WorkoutPlayerSession = {
   status: 'active' | 'resting' | 'paused' | 'completed' | 'ended';
@@ -11,6 +12,9 @@ export type WorkoutPlayerSession = {
   currentSet: number;
   pausedRestRemainingSeconds: number | null;
   lastStopReason?: string | null;
+  steps?: WorkoutSessionStep[];
+  stepIndex?: number;
+  restDurationSeconds?: number | null;
 };
 
 export type WorkoutCueSettingsView = {
@@ -48,14 +52,18 @@ export function WorkoutPlayer({
   if (!row) return null;
 
   const effort = parseSetEffort(setInput);
-  const setLabel = `Set ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
+  const group = circuitRange(rows, session.exerciseIndex);
+  const setLabel = `${group ? 'Round' : 'Set'} ${Math.min(session.currentSet, row.sets)} of ${row.sets}`;
+  const groupLabel = group ? `${group.end - group.start === 1 ? 'Superset' : 'Circuit'} · Exercise ${session.exerciseIndex - group.start + 1} of ${group.end - group.start + 1}` : null;
   const progressLabel = `Exercise ${session.exerciseIndex + 1} of ${rows.length}`;
   const loadLabel = row.loadWeight != null && row.loadUnit ? `${row.loadWeight} ${row.loadUnit}` : 'Bodyweight';
   const pausedMessage = session.lastStopReason === 'inactive_timeout'
     ? 'Paused after no activity.'
     : session.pausedRestRemainingSeconds != null ? `Rest paused at ${formatDuration(session.pausedRestRemainingSeconds)}.` : 'Workout paused.';
-  const sessionProgress = ((session.exerciseIndex + Math.min(session.currentSet / Math.max(row.sets, 1), 1)) / rows.length) * 100;
-  const restTotal = Math.max(row.rest, 1);
+  const sessionProgress = session.steps?.length
+    ? (session.status === 'completed' ? 100 : ((session.stepIndex ?? 0) / session.steps.length) * 100)
+    : ((session.exerciseIndex + Math.min(session.currentSet / Math.max(row.sets, 1), 1)) / rows.length) * 100;
+  const restTotal = Math.max(session.restDurationSeconds ?? row.rest, 1);
   const restProgress = Math.max(0, Math.min(1, restRemainingSeconds / restTotal));
   const ringOffset = 289 * (1 - restProgress);
   const stateLabel = session.status === 'resting' ? 'Rest' : session.status === 'paused' ? 'Paused' : session.status === 'ended' ? 'Ended' : session.status === 'completed' ? 'Complete' : 'In progress';
@@ -67,6 +75,7 @@ export function WorkoutPlayer({
           <span className={`player-state player-state--${session.status}`}>{stateLabel}</span>
           <h3>{row.exercise}</h3>
           <p>{progressLabel} · {setLabel}</p>
+          {groupLabel && <p className="text-emerald-300">{groupLabel}</p>}
         </div>
         <time>{formatDuration(elapsedSeconds)}</time>
       </header>
@@ -74,7 +83,7 @@ export function WorkoutPlayer({
 
       {session.status === 'active' && <div className="player-focus player-focus--active">
         <div className="set-callout">
-          <span>Current set</span>
+          <span>{group ? 'Current round' : 'Current set'}</span>
           <strong>{Math.min(session.currentSet, row.sets)}<small>/{row.sets}</small></strong>
           <em>{row.reps} · {loadLabel}</em>
         </div>

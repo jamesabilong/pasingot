@@ -2,6 +2,9 @@ import { validBodyMeasurement } from './body-measurements';
 import { isPlateEquipmentSettings } from './plate-equipment';
 import { validRpe, validRir } from './set-effort';
 import { validDateOverrides } from './schedule-dates';
+import { workoutsOnDate } from './schedule-dates';
+import { circuitValueSignature, compileCircuitSteps, validCircuitMetadata, validateCircuitGroups } from './workout-circuits';
+import type { WorkoutRow } from '../types';
 import { SCHEMA_VERSION, WEEKDAYS } from '../types';
 import { isCustomQuestDefinition } from './custom-quests';
 import { isExerciseLevel, isWeightUnit, TIME_RE, validLoadWeight } from './workout-planning';
@@ -52,14 +55,25 @@ function appState(row: RecordValue): boolean {
           && typeof item.sets === 'number' && Number.isFinite(item.sets) && typeof item.reps === 'string'
           && typeof item.rest === 'number' && Number.isFinite(item.rest)
           && (item.loadWeight == null || (typeof item.loadWeight === 'number' && Number.isFinite(item.loadWeight)))
-          && (item.loadUnit == null || isWeightUnit(item.loadUnit)));
+          && (item.loadUnit == null || isWeightUnit(item.loadUnit)) && validCircuitMetadata(item.circuit))
+        && validateCircuitGroups(row.items as unknown as WorkoutRow[]) === null;
     case 'activeWorkoutSession':
       return timestamp(row.planDate) && Array.isArray(row.rowIds) && row.rowIds.every((id) => integer(id, 1))
+        && new Set(row.rowIds).size === row.rowIds.length
         && ['active', 'resting', 'paused', 'completed', 'ended'].includes(String(row.status))
         && integer(row.exerciseIndex) && integer(row.currentSet, 1) && finite(row.accumulatedElapsedMillis)
         && (row.elapsedStartedAtEpochMillis == null || finite(row.elapsedStartedAtEpochMillis))
         && (row.restUntilEpochMillis == null || finite(row.restUntilEpochMillis))
         && (row.pausedRestRemainingSeconds == null || finite(row.pausedRestRemainingSeconds))
+        && (row.restDurationSeconds == null || finite(row.restDurationSeconds))
+        && (row.handledRowIds == null || (Array.isArray(row.handledRowIds) && row.handledRowIds.every(id => integer(id, 1))
+          && new Set(row.handledRowIds).size === row.handledRowIds.length && row.handledRowIds.every(id => (row.rowIds as number[]).includes(id))))
+        && (row.steps === undefined || (Array.isArray(row.steps) && row.steps.length > 0 && integer(row.stepIndex)
+          && row.stepIndex <= row.steps.length && row.steps.every(step => object(step) && integer(step.exerciseIndex)
+            && step.exerciseIndex < (row.rowIds as number[]).length && integer(step.setNumber, 1) && step.setNumber <= 100
+            && integer(step.restSeconds) && step.restSeconds <= 3600)))
+        && (row.plannedRows === undefined || (Array.isArray(row.plannedRows) && row.plannedRows.every(value => object(value)
+          && value.schemaVersion === SCHEMA_VERSION && integer(value.id, 1) && validators.workouts(value))))
         && (row.setInputs == null || (object(row.setInputs) && Object.values(row.setInputs).every((input) => object(input)
           && typeof input.actualReps === 'string' && typeof input.loadWeight === 'string' && isWeightUnit(input.loadUnit)
           && (input.rpe == null || typeof input.rpe === 'string') && (input.rir == null || typeof input.rir === 'string'))));
@@ -85,6 +99,7 @@ const validators: Record<string, (row: RecordValue) => boolean> = {
     && text(row.exercise) && identity(row.exerciseSourceId) && prescription(row)
     && (row.questId == null || (text(row.questId) && integer(row.questDayIndex, 1)))
     && (row.questRunId == null || text(row.questRunId))
+    && validCircuitMetadata(row.circuit)
     && (row.dateOverrides === undefined || (row.questId == null && validDateOverrides(row.dateOverrides))),
   logs: (row) => timestamp(row.date) && text(row.exercise) && identity(row.exerciseSourceId)
     && ['done', 'skipped'].includes(String(row.status)) && (row.workoutRowId == null || integer(row.workoutRowId, 1)),
@@ -125,6 +140,9 @@ export function validateBackupStores(stores: Record<string, unknown>): void {
   }
   const customIds = new Set((stores.customExercises as RecordValue[]).map((exercise) => exercise.sourceId));
   const state = stores.appState as RecordValue[];
+  const schedule = stores.workouts as WorkoutRow[];
+  const groupError = validateCircuitGroups(schedule);
+  if (groupError) throw new Error(`Backup has invalid circuits: ${groupError} Nothing was restored.`);
   const collection = state.find((row) => row.key === 'customQuests');
   if (collection) {
     for (const definition of collection.quests as Array<{ rows: Array<{ exerciseSourceId: number }> }>) {
@@ -137,5 +155,35 @@ export function validateBackupStores(stores: Record<string, unknown>): void {
   const scheduleIds = new Set((stores.workouts as RecordValue[]).map((row) => row.id));
   if (session && ['active', 'resting', 'paused'].includes(String(session.status)) && (session.rowIds as number[]).some((id) => !scheduleIds.has(id))) {
     throw new Error('Backup has an active session referencing a missing schedule row. Nothing was restored.');
+  }
+  if (session) {
+    const active = ['active', 'resting', 'paused'].includes(String(session.status));
+    const rowIds = session.rowIds as number[];
+    const projected = workoutsOnDate(schedule, String(session.planDate));
+    const rows = rowIds.map(id => projected.find(row => row.id === id)).filter((row): row is WorkoutRow => Boolean(row));
+    const plannedRows = session.plannedRows as WorkoutRow[] | undefined;
+    if (plannedRows && (plannedRows.length !== rowIds.length || plannedRows.some((row, index) => row.id !== rowIds[index])
+      || validateCircuitGroups(plannedRows) || (active && circuitValueSignature(rows) !== circuitValueSignature(plannedRows)))) {
+      throw new Error('Backup has an inconsistent circuit session plan. Nothing was restored.');
+    }
+    if (active && rows.some(row => row.circuit) && (!session.steps || !plannedRows)) {
+      throw new Error('Backup is missing circuit session recovery details. Nothing was restored.');
+    }
+    if (session.steps) {
+      if (!plannedRows) throw new Error('Backup is missing the saved circuit plan. Nothing was restored.');
+      if (active && (projected.length !== rowIds.length || projected.some((row, index) => row.id !== rowIds[index]))) {
+        throw new Error('Backup omits or reorders part of the active circuit workout. Nothing was restored.');
+      }
+      const compiled = compileCircuitSteps(plannedRows);
+      if (circuitValueSignature(compiled) !== circuitValueSignature(session.steps)) {
+        throw new Error('Backup has an invalid circuit set sequence. Nothing was restored.');
+      }
+      const index = session.stepIndex as number;
+      const step = compiled[index];
+      if (active && (!step || step.exerciseIndex !== session.exerciseIndex || step.setNumber !== session.currentSet
+        || (session.handledRowIds as number[] | undefined)?.includes(rowIds[step.exerciseIndex]))) {
+        throw new Error('Backup has an invalid circuit set cursor. Nothing was restored.');
+      }
+    }
   }
 }

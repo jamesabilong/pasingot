@@ -189,12 +189,13 @@ export function TodayView({
               <div className="exercise-row__body">
                 <p>{row.exercise}</p>
                 <span className="exercise-status">{status === 'done' ? 'Completed' : status === 'skipped' ? 'Skipped' : 'Pending'}</span>
-                <span>{row.time} · {row.sets} × {row.reps}{scheduleLoadLabel(row)} · {row.rest}s rest</span>
+                <span>{row.time} · {row.sets} × {row.reps}{scheduleLoadLabel(row)} · {row.circuit ? `${row.circuit.restSeconds}s round rest` : `${row.rest}s rest`}</span>
+                {row.circuit && <span className="text-emerald-300">Grouped · Phone player · {row.sets} rounds</span>}
               </div>
               <div className="exercise-row__actions">
-                {onQuickStartRow && row.id != null && !status && <button type="button" onClick={() => onQuickStartRow(row)} title="Quick Start on watch" aria-label={`Quick Start ${row.exercise} on watch`}><Play size={18} aria-hidden="true" /></button>}
-                <button type="button" onClick={() => onLogExercise(row, 'done')} className={status === 'done' ? 'is-active is-done' : ''} title="Mark as done" aria-label={`Mark ${row.exercise} as done`}><Check size={18} aria-hidden="true" /></button>
-                <button type="button" onClick={() => onLogExercise(row, 'skipped')} className={status === 'skipped' ? 'is-active is-skipped' : ''} title="Skip exercise" aria-label={`Skip ${row.exercise}`}><SkipForward size={18} aria-hidden="true" /></button>
+                {onQuickStartRow && row.id != null && !status && !row.circuit && <button type="button" onClick={() => onQuickStartRow(row)} title="Quick Start on watch" aria-label={`Quick Start ${row.exercise} on watch`}><Play size={18} aria-hidden="true" /></button>}
+                <button type="button" disabled={Boolean(row.circuit && activeSession && ['active', 'resting', 'paused'].includes(activeSession.status))} onClick={() => onLogExercise(row, 'done')} className={status === 'done' ? 'is-active is-done' : ''} title="Mark as done" aria-label={`Mark ${row.exercise} as done`}><Check size={18} aria-hidden="true" /></button>
+                <button type="button" disabled={Boolean(row.circuit && activeSession && ['active', 'resting', 'paused'].includes(activeSession.status))} onClick={() => onLogExercise(row, 'skipped')} className={status === 'skipped' ? 'is-active is-skipped' : ''} title="Skip exercise" aria-label={`Skip ${row.exercise}`}><SkipForward size={18} aria-hidden="true" /></button>
               </div>
             </div>;
           })}

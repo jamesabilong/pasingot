@@ -1,5 +1,29 @@
 # Workout App Plan
 
+Current implementation — Iteration 189: phone/PWA supersets and circuits are
+code/browser/phone-build complete. Library groups 2–24 adjacent exercises into
+equal rounds, with no rest within a round and shared rest between rounds or
+before the next block. Recovery, skips, atomic saves, exact set logging and
+version 2 grouped backups are validated. 762 browser assertions, 20 production
+UI checks and 127 shared/phone JVM tests pass; the final phone APK matches the
+production assets. Grouped watch execution and quest templates remain outside
+this slice. Wear validation could not run because the offline host cache lacks
+`androidx.wear:wear-ongoing:1.1.0`. This supersedes Iteration 188's choose-next
+status; Library filters and this checkpoint are committed with this documentation
+at the user's request. This supersedes the uncommitted labels below.
+Installed-phone validation is deferred as PHONE-09. Stage 19 stays **87/97
+overall**, physical **17/27**, ten open; no device acceptance is added.
+
+Current implementation — Iteration 188: warm-up suggestions are committed as
+`f1d0302`; dedicated Library primary-muscle/equipment filters now compose with
+search, category, level and common movements. Custom labels and Clear filters
+preserve playlist prescriptions; filters are temporary. 263 browser assertions,
+20 production UI checks (320/390/1440px and offline), TypeScript and production
+build, phone APK build and packaged-asset identity checks pass.
+This supersedes Iteration 187's choose-next status; this checkpoint is
+uncommitted. Physical checks remain deferred as PHONE-08, and Stage 19 stays
+**87/97 overall**, physical **17/27**, ten open.
+
 Current implementation — Iteration 187: body measurements committed as
 `381ef28`; adjustable warm-up suggestions are code/browser complete in Library
 playlist items and the phone player's first set. Preview only; working sets and
@@ -895,11 +919,11 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`; body measurements committed as `381ef28`; warm-up previews validated in Iteration 187 | Physical execution is deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
-| **Pending validation** | Quick Start's ten criteria; installed phone warm-up previews, measurements, date/weekly editors, plate equipment, effort/set history, Health Connect and portability | All organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phases 0–3 complete; date scheduling committed as `bea5826`, body measurements as `381ef28`; warm-up previews validated in Iteration 187 | Warm-up checkpoint committed; supersets/circuits remain a future candidate; physical checks are deferred |
+| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`, measurements as `381ef28`, warm-up previews as `f1d0302`; Library filters (Iteration 188) and Stage 20 phone/PWA groups (Iteration 189) are committed with this checkpoint | Further implementation awaits a request; physical execution stays deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
+| **Pending validation** | Quick Start's ten criteria; installed phone supersets/circuits, Library filters, warm-up previews, measurements, date/weekly editors, plate equipment, effort/set history, Health Connect and portability; current Wear build check | Phone checks are organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these. Wear requires its missing offline dependency |
+| **Pending implementation** | Approved phone/PWA grouping slice is code/browser/phone-build complete; grouped watch execution and grouped quest templates are outside the completed slice | Select further independent work after reviewing this checkpoint; broader grouping needs a separate model/transport scope |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
-| **Future candidates** | Supersets, progress photos | Warm-up previews, body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
+| **Future candidates** | Grouped watch workouts/quest templates, progress photos | Phone/PWA supersets/circuits, Library filters, warm-up previews, body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
 ### Browser-to-watch check — 2026-09-12
@@ -2307,6 +2331,15 @@ Planned behavior:
 - Keep UI components split by feature and extract shared controls only when
   repeated patterns prove stable.
 
+Iteration 188 Library continuation: dedicated primary-muscle/equipment filters
+compose with the existing search, category, level and common-only controls.
+Options use the full merged catalog and custom metadata; Clear preserves level
+and playlist contents, while removed custom labels reset affected selectors.
+Filter choices survive tab changes but are not saved. Narrow/mobile/desktop,
+production offline and relevant regressions pass; installed-phone validation
+is separate as PHONE-08. This completes the dedicated Library filter candidate
+without closing Stage 18's remaining physical/cross-device acceptance.
+
 First slice implemented:
 
 - Added shared shell tokens for neutral surfaces, accent/warning states,
@@ -2357,6 +2390,46 @@ Manual acceptance:
 3. Verify Wear OS active, rest, paused, completion, and cancel states on an
    emulator or watch-sized preview.
 4. Confirm no new tab-level display markup is added directly to `App.tsx`.
+
+## Stage 20 - Phone/PWA Supersets and Circuits
+
+**Status:** code/browser/phone-build complete in Iteration 189; committed with
+this documentation at the user's request.
+Installed-phone acceptance is deferred as PHONE-09. This stage does not change
+Stage 19's paired Quick Start acceptance count.
+
+Implemented behavior:
+
+- Group 2–24 adjacent Library playlist exercises, using 1–100 equal rounds and
+  0–3600 seconds shared rest. Reorder complete blocks, update shared settings,
+  ungroup, or remove members without leaving an invalid singleton group.
+- Execute A1, B1, A2, B2 rather than all A sets first. Apply no rest within a
+  round, shared rest between rounds/before the next block, and no final rest.
+  Individual rep/duration targets, planned and actual loads, effort and set
+  numbers remain attached to their exercise.
+- Snapshot grouped plans and save each set/cursor/history atomically. Recover
+  exact progress after pause/offline reload; skip remaining sets of one member
+  without replaying recorded sets. Reject stale or changed plans safely.
+- Serialize draft edits and atomically save validated groups into an empty
+  weekly slot or recognize an identical saved block without duplicating it.
+  Active-workout, native capability and collision guards run before mutation.
+- Export grouped schedules/drafts/recovery as backup version 2. Current readers
+  accept valid versions 1 and 2; older apps reject version 2. Malformed groups or
+  unsupported Android wrappers are rejected before restore changes any store.
+- Retain circuit markers in the Android schedule cache. Phone sends/Quick Start
+  reject grouped prescriptions; background legacy watch requests publish no
+  grouped day payload. Existing watch caches retain prior download semantics.
+  A previously downloaded watch workout is not a current grouped plan.
+
+Validation: 762 browser assertions (including 240 new circuit checks), 20 real
+production UI checks at 320/390/1440px and offline recovery, TypeScript,
+production build, 95 shared + 32 phone JVM tests, and final phone APK byte-level
+asset identity all pass. Screenshots were inspected. Current Wear checks are
+unverified because the offline Windows cache lacks `wear-ongoing:1.1.0`.
+
+Remaining: installed-phone PHONE-09, current Wear build verification when its
+dependency is available, and separately scoped grouped watch execution/quest
+templates. No physical-device connection or acceptance is recorded.
 
 ## Deferred / Not Recommended By Default
 

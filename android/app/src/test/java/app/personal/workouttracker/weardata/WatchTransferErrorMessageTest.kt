@@ -4,8 +4,16 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import app.personal.workouttracker.shared.CircuitRequiresPhoneException
 
 class WatchTransferErrorMessageTest {
+    @Test
+    fun `grouped schedule gives phone execution guidance without connection retries`() {
+        assertEquals(
+            "Today's supersets and circuits require the phone workout player.",
+            watchTransferErrorMessage(IllegalStateException("Transfer failed", CircuitRequiresPhoneException())),
+        )
+    }
     @Test
     fun `missing companion services gives an actionable message without diagnostics`() {
         val error = IllegalStateException(

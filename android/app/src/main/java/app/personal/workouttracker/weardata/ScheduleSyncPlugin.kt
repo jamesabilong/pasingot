@@ -3,6 +3,8 @@ package app.personal.workouttracker.weardata
 import app.personal.workouttracker.shared.ScheduleRow
 import app.personal.workouttracker.shared.ScheduleDateOverride
 import app.personal.workouttracker.shared.validScheduleDateOverrides
+import app.personal.workouttracker.shared.WorkoutCircuit
+import app.personal.workouttracker.shared.validScheduleCircuits
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import com.getcapacitor.JSObject
@@ -33,10 +35,11 @@ class ScheduleSyncPlugin : Plugin() {
 
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cache by lazy { ScheduleCache(context) }
+    private val scheduleJson = Json { ignoreUnknownKeys = true }
 
     @PluginMethod
     fun getCapabilities(call: PluginCall) {
-        call.resolve(JSObject().apply { put("dateOverrides", true) })
+        call.resolve(JSObject().apply { put("dateOverrides", true); put("circuits", true) })
     }
 
     @PluginMethod
@@ -66,10 +69,12 @@ class ScheduleSyncPlugin : Plugin() {
                         questDayLabel = if (obj.has("questDayLabel") && !obj.isNull("questDayLabel")) obj.getString("questDayLabel") else null,
                         questLevel = if (obj.has("questLevel") && !obj.isNull("questLevel")) obj.getString("questLevel") else null,
                         dateOverrides = if (obj.has("dateOverrides")) Json.decodeFromString<Map<String, ScheduleDateOverride?>>(obj.getJSONObject("dateOverrides").toString()) else emptyMap(),
+                        circuit = if (obj.has("circuit")) scheduleJson.decodeFromString<WorkoutCircuit>(obj.getJSONObject("circuit").toString()) else null,
                     )
                 )
             }
             require(rows.all(::validScheduleDateOverrides)) { "Invalid date-specific schedule" }
+            require(validScheduleCircuits(rows)) { "Invalid circuit schedule" }
             cache.save(rows)
             call.resolve()
         } catch (e: Exception) {
