@@ -1,5 +1,13 @@
 # Quick Start device acceptance
 
+Current direction — 2026-10-13, Iteration 185: **physical execution deferred
+by user**. Remaining checks and interrupted Iteration 184 recovery are organized
+in [Physical validation module](validation/PHYSICAL_CHECKS.md), along with
+installed-phone feature checks. Counts stay **87/97 overall**, **17/27 physical**,
+ten open. No device contacted, APK installed or acceptance item closed in this
+iteration. The observations/procedures below are retained as historical evidence;
+their former next-action labels do not override this deferral.
+
 Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
 **87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
 Four newly completed criteria: exact start briefing, one prescribed rest

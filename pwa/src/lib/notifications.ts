@@ -1,6 +1,6 @@
 import { type WorkoutRow } from '../types';
 import { todayDateKey } from './history-stats';
-import { todayName } from './workout-planning';
+import { workoutsOnDate } from './schedule-dates';
 
 const POLL_INTERVAL_MS = 30_000;
 const NOTIFICATION_TOLERANCE_MINUTES = 1;
@@ -17,8 +17,7 @@ function withinTolerance(scheduled: string, current: string): boolean {
 }
 
 export function checkScheduleAgainstNow(workouts: WorkoutRow[], notified: Set<number>, addToast: (message: string) => void): void {
-  const day = todayName().toLowerCase();
-  workouts.filter((row) => row.day.toLowerCase() === day).forEach((row) => {
+  workoutsOnDate(workouts, todayDateKey()).forEach((row) => {
     if (row.id == null || notified.has(row.id) || !withinTolerance(row.time, currentHHMM())) return;
     notified.add(row.id);
     const title = `Workout Time - ${row.exercise}`;

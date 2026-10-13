@@ -5,6 +5,7 @@ import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEv
 import { getAll, getRecord, STORES } from '../lib/db';
 import { todayDateKey } from '../lib/history-stats';
 import { todayName, workoutStatusesOnDate } from '../lib/workout-planning';
+import { workoutsOnDate } from '../lib/schedule-dates';
 import { closeHandledWorkoutSession, closeStaleWorkoutSession, commitWorkoutSessionTransition, workoutSessionEvent, workoutStepTransition, type WorkoutSessionTransition } from '../lib/workout-session-persistence';
 import { ACTIVE_SESSION_IDLE_TIMEOUT_MS, ACTIVE_WORKOUT_SESSION_KEY, currentSetInput, defaultSetInput, elapsedSecondsForSession, finishElapsedSession, newPwaSession, normalizeActiveWorkoutSession, restCueKey, restSecondsForSession, setInputKey, startElapsedSession, stopElapsedSession, touchSession, type ActiveWorkoutSession } from '../lib/workout-session';
 
@@ -35,8 +36,12 @@ export function useWorkoutSession(options: WorkoutSessionOptions) {
     setElapsedSeconds(next ? elapsedSecondsForSession(next) : 0);
     setRestRemainingSeconds(next ? restSecondsForSession(next) : 0);
   }, []);
-  const rowsFor = useCallback((value: ActiveWorkoutSession, workouts = latest.current.workouts) => value.rowIds
-    .map((id) => workouts.find((row) => row.id === id)).filter((row): row is WorkoutRow => Boolean(row)), []);
+  const rowsFor = useCallback((value: ActiveWorkoutSession, workouts = latest.current.workouts) => {
+    const projected = workoutsOnDate(workouts, value.planDate);
+    return value.rowIds.map(id => projected.find(row => row.id === id)
+      ?? (['completed', 'ended'].includes(value.status) ? workouts.find(row => row.id === id) : undefined))
+      .filter((row): row is WorkoutRow => Boolean(row));
+  }, []);
   const enqueue = useCallback((operation: () => Promise<void>) => {
     const result = queue.current.then(operation);
     queue.current = result.catch((error) => {
@@ -50,8 +55,8 @@ export function useWorkoutSession(options: WorkoutSessionOptions) {
     actionInFlight.current = true;
     return enqueue(operation).finally(() => { actionInFlight.current = false; });
   }, [enqueue]);
-  const apply = useCallback(async (expected: ActiveWorkoutSession | null, next: WorkoutSessionTransition, rows: WorkoutRow[] = []) => {
-    if (!await commitWorkoutSessionTransition(expected, next)) {
+  const apply = useCallback(async (expected: ActiveWorkoutSession | null, next: WorkoutSessionTransition, rows: WorkoutRow[] = [], checkSchedule = false) => {
+    if (!await commitWorkoutSessionTransition(expected, next, checkSchedule ? rows : undefined)) {
       const stored = await getRecord<ActiveWorkoutSession>(STORES.appState, ACTIVE_WORKOUT_SESSION_KEY);
       publish(stored?.schemaVersion === SCHEMA_VERSION ? normalizeActiveWorkoutSession(stored) : null);
       return false;
@@ -86,13 +91,12 @@ export function useWorkoutSession(options: WorkoutSessionOptions) {
   const clear = useCallback(() => userAction(async () => { await apply(current.current, { session: null }); }), [apply, userAction]);
   const start = useCallback(() => userAction(async () => {
     if (current.current && ['active', 'resting', 'paused'].includes(current.current.status)) return;
-    const rows = latest.current.workouts.filter((row) => row.id != null && row.day.toLowerCase() === todayName().toLowerCase())
-      .sort((left, right) => left.time.localeCompare(right.time));
+    const rows = workoutsOnDate(await getAll<WorkoutRow>(STORES.workouts), todayDateKey()).filter(row => row.id != null);
     if (!rows.length) { latest.current.addToast('Add a workout to today before starting the player.'); return; }
     const statuses = workoutStatusesOnDate(latest.current.logs, todayDateKey());
     const firstPendingIndex = rows.findIndex((row) => row.id != null && !statuses.has(row.id));
     if (firstPendingIndex < 0) { latest.current.addToast('Today’s plan is already handled.'); return; }
-    await apply(current.current, { session: newPwaSession(rows, firstPendingIndex) });
+    if (!await apply(current.current, { session: newPwaSession(rows, firstPendingIndex) }, rows, true)) latest.current.addToast('The schedule changed. Try starting the workout again.');
   }), [apply, userAction]);
 
   const step = useCallback((action: 'complete' | 'skip') => userAction(async () => {

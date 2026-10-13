@@ -1,5 +1,12 @@
 # Watch Quick Start Plan
 
+Current direction — 2026-10-13, Iteration 185: **physical execution deferred
+by user**, with ten open criteria and interrupted Iteration 184 recovery in
+[Physical validation module](validation/PHYSICAL_CHECKS.md). Code Phases 0–3
+remain **70/70**, overall **87/97**, physical **17/27**. Date-specific schedule
+work continues independently; no acceptance count advances. This supersedes
+current/next physical-execution labels below; historical evidence remains.
+
 Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
 **87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
 Four newly completed criteria: exact start briefing, one prescribed rest
@@ -1378,7 +1385,7 @@ Exit checks:
 
 ### Phase 4 — Paired-device acceptance
 
-Status: **Physical acceptance underway on S25/Watch7; 17/27 complete (prior thirteen plus briefing, rest-once, final lock and warning/Go); 10 checks remain**
+Status: **Physical acceptance deferred by user (2026-10-13); 17/27 complete; ten checks remain in [Physical validation module](validation/PHYSICAL_CHECKS.md).**
 
 Track emulator UI observations separately in
 [Device acceptance](DEVICE_ACCEPTANCE.md) and the latest implementation iteration.
@@ -1511,7 +1518,16 @@ The feature is done only when:
 - automated checks and clean APK builds pass;
 - paired physical-device acceptance is recorded separately and passes.
 
-## Resume marker
+## Current resume marker — 2026-10-13
+
+Code Phases 0–3 complete, Stage 19 **87/97**, physical **17/27**. Physical checks
+are deferred; do not reconnect or mutate devices to continue independent
+implementation. On resumption, follow the physical module's inventory and
+interrupted Iteration 184 offline-capture/radio/reboot/import steps before new
+test sessions. Date-specific scheduling is the independent Iteration 185 slice;
+its installed-phone/paired checks are separately tracked as PHONE-04.
+
+## Historical implementation resume notes
 
 **Current checkpoint:** Phase 0 is complete with headless evidence. The Android
 phone now has a registered Quick Start Capacitor bridge, capability-gated Data

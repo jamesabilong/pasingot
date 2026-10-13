@@ -9,6 +9,7 @@ import java.util.Locale
 import app.personal.workouttracker.shared.CURRENT_SCHEMA_VERSION
 import app.personal.workouttracker.shared.CachedSchedule
 import app.personal.workouttracker.shared.ScheduleRow
+import app.personal.workouttracker.shared.validScheduleDateOverrides
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -34,6 +35,7 @@ class ScheduleCache(context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun save(rows: List<ScheduleRow>) {
+        require(rows.all(::validScheduleDateOverrides)) { "Invalid date-specific schedule" }
         val cached = CachedSchedule(rows = rows)
         prefs.edit().putString(KEY_SCHEDULE, json.encodeToString(cached)).apply()
     }
@@ -46,7 +48,7 @@ class ScheduleCache(context: Context) {
         val raw = prefs.getString(KEY_SCHEDULE, null) ?: return null
         return try {
             val cached = json.decodeFromString(CachedSchedule.serializer(), raw)
-            if (cached.schemaVersion != CURRENT_SCHEMA_VERSION) null else cached
+            if (cached.schemaVersion != CURRENT_SCHEMA_VERSION || !cached.rows.all(::validScheduleDateOverrides)) null else cached
         } catch (e: Exception) {
             null
         }

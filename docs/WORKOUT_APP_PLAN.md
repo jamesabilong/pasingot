@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Current direction — 2026-10-13, Iteration 185: **physical checks deferred by
+user and organized in [Physical validation module](validation/PHYSICAL_CHECKS.md)**.
+Stage 19 remains **87/97 overall**, code Phases 0–3 **70/70**, physical **17/27**,
+ten criteria open. This supersedes current/next physical-execution labels below;
+historical observations remain evidence. Independent date-specific scheduling
+implements one-occurrence move/skip/clear for complete non-quest weekly sessions,
+with matching Today/player/reminder/native projection, atomic safeguards and
+backup support. Automated/browser checkpoint is recorded in Iteration 185;
+physical installation/acceptance is a separate module.
+
 Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
 **87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
 Four newly completed criteria: exact start briefing, one prescribed rest
@@ -862,16 +872,16 @@ Update that log during every implementation iteration, not only at handoff.
   device after the `PST01` branch is fetched/synced.
 - Commit rule: review and commit one stage at a time.
 
-## Delivery board — reviewed 2026-10-09
+## Delivery board — reviewed 2026-10-13
 
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 is **87/97 checklist items (90%) overall**; Phases 0–3 are complete. Native matrix, phone states, ambient/process recovery, TTS/TalkBack, reduced-motion UI, native fallback and voice-enabled UI interruption/rest/transition ordering pass on isolated emulators. Physical Phase 4 is **17/27**; paired Quick Start speech now uses a bounded phone media-playback relay | Physical duplicate/nonreplacement/expiry/process recovery, voice preferences, briefing, rest-once, final lock and warning/Go pass on S25/Watch7. Continue offline result durability/reboot (Iteration 184), success replay, TTS fallback, short-rest human reports, disconnected wording, composite routing/ambient, battery, regression and Play acceptance. See [Watch Quick Start plan](WATCH_QUICK_START_PLAN.md) |
-| **Pending validation** | Measured battery use; live and offline paired phone/watch sync; Health Connect grant/revoke, body-weight mutations/retries; interruption and reboot cases | Real-device/paired checks with evidence; browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phases 0–3 are complete; Iteration 58's request-state gaps and Iteration 59's ambient foreground-timer gap are fixed | Continue emulator acceptance and correct evidenced issues; physical checks remain separate |
+| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date schedule move/skip/clear is the Iteration 185 independent implementation checkpoint | Physical execution is deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
+| **Pending validation** | Quick Start's ten criteria; installed phone date/weekly editors, plate equipment, effort/set history, Health Connect and portability | All organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these |
+| **Pending implementation** | Stage 19 Phases 0–3 complete; selected date-specific schedule slice implemented with automated checks in Iteration 185 | Preserve validated boundaries and choose a further feature separately; device checks do not block independent implementation |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
-| **Future candidates** | Date-specific scheduling/rescheduling/deletion, RPE/RIR, plate calculator, supersets, warm-up suggestions, body measurements/photos | Prioritize before promoting to an active stage |
+| **Future candidates** | Supersets, warm-up suggestions, body measurements/photos | One-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
 ### Browser-to-watch check — 2026-09-12

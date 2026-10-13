@@ -1,11 +1,11 @@
 import { localDateKey } from './history-stats';
 import { calculatePlanProgress, estimateLevelFor, estimateWorkoutDurationSeconds, formatEstimatedDuration, workoutStatusesOnDate } from './workout-planning';
-import { WEEKDAYS, type WorkoutLog, type WorkoutRow, type WorkoutSetLog } from '../types';
+import { type WorkoutLog, type WorkoutRow, type WorkoutSetLog } from '../types';
+import { scheduleWeekday, workoutsOnDate } from './schedule-dates';
 
 export function buildTodayOverview(workouts: WorkoutRow[], logs: WorkoutLog[], setLogs: WorkoutSetLog[], dateKey: string) {
-  const dayName = WEEKDAYS[new Date(`${dateKey}T12:00:00`).getDay()];
-  const rows = workouts.filter(row => row.day.toLowerCase() === dayName.toLowerCase())
-    .sort((left, right) => left.time.localeCompare(right.time));
+  const dayName = scheduleWeekday(dateKey);
+  const rows = workoutsOnDate(workouts, dateKey);
   const statuses = workoutStatusesOnDate(logs, dateKey);
   return {
     dayName,

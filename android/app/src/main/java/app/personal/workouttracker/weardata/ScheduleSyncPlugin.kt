@@ -1,6 +1,10 @@
 package app.personal.workouttracker.weardata
 
 import app.personal.workouttracker.shared.ScheduleRow
+import app.personal.workouttracker.shared.ScheduleDateOverride
+import app.personal.workouttracker.shared.validScheduleDateOverrides
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 import com.getcapacitor.JSObject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +35,11 @@ class ScheduleSyncPlugin : Plugin() {
     private val cache by lazy { ScheduleCache(context) }
 
     @PluginMethod
+    fun getCapabilities(call: PluginCall) {
+        call.resolve(JSObject().apply { put("dateOverrides", true) })
+    }
+
+    @PluginMethod
     fun syncSchedule(call: PluginCall) {
         val rowsArray: JSArray = call.getArray("rows") ?: run {
             call.reject("Missing required 'rows' array")
@@ -56,9 +65,11 @@ class ScheduleSyncPlugin : Plugin() {
                         questDayIndex = if (obj.has("questDayIndex") && !obj.isNull("questDayIndex")) obj.getInt("questDayIndex") else null,
                         questDayLabel = if (obj.has("questDayLabel") && !obj.isNull("questDayLabel")) obj.getString("questDayLabel") else null,
                         questLevel = if (obj.has("questLevel") && !obj.isNull("questLevel")) obj.getString("questLevel") else null,
+                        dateOverrides = if (obj.has("dateOverrides")) Json.decodeFromString<Map<String, ScheduleDateOverride?>>(obj.getJSONObject("dateOverrides").toString()) else emptyMap(),
                     )
                 )
             }
+            require(rows.all(::validScheduleDateOverrides)) { "Invalid date-specific schedule" }
             cache.save(rows)
             call.resolve()
         } catch (e: Exception) {

@@ -1,5 +1,14 @@
 # Feature Gap Roadmap
 
+Current direction — 2026-10-13, Iteration 185: physical execution is **deferred
+by user**; [Physical validation module](validation/PHYSICAL_CHECKS.md) contains
+remaining Quick Start and installed-phone checks. Stage 19 stays **87/97**,
+physical **17/27**, ten open. Date-specific schedule move/skip/clear is the
+selected independent implementation, with code/browser/native validation
+recorded in Iteration 185 and physical checks left open. This supersedes
+current/next physical-execution labels and stale candidate lists below while
+preserving historical evidence.
+
 Physical continuation — 2026-10-09, Iterations 171–184: Stage 19 is
 **87/97 (90%)**; physical acceptance is **17/27**, with **10 checks open**.
 Four newly completed criteria: exact start briefing, one prescribed rest
@@ -521,9 +530,10 @@ importance in general.
 | ✅ Done | 1RM estimate | Estimate one-rep max from submax sets (Epley/Brzycki-style) | JEFIT, Strong, Hevy, Fitbod | Medium | Implemented: `estimatedOneRepMax` in `strength-analytics.ts`, hidden for bodyweight/duration-only logs (Stage 13). |
 | ✅ Code/browser complete | Plate calculator | Suggests plate combo for a target barbell weight | Hevy, Strong, JEFIT | Medium | Library calculator implemented in Iterations121–125: kg/lb, custom bar/plate sizes, equal-side minimum allocations and nearest lower target. Browser/offline checks pass. Unlimited pairs assumed; Iterations141–145 add saved per-unit bar/plate-size presets, default reset and backup validation. Target remains temporary; physical phone acceptance pending. Stage13 deferral superseded for this feature. |
 | ✅ Code/browser complete | RPE/RIR logging | Optional perceived-exertion rating per set | Hevy, JEFIT | Medium | Phone per-set optional RPE1–10/half steps and RIR0–10/whole reps implemented in Iterations126–130. Recovery, atomic completion, History and backup compatibility validated headlessly; physical phone checks pending. Watch rating entry outside scope. |
-| ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; date-specific exceptions/deletion remain open. |
+| ✅ Code/browser complete | Recurring weekly session moves | Move a whole session to another weekday/time | Personal planning | Medium | Iterations131–135: IDs/prescriptions/history retained, stale/collision/quest/unfinished-workout guards and mobile/offline checks pass. Physical phone acceptance pending; Iteration185 adds one-date move/skip/clear separately. |
 | ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |
 | ✅ Code/browser complete | Individual set history | Inspect actual/planned targets, load and effort for every recorded set | Workout logging | Medium | Iterations156–160: all sets, month/all-time range, exercise search, rated-only filter and20-row pages; headless/mobile/offline checks pass. Read-only, physical phone acceptance pending. |
+| ✅ Code/browser/native complete | Date-specific schedule changes | Move, skip or clear one occurrence of a weekly session | Personal planning | Medium | Iteration 185: complete non-quest sessions; additive date overrides retain weekly prescriptions, IDs and history. Today, player, reminders and native full-day/watch-requested projection match; stale/occupied/recorded-date/active/race guards and backup validation pass. Installed-phone/paired checks deferred in the physical validation module. |
 | | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Still open — playlist model is currently flat, ordered rows; not part of any proposed stage yet. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
@@ -635,12 +645,14 @@ all screen-by-screen acceptance criteria above are complete.
 
 1. Review the verified local follow-up to `6a75c06`. Iteration 2 is complete
    locally, with regression, UI, and build evidence in the progress log.
-2. Finish physical-device recovery and Health Connect mutation/retry checks.
-3. Complete paired phone/watch delivery and physical battery evidence.
-4. Choose the next feature independently: RPE/RIR, plate calculator, supersets,
-   warm-up suggestions, or body measurements. These remain candidates.
-5. Continue Stage 14B's remaining hook extraction as maintenance; its first
-   cleanup slice did not achieve the whole composition-root goal.
+2. Keep physical recovery, Health Connect, paired/battery and Play checks in
+   [Physical validation module](validation/PHYSICAL_CHECKS.md); execution deferred
+   by user on 2026-10-13, without treating automated tests as device acceptance.
+3. One-date scheduling joins implemented RPE/RIR, plate equipment and set history.
+   Choose any subsequent independent feature from supersets, warm-up suggestions
+   or body measurements before promoting it to implementation.
+4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
+   Earlier partial-extraction labels are historical.
 
 Use the delivery board in `WORKOUT_APP_PLAN.md` for current, pending, next,
 and future work. Earlier comparison rows describe the original design target;

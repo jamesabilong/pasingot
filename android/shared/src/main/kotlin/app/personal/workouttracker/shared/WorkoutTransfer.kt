@@ -4,8 +4,7 @@ package app.personal.workouttracker.shared
 fun buildWorkoutTransfer(rows: List<ScheduleRow>, date: String, weekday: String): WorkoutSetPayload =
     WorkoutSetPayload(
         date = date,
-        exercises = rows.filter { it.day.equals(weekday, ignoreCase = true) }
-            .sortedBy { it.time }
+        exercises = scheduleRowsOnDate(rows, date, weekday)
             .map { row ->
                 WorkoutExercise(
                     exercise = row.exercise,

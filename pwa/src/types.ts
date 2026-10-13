@@ -13,6 +13,9 @@ export type ExerciseLevel = 'beginner' | 'intermediate' | 'advanced';
 export type WeightUnit = 'kg' | 'lb';
 export type BodyWeightUnit = WeightUnit;
 
+// A null destination omits one occurrence; deleting its key restores recurrence.
+export type ScheduleDateOverrides = Record<string, { date: string; time: string } | null>;
+
 export interface WorkoutRow {
   id?: number;
   schemaVersion: number;
@@ -25,6 +28,7 @@ export interface WorkoutRow {
   rest: number;
   loadWeight?: number | null;
   loadUnit?: WeightUnit | null;
+  dateOverrides?: ScheduleDateOverrides;
   questId?: string;
   questRunId?: string;
   questDayIndex?: number;

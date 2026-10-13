@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { WEEKDAYS, type Weekday, type WorkoutRow } from '../types';
+import type { DateScheduleChange } from '../lib/schedule-date-editing';
 
 export type ScheduleEditorProps = {
   busy: boolean;
@@ -7,6 +8,7 @@ export type ScheduleEditorProps = {
   result: { error: boolean; message: string } | null;
   move: (rows: WorkoutRow[], day: Weekday, time: string) => Promise<boolean>;
   remove?: (rows: WorkoutRow[]) => Promise<boolean>;
+  changeDate?: (rows: WorkoutRow[], sourceDate: string, change: DateScheduleChange) => Promise<boolean>;
   retry?: () => Promise<boolean>;
   retryPending?: boolean;
   clearResult: () => void;

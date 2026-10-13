@@ -7693,3 +7693,90 @@ audit and delivery board corrected from stale 83/97 / 13/27 labels to
 87/97 (90%) / 17/27; checklist recount is 87 complete, 10 open. No acceptance
 item changed. Whitespace check passes. Iteration 184 offline/reboot test stays
 open; next action is unchanged.
+
+## Iteration 185 — 2026-10-13 — Deferred checks module and date-specific schedules
+
+Status: **Code/browser/native checkpoint complete; physical validation deferred by user.**
+User requests continued implementation with physical checks left as a separate
+module, and selects date-specific schedule changes. Starting checkpoint
+`9611ea4`, clean working tree. Stage 19 code Phases 0–3 remain complete;
+physical acceptance stays 17/27 and overall 87/97. Iteration 184 is unclosed
+historical device work, not a prerequisite for independent implementation.
+
+Implement one-occurrence move/skip/clear on complete non-quest weekly sessions,
+with additive row metadata and matching phone/native date projection. Preserve
+weekly prescriptions, IDs and history; guard stale edits, occupied destinations,
+recorded dates and unfinished sessions. Include backup validation and mobile
+browser checks. Organize remaining physical checks with stable IDs, procedures,
+evidence requirements and the interrupted Iteration 184 resume steps. No device
+connection, installation, radio changes or physical acceptance claimed here.
+Validation and completion evidence pending. Next: finish implementation, run
+automated/browser/native checks, then update plan and roadmap statuses.
+
+Iteration 185 implementation evidence: additive per-row `dateOverrides` now
+supports whole-session one-date move/skip/clear; weekly placement/prescriptions,
+IDs and history remain. Shared date projection feeds Today, reminders, phone
+player and native full-day/manual/watch-requested transfers. Atomic IndexedDB
+guards cover complete non-quest sessions, stale snapshots, occupied slots,
+duplicate row occurrences on one date, past dates, recorded source/destination/
+prior moved dates, and unfinished phone state. Player start verifies the projected
+schedule inside its cursor transaction so a concurrent date change cannot start
+stale rows. Finished summaries remain available across recurring day moves.
+Bridge capability gating prevents older phone code from silently discarding
+date overrides. Backup validation/round trip includes metadata; no store or
+wire-payload schema migration. New UI lives in `DateSessionEditor`, pure date
+logic/transaction adapter in `lib`, actions in the existing focused hook; App
+composition boundaries preserved.
+
+`docs/validation/PHYSICAL_CHECKS.md` groups all ten remaining Stage 19 criteria
+with original QS IDs, evidence requirements, safe entry, Iteration 184 resume
+and five separate phone-feature groups. No device contacted or acceptance box
+advanced. Current isolated native build: 87 shared, 28 phone, 235 Wear tests
+(350 total), zero failures/skips; both debug APKs pass. TypeScript and production
+build pass; final phone web assets copied. Read-only collection/preflight tool
+tests 24/24, Node domain groups 11/11. Browser fixtures initially pass 246
+assertions; final date fixture adds two finished-summary checks (50 date checks).
+Collector initially misclassified the word “failure” inside PASS labels and
+expected a result element from the manual-only Continue fixture; corrected
+summary retained separately. Initial fixture syntax/driver diagnostics remain
+as failed setup evidence, not product failures. Final mobile/app checks,
+final APK asset identity and documentation checkpoint remain next.
+
+Iteration 185 final validation and closure:
+
+- Final date fixture **50 checks pass**; combined relevant browser fixture
+  coverage is **248 assertions** (50 date + 198 existing regression assertions).
+  Disposable IndexedDB databases and mocked bridges preserve real browser data.
+- Normal mobile controls pass move → skip → clear, scoped day-switch closure and
+  offline skip at **390 × 844**; main width 390px, no horizontal overflow.
+  Full App Today queue reflects moved time while Weekly plan retains recurrence;
+  Start/Pause/Library/Continue works and active date edits are disabled. Completed
+  history still clears stale Continue/player. Mobile form/offline/full-app
+  screenshots visually inspected. Initial smoke's exact label selector did not
+  match the nested select; observed combobox role succeeds. Failed driver logs
+  remain retained; no product fix was inferred from those selector failures.
+- Final `npx tsc --noEmit`, `npm run build`, `npx cap copy android`, isolated
+  native tests/both APK builds, final phone asset rebuild and `git diff --check`
+  pass. Current HTML native reports give **350 tests**, zero failures/skips
+  (87 shared / 28 phone / 235 Wear); collection tools **24/24**, Node **11/11**.
+- Final APKs/evidence are in `output/validation/iteration-185/`: phone SHA-256
+  `0df854cd34c1252b0f1e9804fbdf8d2058a14771023447eba8dbc5db348bff78`,
+  watch `affe017ec0fbea0325ca870ab4fba2ec7b3c09bda922a2f23b07d1ac59f5e858`.
+  Phone packaged HTML/JS/CSS equal production dist exactly. Generated Gradle
+  outputs/project cache isolated in `/private/tmp`; no tracked build config
+  change. No installation or physical device connection performed.
+- Plan, roadmap, Quick Start and device summaries now lead with the user’s
+  deferral and link the standalone physical module. Earlier next-action labels
+  are explicitly superseded, preserving prior physical evidence/failures.
+  Stage 19 stays **87/97**, physical **17/27**, **ten open**.
+
+Completed: one-date schedule move/skip/clear, persistence/projection/backup/native
+integration, focused UI and regression validation, and deferred-check module.
+Limits: complete non-quest sessions, today/future source and destination dates;
+one occurrence per row ID per date. Skipping omits a planned occurrence and
+does not fabricate a history log. Physical installation, paired new-schedule
+delivery, audio/recovery/battery/Play and other checks remain in the module.
+Final Git recheck retains HEAD `9611ea4`; this checkpoint is **uncommitted**.
+Next action: review this code checkpoint; choose subsequent implementation
+separately. Resume device work only on request through the physical module,
+starting with current inventory and interrupted Iteration 184 recovery.

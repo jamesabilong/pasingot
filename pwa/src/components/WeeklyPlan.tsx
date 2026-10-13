@@ -1,4 +1,5 @@
 import { WeeklySessionEditor, type ScheduleEditorProps } from './WeeklySessionEditor';
+import { DateSessionEditor } from './DateSessionEditor';
 import { useState } from 'react';
 import { CalendarDays, Clock3 } from 'lucide-react';
 import { WEEKDAYS, type Weekday, type WorkoutRow } from '../types';
@@ -37,10 +38,11 @@ export function WeeklyPlan({ workouts, today, onBuildPlan, scheduleEditor }: {
           <div className="week-session__heading"><strong>{time}</strong><span><Clock3 size={14} aria-hidden="true" /> {formatEstimatedDuration(estimateWorkoutDurationSeconds(sessionRows, estimateLevelFor(sessionRows)))}</span></div>
           <ul>{sessionRows.map((row, index) => <li key={row.id ?? index}><span>{row.exercise}</span><span>{row.sets} × {row.reps}{row.loadWeight != null ? ` · ${row.loadWeight} ${row.loadUnit ?? 'kg'}` : ''}</span></li>)}</ul>
           {scheduleEditor && <WeeklySessionEditor rows={sessionRows} editor={scheduleEditor} onMoved={setSelectedDay} />}
+          {scheduleEditor && <DateSessionEditor rows={sessionRows} editor={scheduleEditor} />}
         </div>;
       }) : <p className="week-rest">Rest day · No exercises scheduled.</p>}
     </div>
-    {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before changing a weekly session.</p>}
+    {scheduleEditor?.blocked && <p className="text-xs text-amber-300">Finish or end the current workout before changing a session.</p>}
     {scheduleEditor?.result && <p role={scheduleEditor.result.error ? 'alert' : 'status'} className={scheduleEditor.result.error ? 'text-sm text-amber-300' : 'text-sm text-emerald-300'}>{scheduleEditor.result.message}</p>}
     {scheduleEditor?.retryPending && scheduleEditor.retry && <button type="button" className="secondary-action" disabled={scheduleEditor.busy} onClick={() => void scheduleEditor.retry?.()}>Retry schedule update</button>}
     <button type="button" className="secondary-action" onClick={onBuildPlan}>Build a playlist</button>

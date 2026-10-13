@@ -370,6 +370,9 @@ data class WatchSessionSnapshot(
  * single day's payload.
  */
 @Serializable
+data class ScheduleDateOverride(val date: String, val time: String)
+
+@Serializable
 data class ScheduleRow(
     val day: String,
     val time: String,
@@ -384,6 +387,7 @@ data class ScheduleRow(
     val questDayIndex: Int? = null,
     val questDayLabel: String? = null,
     val questLevel: String? = null,
+    val dateOverrides: Map<String, ScheduleDateOverride?> = emptyMap(),
 )
 
 /** Phone-native cache of the full schedule, staged by ScheduleSyncPlugin and

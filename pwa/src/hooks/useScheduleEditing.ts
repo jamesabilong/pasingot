@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import type { Weekday, WorkoutRow } from '../types';
 import { moveWeeklySession, removeWeeklySession } from '../lib/schedule-editing';
 import { getAll, STORES } from '../lib/db';
-import { pushScheduleToNative } from '../lib/native-bridge';
+import { pushScheduleToNative, requireDateScheduleSupport } from '../lib/native-bridge';
+import { changeSessionDate, type DateScheduleChange } from '../lib/schedule-date-editing';
 
 export function useScheduleEditing({ onScheduleChanged, blocked }: {
   onScheduleChanged: (rows: WorkoutRow[]) => void | Promise<void>;
@@ -62,7 +63,25 @@ export function useScheduleEditing({ onScheduleChanged, blocked }: {
     } finally { inFlight.current = false; setBusy(false); }
   }
 
+  async function changeDate(rows: WorkoutRow[], sourceDate: string, change: DateScheduleChange): Promise<boolean> {
+    if (inFlight.current) return false;
+    inFlight.current = true; setBusy(true); setResult(null);
+    try {
+      if (blocked) throw new Error('Finish or end the current workout before changing a session.');
+      await requireDateScheduleSupport();
+      const schedule = await changeSessionDate(rows, sourceDate, change);
+      const success = change === 'skip' ? `Session skipped on ${sourceDate}.`
+        : change === 'clear' ? `Date change cleared for ${sourceDate}.`
+          : `Session on ${sourceDate} moved to ${change.date} at ${change.time}.`;
+      await publish(schedule, `${success} Weekly schedule and history kept.`, 'Date change saved on this phone.');
+      return true;
+    } catch (error) {
+      setResult({ error: true, message: error instanceof Error ? error.message : 'Could not change this occurrence.' });
+      return false;
+    } finally { inFlight.current = false; setBusy(false); }
+  }
+
   return { move: (rows: WorkoutRow[], day: Weekday, time: string) => edit(rows, { day, time }),
-    remove: (rows: WorkoutRow[]) => edit(rows, null), retry, retryPending, busy, result,
+    remove: (rows: WorkoutRow[]) => edit(rows, null), changeDate, retry, retryPending, busy, result,
     clearResult: () => { if (!pending.current) setResult(null); } };
 }

@@ -45,6 +45,7 @@ declare global {
     Capacitor?: {
       Plugins?: {
         ScheduleSync?: {
+          getCapabilities?: () => Promise<{ dateOverrides: boolean }>;
           syncSchedule: (payload: { rows: WorkoutRow[] }) => Promise<void>;
           sendTodayToWatch?: () => Promise<{ exerciseCount: number; date: string }>;
         };
@@ -212,11 +213,20 @@ export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<boolean>
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
   if (!bridge) return true;
   try {
+    if (rows.some(row => Object.keys(row.dateOverrides ?? {}).length)) await requireDateScheduleSupport();
     await bridge.syncSchedule({ rows });
     return true;
   } catch (error) {
     console.error('Failed to sync schedule to native:', error);
     return false;
+  }
+}
+
+export async function requireDateScheduleSupport(): Promise<void> {
+  const bridge = window.Capacitor?.Plugins?.ScheduleSync;
+  if (!bridge) return;
+  if (!bridge.getCapabilities || !(await bridge.getCapabilities()).dateOverrides) {
+    throw new Error('Update the Pasingot Android phone app to use date-specific schedules.');
   }
 }
 
@@ -242,6 +252,7 @@ export async function sendTodayToWatch(rows: WorkoutRow[]): Promise<{ exerciseCo
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
   if (!bridge?.sendTodayToWatch) throw new Error(WATCH_SYNC_UNAVAILABLE_MESSAGES['app-update-required']);
   // Do not use the automatic cache helper here: manual actions must surface failures.
+  if (rows.some(row => Object.keys(row.dateOverrides ?? {}).length)) await requireDateScheduleSupport();
   await bridge.syncSchedule({ rows });
   return bridge.sendTodayToWatch();
 }

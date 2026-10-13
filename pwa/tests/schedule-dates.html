@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Date schedule checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { changedDateSchedule, changeSessionDate } from '/src/lib/schedule-date-editing.ts';
+import { workoutsOnDate, validDateOverrides, scheduleWeekday } from '/src/lib/schedule-dates.ts';
+import { todayDateKey, dateFromKey, dateKeyFromDate } from '/src/lib/history-stats.ts';
+import { buildTodayOverview } from '/src/lib/today-overview.ts';
+import { useScheduleEditing } from '/src/hooks/useScheduleEditing.ts';
+import { useWorkoutSession } from '/src/hooks/useWorkoutSession.ts';
+import { WeeklyPlan } from '/src/components/WeeklyPlan.tsx';
+import { newPwaSession } from '/src/lib/workout-session.ts';
+import { commitWorkoutSessionTransition } from '/src/lib/workout-session-persistence.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import { requireDateScheduleSupport, pushScheduleToNative } from '/src/lib/native-bridge.ts';
+import '/src/styles.css';
+import App from '/src/App.tsx';
+const factory = window.indexedDB, database = `pasingot-date-schedule-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', {configurable:true,value:{open:(_name,version)=>factory.open(database,version)}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[], check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};
+const rejects=async action=>{try{await action();return false;}catch{return true;}};
+const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const source=todayDateKey(), day=scheduleWeekday(source);
+const plusDays=n=>{const d=dateFromKey(source);d.setDate(d.getDate()+n);return dateKeyFromDate(d);};
+const target=plusDays(1), nextWeek=plusDays(7), destination={date:target,time:'08:15'};
+const base={schemaVersion:1,day,time:'07:00',sets:2,reps:'8',rest:30,loadWeight:25,loadUnit:'kg'};
+const rows=[{...base,id:1,exercise:'Test squat'},{...base,id:2,exercise:'Test press'}, {...base,id:3,day:scheduleWeekday(target),time:'09:00',exercise:'Other session'}];
+const expected=rows.slice(0,2), original=window.Capacitor;
+const root=createRoot(document.getElementById('root'));
+let editor, player, blocked=false, failView=false, nativeCalls=0;
+function Harness(){
+ const [workouts,setWorkouts]=useState(rows);
+ editor=useScheduleEditing({blocked,onScheduleChanged:value=>{if(failView)throw Error('Expected view failure');setWorkouts(value);}});
+ player=useWorkoutSession({workouts,logs:[],onHistoryChanged:async()=>{},onCompleted:()=>{},playCue:()=>{},addToast:()=>{}});
+ return React.createElement('main',{style:{maxWidth:560,padding:16,margin:'auto'}},React.createElement(WeeklyPlan,{workouts,today:day,onBuildPlan:()=>{},scheduleEditor:{...editor,blocked}}));
+}
+const reset=async()=>replaceStores({workouts:rows,logs:[],setLogs:[],sessionEvents:[],bodyMetrics:[],customExercises:[],appState:[{key:'ownedPreference',schemaVersion:1,value:'preserve'}]});
+try{
+ await reset();
+ const changed=changedDateSchedule(rows,expected,source,destination,source);
+ check(changed[0].day===day && changed[0].time==='07:00' && changed[0].id===1 && changed[0].loadWeight===25,'Weekly placement, identity and prescription retained');
+ check(workoutsOnDate(changed,source).length===0,'Moved occurrence absent on source date');
+ check(workoutsOnDate(changed,target).map(r=>r.exercise).join(',')==='Test squat,Test press,Other session','Incoming occurrence shares date with unrelated session in time order');
+ check(workoutsOnDate(changed,nextWeek).length===2,'Following week retains recurrence');
+ check(JSON.stringify(rows[0])===JSON.stringify(expected[0]) && !rows[0].dateOverrides,'Projection and edit leave input records unchanged');
+ const skipped=changedDateSchedule(rows,expected,source,'skip',source);
+ check(workoutsOnDate(skipped,source).length===0 && workoutsOnDate(skipped,nextWeek).length===2,'Skip applies to one date only');
+ const restored=changedDateSchedule(skipped,skipped.slice(0,2),source,'clear',source);
+ check(JSON.stringify(restored)===JSON.stringify(rows),'Clear restores exact legacy row shape');
+ const sameDay=changedDateSchedule(rows,expected,source,{date:source,time:'18:00'},source);
+ check(workoutsOnDate(sameDay,source).length===2 && workoutsOnDate(sameDay,source)[0].time==='18:00','Same-date time move resolves once');
+ for(const [label,action] of [
+  ['Partial session',()=>changedDateSchedule(rows,[rows[0]],source,destination,source)],
+  ['Stale prescription',()=>changedDateSchedule(rows,expected.map(r=>({...r,reps:'9'})),source,destination,source)],
+  ['Quest session',()=>changedDateSchedule(rows,expected.map(r=>({...r,questId:'quest'})),source,destination,source)],
+  ['Wrong occurrence weekday',()=>changedDateSchedule(rows,expected,target,destination,source)],
+  ['Past source',()=>changedDateSchedule(rows,expected,plusDays(-7),destination,source)],
+  ['Past destination',()=>changedDateSchedule(rows,expected,source,{date:plusDays(-1),time:'08:00'},source)],
+  ['Invalid date',()=>changedDateSchedule(rows,expected,source,{date:'2026-02-30',time:'08:00'},source)],
+  ['Invalid time',()=>changedDateSchedule(rows,expected,source,{date:target,time:'24:00'},source)],
+  ['Occupied destination',()=>changedDateSchedule(rows,expected,source,{date:target,time:'09:00'},source)],
+  ['Duplicate row on date',()=>changedDateSchedule(rows,expected,source,{date:nextWeek,time:'08:00'},source)],
+ ])check(await rejects(action),`${label} rejected`);
+ check(validDateOverrides({[source]:null,[nextWeek]:destination}) && !validDateOverrides({[source]:{date:target,time:'25:00'}}) && !validDateOverrides({'2026-02-30':null}),'Strict override metadata validation');
+ const saved=await changeSessionDate(expected,source,destination);
+ check(JSON.stringify(saved)===JSON.stringify(await getAll(STORES.workouts)) && saved[2].id===3,'Whole occurrence commits durably with unrelated row retained');
+ check((await getRecord(STORES.appState,'ownedPreference')).value==='preserve','Unrelated settings retained');
+ check(buildTodayOverview(saved,[],[],target).workouts[0].time==='08:15','Today overview uses date projection');
+ check(await rejects(()=>changeSessionDate(expected,source,'skip')),'Stale durable edit rejected');
+ const backup=await buildWorkoutBackup(); await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(saved),'Overrides survive full backup round trip');
+ for(const invalid of [null,[],{[source]:{date:target,time:'24:00'}},{'2026-02-30':null}]){
+  const broken=structuredClone(backup);broken.stores.workouts[0].dateOverrides=invalid;
+  check(await rejects(()=>parseWorkoutBackup(JSON.stringify(broken))),'Malformed backup override rejected before restore');
+ }
+ await reset();await putRecord(STORES.logs,{id:1,schemaVersion:1,date:`${source}T12:00:00`,exercise:'Test squat',status:'done',workoutRowId:1});
+ check(await rejects(()=>changeSessionDate(expected,source,'skip')),'Recorded source occurrence protected');
+ await reset();await putRecord(STORES.setLogs,{id:1,schemaVersion:1,date:`${target}T12:00:00`,exercise:'Test squat',setNumber:1,plannedReps:'8',actualReps:'8',workoutRowId:1});
+ check(await rejects(()=>changeSessionDate(expected,source,destination)),'Recorded destination protected');
+ await reset();await changeSessionDate(expected,source,destination);
+ await putRecord(STORES.logs,{id:1,schemaVersion:1,date:`${target}T12:00:00`,exercise:'Test squat',status:'done',workoutRowId:1});
+ const savedWithHistory=await getAll(STORES.workouts);
+ check(await rejects(()=>changeSessionDate(savedWithHistory.slice(0,2),source,'clear')),'Recorded prior destination cannot be cleared');
+ await reset();await putRecord(STORES.appState,newPwaSession(expected));
+ check(await rejects(()=>changeSessionDate(expected,source,destination)),'Saved unfinished phone session blocks mutation');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows),'Rejected edits keep schedule exact');
+ await reset();
+ const raced=await Promise.allSettled([changeSessionDate(expected,source,destination),changeSessionDate(expected,source,'skip')]);
+ check(raced.filter(r=>r.status==='fulfilled').length===1,'Concurrent stale edits admit one winner');
+ await reset();const put=IDBObjectStore.prototype.put;
+ IDBObjectStore.prototype.put=function(value,...args){if(this.name==='workouts'&&value.id===2)throw Error('Injected second-row failure');return put.call(this,value,...args);};
+ try{check(await rejects(()=>changeSessionDate(expected,source,destination)),'Write failure aborts transaction');}finally{IDBObjectStore.prototype.put=put;}
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows),'Partial transaction failure leaves both rows exact');
+ await changeSessionDate(expected,source,'skip');
+ check(!await commitWorkoutSessionTransition(null,{session:newPwaSession(expected)},expected),'Player start rejects rows changed after its read');
+ check(!await getRecord(STORES.appState,'activeWorkoutSession'),'Stale player start does not create a cursor');
+ window.Capacitor={Plugins:{ScheduleSync:{syncSchedule:async()=>{nativeCalls++;}}}};
+ check(await rejects(requireDateScheduleSupport),'Older phone bridge fails capability check');
+ check(!await pushScheduleToNative(saved) && nativeCalls===0,'Unsupported bridge cannot silently cache a recurring-only schedule');
+ await reset();flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ check(!await editor.changeDate(expected,source,destination),'Hook blocks unsupported phone before durable edit');
+ check(JSON.stringify(await getAll(STORES.workouts))===JSON.stringify(rows),'Capability rejection leaves saved schedule exact');
+ window.Capacitor={Plugins:{ScheduleSync:{getCapabilities:async()=>({dateOverrides:true}),syncSchedule:async()=>{nativeCalls++;}}}};
+ blocked=true;flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ check(!await editor.changeDate(expected,source,destination),'Observed active watch blocks hook before mutation');
+ blocked=false;flushSync(()=>root.render(React.createElement(Harness)));await settle();
+ failView=true;check(await editor.changeDate(expected,source,{date:source,time:'08:15'}),'Committed date edit stays successful after view failure');await settle();
+ check(editor.retryPending && editor.result.error,'Failed publication exposes retry');failView=false;
+ check(await editor.retry(),'Retry reads saved schedule without replaying edit');await settle();
+ check((await getAll(STORES.workouts))[0].dateOverrides[source].time==='08:15' && !editor.retryPending,'Retry publishes exact current data');
+ await player.start();await settle();
+ check(player.rows.length===2 && player.rows[0].time==='08:15' && player.session.rowIds.join(',')==='1,2','Phone player starts resolved occurrence with stable IDs');
+ await player.clear();await reset();
+ await putRecord(STORES.appState,{...newPwaSession(expected),status:'completed'});
+ check(await editor.move(expected,scheduleWeekday(target),'10:00'),'Recurring move still accepts a finished player');await settle();
+ await player.restore();await settle();
+ check(player.session.status==='completed' && player.rows.length===2,'Finished player summary survives recurring day move');
+ await player.clear();await reset();root.unmount();
+ // Leave an interactive clean fixture for visible/mobile and offline smoke.
+ window.Capacitor=original;
+ const smokeRoot=createRoot(document.getElementById('root'));
+ flushSync(()=>smokeRoot.render(React.createElement(new URLSearchParams(location.search).has('app') ? App : Harness)));await settle();
+ document.getElementById('result').textContent=`${checks.length} checks passed\n${checks.join('\n')}`;
+ window.dateScheduleChecks={checks,source,target,database};
+}catch(error){document.getElementById('result').textContent=`FAILED after ${checks.length} checks: ${error.stack}\n${checks.join('\n')}`;throw error;}
+</script></html>

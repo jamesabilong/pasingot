@@ -1,6 +1,7 @@
 import { parseSetEffort } from './set-effort';
 import { SCHEMA_VERSION, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 import { STORES, transact } from './db';
+import { workoutsOnDate } from './schedule-dates';
 import { estimateLevelFor, estimateWorkoutDurationSeconds, validLoadWeight, workoutStatusesOnDate } from './workout-planning';
 import { ACTIVE_WORKOUT_SESSION_KEY, currentSetInput, elapsedSecondsForSession, finishElapsedSession, normalizeActiveWorkoutSession, restOrActive, touchSession, type ActiveWorkoutSession } from './workout-session';
 
@@ -21,9 +22,9 @@ function sameValue(left: unknown, right: unknown): boolean {
 }
 
 /** History and the cursor advance share one commit. A stale tab/action cannot log the same set again. */
-export async function commitWorkoutSessionTransition(expected: ActiveWorkoutSession | null, next: WorkoutSessionTransition): Promise<boolean> {
+export async function commitWorkoutSessionTransition(expected: ActiveWorkoutSession | null, next: WorkoutSessionTransition, startRows?: WorkoutRow[]): Promise<boolean> {
   let committed = false;
-  await transact([STORES.appState, STORES.logs, STORES.setLogs, STORES.sessionEvents], (transaction) => {
+  await transact([STORES.appState, STORES.logs, STORES.setLogs, STORES.sessionEvents, ...(startRows ? [STORES.workouts] : [])], (transaction) => {
     const appState = transaction.objectStore(STORES.appState);
     const request = appState.get(ACTIVE_WORKOUT_SESSION_KEY);
     request.onsuccess = () => {
@@ -31,16 +32,24 @@ export async function commitWorkoutSessionTransition(expected: ActiveWorkoutSess
       const current = stored ? normalizeActiveWorkoutSession(stored, expected?.lastInteractionAtEpochMillis) : null;
       const prior = expected ? normalizeActiveWorkoutSession(expected) : null;
       if (!sameValue(current, prior)) return;
-      try {
-        if (next.setLog) transaction.objectStore(STORES.setLogs).add(next.setLog);
-        if (next.exerciseLog) transaction.objectStore(STORES.logs).add(next.exerciseLog);
-        if (next.event) transaction.objectStore(STORES.sessionEvents).add(next.event);
-        if (next.session) appState.put(next.session);
-        else appState.delete(ACTIVE_WORKOUT_SESSION_KEY);
-        committed = true;
-      } catch {
-        transaction.abort();
-      }
+      const write = () => {
+        try {
+          if (next.setLog) transaction.objectStore(STORES.setLogs).add(next.setLog);
+          if (next.exerciseLog) transaction.objectStore(STORES.logs).add(next.exerciseLog);
+          if (next.event) transaction.objectStore(STORES.sessionEvents).add(next.event);
+          if (next.session) appState.put(next.session);
+          else appState.delete(ACTIVE_WORKOUT_SESSION_KEY);
+          committed = true;
+        } catch {
+          transaction.abort();
+        }
+      };
+      if (startRows && next.session) {
+        const schedule = transaction.objectStore(STORES.workouts).getAll();
+        schedule.onsuccess = () => {
+          if (sameValue(workoutsOnDate(schedule.result, next.session!.planDate).filter(row => row.id != null), startRows)) write();
+        };
+      } else write();
     };
   });
   return committed;

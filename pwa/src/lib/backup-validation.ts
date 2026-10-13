@@ -1,5 +1,6 @@
 import { isPlateEquipmentSettings } from './plate-equipment';
 import { validRpe, validRir } from './set-effort';
+import { validDateOverrides } from './schedule-dates';
 import { SCHEMA_VERSION, WEEKDAYS } from '../types';
 import { isCustomQuestDefinition } from './custom-quests';
 import { isExerciseLevel, isWeightUnit, TIME_RE, validLoadWeight } from './workout-planning';
@@ -82,7 +83,8 @@ const validators: Record<string, (row: RecordValue) => boolean> = {
   workouts: (row) => WEEKDAYS.includes(row.day as typeof WEEKDAYS[number]) && text(row.time) && TIME_RE.test(row.time)
     && text(row.exercise) && identity(row.exerciseSourceId) && prescription(row)
     && (row.questId == null || (text(row.questId) && integer(row.questDayIndex, 1)))
-    && (row.questRunId == null || text(row.questRunId)),
+    && (row.questRunId == null || text(row.questRunId))
+    && (row.dateOverrides === undefined || (row.questId == null && validDateOverrides(row.dateOverrides))),
   logs: (row) => timestamp(row.date) && text(row.exercise) && identity(row.exerciseSourceId)
     && ['done', 'skipped'].includes(String(row.status)) && (row.workoutRowId == null || integer(row.workoutRowId, 1)),
   sessionEvents: (row) => text(row.workoutEntryId) && timestamp(row.workoutDate) && timestamp(row.timestamp)
