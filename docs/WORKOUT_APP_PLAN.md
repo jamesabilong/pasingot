@@ -1,5 +1,15 @@
 # Workout App Plan
 
+Current implementation — Iteration 187: body measurements committed as
+`381ef28`; adjustable warm-up suggestions are code/browser complete in Library
+playlist items and the phone player's first set. Preview only; working sets and
+history remain unchanged. 285 browser assertions, mobile/offline smoke,
+TypeScript, production build and phone APK/asset identity checks pass. This
+checkpoint is committed with this documentation at the user's request.
+Physical checks remain deferred (PHONE-07); Stage 19
+stays 87/97 overall and physical 17/27. This supersedes Iteration 186's
+uncommitted/choose-next status below.
+
 Current implementation — Iteration 186: date-specific schedules and physical
 checks module committed as `bea5826`. Body measurement history is code/browser
 complete: dated cm/in records, edit/delete, comparisons, filters, pagination and
@@ -885,11 +895,11 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`; body measurement history validated in Iteration 186 | Physical execution is deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
-| **Pending validation** | Quick Start's ten criteria; installed phone measurements, date/weekly editors, plate equipment, effort/set history, Health Connect and portability | All organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these |
-| **Pending implementation** | Stage 19 Phases 0–3 complete; date scheduling committed as `bea5826`, body measurements validated in Iteration 186 | Review measurement checkpoint; supersets/circuits and warm-up suggestions remain future candidates; physical checks are deferred |
+| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`; body measurements committed as `381ef28`; warm-up previews validated in Iteration 187 | Physical execution is deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
+| **Pending validation** | Quick Start's ten criteria; installed phone warm-up previews, measurements, date/weekly editors, plate equipment, effort/set history, Health Connect and portability | All organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these |
+| **Pending implementation** | Stage 19 Phases 0–3 complete; date scheduling committed as `bea5826`, body measurements as `381ef28`; warm-up previews validated in Iteration 187 | Warm-up checkpoint committed; supersets/circuits remain a future candidate; physical checks are deferred |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
-| **Future candidates** | Supersets, warm-up suggestions, progress photos | Body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
+| **Future candidates** | Supersets, progress photos | Warm-up previews, body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
 ### Browser-to-watch check — 2026-09-12

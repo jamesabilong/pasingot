@@ -153,6 +153,15 @@ same inventory/evidence protocol on the installed Android app.
   Connect behavior, and stale editor rejection after another tab or restore.
   Browser/packaged-asset evidence does not close installed-device acceptance.
 
+- [ ] **PHONE-07 — Warm-up previews (Iteration 187).** For loaded rep-based
+  Library playlist items and the first phone-player set, inspect/edit the
+  percentage/rep example, equipment minimum and load increment in kg/lb.
+  Verify rounding/empty states, prescription-change reset, offline use and
+  readable controls. Pause/resume keeps the current preview; subsequent working
+  sets hide it. Confirm preview edits create no history/schedule changes and
+  Complete set still records only the prescribed working set. Suggestions are
+  temporary previews; they are not appended to watch or phone workout plans.
+
 ## Resume order
 
 Inventory and interrupted QS-12 recovery first; then QS-07/19/20/21/22 and

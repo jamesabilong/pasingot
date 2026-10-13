@@ -1,3 +1,4 @@
+import { WarmupSuggestions } from './WarmupSuggestions';
 import { useState } from 'react';
 import { PlateCalculator } from './PlateCalculator';
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
@@ -301,6 +302,7 @@ export function LibraryView({
                   </select>
                 </label>
               </div>
+              <WarmupSuggestions prescription={item} />
             </div>
           ))}
         </div>}

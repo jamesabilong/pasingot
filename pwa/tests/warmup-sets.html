@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Warm-up checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {supportsWarmups,initialWarmupDraft,suggestWarmupSets} from '/src/lib/warmup-sets.ts';
+import {WarmupSuggestions} from '/src/components/WarmupSuggestions.tsx';
+import {WorkoutPlayer} from '/src/components/WorkoutPlayer.tsx';
+import {getAll,putRecord,STORES} from '/src/lib/db.ts';
+import {buildWorkoutBackup} from '/src/lib/backup.ts';
+import {initialDraft} from '/src/lib/workout-planning.ts';
+import App from '/src/App.tsx';
+import '/src/styles.css';
+const factory=window.indexedDB,database=`pasingot-warmup-${crypto.randomUUID()}`;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>factory.open(database,version)}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};
+const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const p={loadWeight:100,loadUnit:'kg',reps:'8-12'},d=initialWarmupDraft('kg');
+const root=createRoot(document.getElementById('root'));
+const render=element=>flushSync(()=>root.render(element));
+const setInput=async(label,value)=>{const el=[...document.querySelectorAll('label')].find(el=>el.textContent.trim()===label)?.querySelector('input');if(!el)throw Error('Missing label '+label);Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));await settle();};
+const status=()=>document.querySelector('[aria-label="Suggested warm-up sets"]')?.textContent??'';
+try{
+ check(JSON.stringify(suggestWarmupSets(p,d).sets)==='[{"percent":40,"reps":8,"load":40},{"percent":60,"reps":5,"load":60},{"percent":80,"reps":3,"load":80}]','Default kg ramp uses planned load and reps');
+ check(suggestWarmupSets({...p,loadWeight:135,loadUnit:'lb'},initialWarmupDraft('lb')).sets.map(s=>s.load).join(',')==='50,80,105','lb defaults round down in five-pound increments');
+ for(const patch of [{loadWeight:0},{loadWeight:null},{loadWeight:-1},{loadWeight:Infinity},{loadWeight:NaN},{loadWeight:2001},{loadUnit:'oz'},{reps:'30 sec'},{reps:'2 min'},{reps:'0'},{reps:'12-8'},{reps:'AMRAP'}])check(!supportsWarmups({...p,...patch}),`Unsupported prescription hidden: ${JSON.stringify(patch)}`);
+ check(supportsWarmups({...p,reps:' 8 – 12 '}),'Rep ranges accept spaces and en dash');
+ for(const patch of [{minimum:''},{minimum:'-1'},{minimum:'100'},{minimum:'1.001'},{increment:''},{increment:'0'},{increment:'NaN'},{increment:'Infinity'},{increment:'0.001'},{increment:'2001'}])check('error'in suggestWarmupSets(p,{...d,...patch}),`Invalid load settings rejected: ${JSON.stringify(patch)}`);
+ for(const [field,value] of [['percent',''],['percent','0'],['percent','100'],['percent','40.5'],['percent','60'],['reps','0'],['reps','31'],['reps','1.5'],['reps','NaN']]){const bad=structuredClone(d);bad.stages[0][field]=value;check('error'in suggestWarmupSets(p,bad),`Invalid stage rejected: ${field}=${value}`);}
+ check('error'in suggestWarmupSets(p,{...d,stages:[]}),'Missing stages rejected');
+ const offset=suggestWarmupSets({...p,loadWeight:42},{...d,minimum:'15',increment:'5'});
+ check(offset.sets.map(s=>s.load).join(',')==='15,25,30','Minimum anchors equipment load increments');
+ check(suggestWarmupSets({...p,loadWeight:20},{...d,minimum:'15',increment:'5'}).sets.length===1,'Targets below the equipment minimum are omitted');
+ const repeated=suggestWarmupSets({...p,loadWeight:10},{...d,increment:'5'});
+ check(repeated.sets.length===1&&repeated.omitted===2&&repeated.sets[0].load===5,'Zero and repeated rounded loads omitted');
+ check(suggestWarmupSets({...p,loadWeight:1},d).sets.length===0,'Light load has honest empty result');
+ const cents=suggestWarmupSets({...p,loadWeight:1.01},{...d,minimum:'0.01',increment:'0.1'});
+ check(cents.sets.map(s=>s.load).join(',')==='0.31,0.51,0.71','Fractional load grid stays exact and never rounds up');
+ for(const weight of [0.01,1.01,20,42.5,135,1999.99,2000]){
+ const r=suggestWarmupSets({...p,loadWeight:weight},{...d,increment:'0.01'});
+ check(r.sets.every((s,i)=>s.load>0&&s.load<weight&&s.load<=weight*s.percent/100+1e-9&&(!i||s.load>r.sets[i-1].load)),`Bounded increasing loads for ${weight}`);
+ }
+ const before=JSON.stringify({p,d});suggestWarmupSets(p,d);check(JSON.stringify({p,d})===before,'Calculation does not mutate prescription or draft');
+ render(React.createElement(WarmupSuggestions,{prescription:p}));
+ document.querySelector('details').open=true;await setInput('Warm-up 1 percent','30');
+ check(status().includes('8 reps × 30 kg'),'Editing percentage updates preview');
+ await setInput('Warm-up 1 reps','6');check(status().includes('6 reps × 30 kg'),'Editing reps updates preview');
+ await setInput('Load increment (kg)','0');check(status().includes('positive increment')&&!status().includes('reps ×'),'Invalid input replaces stale suggestions with correction');
+ [...document.querySelectorAll('button')].find(el=>el.textContent==='Reset warm-up suggestions').click();await settle();check(status().includes('8 reps × 40 kg'),'Reset restores example ramp');
+ render(React.createElement(WarmupSuggestions,{prescription:{...p,loadWeight:50}}));check(!document.querySelector('details').open&&status().includes('8 reps × 20 kg'),'Changed planned load closes and resets preview');
+ render(React.createElement(WarmupSuggestions,{prescription:{...p,loadUnit:'lb'}}));check(document.querySelectorAll('input')[1].value==='5'&&status().includes('lb'),'Changed unit resets increment and units');
+ render(React.createElement(WarmupSuggestions,{prescription:{...p,reps:'30 sec'}}));check(!document.querySelector('details'),'Duration prescriptions do not expose load ramp');
+ let callbacks=0;const noop=()=>callbacks++;
+ const row={id:1,schemaVersion:1,day:new Date().toLocaleDateString('en-US',{weekday:'long'}),time:'07:00',exercise:'Arnold Shoulder Press',exerciseSourceId:20,sets:2,rest:0,...p};
+ const props={session:{status:'active',currentSet:1,exerciseIndex:0,pausedRestRemainingSeconds:null},rows:[row],elapsedSeconds:0,restRemainingSeconds:0,setInput:{actualReps:'8',loadWeight:'100',loadUnit:'kg'},onSetInputChange:noop,onCompleteSet:noop,onSkip:noop,onPause:noop,onResume:noop,onRestart:noop,onEnd:noop,onStartNow:noop,onAddRestSeconds:noop,cueSettings:{hapticsEnabled:false,soundEnabled:false,voiceEnabled:false},onCueSettingsChange:noop,onClose:noop};
+ render(React.createElement(WorkoutPlayer,props));check(!!document.querySelector('[aria-label="Warm-up suggestions"]'),'First active set exposes preview');
+ await setInput('Warm-up 1 percent','30');check(callbacks===0,'Preview edits never invoke player mutations');
+ render(React.createElement(WorkoutPlayer,{...props,session:{...props.session,status:'paused'}}));check(!!document.querySelector('[aria-label="Warm-up suggestions"]'),'First paused set exposes preview');
+ for(const session of [{...props.session,currentSet:2},{...props.session,status:'resting'},{...props.session,status:'completed'},{...props.session,status:'ended'}]){render(React.createElement(WorkoutPlayer,{...props,session}));check(!document.querySelector('[aria-label="Warm-up suggestions"]'),`No preview during ${session.status} set ${session.currentSet}`);}
+ await putRecord(STORES.workouts,row);
+ await putRecord(STORES.appState,{key:'playlistDraft',schemaVersion:1,...initialDraft(),items:[{sourceId:20,name:row.exercise,sets:2,rest:0,...p}]});
+ window.warmupChecks={checks,database,readBackup:buildWorkoutBackup,readSets:()=>getAll(STORES.setLogs)};
+ render(React.createElement(App));
+ document.getElementById('result').textContent=checks.join('\n')+`\n${checks.length} checks passed`;
+}catch(error){document.getElementById('result').textContent=checks.join('\n')+'\nFAIL: '+error.stack;throw error;}
+</script></html>

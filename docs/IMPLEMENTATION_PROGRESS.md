@@ -7841,3 +7841,75 @@ independent roadmap slice; resume physical work only when requested through
 its entry protocol. Iteration 185 is committed as `bea5826`; Iteration 186 is
 uncommitted. Final Git recheck retains HEAD `bea5826`; only this iteration's
 intended files are changed, and whitespace validation passes.
+
+
+## Iteration 187 — 2026-10-13 — Warm-up set suggestions
+
+Status: **In progress; physical execution deferred.** User requests commit then
+continued implementation and selects warm-up suggestions. Body measurement
+checkpoint committed as `381ef28`, working tree verified clean afterward;
+this supersedes Iteration 186's uncommitted label. Implement adjustable preview
+suggestions in loaded rep-based Library playlist items and the phone player's
+first set (below existing workout actions). Default example 40/60/80% with
+8/5/3 reps, editable minimum/increment and three stages; round down, omit
+zero/duplicate/below-minimum loads. No new persistence or watch payload; working
+sets, session progression and history remain unchanged. Reinitialize preview
+when its planned prescription changes. Validate domain boundaries, UI reset,
+actual playlist/player integration, mobile/offline layout and regression checks.
+Next: complete tests/build evidence and update roadmap/physical module.
+
+Iteration 187 closure — **Code/browser/build checkpoint complete; physical
+validation deferred.**
+
+- Added pure `warmup-sets` validation/calculation and a focused
+  `WarmupSuggestions` component. Library playlist items and the phone player's
+  first active/paused set share it. Player actions remain above the preview;
+  later sets/rest/terminal states hide it. Bodyweight, invalid load/unit and
+  duration/non-count prescriptions do not expose the preview.
+- Example ramp 40/60/80%, 8/5/3 reps; three editable integer percentages/reps,
+  equipment minimum and increment (kg/lb). Integer hundredths round down from
+  the equipment minimum; omit zero/duplicate/below-minimum loads, never reach
+  the working load. Invalid edits replace stale results with guidance. Changing
+  planned load/unit/reps resets and closes the preview; changing exercise resets
+  player preview identity. Temporary UI drafts need no database/wire migration.
+  Suggestions use planned load, not actual set-entry changes; no new warm-up
+  history, schedule rows or watch sets are created.
+- **285 headless browser assertions pass** across eleven fixture groups,
+  including **62 warm-up checks** plus playlist, player/session integrity,
+  effort/history, date schedules, equipment concurrency, Quick Start and bridge
+  regressions. New coverage includes kg/lb, precision/invalid inputs, low-load
+  omission, offset equipment grids, no mutation, preview reset and visibility.
+- Full App **390 × 844 mobile/offline** smoke passes editable playlist preview,
+  reset/invalid state, no durable-data changes, planned-load reset, saved player
+  prescription, pause/resume and exactly one 100kg working-set log. Preview hides
+  after that first set. Viewport/document both 390px. Library and paused-player
+  screenshots inspected in `output/playwright/warmup187-*.png`.
+- Initial smoke fixture used missing catalog source ID 1, which normalization
+  correctly removed. Fixture corrected to real catalog ID 20. Subsequent driver
+  used exact “Today” but the accessible name included “Ready”; observed role
+  resolved it. Both failed setup/selector logs retained separately; no product
+  code fix was inferred from those driver failures.
+- `npx tsc --noEmit`, `npm run build`, `npx cap copy android`, isolated cached
+  `:app:assembleDebug`, and `git diff --check` pass. Packaged HTML/JS/CSS match
+  production dist exactly. APK/evidence in `output/validation/iteration-187/`;
+  phone SHA-256 `22bab35335e35219539dbdbfa3b1f293ae11898d885c03e7cab368354340b826`.
+  No native source change or device connection; prior JVM evidence remains
+  historical and was not rerun for this pure PWA preview.
+
+Completed: adjustable warm-up suggestions, bounded calculations, playlist/player
+integration, browser/mobile/build validation and roadmap/module reconciliation.
+Remaining: installed-phone checks in PHONE-07 and previous deferred checks;
+Stage 19 stays **87/97**, physical **17/27**, ten open. Warm-up execution/logging,
+watch warm-up sets, and persisted ramp templates are outside this preview slice.
+Next: review this validated checkpoint for commit; choose a further independent
+feature (supersets/circuits remains open), or resume physical work only when
+requested through the module. Final Git check retains HEAD `381ef28`; current
+warm-up changes are uncommitted and unrelated changes have not been modified.
+
+Iteration 187 commit checkpoint — 2026-10-13: user requests committing the
+validated warm-up changes. This commit contains the implementation, fixture,
+roadmap and deferred PHONE-07 check. Git inspection confirmed only intended
+iteration files, and whitespace validation passed; prior test/build evidence
+above remains applicable because implementation is unchanged. This supersedes
+the uncommitted/review-for-commit labels above. Physical checks remain deferred;
+no acceptance counts change. Next implementation awaits a further request.

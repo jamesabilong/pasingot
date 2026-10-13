@@ -1,5 +1,15 @@
 # Feature Gap Roadmap
 
+Current implementation — Iteration 187: body measurements committed as
+`381ef28`; adjustable warm-up suggestions are code/browser complete in Library
+playlist items and the phone player's first set. Preview only; working sets and
+history remain unchanged. 285 browser assertions, mobile/offline smoke,
+TypeScript, production build and phone APK/asset identity checks pass. This
+checkpoint is committed with this documentation at the user's request.
+Physical checks remain deferred (PHONE-07); Stage 19
+stays 87/97 overall and physical 17/27. This supersedes Iteration 186's
+uncommitted/choose-next status below.
+
 Current implementation — Iteration 186: date-specific schedules and physical
 checks module committed as `bea5826`. Body measurement history is code/browser
 complete: dated cm/in records, edit/delete, comparisons, filters, pagination and
@@ -546,7 +556,7 @@ importance in general.
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
 | 🚧 Partial | Exercise video/GIF demos | Visual form demonstration per exercise | Strong, Hevy, JEFIT, Fitbod | Medium | Stage 16 now bundles 32 reviewed, attributed built-in images for offline use, links 15 attributed upstream videos, and supports optional custom exercise media URLs. Coverage depends on licensed upstream availability; large videos are deliberately not bundled. |
-| | Warm-up set suggestions | Auto-suggested ramp-up sets before working sets | Fitbod, JEFIT | Low | Still open, not on a proposed stage yet. |
+| ✅ Code/browser complete | Warm-up set suggestions | Auto-suggested ramp-up sets before working sets | Fitbod, JEFIT | Low | Iteration 187: adjustable preview for loaded rep-based playlist items and first phone-player set. Example 40/60/80% and 8/5/3 reps; editable minimum/increment rounds down and omits duplicate/zero/below-minimum loads. No automatic logging, schedule change or watch payload. Mobile/offline and regression checks pass; physical checks deferred as PHONE-07. |
 | | AI/adaptive programming | Auto-builds next session from recovery/history instead of a fixed template | Fitbod, JEFIT | Low | Runs counter to the curated-quest design; likely out of scope. |
 
 ## Body tracking
@@ -656,10 +666,10 @@ all screen-by-screen acceptance criteria above are complete.
 2. Keep physical recovery, Health Connect, paired/battery and Play checks in
    [Physical validation module](validation/PHYSICAL_CHECKS.md); execution deferred
    by user on 2026-10-13, without treating automated tests as device acceptance.
-3. One-date scheduling is committed as `bea5826`; body measurements now join
-   implemented RPE/RIR, plate equipment and set history (Iteration 186). Review
-   the validated measurement checkpoint before choosing supersets/circuits or
-   warm-up suggestions as a subsequent independent feature.
+3. One-date scheduling is committed as `bea5826`, body measurements as
+   `381ef28`. Warm-up previews join the validated implementation in Iteration 187.
+   This warm-up checkpoint is committed; select supersets/circuits or another
+   independent feature; keep physical execution deferred.
 4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
    Earlier partial-extraction labels are historical.
 

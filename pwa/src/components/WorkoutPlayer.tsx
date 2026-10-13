@@ -1,3 +1,4 @@
+import { WarmupSuggestions } from './WarmupSuggestions';
 import { useState, type ComponentType } from 'react';
 import { Check, Pause, Play, RefreshCcw, SkipForward, Square, Volume2, Vibrate, X } from 'lucide-react';
 import { formatDuration } from '../lib/format';
@@ -122,6 +123,7 @@ export function WorkoutPlayer({
       {confirmingRestart ? <Confirmation message="Restart from the first exercise?" confirmLabel="Restart workout" confirmIcon={RefreshCcw} tone="warning" onConfirm={() => { onRestart(); setConfirmingRestart(false); }} onCancel={() => setConfirmingRestart(false)} />
         : confirmingEnd ? <Confirmation message="End this workout now?" confirmLabel="End workout" confirmIcon={Square} tone="danger" onConfirm={() => { onEnd(); setConfirmingEnd(false); }} onCancel={() => setConfirmingEnd(false)} />
           : <PlayerActions status={session.status} onCompleteSet={onCompleteSet} onSkip={onSkip} onPause={onPause} onResume={onResume} onRestart={() => setConfirmingRestart(true)} onEnd={() => setConfirmingEnd(true)} onStartNow={onStartNow} onClose={onClose} />}
+      {session.currentSet === 1 && (session.status === 'active' || session.status === 'paused') && <WarmupSuggestions key={row.id ?? session.exerciseIndex} prescription={row} />}
     </section>
   );
 }
