@@ -1,0 +1,90 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Body measurement checks</title><pre id="result" style="white-space:pre-wrap">Running…</pre><div id="root"></div><script type="module">
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { initialMeasurementDraft, parseMeasurementDraft, validBodyMeasurement, measurementChange, sortedMeasurements } from '/src/lib/body-measurements.ts';
+import { saveMeasurement } from '/src/lib/body-measurement-persistence.ts';
+import { useBodyMeasurements } from '/src/hooks/useBodyMeasurements.ts';
+import { BodyMeasurementsPanel } from '/src/components/BodyMeasurementsPanel.tsx';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import App from '/src/App.tsx';
+import '/src/styles.css';
+const factory=window.indexedDB, database=`pasingot-measurement-${crypto.randomUUID()}`;
+Object.defineProperty(window,'indexedDB',{configurable:true,value:{open:(_name,version)=>factory.open(database,version)}});
+window.addEventListener('pagehide',()=>factory.deleteDatabase(database),{once:true});
+const checks=[],check=(ok,label)=>{if(!ok)throw Error(label);checks.push(`PASS: ${label}`);};
+const rejects=async action=>{try{await action();return false;}catch{return true;}};
+const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+const draft={...initialMeasurementDraft(),value:'80.26',note:'  test  '};
+const entry=parseMeasurementDraft(draft), root=createRoot(document.getElementById('root'));
+let workflow;
+function Harness(){workflow=useBodyMeasurements();const [range,setRange]=useState('all');return React.createElement('main',{style:{maxWidth:560,padding:16,margin:'auto'}},React.createElement('button',{onClick:()=>setRange(range==='all'?'month':'all')},'Change range'),React.createElement(BodyMeasurementsPanel,{workflow,range}));}
+try {
+ // Start with an actual version-6 database and existing weight data.
+ await new Promise((resolve,reject)=>{const request=factory.open(database,6);request.onupgradeneeded=()=>request.result.createObjectStore('bodyMetrics',{keyPath:'id',autoIncrement:true}).put({id:1,schemaVersion:1,date:draft.date,weight:70,unit:'kg'});request.onsuccess=()=>{request.result.close();resolve();};request.onerror=()=>reject(request.error);});
+ check((await getAll(STORES.bodyMetrics))[0].weight===70,'Version-6 upgrade preserves body weight');
+ check((await getAll(STORES.bodyMeasurements)).length===0,'Upgrade creates empty measurement store');
+ check(entry.value===80.3&&entry.note==='test','Draft rounds once and trims note');
+ for(const patch of [{value:''},{value:' '},{value:'0'},{value:'0.01'},{value:'-1'},{value:'1000.1'},{value:'Infinity'},{value:'NaN'},{date:'2026-02-30'},{date:'9999-01-01'},{unit:'kg'},{site:'constructor'}])check(!parseMeasurementDraft({...draft,...patch}),`Invalid draft rejected: ${JSON.stringify(patch)}`);
+ check(validBodyMeasurement({...entry,site:'leftArm',unit:'in'}),'Side-specific inch record accepted');
+ check(measurementChange({...entry,value:25.4},{...entry,value:10,unit:'in'})===0,'Change compares cm/in in latest unit');
+ check(measurementChange({...entry,value:11,unit:'in'},{...entry,value:25.4})===1,'Change converts cm to inches');
+ check(measurementChange(entry,{...entry,site:'chest'})===null,'Different sites never compared');
+ check(sortedMeasurements([{...entry,id:1},{...entry,id:2}])[0].id===2,'Same-date ordering uses durable IDs');
+ await saveMeasurement(entry);let saved=(await getAll(STORES.bodyMeasurements))[0];
+ check(saved.id>0&&saved.value===80.3,'New measurement persists with generated ID');
+ await saveMeasurement({...entry,value:81},saved);
+ check((await getAll(STORES.bodyMeasurements)).length===1&&(await getAll(STORES.bodyMeasurements))[0].value===81,'Edit updates original ID');
+ check(await rejects(()=>saveMeasurement({...entry,value:82},saved)),'Stale edit rejected');
+ check(await rejects(()=>saveMeasurement(null,saved)),'Stale delete rejected');
+ saved=(await getAll(STORES.bodyMeasurements))[0];
+ const race=await Promise.allSettled([saveMeasurement({...entry,value:82},saved),saveMeasurement({...entry,value:83},saved)]);
+ check(race.filter(r=>r.status==='fulfilled').length===1,'Concurrent editors cannot overwrite one another');
+ saved=(await getAll(STORES.bodyMeasurements))[0];await saveMeasurement(null,saved);
+ check((await getAll(STORES.bodyMeasurements)).length===0,'Delete removes exact record');
+ check(await rejects(()=>saveMeasurement(entry,saved)),'Deleted record cannot be resurrected by stale edit');
+ await saveMeasurement(entry);await saveMeasurement({...entry,site:'chest',unit:'in',value:40});
+ const backup=await buildWorkoutBackup();await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(backup)));
+ check(JSON.stringify((await buildWorkoutBackup()).stores)===JSON.stringify(backup.stores),'Full backup round trip preserves all stores and units');
+ for(const patch of [{value:0},{value:1001},{value:'80'},{unit:'kg'},{site:'other'},{date:'2026-02-30'},{id:-1},{note:42},{note:'x'.repeat(161)}]){
+ const invalid=structuredClone(backup);Object.assign(invalid.stores.bodyMeasurements[0],patch);
+ check(await rejects(()=>restoreWorkoutBackup(invalid)),`Invalid backup rejected atomically: ${JSON.stringify(patch)}`);
+ }
+ check(JSON.stringify((await buildWorkoutBackup()).stores)===JSON.stringify(backup.stores),'Failed restores preserve both weights and measurements');
+ const duplicate=structuredClone(backup);duplicate.stores.bodyMeasurements.push(duplicate.stores.bodyMeasurements[0]);
+ check(await rejects(()=>parseWorkoutBackup(JSON.stringify(duplicate))),'Duplicate measurement IDs rejected');
+ const legacy=structuredClone(backup);delete legacy.stores.bodyMeasurements;await restoreWorkoutBackup(parseWorkoutBackup(JSON.stringify(legacy)));
+ check((await getAll(STORES.bodyMeasurements)).length===0&&(await getAll(STORES.bodyMetrics))[0].weight===70,'Old backup clears new measurements while retaining its weight records');
+ flushSync(()=>root.render(React.createElement(Harness)));await workflow.refresh();await settle();
+ flushSync(()=>workflow.setDraft(draft));await Promise.all([workflow.save(),workflow.save()]);await settle();
+ check(workflow.entries.length===1&&!workflow.busy,'Rapid double Save writes one record');
+ saved=workflow.entries[0];flushSync(()=>workflow.edit(saved));flushSync(()=>workflow.setDraft({...workflow.draft,value:'84'}));await workflow.save();await settle();
+ check(workflow.entries[0].value===84&&!workflow.editing,'Hook edit refreshes saved list and clears editor');
+ flushSync(()=>workflow.edit(workflow.entries[0]));await saveMeasurement({...entry,value:85},workflow.entries[0]);
+ await workflow.save();await settle();check(workflow.result.error&&workflow.editing,'Stale hook edit retains draft with actionable error');
+ await workflow.reload();await settle();check(workflow.entries[0].value===85&&!workflow.editing,'Reload recovers latest durable record');
+ const originalPut=IDBObjectStore.prototype.add;
+ IDBObjectStore.prototype.add=function(...args){if(this.name===STORES.bodyMeasurements)throw new DOMException('Expected write failure','QuotaExceededError');return originalPut.apply(this,args);};
+ flushSync(()=>workflow.setDraft({...draft,value:'90'}));await workflow.save();await settle();IDBObjectStore.prototype.add=originalPut;
+ check(workflow.result.error&&workflow.draft.value==='90'&&workflow.entries.length===1&&!workflow.busy,'Failed write retains draft and restores enabled controls');
+ const originalGet=IDBObjectStore.prototype.getAll;
+ IDBObjectStore.prototype.getAll=function(...args){if(this.name===STORES.bodyMeasurements)throw new Error('Expected refresh failure');return originalGet.apply(this,args);};
+ await workflow.save();await settle();IDBObjectStore.prototype.getAll=originalGet;
+ check(workflow.result.message.startsWith('Change saved.')&&workflow.draft.value==='','Committed save plus refresh failure cannot replay old draft');
+ await workflow.reload();await settle();check(workflow.entries.length===2,'Reload finds committed measurement after refresh failure');
+ const pageEntries=Array.from({length:22},(_,i)=>({...entry,id:i+1,value:70+i,date:i===0?'2000-01-01':entry.date}));
+ await replaceStores({bodyMeasurements:pageEntries});await workflow.refresh();await settle();
+ check(document.querySelectorAll('li').length===20,'History initially limits long measurement lists to 20 entries');
+ [...document.querySelectorAll('button')].find(button=>button.textContent==='Show more measurements').click();await settle();
+ check(document.querySelectorAll('li').length===22,'Show more exposes older measurement records');
+ [...document.querySelectorAll('button')].find(button=>button.textContent==='Change range').click();await settle();
+ check(document.querySelectorAll('li').length===21,'Month range excludes old measurement records');
+ [...document.querySelectorAll('button')].find(button=>button.textContent==='Change range').click();await settle();
+ check(document.querySelectorAll('li').length===22,'All-time range restores older measurement records');
+ await replaceStores({bodyMeasurements:[]});await workflow.reload();await settle();
+ if(location.search.includes('app'))flushSync(()=>root.render(React.createElement(App)));
+ document.getElementById('result').textContent=checks.join('\n')+`\n${checks.length} checks passed`;
+ window.measurementChecks={checks,database};
+}catch(error){document.getElementById('result').textContent=checks.join('\n')+'\nFAIL: '+error.stack;throw error;}
+</script></html>

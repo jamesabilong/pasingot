@@ -2,7 +2,7 @@ import { getAll, replaceStores, STORES } from './db';
 import { validateBackupStores } from './backup-validation';
 import { withHealthConnectSyncLock } from './native-bridge';
 import { repairLegacyCustomExerciseNames } from './custom-exercises';
-import { SCHEMA_VERSION, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
+import { SCHEMA_VERSION, type BodyMeasurementEntry, type BodyMetricEntry, type CustomExercise, type PlaylistDraft, type QuestState, type WorkoutLog, type WorkoutRow, type WorkoutSessionEvent, type WorkoutSetLog } from '../types';
 
 export const BACKUP_FORMAT = 'pasingot.workout-tracker.backup';
 export const BACKUP_VERSION = 1;
@@ -18,6 +18,7 @@ export interface WorkoutBackup {
     sessionEvents: WorkoutSessionEvent[];
     setLogs: WorkoutSetLog[];
     bodyMetrics: BodyMetricEntry[];
+    bodyMeasurements?: BodyMeasurementEntry[];
     customExercises: CustomExercise[];
     appState: Array<PlaylistDraft | QuestState | Record<string, unknown>>;
   };
@@ -29,6 +30,7 @@ export interface BackupSummary {
   sessionEvents: number;
   setLogs: number;
   bodyMetrics: number;
+  bodyMeasurements: number;
   customExercises: number;
   appState: number;
 }
@@ -44,18 +46,20 @@ export function summarizeBackup(backup: WorkoutBackup): BackupSummary {
     sessionEvents: backup.stores.sessionEvents.length,
     setLogs: backup.stores.setLogs.length,
     bodyMetrics: backup.stores.bodyMetrics.length,
+    bodyMeasurements: backup.stores.bodyMeasurements?.length ?? 0,
     customExercises: backup.stores.customExercises.length,
     appState: backup.stores.appState.length,
   };
 }
 
 export async function buildWorkoutBackup(): Promise<WorkoutBackup> {
-  const [workouts, logs, sessionEvents, setLogs, bodyMetrics, customExercises, appState] = await Promise.all([
+  const [workouts, logs, sessionEvents, setLogs, bodyMetrics, bodyMeasurements, customExercises, appState] = await Promise.all([
     getAll<WorkoutRow>(STORES.workouts),
     getAll<WorkoutLog>(STORES.logs),
     getAll<WorkoutSessionEvent>(STORES.sessionEvents),
     getAll<WorkoutSetLog>(STORES.setLogs),
     getAll<BodyMetricEntry>(STORES.bodyMetrics),
+    getAll<BodyMeasurementEntry>(STORES.bodyMeasurements),
     getAll<CustomExercise>(STORES.customExercises),
     getAll<PlaylistDraft | QuestState | Record<string, unknown>>(STORES.appState),
   ]);
@@ -64,7 +68,7 @@ export async function buildWorkoutBackup(): Promise<WorkoutBackup> {
     backupVersion: BACKUP_VERSION,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    stores: { workouts, logs, sessionEvents, setLogs, bodyMetrics, customExercises, appState },
+    stores: { workouts, logs, sessionEvents, setLogs, bodyMetrics, bodyMeasurements, customExercises, appState },
   };
 }
 
@@ -99,6 +103,7 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
       sessionEvents: stores.sessionEvents as WorkoutSessionEvent[],
       setLogs: stores.setLogs as WorkoutSetLog[],
       bodyMetrics: stores.bodyMetrics as BodyMetricEntry[],
+      bodyMeasurements: (stores.bodyMeasurements ?? []) as BodyMeasurementEntry[],
       customExercises: Array.isArray(stores.customExercises) ? stores.customExercises as CustomExercise[] : [],
       appState: stores.appState as Array<PlaylistDraft | QuestState | Record<string, unknown>>,
     },
@@ -107,7 +112,7 @@ export function parseWorkoutBackup(raw: string): WorkoutBackup {
 
 export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<BackupSummary> {
   validateBackupStores(backup.stores);
-  await withHealthConnectSyncLock(() => replaceStores(backup.stores));
+  await withHealthConnectSyncLock(() => replaceStores({ ...backup.stores, bodyMeasurements: backup.stores.bodyMeasurements ?? [] }));
   await repairLegacyCustomExerciseNames();
   return summarizeBackup(backup);
 }

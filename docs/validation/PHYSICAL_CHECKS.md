@@ -144,6 +144,15 @@ same inventory/evidence protocol on the installed Android app.
   behavior; inspect provider records for duplicates and retained IDs. Verify
   actual Android backup save-file, restore and retained preferences/history.
 
+- [ ] **PHONE-06 — Body measurements (Iteration 186).** Upgrade with existing
+  weight/history data; log waist/chest/hips and left/right arm/thigh records in
+  cm/in. Verify mixed-unit change, edit/cancel/confirmed delete, site and month/
+  all-time filters, more than twenty entries, offline save and process restart.
+  Export/restore through the native file picker, including an older backup
+  without measurement records. Confirm original body-weight records and Health
+  Connect behavior, and stale editor rejection after another tab or restore.
+  Browser/packaged-asset evidence does not close installed-device acceptance.
+
 ## Resume order
 
 Inventory and interrupted QS-12 recovery first; then QS-07/19/20/21/22 and

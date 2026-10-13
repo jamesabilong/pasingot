@@ -7780,3 +7780,64 @@ Final Git recheck retains HEAD `9611ea4`; this checkpoint is **uncommitted**.
 Next action: review this code checkpoint; choose subsequent implementation
 separately. Resume device work only on request through the physical module,
 starting with current inventory and interrupted Iteration 184 recovery.
+
+
+## Iteration 186 — 2026-10-13 — Body measurement history
+
+Status: **In progress; physical checks deferred.** User requests commit then
+continued implementation. Iteration 185 committed as `bea5826`; Git verified
+clean afterward, superseding its uncommitted label. Proceed with independent
+body measurements from the roadmap: dated waist/chest/hips/arms/thigh entries,
+cm/in, edit/delete, unit-aware changes and backup/restore. Keep weight and
+Health Connect contracts separate. Use additive IndexedDB storage and accept
+older backups without this new store. Check invalid values, stale edits, durable
+CRUD and backup integrity plus mobile/offline UI. No physical connections or
+acceptance advances; Stage 19 remains 87/97 and physical 17/27.
+Next: implement focused domain/persistence/hook/UI, then validate and update
+current roadmap and deferred phone checks.
+
+Iteration 186 implementation and validation closure:
+
+- User confirms Body measurements in History. Added seven measurement sites:
+  waist, chest, hips, left/right arm and left/right thigh. Date, positive cm/in
+  value and optional note; edit, cancel, explicit delete confirmation, latest
+  change converted to the latest unit, site filter, month/all-time range and
+  twenty-entry pagination. Latest summary follows the entry form's site across
+  all dates, consistent with existing weight summary behavior.
+- IndexedDB v7 adds `bodyMeasurements`; weight/Health Connect contracts are
+  unchanged. Backup includes the new optional store, validates malformed values/
+  dates/units/IDs and duplicates before mutation, and restores old backups with
+  an empty measurement store. Startup and restore hydration refresh the panel.
+- Domain calculations, atomic compare-before-write persistence, workflow hook
+  and named panel remain separate. App only wires the hook and hydration.
+  Stale edits/deletes and rapid duplicate saves are guarded. Failed writes retain
+  drafts; a committed write followed by refresh failure clears the saved draft
+  and offers Reload measurements without replaying the change.
+- **358 browser assertions pass** across sixteen fixture groups, including
+  **51 new measurement checks** and **18 hydration checks**. Covers v6 upgrade
+  preserving existing weight, invalid data, mixed units, durable CRUD, concurrent
+  edits, no stale resurrection, backup round trip/old backups/atomic rejection,
+  write and post-commit refresh failure, month/all-time and pagination.
+- Headless full-App smoke at **390 × 844** passes cm/in save/change, edit/cancel,
+  delete cancellation/confirmation, offline save/reload, filtering and tab return.
+  Screenshot `output/playwright/measurement186-mobile-offline.png` inspected;
+  viewport/document both 390px. Initial smoke stopped on an exact nested select
+  label; observed combobox roles resolve it. Driver failure retained separately.
+  Initial TypeScript optional-delete narrowing error corrected; final check passes.
+- `npx tsc --noEmit`, `npm run build`, `npx cap copy android`, isolated cached
+  `:app:assembleDebug` and `git diff --check` pass. APK packaged HTML/JS/CSS equal
+  production dist. Evidence and phone APK: `output/validation/iteration-186/`;
+  SHA-256 `ce8cc4504ad1f3a57e1c91a7746cde5a95dc7017c9082f4e514a299bdc9ca1c3`.
+  No native source change; Iteration 185's 350 JVM checks remain historical,
+  not rerun or counted as new measurement validation. No devices connected.
+
+Completed: body measurement code/browser/build checkpoint and roadmap updates.
+Remaining: PHONE-06 physical upgrade/input/restart/native backup validation,
+plus all previously deferred module checks. Stage 19 stays **87/97**, physical
+**17/27**, ten open. New measurement records remain local to History/backups;
+measurement Health Connect sync and progress photos are outside this slice.
+Next action: review this validated checkpoint for commit, then select a further
+independent roadmap slice; resume physical work only when requested through
+its entry protocol. Iteration 185 is committed as `bea5826`; Iteration 186 is
+uncommitted. Final Git recheck retains HEAD `bea5826`; only this iteration's
+intended files are changed, and whitespace validation passes.

@@ -9,6 +9,7 @@ import type { useWorkoutData } from './useWorkoutData';
 interface WorkoutDataHydrationOptions {
   data: ReturnType<typeof useWorkoutData>;
   refreshBodyMetrics: () => Promise<void>;
+  refreshBodyMeasurements?: () => Promise<void>;
   refreshQuestData: (isCurrent?: () => boolean) => Promise<void>;
   refreshHealthConnectEnabled: () => Promise<void>;
   loadWorkoutCueSettings: (settings: WorkoutCueSettings | undefined) => void;
@@ -19,7 +20,7 @@ interface WorkoutDataHydrationOptions {
 }
 
 export function useWorkoutDataHydration({
-  data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,
+  data, refreshBodyMetrics, refreshBodyMeasurements, refreshQuestData, refreshHealthConnectEnabled,
   loadWorkoutCueSettings, restoreWorkoutSession, refreshWatchData,
   retryPendingSyncs, addToast,
 }: WorkoutDataHydrationOptions) {
@@ -30,10 +31,10 @@ export function useWorkoutDataHydration({
 
   const refreshUserData = useCallback(async () => {
     await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(),
-      refreshSetLogs(), refreshBodyMetrics(), refreshCustomExercises()]);
+      refreshSetLogs(), refreshBodyMetrics(), refreshBodyMeasurements?.(), refreshCustomExercises()]);
     await refreshQuestData();
   }, [refreshWorkouts, refreshLogs, refreshSessionEvents, refreshSetLogs,
-    refreshBodyMetrics, refreshCustomExercises, refreshQuestData]);
+    refreshBodyMetrics, refreshBodyMeasurements, refreshCustomExercises, refreshQuestData]);
 
   const rehydrateBackup = useCallback(async () => {
     await refreshUserData();
@@ -48,7 +49,7 @@ export function useWorkoutDataHydration({
     let disposed = false;
     async function initialize() {
       await repairLegacyCustomExerciseNames();
-      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics(), refreshCustomExercises()]);
+      await Promise.all([refreshWorkouts(), refreshLogs(), refreshSessionEvents(), refreshSetLogs(), refreshBodyMetrics(), refreshBodyMeasurements?.(), refreshCustomExercises()]);
       // Refresh the native cache after an app upgrade as well as after an
       // explicit schedule edit, so existing quest rows gain new bridge fields.
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
@@ -68,7 +69,7 @@ export function useWorkoutDataHydration({
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => { disposed = true; document.removeEventListener('visibilitychange', onVisible); };
-  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs, refreshQuestData, addToast, loadDefinitions]);
+  }, [loadWorkoutCueSettings, refreshBodyMetrics, refreshBodyMeasurements, refreshCustomExercises, refreshLogs, refreshSessionEvents, refreshSetLogs, refreshWorkouts, refreshWatchData, restoreWorkoutSession, retryPendingSyncs, refreshQuestData, addToast, loadDefinitions]);
 
   return { refreshUserData, rehydrateBackup };
 }

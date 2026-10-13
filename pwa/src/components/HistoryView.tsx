@@ -1,3 +1,5 @@
+import { BodyMeasurementsPanel } from './BodyMeasurementsPanel';
+import type { useBodyMeasurements } from '../hooks/useBodyMeasurements';
 import { SetHistory } from './SetHistory';
 import { useMemo } from 'react';
 import { CalendarDays, Check, Flame, SkipForward } from 'lucide-react';
@@ -54,6 +56,7 @@ interface HistoryViewProps {
   sessionEvents: WorkoutSessionEvent[];
   setLogs: WorkoutSetLog[];
   bodyMetrics: BodyMetricEntry[];
+  bodyMeasurements?: ReturnType<typeof useBodyMeasurements>;
   catalog: ExerciseCatalogItem[];
   questState: QuestState | null;
   questHistory: QuestHistory['entries'];
@@ -79,6 +82,7 @@ export function HistoryView({
   sessionEvents,
   setLogs,
   bodyMetrics,
+  bodyMeasurements,
   catalog,
   questState,
   questHistory,
@@ -172,6 +176,7 @@ export function HistoryView({
         onEdit={onBodyMetricEdit}
         onDelete={onBodyMetricDelete}
       />
+      {bodyMeasurements && <BodyMeasurementsPanel workflow={bodyMeasurements} range={range} />}
       <HealthConnectPanel
         enabled={healthConnectEnabled}
         status={healthConnectStatus}

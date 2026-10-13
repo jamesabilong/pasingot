@@ -1,3 +1,4 @@
+import { validBodyMeasurement } from './body-measurements';
 import { isPlateEquipmentSettings } from './plate-equipment';
 import { validRpe, validRir } from './set-effort';
 import { validDateOverrides } from './schedule-dates';
@@ -95,6 +96,7 @@ const validators: Record<string, (row: RecordValue) => boolean> = {
     && integer(row.setNumber, 1) && text(row.plannedReps) && text(row.actualReps) && load(row)
     && (row.rpe == null || validRpe(row.rpe)) && (row.rir == null || validRir(row.rir))
     && (row.workoutRowId == null || integer(row.workoutRowId, 1)),
+  bodyMeasurements: validBodyMeasurement,
   bodyMetrics: (row) => timestamp(row.date) && finite(row.weight) && row.weight > 0 && isWeightUnit(row.unit)
     && (row.note == null || typeof row.note === 'string'),
   customExercises: (row) => typeof row.sourceId === 'number' && Number.isSafeInteger(row.sourceId) && row.sourceId < 0
@@ -108,7 +110,7 @@ const validators: Record<string, (row: RecordValue) => boolean> = {
 
 export function validateBackupStores(stores: Record<string, unknown>): void {
   for (const [name, validate] of Object.entries(validators)) {
-    const records = stores[name];
+    const records = name === 'bodyMeasurements' && stores[name] === undefined ? [] : stores[name];
     if (!Array.isArray(records)) throw new Error(`Backup file is missing ${name}.`);
     const keys = new Set<unknown>();
     for (const [index, row] of records.entries()) {

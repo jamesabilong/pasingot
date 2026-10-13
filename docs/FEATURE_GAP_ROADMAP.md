@@ -1,5 +1,13 @@
 # Feature Gap Roadmap
 
+Current implementation — Iteration 186: date-specific schedules and physical
+checks module committed as `bea5826`. Body measurement history is code/browser
+complete: dated cm/in records, edit/delete, comparisons, filters, pagination and
+backup support. 358 browser assertions, TypeScript, production build and phone
+APK/asset checks pass. Physical execution remains deferred in the validation
+module (PHONE-06); Stage 19 remains 87/97, physical 17/27. This supersedes the
+prior choose-next action; this new feature checkpoint is uncommitted.
+
 Current direction — 2026-10-13, Iteration 185: physical execution is **deferred
 by user**; [Physical validation module](validation/PHYSICAL_CHECKS.md) contains
 remaining Quick Start and installed-phone checks. Stage 19 stays **87/97**,
@@ -546,7 +554,7 @@ importance in general.
 | Wanted? | Feature | What it is | Common in | Priority | Notes |
 |---|---|---|---|---|---|
 | ✅ Done | Body weight logging | Standalone weight log, independent of sets | Strong, Hevy, JEFIT, Apple Health/Health Connect | High | Implemented: `bodyMetrics` IndexedDB store with date/weight/unit/note, add/edit/delete, and change-from-last-entry in History (Stage 11). |
-| | Body measurements | Waist/chest/arms/etc. tracked over time | Strong, JEFIT | Medium | Still open — Stage 11 intentionally scoped to weight only ("measurements later if desired"). |
+| ✅ Code/browser complete | Body measurements | Waist/chest/arms/etc. tracked over time | Strong, JEFIT | Medium | Iteration 186: seven sites (waist/chest/hips and left/right arms/thighs), dated cm/in entries, notes, edit/confirmed delete, mixed-unit change, range/site filtering and 20-entry pages. Additive store, old-backup compatibility, atomic stale-edit guards and mobile/offline checks pass. Weight and Health Connect contracts remain separate; installed-phone acceptance deferred as PHONE-06. Supersedes Stage 11 measurement deferral. |
 | | Progress photos | Timestamped photos, often side-by-side compare | Strong, JEFIT | Low–Medium | Still open. Needs an on-device photo storage plan (IndexedDB blob or filesystem); not on a proposed stage yet. |
 
 ## Social / gamification
@@ -648,9 +656,10 @@ all screen-by-screen acceptance criteria above are complete.
 2. Keep physical recovery, Health Connect, paired/battery and Play checks in
    [Physical validation module](validation/PHYSICAL_CHECKS.md); execution deferred
    by user on 2026-10-13, without treating automated tests as device acceptance.
-3. One-date scheduling joins implemented RPE/RIR, plate equipment and set history.
-   Choose any subsequent independent feature from supersets, warm-up suggestions
-   or body measurements before promoting it to implementation.
+3. One-date scheduling is committed as `bea5826`; body measurements now join
+   implemented RPE/RIR, plate equipment and set history (Iteration 186). Review
+   the validated measurement checkpoint before choosing supersets/circuits or
+   warm-up suggestions as a subsequent independent feature.
 4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
    Earlier partial-extraction labels are historical.
 

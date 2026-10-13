@@ -17,6 +17,7 @@ import { useWorkoutData } from './hooks/useWorkoutData';
 import { useWorkoutDataHydration } from './hooks/useWorkoutDataHydration';
 import { useTodayOverview } from './hooks/useTodayOverview';
 import { useNotificationPermission } from './hooks/useNotificationPermission';
+import { useBodyMeasurements } from './hooks/useBodyMeasurements';
 import { useBodyMetrics } from './hooks/useBodyMetrics';
 import { useScheduleImport } from './hooks/useScheduleImport';
 import { useScheduleEditing } from './hooks/useScheduleEditing';
@@ -52,6 +53,7 @@ export default function App() {
     draft, setDraft, refreshWorkouts, refreshLogs, refreshSessionEvents,
     refreshSetLogs, refreshCustomExercises, refreshWorkoutHistory, logExercise,
   } = data;
+  const bodyMeasurements = useBodyMeasurements();
   const [historyRange, setHistoryRange] = useState<HistoryRange>('month');
   const { permission: notificationPermission, requestPermission: requestNotificationPermission } = useNotificationPermission();
   const {
@@ -135,7 +137,7 @@ export default function App() {
   });
 
   const hydration = useWorkoutDataHydration({
-    data, refreshBodyMetrics, refreshQuestData, refreshHealthConnectEnabled,
+    data, refreshBodyMetrics, refreshBodyMeasurements: bodyMeasurements.refresh, refreshQuestData, refreshHealthConnectEnabled,
     loadWorkoutCueSettings, restoreWorkoutSession, refreshWatchData,
     retryPendingSyncs, addToast,
   });
@@ -282,6 +284,7 @@ export default function App() {
         logs={logs}
         sessionEvents={sessionEvents}
         setLogs={setLogEntries}
+        bodyMeasurements={bodyMeasurements}
         bodyMetrics={bodyMetricEntries}
         catalog={catalog}
         questState={questState}

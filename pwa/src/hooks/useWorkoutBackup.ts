@@ -35,7 +35,7 @@ export function useWorkoutBackup({ onRestored }: WorkoutBackupOptions) {
   async function importBackup(file: File) {
     try {
       const backup = parseWorkoutBackup(await file.text());
-      const confirmed = window.confirm('Restore this backup? This replaces the local schedule, logs, set history, body metrics, quests, draft playlist, cue settings, and active session state.');
+      const confirmed = window.confirm('Restore this backup? This replaces the local schedule, logs, set history, body weight, body measurements, quests, draft playlist, cue settings, and active session state.');
       if (!confirmed) {
         setBackupResult({ error: false, message: 'Backup restore canceled.' });
         return;
@@ -43,7 +43,7 @@ export function useWorkoutBackup({ onRestored }: WorkoutBackupOptions) {
       const summary = await restoreWorkoutBackup(backup);
       await pushScheduleToNative(await getAll<WorkoutRow>(STORES.workouts));
       await onRestored(backup);
-      setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body metrics, ${summary.customExercises} custom exercises.` });
+      setBackupResult({ error: false, message: `Backup restored: ${summary.workouts} schedule rows, ${summary.logs} logs, ${summary.setLogs} set logs, ${summary.bodyMetrics} body weights, ${summary.bodyMeasurements} measurements, ${summary.customExercises} custom exercises.` });
     } catch (error) {
       setBackupResult({ error: true, message: error instanceof Error ? error.message : 'Could not restore backup.' });
     }

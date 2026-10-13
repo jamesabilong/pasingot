@@ -9,6 +9,7 @@
 <script type="module">
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { useBodyMeasurements } from '/src/hooks/useBodyMeasurements.ts';
 import { useWorkoutData } from '/src/hooks/useWorkoutData.ts';
 import { useWorkoutDataHydration } from '/src/hooks/useWorkoutDataHydration.ts';
 import { getAll, putRecord, deleteRecord, STORES } from '/src/lib/db.ts';
@@ -43,12 +44,14 @@ const healthRefresh = async () => { healthRefreshCount++; };
 const root = createRoot(document.getElementById('root'));
 function Harness() {
   const data = useWorkoutData();
-  const hydration = useWorkoutDataHydration({ data, refreshBodyMetrics: noOp, refreshQuestData: noOp, refreshHealthConnectEnabled: healthRefresh, loadWorkoutCueSettings: loadCue, restoreWorkoutSession: restoreSession, refreshWatchData: noOp, retryPendingSyncs: retryPending, addToast: noOp });
-  React.useLayoutEffect(() => { api = { ...data, ...hydration }; });
+  const measurements = useBodyMeasurements();
+  const hydration = useWorkoutDataHydration({ data, refreshBodyMetrics: noOp, refreshBodyMeasurements: measurements.refresh, refreshQuestData: noOp, refreshHealthConnectEnabled: healthRefresh, loadWorkoutCueSettings: loadCue, restoreWorkoutSession: restoreSession, refreshWatchData: noOp, retryPendingSyncs: retryPending, addToast: noOp });
+  React.useLayoutEffect(() => { api = { ...data, ...hydration, measurements }; });
   return null;
 }
 const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 try {
+  await putRecord(STORES.bodyMeasurements, { id: 1, schemaVersion: 1, date: now.slice(0, 10), site: 'waist', value: 80, unit: 'cm' });
   await putRecord(STORES.exercises, base);
   await putRecord(STORES.customExercises, custom);
   await putRecord(STORES.workouts, { schemaVersion: 1, day: 'Friday', time: '07:00', exercise: 'Cached Squat', exerciseSourceId: 1, sets: 1, reps: '10', rest: 0 });
@@ -58,6 +61,7 @@ try {
   check(api.catalog.length === 2 && api.catalog.some(item => item.sourceId === 1), 'offline initialization keeps cached base and custom catalog');
   check(api.draft.items[0].sourceId === -42 && api.customExercises.length === 1, 'initialization restores custom exercise and playlist');
   check(api.workouts.length === 1 && restoredSessionCount === 1, 'initialization restores workout rows before session callback');
+  check(api.measurements.entries[0].value === 80, 'initialization restores measurement records');
   const initialFetches = fetches;
   root.render(React.createElement(Harness)); await settle();
   check(fetches === initialFetches && restoredSessionCount === 1, 'data rerender does not restart initialization');
@@ -74,9 +78,11 @@ try {
   check(api.catalog === beforeGuard, 'disposed definitions load does not publish catalog');
   await deleteRecord(STORES.customExercises, -42);
   await putRecord(STORES.appState, { key: 'playlistDraft', schemaVersion: 1, ...initialDraft(), items: [] });
+  await deleteRecord(STORES.bodyMeasurements, 1);
   await api.rehydrateBackup(); await settle();
   check(api.customExercises.length === 0 && !api.catalog.some(item => item.sourceId === -42) && api.draft.items.length === 0, 'restore removes stale custom catalog and playlist data');
   check(healthRefreshCount === 1 && restoredSessionCount === 2 && cueSettings === undefined, 'restore refreshes health settings, missing cue settings and session');
+  check(api.measurements.entries.length === 0, 'backup hydration removes stale measurement records');
   await deleteRecord(STORES.appState, 'playlistDraft');
   api.setDraft({ ...initialDraft(), items: [{ sourceId: 1, name: 'stale', sets: 1, reps: '10', rest: 0 }] }); await settle();
   await api.restoreLibrary(); await settle();

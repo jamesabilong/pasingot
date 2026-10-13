@@ -86,6 +86,18 @@ export interface WorkoutSetLog {
   rir?: number | null;
 }
 
+export type BodyMeasurementSite = 'waist' | 'chest' | 'hips' | 'leftArm' | 'rightArm' | 'leftThigh' | 'rightThigh';
+export type MeasurementUnit = 'cm' | 'in';
+export interface BodyMeasurementEntry {
+  id?: number;
+  schemaVersion: number;
+  date: string;
+  site: BodyMeasurementSite;
+  value: number;
+  unit: MeasurementUnit;
+  note?: string;
+}
+
 export interface BodyMetricEntry {
   id?: number;
   schemaVersion: number;
