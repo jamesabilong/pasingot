@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION, type ExerciseCatalogItem, type QuestHistory, type QuestState, type QuestTemplate, type QuestWorkoutRow, type WorkoutLog, type WorkoutRow } from '../types';
+import { validateCircuitGroups } from './workout-circuits';
 import { STORES, transact, updateRecord } from './db';
 import { localDateKey, todayDateKey } from './history-stats';
 
@@ -27,8 +28,9 @@ export function resolveQuestDay(rows: QuestWorkoutRow[], state: QuestState, temp
   const dayRows = rows.filter((row) => row.questId === state.questId && row.level === state.level && row.dayNumber === dayNumber);
   // A partial day must not become a smaller, apparently complete workout.
   if (!dayRows.length || dayRows.some((row) => !catalog.has(row.exerciseSourceId))) return [];
-  return dayRows.sort((left, right) => left.sequence - right.sequence)
-    .map((row) => ({ row, exercise: catalog.get(row.exerciseSourceId)! }));
+  dayRows.sort((left, right) => left.sequence - right.sequence);
+  if (validateCircuitGroups(dayRows)) return [];
+  return dayRows.map((row) => ({ row, exercise: catalog.get(row.exerciseSourceId)! }));
 }
 
 export function completeQuestDay(state: QuestState, template: QuestTemplate, row: WorkoutRow, workouts: WorkoutRow[], logs: WorkoutLog[], date = todayDateKey(), now = new Date()): QuestState {

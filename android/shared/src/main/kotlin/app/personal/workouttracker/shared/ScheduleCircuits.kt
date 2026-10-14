@@ -17,7 +17,8 @@ fun validScheduleCircuits(rows: List<ScheduleRow>): Boolean {
             while (end < slot.size && slot[end].circuit?.id == circuit.id) end += 1
             val members = slot.subList(index, end)
             if (members.size !in 2..24 || first.sets !in 1..100 || members.any {
-                    it.circuit != circuit || it.sets != first.sets || it.questId != null ||
+                    it.circuit != circuit || it.sets != first.sets || it.questId != first.questId ||
+                        it.questDayIndex != first.questDayIndex || it.questLevel != first.questLevel ||
                         it.dateOverrides != first.dateOverrides
                 }) return false
             index = end

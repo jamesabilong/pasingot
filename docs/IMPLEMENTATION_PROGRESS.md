@@ -8139,3 +8139,145 @@ preparation updates documentation statuses and validates the staged whitespace.
 This supersedes both iterations' uncommitted/review-for-commit labels. Physical
 checks remain deferred, current Wear validation remains unavailable, and no
 acceptance counts change. Further implementation awaits a request.
+
+## Iteration 190 — 2026-10-14 — Grouped quest templates
+
+Status: **In progress; physical execution remains deferred.** User requests
+progress and continuation and selects grouped quest templates. Initial Git
+inspection is clean at `4d93252`, confirming the combined Iterations 188–189
+checkpoint is committed. Historical awaiting-commit labels are superseded.
+Stage 19 remains **87/97 overall**, physical **17/27**, ten open.
+
+Scope: create reusable custom quests from grouped Library playlists; retain
+round order/rest and individual prescriptions through day resolution, atomic
+scheduling, phone execution/recovery and version 2 backups. Grouped watch
+execution remains guarded. Review found the current template model rejects
+markers, quest scheduling writes members separately and backups only detect
+grouped schedules/drafts/recovery. Extend these boundaries without flattening
+prescriptions or changing unrelated saved data. Native cache validation must
+accept consistently owned quest groups while keeping watch transfers blocked.
+
+Next: implement template validation/projection and atomic scheduling safeguards,
+then run grouped and existing quest/backup/player regressions, responsive/offline
+UI checks, TypeScript/build and available native checks. Installed-device
+validation stays separate; no device contact or acceptance is requested.
+
+Iteration 190 implementation/review evidence:
+
+- Added optional quest-row circuit metadata; authored templates own snapshots
+  of each day's markers, rounds, loads and original per-exercise rest. Definition
+  validation checks ordered complete groups independently by level/day; resolution
+  rejects missing catalog members or malformed groups rather than truncating.
+- Group validation now requires matching quest/run/day/level ownership. Added
+  focused atomic quest scheduling with exact duplicate recognition, grouped-slot
+  collision guards, durable enrollment/schedule/player rechecks, observed watch
+  activity and all-or-nothing replacement of completed days. Saved outcomes remain
+  successful if subsequent refresh/cache sync fails. App wires player rehydration
+  after schedule refresh; domain persistence remains outside the composition root.
+- Template creation waits for serialized Library edits and takes an immutable
+  snapshot. Concurrent authoring uses unique IDs and merges the durable template
+  collection under a write lock; deleting a template preserves newer additions.
+- Template-only grouping now selects backup version 2. Restore validates groups
+  before mutation and checks native quest-group support, including templates.
+  Added `questCircuits` capability because the prior circuit-capable Android
+  wrapper still rejects quest groups. Cache validation accepts consistently owned
+  quest groups; native watch transfers continue rejecting grouped days.
+- Initial **628 assertions across 18 browser fixtures pass**, including 68 grouped
+  domain/persistence/backup checks, 20 grouped hook checks and queued Library
+  snapshot coverage. Existing quest, grouped/straight player, backup, data integrity,
+  import, Library, hydration, effort, schedule/date and native bridge checks pass.
+- Initial TypeScript/build and shared/phone native tests pass. Final production,
+  native packaging and responsive/offline UI checks remain in progress.
+- Initial wrapper execution permission/npm network and localhost sandbox failures
+  were tooling limitations. Cached CLI and approved host runs resolved them.
+  Initial Playwright callback/result-capture mistakes were corrected. An existing
+  quest fixture checked before asynchronous reconciliation finished; it now waits
+  for the actual state with a bounded timeout. Failed runs remain separate.
+
+Next: finish production UI/offline and final native/APK checks, inspect screenshots,
+reconcile roadmap and deferred PHONE-10, then recheck Git and close only the
+verified code/browser/build checkpoint. Physical acceptance remains unchanged.
+
+Iteration 190 final browser/phone validation:
+
+- **628 assertions pass across 18 fixtures** on final implementation. Covers
+  68 grouped domain/atomic-save/ownership/backup/native-capability checks, 20
+  grouped workflow checks, 70 circuit-Library checks including queued snapshots,
+  and relevant existing quest/player/backup/import/integrity/hydration/effort/date/
+  schedule/watch bridge regressions. Final summaries are in
+  `output/validation/iteration-190/browser-fixtures-verified.log`.
+- Final production UI authoring/enrollment/scheduling/repeated-save passes.
+  **13 player/UI assertions pass**: exact A1/B1/A2/B2 identity, actual reps,
+  zero intra-round rest/shared round rest, pause/offline recovery, four set logs,
+  two exercise logs/one event and one quest completion. Production service worker
+  `v24-grouped-quests` supplies the offline shell and exact recovered cursor.
+  320×700, 390×844 and 1440×900 have no horizontal overflow. Group/paused/offline
+  and completion screenshots are visually inspected; no product page errors.
+- Final `npx tsc --noEmit`, `npm run build`, Capacitor copy and whitespace checks
+  pass. **96 shared + 32 phone JVM tests pass**, zero failures/errors/skips.
+  Cached JDK 21 offline phone APK assembly passes. Packaged index.html, app.js,
+  index.css and service-worker.js all byte-match final production assets.
+  APK: `output/validation/iteration-190/phone-iteration-190-debug.apk`; SHA-256
+  `716c4ede54ced435035c609f97d07a8fca1665964912e15cd41751b19dc41f1b`.
+- Switching the isolated profile from dev to production initially retained a dev
+  service-worker shell; clearing only that disposable cache resolved it. UI
+  drivers needed the observed Ready Today label, scoped Start workout, and
+  Close player label. Failed driver runs are retained separately from the fully
+  passing production workflow (`ui-player-smoke-final.log`). No product failure
+  or personal-data mutation is inferred from these tooling diagnostics.
+- Current macOS Wear cache reaches compilation, superseding the prior Windows
+  missing-dependency blocker for this host. First attempt failed on duplicated
+  generated resource names (e.g. `ic_ongoing_workout 2.xml`); source has no such
+  duplicate. A targeted Wear clean/rebuild is in progress. No dependency or build
+  configuration was changed, and no physical/emulator device was contacted.
+
+Completed: grouped template model/authoring, durable snapshot/collection merging,
+validation/resolution, atomic scheduling, phone playback/recovery/progress,
+version 2 template backups, capability/native cache guards, browser/UI/phone
+packaging and PHONE-10 reconciliation. Remaining: current Wear attempt result,
+final Git check and closure. Physical execution remains deferred; grouped watch
+playback remains future scope, Stage 19 stays 87/97 and physical 17/27.
+
+Iteration 190 closure — **Code/browser/native-build checkpoint complete;
+installed-device acceptance remains deferred.**
+
+- Targeted `:wear:clean :wear:testDebugUnitTest :wear:assembleDebug --offline`
+  passes in 3m17s after removing only generated duplicate resources. **235 Wear
+  JVM tests pass** with zero failures/errors/skips. Combined current native total
+  is **363 tests** (96 shared, 32 phone, 235 Wear). This supersedes both the initial
+  duplicate-resource failure and the earlier host missing-dependency blocker;
+  those remain historical diagnostics, not accepted runs. No source/dependency/
+  configuration change was needed for the Wear retry.
+  APK: `output/validation/iteration-190/wear-iteration-190-debug.apk`; SHA-256
+  `ada8ec6a28f0784392c4ecd80305af7ca89bd8672500cbcb34d250d7d41e6d57`.
+- Composition review confirms App only wires workflow outputs/callbacks; Library
+  owns queued snapshots, Quest owns feature state, pure validation/projection and
+  atomic scheduling stay in lib, and QuestsView owns markup. No outstanding
+  actionable finding in the final implementation review. Both native APKs and
+  phone packaged-asset identity pass; no installation/device contact occurred.
+- Updated plan/Stage 21, roadmap and PHONE-10. Historical grouped-template
+  deferrals and Wear blockers are explicitly superseded. Owned validation browser
+  and preview/dev servers are closed. Source checks already pass; final docs
+  whitespace/Git inspection is recorded below.
+
+Completed: the selected grouped quest-template scope and relevant automated,
+responsive/offline, phone/Wear-build evidence. Remaining: installed-phone
+PHONE-10 and earlier deferred checks, Stage 19's ten physical criteria, and
+separately scoped grouped watch playback. Stage 19 stays **87/97 overall**,
+physical **17/27**. Next: review this validated uncommitted checkpoint for commit
+or choose further independent scope. Physical work resumes only on request.
+
+Final Git audit: HEAD remains `4d93252`; no user commit occurred during this
+iteration. The 24 changed/new files are the intended implementation, regression
+fixtures and documentation. Initial worktree was clean; no unrelated changes
+were overwritten. Final `git diff --check` passes. The earlier in-progress/final-
+validation labels in this iteration are superseded by closure. Changes remain
+uncommitted; no physical acceptance or grouped watch execution is claimed.
+
+Iteration 190 commit checkpoint — 2026-10-14: user requests committing the
+validated grouped quest templates and then continuing plan implementation.
+Fresh Git inspection confirms HEAD `4d93252` and exactly the 24 intended files;
+no unrelated changes or intervening commit. Existing final validation remains
+applicable because implementation is unchanged. Documentation updates commit
+status; this supersedes Iteration 190's uncommitted/await-commit labels.
+Stage 19 remains 87/97, physical 17/27; physical execution stays deferred.

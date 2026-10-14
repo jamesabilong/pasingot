@@ -11,6 +11,7 @@ import {
   type WorkoutSessionEvent,
   type WorkoutSetLog,
 } from '../types';
+import { validateCircuitGroups } from './workout-circuits';
 import { customExerciseNames } from './custom-exercises';
 import { isExerciseLevel, isWeightUnit, MAX_PLAYLIST_ITEMS, TIME_RE, validLoadWeight } from './workout-planning';
 
@@ -88,8 +89,10 @@ export function createCustomQuestDefinition(
   if (!isExerciseLevel(playlist.level) || !TIME_RE.test(playlist.time) || !playlist.items.length || playlist.items.length > MAX_PLAYLIST_ITEMS) {
     return { definition: null, error: 'Build a valid playlist in Library before creating a quest.' };
   }
-  if (playlist.items.some(item => item.circuit !== undefined)) {
-    return { definition: null, error: 'Ungroup supersets and circuits before creating a quest.' };
+  const groupError = validateCircuitGroups(playlist.items);
+  if (groupError) return { definition: null, error: groupError };
+  if (playlist.items.some(item => item.circuit) && playlist.items.some(item => item.sets > 100)) {
+    return { definition: null, error: 'Workout plans containing circuits support 1–100 sets per exercise.' };
   }
   const catalogBySourceId = new Map(catalog.map((exercise) => [exercise.sourceId, exercise]));
   if (playlist.items.some((item) => !validPlaylistItem(item, catalogBySourceId))) {
@@ -97,7 +100,7 @@ export function createCustomQuestDefinition(
   }
 
   const stamp = now.toISOString();
-  const questId = `custom:${now.getTime()}:${slug(title)}`;
+  const questId = `custom:${now.getTime()}:${slug(title)}:${crypto.randomUUID()}`;
   const rows: QuestWorkoutRow[] = [];
   for (let dayNumber = 1; dayNumber <= daysPerWeek; dayNumber += 1) {
     playlist.items.forEach((item, index) => {
@@ -114,6 +117,7 @@ export function createCustomQuestDefinition(
         sets: item.sets,
         reps: item.reps.trim(),
         rest: item.rest,
+        ...(item.circuit ? { circuit: { ...item.circuit } } : {}),
         loadWeight: item.loadWeight ?? null,
         loadUnit: item.loadWeight != null ? item.loadUnit ?? 'kg' : null,
       });
@@ -162,7 +166,7 @@ export function isCustomQuestDefinition(value: unknown): value is CustomQuestDef
   if (!Array.isArray(value.rows) || !value.rows.length || value.rows.length > MAX_PLAYLIST_ITEMS * template.daysPerWeek * levels.length) return false;
   const sequences = new Map<string, Set<number>>();
   for (const row of value.rows) {
-    if (!record(row) || row.circuit !== undefined || row.schemaVersion !== SCHEMA_VERSION || row.questId !== value.questId
+    if (!record(row) || row.schemaVersion !== SCHEMA_VERSION || row.questId !== value.questId
       || !isExerciseLevel(row.level) || !levels.includes(row.level)
       || !integer(row.dayNumber, 1, template.daysPerWeek) || !integer(row.sequence, 1, MAX_PLAYLIST_ITEMS)
       || !integer(row.exerciseSourceId, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER) || row.exerciseSourceId === 0
@@ -179,6 +183,9 @@ export function isCustomQuestDefinition(value: unknown): value is CustomQuestDef
     for (let day = 1; day <= template.daysPerWeek; day += 1) {
       const daySequences = sequences.get(`${level}:${day}`);
       if (!daySequences || [...daySequences].some((sequence) => sequence > daySequences.size)) return false;
+      const rows = (value.rows as unknown as QuestWorkoutRow[]).filter(row => row.level === level && row.dayNumber === day)
+        .sort((left, right) => left.sequence - right.sequence);
+      if (validateCircuitGroups(rows) || (rows.some(row => row.circuit) && rows.some(row => row.sets > 100))) return false;
     }
   }
   return true;

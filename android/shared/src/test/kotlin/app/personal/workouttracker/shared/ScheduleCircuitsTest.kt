@@ -75,4 +75,14 @@ class ScheduleCircuitsTest {
         assertFalse(validScheduleCircuits(listOf(first, second.copy(time = "18:00"))))
         assertFalse(validScheduleCircuits(listOf(first, second.copy(day = "Wednesday"))))
     }
+    @Test fun questGroupsPreserveOwnershipAndStillRequirePhoneExecution() {
+        val quest = group.map { it.copy(questId = "custom:fixture", questDayIndex = 1, questLevel = "beginner") }
+        assertTrue(validScheduleCircuits(quest))
+        assertEquals(quest, Json.decodeFromString(CachedSchedule.serializer(), Json.encodeToString(CachedSchedule(rows = quest))).rows)
+        assertTrue(runCatching { buildWorkoutTransfer(quest, "2026-10-13", "Tuesday") }.exceptionOrNull() is CircuitRequiresPhoneException)
+        assertFalse(validScheduleCircuits(listOf(quest[0], quest[1].copy(questDayIndex = 2))))
+        assertFalse(validScheduleCircuits(listOf(quest[0], quest[1].copy(questLevel = "advanced"))))
+        assertFalse(validScheduleCircuits(listOf(quest[0], quest[1].copy(questId = "other"))))
+    }
+
 }

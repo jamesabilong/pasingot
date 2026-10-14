@@ -183,6 +183,11 @@ try {
   check(api.draft.items[0].circuit?.id === api.draft.items[1].circuit?.id && api.draft.items[0].sets === 4 && api.draft.items[0].reps === '12' && api.draft.items[1].loadWeight === 18 && api.draft.time === '08:15', 'Gated draft write merges queued member edit, group creation, load edit and time change without losing the group');
   check(JSON.stringify((await getRecord(STORES.appState, 'playlistDraft')).items) === JSON.stringify(api.draft.items), 'Serialized draft race leaves memory and durable group prescriptions identical');
   await Promise.all([api.updateDraftItem(0, { reps: '13' }), api.updateDraftItem(0, { reps: '14' }), api.updateDraftItem(0, { reps: '15' })]); await settle();
+  const pendingSnapshotEdit = api.updateDraftItem(0, { reps: '16' });
+  const queuedSnapshot = await api.getDraftSnapshot();
+  await pendingSnapshotEdit; await settle();
+  check(queuedSnapshot.items[0].reps === '16' && queuedSnapshot.items[0].circuit && queuedSnapshot.items !== api.draft.items, 'Quest snapshots await queued Library edits and own immutable group data');
+  await api.updateDraftItem(0, { reps: '15' }); await settle();
   check(api.draft.items[0].reps === '15' && api.draft.items[0].circuit && api.draft.items[1].loadWeight === 18, 'Rapid successive member typing keeps the latest value and all other grouped prescriptions');
   document.getElementById('result').textContent = `${checks.length} checks passed\n${checks.join('\n')}`;
 } catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack || error}`; }

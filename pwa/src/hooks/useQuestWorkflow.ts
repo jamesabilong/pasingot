@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createCustomQuestDefinition, CUSTOM_QUESTS_KEY, normalizeCustomQuestCollection, type CustomQuestDraft } from '../lib/custom-quests';
-import { addRecord, deleteRecord, getAll, getRecord, putRecord, STORES } from '../lib/db';
+import { getAll, getRecord, putRecord, updateRecord, STORES } from '../lib/db';
+import { saveQuestSchedule } from '../lib/quest-scheduling';
 import { pushScheduleToNative } from '../lib/native-bridge';
 import { archiveQuest, belongsToQuestRun, QUEST_HISTORY_KEY, QUEST_STATE_KEY, reconcileQuestDay, resolveQuestDay, questTotalDays, questWeekNumber, questTemplateDayNumber } from '../lib/quest-progress';
 import { calculatePlanProgress, estimateWorkoutDurationSeconds, formatEstimatedDuration, LEVELS, TIME_RE, todayName, workoutStatusesOnDate } from '../lib/workout-planning';
@@ -12,6 +13,7 @@ interface QuestWorkflowOptions {
   builtInQuestRows: QuestWorkoutRow[];
   catalog: ExerciseCatalogItem[];
   draft: PlaylistDraft;
+  getPlaylistSnapshot?: () => Promise<PlaylistDraft>;
   workouts: WorkoutRow[];
   logs: WorkoutLog[];
   localToday: string;
@@ -22,7 +24,7 @@ interface QuestWorkflowOptions {
 }
 
 export function useQuestWorkflow({
-  builtInQuestTemplates, builtInQuestRows, catalog, draft, workouts, logs,
+  builtInQuestTemplates, builtInQuestRows, catalog, draft, getPlaylistSnapshot, workouts, logs,
   localToday, activeWorkoutSession, clearActiveWorkoutSession,
   refreshWorkouts, refreshUserData,
 }: QuestWorkflowOptions) {
@@ -115,19 +117,18 @@ export function useQuestWorkflow({
   }
 
   async function createCustomQuest(questDraft: CustomQuestDraft) {
-    const { definition, error } = createCustomQuestDefinition(questDraft, draft, catalog);
+    const playlist = getPlaylistSnapshot ? await getPlaylistSnapshot() : structuredClone(draft);
+    const { definition, error } = createCustomQuestDefinition(questDraft, playlist, catalog);
     if (!definition || error) {
       setQuestResult({ error: true, message: error ?? 'Could not create the custom quest.' });
       return;
     }
-    const nextDefinitions = [...customQuestDefinitions, definition];
-    await putRecord(STORES.appState, {
-      key: CUSTOM_QUESTS_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      quests: nextDefinitions,
-    } satisfies CustomQuestCollection);
-    setCustomQuestDefinitions(nextDefinitions);
-    setQuestResult({ error: false, message: `${definition.template.title} created from the ${draft.items.length}-exercise Library playlist.` });
+    const saved = await updateRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY, current => ({
+      key: CUSTOM_QUESTS_KEY, schemaVersion: SCHEMA_VERSION,
+      quests: [...normalizeCustomQuestCollection(current).quests, definition],
+    }));
+    setCustomQuestDefinitions(saved!.quests);
+    setQuestResult({ error: false, message: `${definition.template.title} created from the ${playlist.items.length}-exercise Library playlist.` });
   }
 
   async function deleteCustomQuest(questId: string) {
@@ -143,13 +144,11 @@ export function useQuestWorkflow({
       return;
     }
     if (!window.confirm(`Delete the ${definition.template.title} quest template?`)) return;
-    const nextDefinitions = customQuestDefinitions.filter((item) => item.questId !== questId);
-    await putRecord(STORES.appState, {
-      key: CUSTOM_QUESTS_KEY,
-      schemaVersion: SCHEMA_VERSION,
-      quests: nextDefinitions,
-    } satisfies CustomQuestCollection);
-    setCustomQuestDefinitions(nextDefinitions);
+    const saved = await updateRecord<CustomQuestCollection>(STORES.appState, CUSTOM_QUESTS_KEY, current => ({
+      key: CUSTOM_QUESTS_KEY, schemaVersion: SCHEMA_VERSION,
+      quests: normalizeCustomQuestCollection(current).quests.filter(item => item.questId !== questId),
+    }));
+    setCustomQuestDefinitions(saved!.quests);
     setQuestResult({ error: false, message: 'Custom quest deleted.' });
   }
 
@@ -188,6 +187,7 @@ export function useQuestWorkflow({
       sets: row.sets,
       reps: row.reps,
       rest: row.rest,
+      ...(row.circuit ? { circuit: { ...row.circuit } } : {}),
       loadWeight: row.loadWeight ?? null,
       loadUnit: row.loadWeight != null ? row.loadUnit ?? 'kg' : null,
       questId: questState.questId,
@@ -196,39 +196,22 @@ export function useQuestWorkflow({
       questDayLabel: dayLabel,
       questLevel: questState.level,
     } satisfies WorkoutRow));
-    const completedQuestDayIndexes = new Set(questState.completedDays.map((day) => day.dayIndex));
-    const replacementRows = workouts.filter((existing) => (
-      existing.id != null
-      && belongsToQuestRun(existing, questState)
-      && existing.questDayIndex != null
-      && completedQuestDayIndexes.has(existing.questDayIndex)
-      && existing.day === todayName()
-      && existing.time === questState.scheduledTime
-    ));
-    const replacementIds = new Set(replacementRows.map((row) => row.id));
-    const activeWorkouts = workouts.filter((row) => row.id == null || !replacementIds.has(row.id));
-    const conflicts = proposedRows.filter((proposed) => activeWorkouts.some((existing) => (
-      existing.day === proposed.day
-      && existing.time === proposed.time
-      && existing.exercise.toLowerCase() === proposed.exercise.toLowerCase()
-      && !(belongsToQuestRun(existing, questState) && existing.questDayIndex === proposed.questDayIndex)
-    )));
-    if (conflicts.length) {
-      setQuestResult({ error: true, message: `Move this quest to a different time; ${conflicts.length} exercise${conflicts.length === 1 ? '' : 's'} already exist at ${questState.scheduledTime}.` });
+    let saved;
+    try {
+      saved = await saveQuestSchedule(questState, proposedRows,
+        Boolean(activeWorkoutSession && ['active', 'resting', 'paused'].includes(activeWorkoutSession.status)));
+    } catch (error) {
+      setQuestResult({ error: true, message: error instanceof Error ? error.message : 'Could not schedule the quest day.' });
       return;
     }
-    for (const row of replacementRows) {
-      if (row.id != null) await deleteRecord(STORES.workouts, row.id);
-    }
-    const existingQuestKeys = new Set(activeWorkouts
-      .filter((row) => belongsToQuestRun(row, questState) && row.questDayIndex === questState.nextDayIndex)
-      .map((row) => row.exercise.toLowerCase()));
-    const additions = proposedRows.filter((row) => !existingQuestKeys.has(row.exercise.toLowerCase()));
-    for (const row of additions) await addRecord(STORES.workouts, row);
-    const schedule = await getAll<WorkoutRow>(STORES.workouts);
-    await pushScheduleToNative(schedule);
-    await refreshWorkouts();
-    setQuestResult({ error: false, message: additions.length ? `Scheduled ${dayLabel} for ${todayName()} at ${questState.scheduledTime}. ${currentQuestEstimate}.` : `${dayLabel} is already scheduled.` });
+    let refreshFailed = false;
+    try {
+      refreshFailed = !(await pushScheduleToNative(saved.schedule));
+      await refreshWorkouts();
+    } catch { refreshFailed = true; }
+    setQuestResult({ error: false, message: refreshFailed
+      ? 'Quest day saved. Reopen Today to refresh the schedule and phone cache.'
+      : saved.addedCount ? `Scheduled ${dayLabel} for ${todayName()} at ${questState.scheduledTime}. ${currentQuestEstimate}.` : `${dayLabel} is already scheduled.` });
   }
 
   async function maybeCompleteQuestDay(row: WorkoutRow, latestLogs: WorkoutLog[]) {

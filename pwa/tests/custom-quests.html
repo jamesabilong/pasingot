@@ -64,8 +64,8 @@ try {
   check(Boolean(createCustomQuestDefinition({ ...authored.definition.template }, { ...playlist, items: [{ ...playlist.items[0], loadUnit: 'stone' }] }, [exercise]).error), 'Invalid planned load units are rejected');
   const groupedPlaylist = { ...playlist, items: [{ ...playlist.items[0], circuit: { id: 'fixture', restSeconds: 30 } }] };
   const groupedQuest = createCustomQuestDefinition({ ...authored.definition.template }, groupedPlaylist, [exercise]);
-  check(groupedQuest.definition === null && groupedQuest.error.includes('Ungroup'), 'Quest authoring rejects grouped playlists before dropping execution metadata');
-  check(!isCustomQuestDefinition({ ...authored.definition, rows: authored.definition.rows.map(row => ({ ...row, circuit: { id: 'fixture', restSeconds: 30 } })) }), 'Restored quest rows cannot silently carry unsupported grouping');
+  check(groupedQuest.definition === null && groupedQuest.error.includes('2–24'), 'Quest authoring rejects orphan groups without dropping execution metadata');
+  check(!isCustomQuestDefinition({ ...authored.definition, rows: authored.definition.rows.map(row => ({ ...row, circuit: { id: 'fixture', restSeconds: 30 } })) }), 'Restored quest rows reject orphan grouping');
 
   const collection = normalizeCustomQuestCollection({ key: 'customQuests', schemaVersion: 1, quests: [authored.definition, { broken: true }] });
   check(collection.quests.length === 1, 'Malformed restored quest definitions are ignored');

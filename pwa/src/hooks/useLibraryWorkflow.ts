@@ -288,8 +288,13 @@ export function useLibraryWorkflow({
     } finally { savingPlaylist.current = false; setPlaylistBusy(false); }
   }
 
+  async function getDraftSnapshot(): Promise<PlaylistDraft> {
+    await draftWrites.current;
+    return structuredClone(currentDraft.current);
+  }
+
   return {
-    search, setSearch, category, setCategory, featuredOnly, setFeaturedOnly,
+    getDraftSnapshot, search, setSearch, category, setCategory, featuredOnly, setFeaturedOnly,
     muscle, setMuscle, equipment, setEquipment, muscleOptions, equipmentOptions, clearFilters,
     customExerciseDraft, setCustomExerciseDraft, customExerciseResult,
     playlistResult, setPlaylistResult, playlistBusy, categories, levelCounts, filteredCatalog,

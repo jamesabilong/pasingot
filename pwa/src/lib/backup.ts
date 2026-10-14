@@ -43,6 +43,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function hasCircuitData(stores: Record<string, unknown>): boolean {
   return (Array.isArray(stores.workouts) && stores.workouts.some(row => isObject(row) && row.circuit !== undefined))
     || (Array.isArray(stores.appState) && stores.appState.some(row => isObject(row) && (row.steps !== undefined
+      || (row.key === 'customQuests' && Array.isArray(row.quests) && row.quests.some(quest => isObject(quest)
+        && Array.isArray(quest.rows) && quest.rows.some(item => isObject(item) && item.circuit !== undefined)))
       || (row.key === 'playlistDraft' && Array.isArray(row.items) && row.items.some(item => isObject(item) && item.circuit !== undefined)))));
 }
 
@@ -130,7 +132,12 @@ export async function restoreWorkoutBackup(backup: WorkoutBackup): Promise<Backu
     const value = state as Record<string, unknown>;
     return value.key === 'playlistDraft' && Array.isArray(value.items) ? value.items as PlaylistDraft['items'] : [];
   });
-  await ensureCircuitScheduleSupported([...backup.stores.workouts, ...drafts]);
+  const questRows = backup.stores.appState.flatMap(state => {
+    const value = state as Record<string, unknown>;
+    return value.key === 'customQuests' && Array.isArray(value.quests)
+      ? (value.quests as Array<{ rows: import('../types').QuestWorkoutRow[] }>).flatMap(quest => quest.rows) : [];
+  });
+  await ensureCircuitScheduleSupported([...backup.stores.workouts, ...drafts, ...questRows]);
   await withHealthConnectSyncLock(() => replaceStores({ ...backup.stores, bodyMeasurements: backup.stores.bodyMeasurements ?? [] }));
   await repairLegacyCustomExerciseNames();
   return summarizeBackup(backup);

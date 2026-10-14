@@ -104,7 +104,9 @@ export default function App() {
   } = useQuestWorkflow({
     builtInQuestTemplates, builtInQuestRows, catalog, draft, workouts, logs,
     localToday, activeWorkoutSession, clearActiveWorkoutSession,
-    refreshWorkouts, refreshUserData: () => hydration.refreshUserData(),
+    getPlaylistSnapshot: () => getDraftSnapshot(),
+    refreshWorkouts: async () => { await refreshWorkouts(); await restoreWorkoutSession(); },
+    refreshUserData: () => hydration.refreshUserData(),
   });
   const { watchSession, refreshWatchData, retryPendingSyncs } = useWatchUpdates({
     refreshLogs, refreshSessionEvents, addToast,
@@ -115,7 +117,7 @@ export default function App() {
     muscle, setMuscle, equipment, setEquipment, muscleOptions, equipmentOptions, clearFilters,
     customExerciseDraft, setCustomExerciseDraft, customExerciseResult,
     playlistResult, setPlaylistResult, playlistBusy, categories, levelCounts, filteredCatalog,
-    draftEstimate, saveDraft, addCatalogExercise, saveCustomExercise,
+    draftEstimate, saveDraft, getDraftSnapshot, addCatalogExercise, saveCustomExercise,
     editCustomExercise, deleteCustomExercise, updateDraftItem, reorderDraftItem,
     savePlaylistToSchedule, createCircuit, updateCircuit, removeCircuit, removeDraftItem,
   } = useLibraryWorkflow({

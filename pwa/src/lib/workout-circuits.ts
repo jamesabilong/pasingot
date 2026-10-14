@@ -8,6 +8,9 @@ export interface CircuitItem {
   time?: string;
   dateOverrides?: ScheduleDateOverrides;
   questId?: string;
+  questRunId?: string;
+  questDayIndex?: number;
+  questLevel?: string;
 }
 
 export interface WorkoutSessionStep {
@@ -74,7 +77,8 @@ export function validateCircuitGroups(items: readonly CircuitItem[]): string | n
       if (group.length < 2 || group.length > 24) return 'A circuit needs 2–24 exercises in the same session.';
       if (!Number.isSafeInteger(first.sets) || first.sets < 1 || first.sets > 100
         || group.some(item => item.sets !== first.sets)) return 'Circuit exercises must use the same 1–100 rounds.';
-      if (group.some(item => item.questId != null)) return 'Quest exercises cannot be grouped into circuits.';
+      const owner = (item: CircuitItem) => circuitValueSignature([item.questId ?? null, item.questRunId ?? null, item.questDayIndex ?? null, item.questLevel ?? null]);
+      if (group.some(item => owner(item) !== owner(first))) return 'Circuit exercises must belong to the same quest day and run.';
       if (group.some(item => item.circuit!.restSeconds !== first.circuit!.restSeconds)) return 'Circuit exercises must share one round rest.';
       const overrides = circuitValueSignature(first.dateOverrides ?? {});
       if (group.some(item => circuitValueSignature(item.dateOverrides ?? {}) !== overrides)) return 'Circuit exercises must share the same date changes.';

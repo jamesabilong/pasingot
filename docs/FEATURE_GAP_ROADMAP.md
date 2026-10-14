@@ -1,5 +1,24 @@
 # Feature Gap Roadmap
 
+Current implementation — Iteration 190 (2026-10-14): grouped custom quest
+templates are code/browser/native-build complete for phone/PWA use. Library groups retain their order,
+rounds, shared rest and individual prescriptions through template creation,
+day resolution, atomic scheduling, player recovery and version 2 backups.
+Creation awaits queued Library edits and merges concurrent durable additions.
+Native `questCircuits` capability gates older phone wrappers; grouped watch
+execution remains unavailable. 628 browser assertions, 13 production player/UI checks and 363 native JVM
+tests pass; phone/Wear APK builds pass and phone assets match production.
+Current Wear validation succeeds after cleaning duplicated generated resources,
+superseding the earlier host cache/build blockers. Closure is recorded in
+`IMPLEMENTATION_PROGRESS.md`. Installed-phone validation remains deferred as
+PHONE-10; Stage 19 stays **87/97 overall**, physical **17/27**, ten open.
+Iterations 188–189 are committed as `4d93252`; Iteration 190 is committed
+with this documentation at the user’s request. Earlier uncommitted labels
+are superseded by this checkpoint.
+This supersedes the prior await-request and grouped-template deferral labels;
+historical observations below remain evidence.
+
+
 Current implementation — Iteration 189: phone/PWA supersets and circuits are
 code/browser/phone-build complete. Library groups 2–24 adjacent exercises into
 equal rounds, with no rest within a round and shared rest between rounds or
@@ -575,7 +594,7 @@ importance in general.
 | ✅ Code/browser complete | Recurring weekly session removal | Remove all exercises in one weekly time slot, preserving history | Personal planning | Medium | Iterations136–140: explicit scope confirmation, stale/quest/unfinished-workout guards, terminal-player reconciliation and backup/history preservation pass headless checks. Physical phone acceptance pending. |
 | ✅ Code/browser complete | Individual set history | Inspect actual/planned targets, load and effort for every recorded set | Workout logging | Medium | Iterations156–160: all sets, month/all-time range, exercise search, rated-only filter and20-row pages; headless/mobile/offline checks pass. Read-only, physical phone acceptance pending. |
 | ✅ Code/browser/native complete | Date-specific schedule changes | Move, skip or clear one occurrence of a weekly session | Personal planning | Medium | Iteration 185: complete non-quest sessions; additive date overrides retain weekly prescriptions, IDs and history. Today, player, reminders and native full-day/watch-requested projection match; stale/occupied/recorded-date/active/race guards and backup validation pass. Installed-phone/paired checks deferred in the physical validation module. |
-| ✅ Phone code/browser complete | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Stage 20 / Iteration 189: adjacent 2–24 exercise groups, equal rounds, zero within-round rest, shared round/block rest, exact sets/skips/recovery, atomic draft/schedule writes and version 2 grouped backups. Browser/mobile/offline, shared/phone JVM and APK asset checks pass. Installed-phone checks remain PHONE-09; grouped watch execution and quest templates are outside this slice. Current Wear build is unverified due to its missing offline dependency. |
+| ✅ Phone code/browser complete | Supersets/circuits | Group exercises with shared or zero rest between them | Hevy, Strong, JEFIT | Medium | Stage 20 / Iteration 189: adjacent 2–24 exercise groups, equal rounds, zero within-round rest, shared round/block rest, exact sets/skips/recovery, atomic draft/schedule writes and version 2 grouped backups. Browser/mobile/offline, shared/phone JVM and APK asset checks pass. Installed-phone checks remain PHONE-09. Stage 21 / Iteration 190 adds grouped quest templates, atomic quest scheduling and template-only version 2 backups, with PHONE-10 kept separate. Grouped watch execution remains future scope; current Wear verification is recorded in the latest progress iteration. |
 | ✅ Done | Volume/strength trend charts | Per-exercise graph of weight/volume/est. 1RM over time | Strong, Hevy, JEFIT | Medium | Implemented: per-exercise trend bars from daily training volume, in History (Stage 13). Per-exercise only, not an all-up volume chart. |
 | ✅ Done | Custom exercise creation | User-defined exercises beyond the wger catalog | Strong, Hevy, JEFIT | Medium | Implemented and committed in Stage 16, including create/edit/delete, Library integration, and backup/restore. |
 | 🚧 Partial | Exercise video/GIF demos | Visual form demonstration per exercise | Strong, Hevy, JEFIT, Fitbod | Medium | Stage 16 now bundles 32 reviewed, attributed built-in images for offline use, links 15 attributed upstream videos, and supports optional custom exercise media URLs. Coverage depends on licensed upstream availability; large videos are deliberately not bundled. |
@@ -693,10 +712,10 @@ all screen-by-screen acceptance criteria above are complete.
    `381ef28`, warm-up previews as `f1d0302`. Library filters (Iteration 188) and
    phone/PWA supersets/circuits (Iteration 189) are code/browser/phone-build
    complete, including final APK asset identity, and committed with this
-   documentation at the user's request. Further independent work awaits a request;
+   documentation at the user's request. Iteration 190 completes grouped quest templates locally;
    keep physical execution deferred.
-   Grouped watch execution/templates remain future scope, and current Wear
-   compilation still needs its missing offline dependency.
+   Grouped watch execution remains future scope. Iteration 190 completes grouped
+   templates and current Wear build/JVM validation on this host.
 4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
    Earlier partial-extraction labels are historical.
 

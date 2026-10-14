@@ -187,10 +187,25 @@ same inventory/evidence protocol on the installed Android app.
   day. Manual Download Now may time out; scheduled requests retain the existing
   cache after message acceptance. Previously downloaded workouts remain cached under
   prior semantics and are not evidence of grouped execution. Grouped quest
-  authoring remains unavailable. Confirm unrelated data and Health Connect
+  authoring was unavailable in Iteration 189 and is superseded by PHONE-10
+  on the newer Iteration 190 build. Confirm unrelated data and Health Connect
   behavior. Browser/JVM/APK checks do not establish installed-device acceptance;
-  current Wear compilation also remains unverified due to a missing offline
-  `wear-ongoing:1.1.0` dependency.
+  the Iteration 189 Wear cache blocker is historical and superseded by passing
+  Iteration 190 Wear build/JVM checks on macOS. This adds no device acceptance.
+
+- [ ] **PHONE-10 — Grouped quest templates (Iteration 190).** Upgrade while
+  preserving existing quests, schedules, history and Library groups. Create a
+  quest from a mixed superset/circuit playlist; verify queued edits, ordered
+  members, equal rounds, shared rest and individual rep/duration/kg/lb targets.
+  Enroll and schedule the complete day; repeat without duplicates, reject occupied
+  slots and active players, and verify atomic replacement for the next completed
+  day. Execute exact round order, pause/process restart/offline recovery and skips;
+  verify individual set logs and once-only quest progress. Leave/archive without
+  losing history or unrelated rows. Export/restore a template-only version 2
+  backup through the Android file picker; reject malformed groups and older
+  wrappers lacking `questCircuits` before store changes. Verify phone cache
+  retains markers and grouped watch transfers remain guarded. Automated browser,
+  native and packaged-asset checks do not close installed-device acceptance.
 
 ## Resume order
 

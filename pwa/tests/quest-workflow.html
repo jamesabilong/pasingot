@@ -80,6 +80,7 @@ try {
   confirmed = true;
   await putRecord(STORES.logs, { schemaVersion: 1, date: new Date().toISOString(), exercise: scheduled.exercise, status: 'done', workoutRowId: scheduled.id });
   await api.reload(); await settle(); await settle();
+  for (let attempt = 0; attempt < 100 && api.questState.nextDayIndex !== 2; attempt++) await new Promise(resolve => setTimeout(resolve, 20));
   check(api.questState.nextDayIndex === 2 && api.questState.completedDays.length === 1, 'linked completion advances quest once');
   await api.reload(); await settle();
   check(api.questState.completedDays.length === 1, 'replayed logs do not duplicate completion');

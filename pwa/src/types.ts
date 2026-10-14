@@ -182,6 +182,7 @@ export interface QuestTemplate {
 }
 
 export interface QuestWorkoutRow {
+  circuit?: WorkoutCircuit;
   schemaVersion: number;
   questId: string;
   level: ExerciseLevel;

@@ -39,7 +39,7 @@ class ScheduleSyncPlugin : Plugin() {
 
     @PluginMethod
     fun getCapabilities(call: PluginCall) {
-        call.resolve(JSObject().apply { put("dateOverrides", true); put("circuits", true) })
+        call.resolve(JSObject().apply { put("dateOverrides", true); put("circuits", true); put("questCircuits", true) })
     }
 
     @PluginMethod

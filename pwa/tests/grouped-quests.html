@@ -1,0 +1,129 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Grouped quest checks</title><h1>Grouped quest checks</h1><pre id="result">Running…</pre>
+<script type="module">
+import { Capacitor } from '@capacitor/core';
+import { createCustomQuestDefinition, isCustomQuestDefinition } from '/src/lib/custom-quests.ts';
+import { resolveQuestDay, completeQuestDay } from '/src/lib/quest-progress.ts';
+import { saveQuestSchedule } from '/src/lib/quest-scheduling.ts';
+import { compileCircuitSteps, validateCircuitGroups } from '/src/lib/workout-circuits.ts';
+import { newPwaSession } from '/src/lib/workout-session.ts';
+import { workoutStepTransition } from '/src/lib/workout-session-persistence.ts';
+import { buildWorkoutBackup, parseWorkoutBackup, restoreWorkoutBackup } from '/src/lib/backup.ts';
+import { getAll, getRecord, putRecord, replaceStores, STORES } from '/src/lib/db.ts';
+import { todayName } from '/src/lib/workout-planning.ts';
+const factory = window.indexedDB, database = `pasingot-grouped-quests-${crypto.randomUUID()}`;
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: (_name, version) => factory.open(database, version) } });
+const checks = [], check = (value, label) => { if (!value) throw Error(label); checks.push(`PASS: ${label}`); };
+const rejects = async operation => { try { await operation(); return false; } catch { return true; } };
+const fails = operation => { try { operation(); return false; } catch { return true; } };
+const clone = structuredClone;
+const catalog = [1, 2, 3].map(sourceId => ({ sourceId, name: `Exercise ${sourceId}`, displayName: `Exercise ${sourceId}`, category: 'Strength', progressionGroup: 'strength' }));
+const draft = { day: todayName(), time: '07:00', level: 'beginner', items: catalog.map((exercise, index) => ({ sourceId: exercise.sourceId, name: exercise.name, sets: 2, reps: `${8 + index}`, rest: 60, loadWeight: 20 + index, loadUnit: index === 1 ? 'lb' : 'kg', ...(index < 2 ? { circuit: { id: 'fixture-pair', restSeconds: 30 } } : {}) })) };
+const form = { title: 'Grouped quest', description: 'Fixture', safetyNote: 'Fixture only', durationWeeks: 2, daysPerWeek: 2 };
+let state, proposed;
+const originalAdd = IDBObjectStore.prototype.add, originalBridge = window.Capacitor, originalPlatform = Capacitor.getPlatform;
+const reset = async (rows = []) => {
+  await replaceStores({ workouts: rows, logs: [], setLogs: [], sessionEvents: [], bodyMetrics: [], bodyMeasurements: [], customExercises: [], appState: [state, { key: 'ownedPreference', schemaVersion: 1, value: 'keep' }] });
+};
+try {
+  const authored = createCustomQuestDefinition(form, draft, catalog);
+  check(!authored.error && authored.definition.rows.length === 6, 'Authoring repeats the complete mixed playlist on both weekly days');
+  const definition = authored.definition;
+  check(isCustomQuestDefinition(definition), 'Grouped authored definition passes durable validation');
+  check(definition.rows[0].circuit !== draft.items[0].circuit && definition.rows[0].circuit !== definition.rows[3].circuit, 'Day templates own independent metadata snapshots');
+  check(definition.rows[1].loadUnit === 'lb' && definition.rows[2].rest === 60, 'Mixed-unit loads and straight rest are preserved');
+  const invalid = [
+    ['orphan', rows => rows.splice(1, 1)],
+    ['split', rows => { rows[1].circuit = undefined; rows[2].circuit = clone(rows[0].circuit); }],
+    ['unequal rounds', rows => rows[1].sets = 3],
+    ['unequal rest', rows => rows[1].circuit.restSeconds = 31],
+    ['invalid ID', rows => rows[0].circuit.id = 'bad id'],
+    ['overlarge rest', rows => rows[0].circuit.restSeconds = 3601],
+    ['straight step bound', rows => rows[2].sets = 101],
+  ];
+  for (const [label, change] of invalid) {
+    const value = clone(definition); change(value.rows);
+    check(!isCustomQuestDefinition(value), `Definition rejects ${label}`);
+  }
+  check(createCustomQuestDefinition(form, { ...draft, items: [draft.items[0]] }, catalog).error, 'Authoring rejects a partial group');
+  state = { key: 'questState', schemaVersion: 1, questId: definition.questId, runId: 'fixture-run', level: 'beginner', nextDayIndex: 1, scheduledTime: '07:00', startedAt: new Date().toISOString(), completedDays: [], status: 'active' };
+  const resolved = resolveQuestDay(definition.rows, state, definition.template, new Map(catalog.map(row => [row.sourceId, row])));
+  check(resolved.length === 3 && resolved[0].row.circuit.restSeconds === 30, 'Day resolution retains group order and shared rest');
+  check(resolveQuestDay(definition.rows, state, definition.template, new Map([[1, catalog[0]], [3, catalog[2]]])).length === 0, 'Missing catalog member rejects the entire day');
+  const shuffled = clone(definition); shuffled.rows.reverse();
+  check(isCustomQuestDefinition(shuffled) && resolveQuestDay(shuffled.rows, state, definition.template, new Map(catalog.map(row => [row.sourceId, row])))[0].row.sequence === 1, 'Definition validation and resolution use sequence rather than imported array order');
+  proposed = resolved.map(({ row, exercise }) => ({ schemaVersion: 1, day: todayName(), time: state.scheduledTime, exercise: exercise.name, exerciseSourceId: exercise.sourceId, sets: row.sets, reps: row.reps, rest: row.rest, loadWeight: row.loadWeight, loadUnit: row.loadUnit, questId: state.questId, questRunId: state.runId, questDayIndex: 1, questLevel: state.level, ...(row.circuit ? { circuit: clone(row.circuit) } : {}) }));
+  check(!validateCircuitGroups(proposed), 'Consistently owned quest groups validate');
+  for (const [field, value] of [['questRunId', 'other'], ['questDayIndex', 2], ['questLevel', 'advanced'], ['questId', undefined]]) {
+    const rows = clone(proposed); rows[1][field] = value;
+    check(validateCircuitGroups(rows), `Group rejects mixed ${field}`);
+  }
+  await reset();
+  const saved = await saveQuestSchedule(state, proposed);
+  check(saved.addedCount === 3 && saved.schedule.every(row => row.id), 'Atomic save gives every mixed-day member a durable ID');
+  check((await saveQuestSchedule(state, proposed)).addedCount === 0, 'Repeated save recognizes the exact complete day');
+  check(await rejects(() => saveQuestSchedule(state, proposed.map(row => ({ ...row, time: '08:00' })))), 'Changed saved-day settings cannot silently rewrite its prescription');
+  check(compileCircuitSteps(saved.schedule).map(step => `${step.exerciseIndex}:${step.setNumber}:${step.restSeconds}`).join() === '0:1:0,1:1:30,0:2:0,1:2:30,2:1:60,2:2:0', 'Quest player compiles grouped rounds and the following straight block exactly');
+  let session = newPwaSession(saved.schedule), logs = [], sets = [];
+  for (let i = 0; i < 6; i++) {
+    const next = workoutStepTransition({ ...session, status: 'active', restUntilEpochMillis: null }, saved.schedule, 'complete');
+    check(next?.setLog, `Quest execution step ${i + 1} records a set`);
+    sets.push(next.setLog); if (next.exerciseLog) logs.push(next.exerciseLog); session = next.session;
+    if (i < 5) check(completeQuestDay(state, definition.template, saved.schedule[0], saved.schedule, logs).nextDayIndex === 1, `Step ${i + 1} does not complete the quest early`);
+  }
+  check(session.status === 'completed' && sets.map(log => `${log.workoutRowId}:${log.setNumber}`).join() === `${saved.schedule[0].id}:1,${saved.schedule[1].id}:1,${saved.schedule[0].id}:2,${saved.schedule[1].id}:2,${saved.schedule[2].id}:1,${saved.schedule[2].id}:2`, 'Finished quest keeps exact set identities and counts');
+  check(completeQuestDay(state, definition.template, saved.schedule[0], saved.schedule, logs).nextDayIndex === 2, 'Complete grouped day advances enrollment once');
+  await putRecord(STORES.appState, { key: 'customQuests', schemaVersion: 1, quests: [definition] });
+  const backup = await buildWorkoutBackup();
+  check(backup.backupVersion === 2 && parseWorkoutBackup(JSON.stringify(backup)).stores.appState.some(row => row.key === 'customQuests'), 'Grouped schedule and template backup is version 2');
+  await restoreWorkoutBackup(backup);
+  check(JSON.stringify((await buildWorkoutBackup()).stores) === JSON.stringify(backup.stores), 'Grouped quest backup round trip preserves all stores');
+  await reset(); await putRecord(STORES.appState, { key: 'customQuests', schemaVersion: 1, quests: [definition] });
+  const templateOnly = await buildWorkoutBackup();
+  check(templateOnly.backupVersion === 2, 'Template-only grouping also requires version 2');
+  check(fails(() => parseWorkoutBackup(JSON.stringify({ ...templateOnly, backupVersion: 1 }))), 'Old backup version cannot flatten grouped templates');
+  for (const [label, change] of invalid) {
+    const value = clone(templateOnly); change(value.stores.appState.find(row => row.key === 'customQuests').quests[0].rows);
+    const baseline = JSON.stringify((await buildWorkoutBackup()).stores);
+    check(await rejects(() => restoreWorkoutBackup(value)), `Restore rejects ${label} grouping`);
+    check(JSON.stringify((await buildWorkoutBackup()).stores) === baseline, `${label} restore preserves durable stores`);
+  }
+  const unrelated = { id: 99, schemaVersion: 1, day: todayName(), time: '07:00', exercise: 'Unrelated', sets: 1, reps: '8', rest: 0 };
+  await reset([unrelated]);
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Grouped quest refuses a slot occupied by a different exercise');
+  check((await getAll(STORES.workouts)).length === 1, 'Slot collision preserves unrelated rows');
+  await reset();
+  let adds = 0;
+  IDBObjectStore.prototype.add = function(...args) { if (this.name === STORES.workouts && ++adds === 2) throw Error('Fixture write failure'); return originalAdd.apply(this, args); };
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Second-member failure rejects atomic scheduling');
+  IDBObjectStore.prototype.add = originalAdd;
+  check((await getAll(STORES.workouts)).length === 0 && (await getRecord(STORES.appState, 'ownedPreference')).value === 'keep', 'Failed atomic save leaves no partial day and preserves preferences');
+  await putRecord(STORES.appState, { key: 'activeWorkoutSession', schemaVersion: 1, status: 'paused', rowIds: [99] });
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Durable paused phone player blocks scheduling');
+  await reset();
+  const results = await Promise.allSettled([saveQuestSchedule(state, proposed), saveQuestSchedule(state, proposed)]);
+  check(results.some(result => result.status === 'fulfilled') && (await getAll(STORES.workouts)).length === 3, 'Concurrent scheduling commits one complete day');
+  await reset();
+  window.Capacitor = { Plugins: { WorkoutLogBridge: { getLatestWatchSession: async () => ({ session: { status: 'active' } }) } } };
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Observed active watch blocks scheduling');
+  window.Capacitor.Plugins.WorkoutLogBridge.getLatestWatchSession = async () => {
+    await putRecord(STORES.appState, { ...state, nextDayIndex: 2 }); return { session: null };
+  };
+  check(await rejects(() => saveQuestSchedule(state, proposed)) && (await getAll(STORES.workouts)).length === 0, 'Enrollment drift during preflight rejects before any write');
+  await reset();
+  Capacitor.getPlatform = () => 'android'; window.Capacitor = { Plugins: { ScheduleSync: { syncSchedule: async () => {} } } };
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Unsupported Android wrapper refuses grouped schedule before writes');
+  window.Capacitor.Plugins.ScheduleSync.getCapabilities = async () => ({ circuits: true });
+  check(await rejects(() => saveQuestSchedule(state, proposed)), 'Prior circuit wrapper without quest capability refuses scheduling');
+  check(await rejects(() => restoreWorkoutBackup(templateOnly)), 'Prior circuit wrapper refuses template-only grouped restore');
+  window.Capacitor.Plugins.ScheduleSync.getCapabilities = async () => ({ circuits: true, questCircuits: true });
+  check((await saveQuestSchedule(state, proposed)).addedCount === 3, 'Updated Android quest capability permits complete grouped day');
+  Capacitor.getPlatform = originalPlatform; window.Capacitor = originalBridge;
+  await reset();
+  const nextState = { ...state, nextDayIndex: 2, completedDays: [{ dayIndex: 1, dayNumber: 1, dayLabel: 'Fixture', level: 'beginner', completedAt: new Date().toISOString() }] };
+  const previous = proposed.map((row, index) => ({ ...row, id: index + 1 }));
+  await replaceStores({ workouts: previous, appState: [nextState] });
+  check((await saveQuestSchedule(nextState, proposed.map(row => ({ ...row, questDayIndex: 2 })))).addedCount === 3 && (await getAll(STORES.workouts)).every(row => row.questDayIndex === 2), 'Next day replaces completed rows as one complete group');
+  document.getElementById('result').textContent = `${checks.join('\n')}\n\n${checks.length} checks passed.`;
+} catch (error) { document.getElementById('result').textContent = `${checks.join('\n')}\nFAIL: ${error.stack ?? error}`; }
+finally { IDBObjectStore.prototype.add = originalAdd; window.Capacitor = originalBridge; Capacitor.getPlatform = originalPlatform; factory.deleteDatabase(database); }
+</script></html>

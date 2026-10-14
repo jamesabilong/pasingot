@@ -46,7 +46,7 @@ declare global {
     Capacitor?: {
       Plugins?: {
         ScheduleSync?: {
-          getCapabilities?: () => Promise<{ dateOverrides: boolean; circuits?: boolean }>;
+          getCapabilities?: () => Promise<{ dateOverrides: boolean; circuits?: boolean; questCircuits?: boolean }>;
           syncSchedule: (payload: { rows: WorkoutRow[] }) => Promise<void>;
           sendTodayToWatch?: () => Promise<{ exerciseCount: number; date: string }>;
         };
@@ -227,11 +227,15 @@ export async function pushScheduleToNative(rows: WorkoutRow[]): Promise<boolean>
 }
 
 /** The phone cache must retain circuit markers before any durable schedule save. */
-export async function ensureCircuitScheduleSupported(rows: readonly { circuit?: WorkoutCircuit }[]): Promise<void> {
+export async function ensureCircuitScheduleSupported(rows: readonly { circuit?: WorkoutCircuit; questId?: string }[]): Promise<void> {
   if (!rows.some(row => row.circuit !== undefined) || Capacitor.getPlatform() === 'web') return;
   const bridge = window.Capacitor?.Plugins?.ScheduleSync;
-  if (!bridge?.getCapabilities || (await bridge.getCapabilities()).circuits !== true) {
+  const capabilities = await bridge?.getCapabilities?.();
+  if (capabilities?.circuits !== true) {
     throw new Error('Update the Pasingot Android phone app to save supersets and circuits safely.');
+  }
+  if (rows.some(row => row.circuit !== undefined && row.questId != null) && capabilities.questCircuits !== true) {
+    throw new Error('Update the Pasingot Android phone app to save grouped quest days safely.');
   }
 }
 
