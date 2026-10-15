@@ -207,6 +207,15 @@ same inventory/evidence protocol on the installed Android app.
   retains markers and grouped watch transfers remain guarded. Automated browser,
   native and packaged-asset checks do not close installed-device acceptance.
 
+- [ ] **WATCH-01 — Grouped transfer compatibility (Stage 22).** After an
+  authorized installed-watch update, verify flat downloads still load and
+  current legacy-native packets containing group metadata, unsupported versions and malformed
+  packets do not create/replace downloads. Compare retained downloads/settings.
+  Phase 0 does not enable grouped watch execution. Add actual paired grouped
+  rounds/recovery/cue checks only after executor and delivery phases complete;
+  see [Grouped watch plan](../GROUPED_WATCH_PLAN.md). This deferred feature check
+  does not change the ten Stage 19 physical criteria.
+
 ## Resume order
 
 Inventory and interrupted QS-12 recovery first; then QS-07/19/20/21/22 and

@@ -8281,3 +8281,120 @@ no unrelated changes or intervening commit. Existing final validation remains
 applicable because implementation is unchanged. Documentation updates commit
 status; this supersedes Iteration 190's uncommitted/await-commit labels.
 Stage 19 remains 87/97, physical 17/27; physical execution stays deferred.
+
+## Iteration 191 — 2026-10-14 — Grouped watch contract foundation
+
+Status: **In progress; physical execution remains deferred.** User requests
+commit and plan continuation. Iteration 190 committed as `f154e5c`; fresh Git
+inspection is clean. Stage 19 remains 87/97, physical 17/27, ten open.
+
+Start Stage 22 with a bounded, separately versioned grouped full-day transfer
+contract and pure round sequence compilation. Preserve scheduled row identity,
+quest prescriptions and session-time boundaries (the same group ID can occur
+at multiple times). Compatibility must require an exact currently reachable
+watch capability before future publication; no new capability is advertised
+before a runnable watch executor exists. Existing send/Quick Start guards stay
+in effect in this foundation slice.
+
+Review also found the current legacy receiver decodes unknown fields before
+checking the payload: a current legacy-native packet with a future circuit marker could
+lose that marker. Harden the actual receiver to reject those raw records before
+legacy decoding or store writes. Preserve flat downloads, duplicate-date/cache
+policy and unrelated records. Add meaningful mixed-round, identity, malformed,
+version, compatibility and legacy-receiver regression tests.
+
+Next: implement shared contracts/compiler and legacy receiver adapter; run
+shared/phone/Wear tests and APK checks, reconcile Stage 22 phases and physical
+validation boundaries, then close only this verified foundation checkpoint.
+Grouped watch runtime, new-path delivery and Quick Start grouping remain later
+implementation phases; no grouped workout is advertised or sent by this slice.
+
+Iteration 191 implementation/review findings:
+
+- Added a separate version-2 grouped transfer envelope/path, bounded strict codec,
+  source schedule/date projection and shared round compiler. Items retain native
+  prescription/logging/quest identity plus session-time boundaries, so repeated
+  group IDs at different times compile as separate blocks. Mixed straight/grouped
+  plans use exact round/rest order and no final rest.
+- Bounds: 2–24 members per group, equal 1–100 rounds, 0–3600 seconds group/straight
+  rest, at most 240 exercises/24,000 steps, and a 65,536-character/UTF-8-byte wire
+  ceiling. Missing/duplicate row IDs, invalid loads/targets/times/dates, broken
+  membership or quest ownership reject before compilation/encoding. Size validity
+  is independent of shape: a large valid plan can still fail the wire limit.
+- Added strict future capability validation requiring explicit envelope version,
+  watch role, supported workout version 2, exact selected node and current
+  reachability. No publisher/production sender is enabled by these pure helpers.
+- Integrated raw legacy decoding protection into the actual watch listener before
+  download writes. Current legacy-native group markers (including null/empty/false), nested new
+  prescriptions, unsupported versions and oversized packets reject. Flat legacy
+  payloads, old omitted default schema and unrelated optional metadata retain
+  their existing decoding/cache behavior. Send/Quick Start grouping guards stay.
+- Initial version tests used a hardcoded schema 1 while native legacy schema is
+  actually 5; their replacement left valid packets unchanged and correctly
+  failed the rejection assertions. Corrected fixtures derive the native version
+  from CURRENT_SCHEMA_VERSION. The adapter also requires numeric schema values
+  instead of permitting quoted-version coercion. Review also made envelope
+  format/version fields explicitly serialized/required and added UTF-8 byte
+  bounds, avoiding character-only sizing. Failed initial tests remain diagnostics.
+- Added 24 meaningful shared JVM tests covering mixed/three-member rounds,
+  repeated IDs in separate slots, moved/skipped date projection, quest identity,
+  malformed groups, exact logs, limits/UTF-8, strict codec/version behavior,
+  capability mismatch/reachability and actual legacy-adapter regression cases.
+  Final shared/phone/Wear suites and APK assembly are in progress.
+- Updated Stage 22 and [Grouped watch plan](GROUPED_WATCH_PLAN.md) with Phase 0,
+  next durable executor and later capability/delivery phases. WATCH-01 remains a
+  deferred installed-watch feature check outside Stage 19's ten criteria.
+
+Completed: the foundation implementation and phase boundaries. Remaining:
+final native evidence/APK identity, Git review and closure. The watch runtime
+and delivery are explicitly not complete; next implementation is Phase 1.
+
+Iteration 191 closure — **Phase 0 foundation code/native-build complete;
+Stage 22 runtime/delivery and physical acceptance remain open.**
+
+- Final cached-JDK-21 offline `:shared:test :app:testDebugUnitTest
+  :wear:testDebugUnitTest :app:assembleDebug :wear:assembleDebug` passes in 36s.
+  **387 current JVM tests pass**: 120 shared (24 new foundation regressions),
+  32 phone and 235 Wear, with zero failures/errors/skips. Actual listener now
+  calls the tested raw legacy decoder before any download-store operation.
+- Phone APK: `output/validation/iteration-191/phone-iteration-191-debug.apk`;
+  SHA-256 `89b32ea3bf8fe6207c33b38db2f016c877fb262a8b725347d341cd677e7fb574`.
+  Wear APK: `output/validation/iteration-191/wear-iteration-191-debug.apk`;
+  SHA-256 `bbd93ed2f4468d392444f9de10b8deb5a416c96d3a06d05275c377006df8d888`.
+  Phone index.html/app.js/index.css/service-worker.js byte-match production.
+  No React/PWA UI source changed; Iteration 190 browser/UI evidence remains
+  historical applicable evidence, not newly executed UI acceptance.
+- Both failed native attempts are preserved separately. The version fixture's
+  hardcoded PWA schema left native schema-5 packets unchanged; corrected tests
+  use CURRENT_SCHEMA_VERSION. New group envelope version 2 is independent of
+  both PWA schema 1 and the existing native schema 5. Strict typed headers and
+  UTF-8 bounds pass the corrected regressions.
+- Final source review finds no actionable remaining issue in this slice. Shared
+  serializers/compiler/capability helpers do not publish new capabilities or
+  payloads; existing grouped send and Quick Start guards remain. No native app
+  dependency/configuration change, device contact, install or physical test.
+- Plan/roadmap/Stage 22 phase statuses and WATCH-01 are reconciled. The initial
+  in-progress/final-validation labels for this foundation are superseded here;
+  Stage 22 overall remains in progress. Physical execution stays deferred and
+  Stage 19 remains **87/97**, physical **17/27**, ten open.
+
+Completed: separately versioned bounded grouped contract, session-aware round
+compiler, future exact-node/reachability compatibility checks, actual legacy
+receiver protection and native test/build evidence. Remaining/next: Phase 1
+durable watch executor with cursor/recovery/skips/timed/cue integration, then
+Phase 2 capability publication/delivery. Quick Start grouping stays separate.
+
+Final Git audit: HEAD is still `f154e5c`, confirming the requested Iteration 190
+commit and no intervening user commit. There are exactly 12 intended changed/new
+continuation source/test/docs files; unrelated working-tree changes were not
+present or overwritten. Whitespace validation passes. This new Iteration 191
+checkpoint remains uncommitted; no grouped watch execution is claimed.
+
+Iteration 191 commit checkpoint — 2026-10-15: user requests committing the
+validated grouped watch foundation. Fresh Git inspection confirms HEAD
+`f154e5c` and exactly the 12 intended source/test/documentation files, with no
+unrelated changes or intervening commit. Implementation is unchanged from the
+387-test/two-APK validation above; documentation updates commit status. Staged
+whitespace validation passes. This supersedes Iteration 191's uncommitted labels.
+Stage 22 Phase 1 executor and Phase 2 delivery remain pending; physical checks
+stay deferred and Stage 19 remains 87/97 overall, physical 17/27.

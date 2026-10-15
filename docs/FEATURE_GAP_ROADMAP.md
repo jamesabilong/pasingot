@@ -1,5 +1,19 @@
 # Feature Gap Roadmap
 
+Current continuation — Iteration 191 (2026-10-14): Iteration 190 grouped
+quest templates are committed as `f154e5c`; Stage 22 begins with a separately
+versioned grouped watch transfer contract, session-time-aware round compiler,
+exact reachable-node capability validation and legacy receiver protection.
+Phase 0 passes 387 native JVM tests and both APK builds; the phone shell
+assets match production. This foundation checkpoint is committed with this documentation at the user’s
+request on 2026-10-15; earlier uncommitted labels are superseded. No
+grouped path/capability is published;
+watch executor and delivery are the next phases. Existing grouped send/Quick
+Start guards remain active. See [Grouped watch plan](GROUPED_WATCH_PLAN.md).
+Physical execution remains deferred; Stage 19 stays **87/97 overall**, physical
+**17/27**, ten open. Earlier uncommitted/choose-next labels are superseded.
+
+
 Current implementation — Iteration 190 (2026-10-14): grouped custom quest
 templates are code/browser/native-build complete for phone/PWA use. Library groups retain their order,
 rounds, shared rest and individual prescriptions through template creation,
@@ -714,8 +728,10 @@ all screen-by-screen acceptance criteria above are complete.
    complete, including final APK asset identity, and committed with this
    documentation at the user's request. Iteration 190 completes grouped quest templates locally;
    keep physical execution deferred.
-   Grouped watch execution remains future scope. Iteration 190 completes grouped
-   templates and current Wear build/JVM validation on this host.
+   Stage 22 begins with Iteration 191’s grouped watch contract/compiler and
+   receiver protection. Durable executor and gated delivery remain next; grouped
+   Quick Start is separate. Iteration 190 completes current Wear build/JVM
+   validation on this host.
 4. Preserve Stage 14B's completed composition-root boundary (Iteration 42).
    Earlier partial-extraction labels are historical.
 

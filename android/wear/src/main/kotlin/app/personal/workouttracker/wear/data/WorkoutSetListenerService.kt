@@ -2,7 +2,7 @@ package app.personal.workouttracker.wear.data
 
 import android.util.Log
 import app.personal.workouttracker.shared.DataLayerPaths
-import app.personal.workouttracker.shared.WorkoutSetPayload
+import app.personal.workouttracker.shared.decodeLegacyWorkoutTransfer
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
@@ -10,7 +10,6 @@ import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 
 /**
  * Receives the phone's reply to "/request-workout" (Prompt 6) on
@@ -22,7 +21,6 @@ import kotlinx.serialization.json.Json
 class WorkoutSetListenerService : WearableListenerService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO)
-    private val json = Json { ignoreUnknownKeys = true }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         try {
@@ -33,7 +31,7 @@ class WorkoutSetListenerService : WearableListenerService() {
 
                 val payloadJson = DataMapItem.fromDataItem(item).dataMap.getString("payload") ?: continue
                 val payload = try {
-                    json.decodeFromString(WorkoutSetPayload.serializer(), payloadJson)
+                    decodeLegacyWorkoutTransfer(payloadJson)
                 } catch (e: Exception) {
                     Log.e(TAG, "Malformed workout set payload", e)
                     WorkoutRepository(applicationContext).reportDownload("Could not read workout. Update both apps and try again.", error = true)

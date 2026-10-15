@@ -1,5 +1,19 @@
 # Workout App Plan
 
+Current continuation — Iteration 191 (2026-10-14): Iteration 190 grouped
+quest templates are committed as `f154e5c`; Stage 22 begins with a separately
+versioned grouped watch transfer contract, session-time-aware round compiler,
+exact reachable-node capability validation and legacy receiver protection.
+Phase 0 passes 387 native JVM tests and both APK builds; the phone shell
+assets match production. This foundation checkpoint is committed with this documentation at the user’s
+request on 2026-10-15; earlier uncommitted labels are superseded. No
+grouped path/capability is published;
+watch executor and delivery are the next phases. Existing grouped send/Quick
+Start guards remain active. See [Grouped watch plan](GROUPED_WATCH_PLAN.md).
+Physical execution remains deferred; Stage 19 stays **87/97 overall**, physical
+**17/27**, ten open. Earlier uncommitted/choose-next labels are superseded.
+
+
 Current implementation — Iteration 190 (2026-10-14): grouped custom quest
 templates are code/browser/native-build complete for phone/PWA use. Library groups retain their order,
 rounds, shared rest and individual prescriptions through template creation,
@@ -938,11 +952,11 @@ Update that log during every implementation iteration, not only at handoff.
 | Lane | Scope | Next action |
 |---|---|---|
 | **Implemented** | Stages 1–15; Stage 16 custom exercises, attributed catalog media, custom quest authoring and reference safeguards; Stage 17 workout/body-weight sync; Stage 18 PWA screens and weekly preview | Stage 16 is committed in `6d97150`; Iteration 2 integrity corrections are in `3ba1bc6` |
-| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`, measurements as `381ef28`, warm-up previews as `f1d0302`; Library filters (Iteration 188) and Stage 20 phone/PWA groups (Iteration 189) are committed as `4d93252`; Stage 21 grouped quest templates are committed with Iteration 190 | Continue the next independent plan implementation; physical execution stays deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
+| **Current** | Stage 19 code Phases 0–3 are complete; **87/97 overall**, physical **17/27**. One-date scheduling committed as `bea5826`, measurements as `381ef28`, warm-up previews as `f1d0302`; Library filters (Iteration 188) and Stage 20 phone/PWA groups (Iteration 189) are committed as `4d93252`; Stage 21 grouped quest templates are committed with Iteration 190 | Continue Stage 22 through its phased grouped watch plan; physical execution stays deferred. Resume the ten remaining criteria through [Physical validation module](validation/PHYSICAL_CHECKS.md), beginning with interrupted Iteration 184 recovery |
 | **Pending validation** | Quick Start's ten criteria; installed grouped quests, phone supersets/circuits, Library filters, warm-up previews, measurements, date/weekly editors, plate equipment, effort/set history, Health Connect and portability | Phone checks are organized separately in [Physical validation module](validation/PHYSICAL_CHECKS.md); browser/JVM tests cannot close these. Current Wear build/JVM validation passes in Iteration 190; device execution remains separate |
-| **Pending implementation** | Phone/PWA grouping is complete in Iteration 189; grouped quest templates are code/browser/native-build complete in Iteration 190; grouped watch execution remains future scope | Review this checkpoint; watch grouping needs a separate model/transport scope |
+| **Pending implementation** | Phone/PWA grouping is complete in Iteration 189; grouped quest templates are code/browser/native-build complete in Iteration 190; Stage 22 Phase 0 grouped watch contract foundation is code/native-build complete; executor/delivery remain pending | Implement Phase 1 durable watch executor, then Phase 2 gated delivery |
 | **Maintenance checkpoint** | Stage 14B composition-root code goal is complete in Iteration 42: App wires focused data/workflow hooks and owns routing/display selections; 200 browser checks pass | Preserve the React architecture checklist; native file/export, paired and physical acceptance remain separate |
-| **Future candidates** | Grouped watch workouts, progress photos | Phone/PWA supersets/circuits, Library filters, warm-up previews, body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
+| **Future candidates** | Progress photos; Quick Start grouping | Phone/PWA supersets/circuits, Library filters, warm-up previews, body measurements, one-date changes, RPE/RIR, plate calculator/equipment and set history are implemented; physical checks remain separate |
 | **Deferred** | Heart-rate capture/summaries, accounts/cloud sync, social features, adaptive programming | No near-term implementation commitment |
 
 ### Browser-to-watch check — 2026-09-12
@@ -2478,6 +2492,22 @@ Validation: 628 browser assertions, 13 production player/UI checks, responsive
 all pass. Evidence: Iteration 190 in `IMPLEMENTATION_PROGRESS.md` and
 `output/validation/iteration-190/`. Physical installation, file-picker restore
 and actual-device acceptance remain separate; Stage 19 counts do not change.
+
+## Stage 22 - Grouped Watch Workouts
+
+**Status:** in progress. Iteration 191 implements Phase 0 (transfer contract,
+round compiler and legacy receiver protection), validated with 387 native JVM
+tests and both APK builds; closure is recorded in
+`IMPLEMENTATION_PROGRESS.md`. Phase 1 executor and Phase 2 capability/delivery
+remain pending. No grouped watch execution is claimed.
+
+Detailed scope, runtime/recovery/cue requirements and validation gates are in
+[Grouped watch plan](GROUPED_WATCH_PLAN.md). The new full-day transfer is
+separately versioned and retains session time boundaries and scheduled row
+identity. Current production grouping guards stay active until a runnable
+executor and compatible-node delivery are validated. Quick Start grouping needs
+separate request/package/result work. Physical checks remain deferred and do
+not change Stage 19's acceptance count.
 
 ## Deferred / Not Recommended By Default
 
